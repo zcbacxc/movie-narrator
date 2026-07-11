@@ -36,12 +36,13 @@ def _create_text_image(text: str, size: tuple, fontsize: int = 100) -> np.ndarra
 
 
 def render_video(ctx: Context) -> Context:
-    output_dir = Path(ctx.metadata["output_dir"])
+    output_dir = Path(ctx.output_dir)
     video_format = ctx.metadata.get("format", "16:9")
     size = VIDEO_SIZES.get(video_format, (1920, 1080))
     keep_cache = ctx.metadata.get("keep_cache", False)
 
-    audio_clip = AudioFileClip(ctx.audio_path)
+    audio_path = ctx.final_audio_path or ctx.audio_path
+    audio_clip = AudioFileClip(audio_path)
     total_duration = audio_clip.duration
 
     bg_clip = ColorClip(size=size, color=(20, 20, 30), duration=total_duration)

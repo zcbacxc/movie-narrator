@@ -12,7 +12,7 @@ def _format_time(seconds: float) -> str:
 
 
 def generate_subtitle(ctx: Context) -> Context:
-    output_dir = Path(ctx.metadata["output_dir"])
+    output_dir = Path(ctx.output_dir)
     srt_path = output_dir / "subtitle.srt"
     with open(srt_path, "w", encoding="utf-8") as f:
         for idx, seg in enumerate(ctx.timed_segments, 1):
