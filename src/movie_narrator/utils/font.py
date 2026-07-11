@@ -21,6 +21,7 @@ def get_font(fontsize: int = 100) -> ImageFont.FreeTypeFont | ImageFont.ImageFon
         "Linux": [
             "/usr/share/fonts/truetype/noto/NotoSansSC-Regular.otf",
             "/usr/share/fonts/noto-cjk/NotoSansSC-Regular.otf",
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
             "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
             "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
         ],
