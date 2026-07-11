@@ -34,11 +34,21 @@ def create(
     voice: Optional[str] = typer.Option(None, "--voice", "-v", help="TTS voice (Edge TTS)"),
     format: str = typer.Option("16:9", "--format", "-f", help="Video format: 16:9 or 9:16"),
     keep_cache: bool = typer.Option(False, "--keep-cache", help="Keep TTS cache files"),
+    video: Optional[str] = typer.Option(None, "--video", help="Source movie file path"),
+    library_dir: Optional[str] = typer.Option(None, "--library-dir", help="Movie library directory"),
+    research: Optional[bool] = typer.Option(None, "--research/--no-research", help="Enable plot research"),
+    bgm: Optional[str] = typer.Option(None, "--bgm", help="Background music file"),
+    no_bgm: bool = typer.Option(False, "--no-bgm", help="Disable BGM even if default set"),
+    no_clips: bool = typer.Option(False, "--no-clips", help="Skip clips/export"),
+    strict: bool = typer.Option(False, "--strict", help="Abort on soft step failure"),
 ):
+    if video is not None and not Path(video).is_file():
+        raise typer.BadParameter(f"video not found: {video}", param_hint="--video")
+
     output_dir = Path("output") / _sanitize_filename(movie)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    video_path = run_pipeline(
+    ctx = run_pipeline(
         movie=movie,
         style=style,
         duration=duration,
@@ -46,8 +56,15 @@ def create(
         format=format,
         output_dir=output_dir,
         keep_cache=keep_cache,
+        video=video,
+        library_dir=library_dir,
+        research=research,
+        bgm=bgm,
+        no_bgm=no_bgm,
+        no_clips=no_clips,
+        strict=strict,
     )
-    typer.echo(f"{video_path}")
+    typer.echo(f"{ctx.video_path}")
 
 
 @app.command()
