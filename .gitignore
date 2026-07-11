@@ -10,6 +10,7 @@ env/
 dist/
 build/
 .eggs/
+.pytest_cache/
 
 # Environment
 .env
