@@ -26,10 +26,17 @@ def generate_script(ctx: Context) -> Context:
                 model=llm.model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
+                max_tokens=2048,
             )
             raw = response.choices[0].message.content
             data = extract_json(raw)
-            segments = [ScriptSegment(text=item["text"]) for item in data.get("segments", [])]
+            raw_segments = data.get("segments", [])
+            segments = []
+            for item in raw_segments:
+                if isinstance(item, str):
+                    segments.append(ScriptSegment(text=item))
+                elif isinstance(item, dict) and "text" in item:
+                    segments.append(ScriptSegment(text=item["text"]))
             if not segments:
                 raise ValueError("empty script from LLM")
             ctx.segments = segments
