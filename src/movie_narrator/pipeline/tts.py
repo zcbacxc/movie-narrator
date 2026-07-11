@@ -45,8 +45,7 @@ async def _generate_all(segments, voice: str, cache_dir) -> list[tuple[AudioSegm
 
 
 def generate_voice(ctx: Context) -> Context:
-    from pathlib import Path
-    output_dir = Path(ctx.metadata["output_dir"])
+    output_dir = Path(ctx.output_dir)
     cache_dir = output_dir / "cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
 
