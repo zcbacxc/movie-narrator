@@ -1,3 +1,5 @@
+from typing import Optional
+
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -9,6 +11,14 @@ class Settings(BaseSettings):
     llm_model: str = "qwen2.5:7b"
     default_voice: str = "zh-CN-YunxiNeural"
     default_format: str = "16:9"
+    # v0.2 optional
+    library_dir: Optional[str] = None
+    default_bgm: Optional[str] = None
+    research_enabled: bool = False
+    research_provider: str = "llm"
+    scene_threshold: float = 27.0
+    match_min_score: float = 0.25
+    export_clips_default: bool = True
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -23,8 +23,12 @@ def run_pipeline(
     output_dir: Path,
     keep_cache: bool = False,
 ) -> Path:
-    ctx = Context(movie_name=movie, style=style, duration=duration)
-    ctx.metadata["output_dir"] = str(output_dir)
+    ctx = Context(
+        movie_name=movie,
+        style=style,
+        duration=duration,
+        output_dir=str(output_dir),
+    )
     ctx.metadata["voice"] = voice
     ctx.metadata["format"] = format
     ctx.metadata["keep_cache"] = keep_cache
