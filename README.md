@@ -50,7 +50,15 @@ sudo apt install ffmpeg
 
 #### Windows
 
-Download and install from: [https://ffmpeg.org/](https://ffmpeg.org/)
+```bash
+# Option 1: winget
+winget install Gyan.FFmpeg
+
+# Option 2: chocolatey
+choco install ffmpeg
+
+# Option 3: Manual download from https://ffmpeg.org/
+```
 
 Verify installation:
 
@@ -118,8 +126,8 @@ mn create --movie "飞驰人生" --keep-cache
 ### Offline Demo (No LLM Required)
 
 ```bash
-# CI mode uses silent audio fallback, no network needed
-mn create --movie "Demo" --duration 10
+# CI=1 uses silent audio fallback, bypasses LLM and Edge-TTS
+CI=1 mn create --movie "Demo" --duration 10
 ```
 
 ### Other Commands
@@ -223,6 +231,8 @@ movie-narrator/
 - [ ] Automatic clip matching based on script
 - [ ] Semantic scene search (embedding-based)
 - [ ] Background music integration (BGM mixing)
+- [ ] Script markdown export (`script.md`)
+- [ ] Scene-level clip output (`clips/`)
 
 ### v0.3.x — Platform & Workflow
 

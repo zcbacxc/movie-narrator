@@ -19,6 +19,8 @@
 - [ ] Automatic clip matching based on script
 - [ ] Semantic scene search (embedding-based)
 - [ ] Background music integration (BGM mixing)
+- [ ] Script markdown export (`script.md`)
+- [ ] Scene-level clip output (`clips/`)
 
 ## v0.3.x — Platform & Workflow
 

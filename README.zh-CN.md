@@ -50,7 +50,15 @@ sudo apt install ffmpeg
 
 #### Windows
 
-从官网下载安装：[https://ffmpeg.org/](https://ffmpeg.org/)
+```bash
+# 方式一：winget
+winget install Gyan.FFmpeg
+
+# 方式二：chocolatey
+choco install ffmpeg
+
+# 方式三：从官网下载 https://ffmpeg.org/
+```
 
 验证安装：
 
@@ -118,8 +126,8 @@ mn create --movie "飞驰人生" --keep-cache
 ### 离线演示（无需 LLM）
 
 ```bash
-# CI 模式使用静音回退音频，无需网络
-mn create --movie "Demo" --duration 10
+# CI=1 使用静音回退音频，跳过 LLM 和 Edge-TTS
+CI=1 mn create --movie "Demo" --duration 10
 ```
 
 ### 其他命令
@@ -223,6 +231,8 @@ movie-narrator/
 - [ ] 基于脚本的自动素材匹配
 - [ ] 语义化场景搜索（Embedding）
 - [ ] 背景音乐集成（BGM 混音）
+- [ ] 脚本 Markdown 导出（`script.md`）
+- [ ] 场景级片段输出（`clips/`）
 
 ### v0.3.x — 平台与工作流
 
