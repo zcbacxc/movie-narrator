@@ -40,11 +40,13 @@ def generate_script(ctx: Context) -> Context:
             if not segments:
                 raise ValueError("empty script from LLM")
             ctx.segments = segments
+            ctx.metadata["script_source"] = "llm"
             return ctx
         except Exception as e:
             if attempt == 2:
                 print(f"LLM fallback (3 attempts failed): {e}")
                 ctx.segments = [ScriptSegment(text=s) for s in MOCK_SEGMENTS]
+                ctx.metadata["script_source"] = "mock"
                 return ctx
             time.sleep(1.5)
     return ctx

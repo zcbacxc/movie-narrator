@@ -1,15 +1,13 @@
-import json
 import shutil
-from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
 from moviepy.editor import AudioFileClip, ColorClip, CompositeVideoClip, ImageClip
 from PIL import Image, ImageDraw
 
-from .. import __version__
 from ..models import Context
 from ..utils.font import get_font
+from ..utils.metadata_export import build_metadata_json
 
 VIDEO_SIZES = {
     "16:9": (1920, 1080),
@@ -74,28 +72,7 @@ def render_video(ctx: Context) -> Context:
             if hasattr(clip, "close"):
                 clip.close()
 
-    metadata = {
-        "version": __version__,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "input": {
-            "movie": ctx.movie_name,
-            "style": ctx.style,
-            "duration": ctx.duration,
-            "voice": ctx.metadata.get("voice_used"),
-            "format": video_format,
-        },
-        "output": {
-            "video": "final.mp4",
-            "audio": "narration.mp3",
-            "subtitle": "subtitle.srt",
-        },
-        "cache_kept": keep_cache,
-        "segments_count": len(ctx.timed_segments),
-        "segments": [
-            {"text": seg.text, "start": seg.start, "end": seg.end}
-            for seg in ctx.timed_segments
-        ],
-    }
+    metadata = build_metadata_json(ctx)
     with open(output_dir / "metadata.json", "w", encoding="utf-8") as f:
         json.dump(metadata, f, ensure_ascii=False, indent=2)
 
