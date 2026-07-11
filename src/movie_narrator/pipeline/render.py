@@ -63,9 +63,6 @@ def render_video(ctx: Context) -> Context:
         threads=4,
         logger=None,
     )
-    ffmpeg_bin = _find_ffmpeg()
-    if ffmpeg_bin:
-        write_kwargs["ffmpeg_binary"] = ffmpeg_bin
 
     try:
         final_video.write_videofile(str(video_path), **write_kwargs)
