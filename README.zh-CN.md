@@ -71,7 +71,7 @@ pip install movie-narrator
 ### 从源码安装
 
 ```bash
-git clone https://github.com/yourusername/movie-narrator.git
+git clone https://github.com/zcbacxc/movie-narrator.git
 cd movie-narrator
 pip install -e .
 ```

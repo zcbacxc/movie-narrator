@@ -35,9 +35,9 @@ dependencies = [
 dev = ["pytest>=8.0"]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/movie-narrator"
-Repository = "https://github.com/yourusername/movie-narrator"
-Issues = "https://github.com/yourusername/movie-narrator/issues"
+Homepage = "https://github.com/zcbacxc/movie-narrator"
+Repository = "https://github.com/zcbacxc/movie-narrator"
+Issues = "https://github.com/zcbacxc/movie-narrator/issues"
 
 [project.scripts]
 mn = "movie_narrator.cli:app"

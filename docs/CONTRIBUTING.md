@@ -3,7 +3,7 @@
 ## Development Setup
 
 ```bash
-git clone https://github.com/yourusername/movie-narrator.git
+git clone https://github.com/zcbacxc/movie-narrator.git
 cd movie-narrator
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
