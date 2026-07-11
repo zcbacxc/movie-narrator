@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+venv/
+env/
+.venv
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Environment
+.env
+.env.local
+
+# Output
+output/
+*.mp4
+*.mp3
+*.srt
+*.json
+!assets/*.mp3
+!assets/fonts/*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# AI Tools
+.claude/
+.mimocode/
+CLAUDE.md
