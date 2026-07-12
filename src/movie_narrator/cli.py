@@ -131,6 +131,7 @@ def scenes(
     out = Path(output) if output else Path("output") / "scenes_debug"
     out.mkdir(parents=True, exist_ok=True)
     ctx = Context(movie_name="debug", output_dir=str(out), source_video_path=video)
+    ctx.metadata["scene_threshold"] = threshold
     detect_scenes(ctx)
     scenes_json = out / "scenes.json"
     scenes_json.write_text(
