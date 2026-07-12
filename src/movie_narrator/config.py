@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     research_enabled: bool = False
     research_provider: str = "llm"
     scene_threshold: float = 27.0
+    scene_frame_skip: int = 10
     match_min_score: float = 0.25
     export_clips_default: bool = True
 

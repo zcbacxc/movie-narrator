@@ -218,6 +218,7 @@ mn create --movie "飞驰人生" --duration 60
 | `MN_RESEARCH_ENABLED` | Auto-enable research | `false` |
 | `MN_RESEARCH_PROVIDER` | Research backend | `llm` |
 | `MN_SCENE_THRESHOLD` | PySceneDetect threshold | `27.0` |
+| `MN_SCENE_FRAME_SKIP` | Frames to skip in scene detection | `10` |
 | `MN_MATCH_MIN_SCORE` | Minimum match score | `0.25` |
 | `MN_EXPORT_CLIPS_DEFAULT` | Auto-export clips | `true` |
 

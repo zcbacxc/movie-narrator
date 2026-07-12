@@ -218,6 +218,7 @@ mn create --movie "飞驰人生" --duration 60
 | `MN_RESEARCH_ENABLED` | 自动启用调研 | `false` |
 | `MN_RESEARCH_PROVIDER` | 调研后端 | `llm` |
 | `MN_SCENE_THRESHOLD` | PySceneDetect 阈值 | `27.0` |
+| `MN_SCENE_FRAME_SKIP` | 场景检测跳帧数 | `10` |
 | `MN_MATCH_MIN_SCORE` | 最低匹配分数 | `0.25` |
 | `MN_EXPORT_CLIPS_DEFAULT` | 自动导出片段 | `true` |
 
