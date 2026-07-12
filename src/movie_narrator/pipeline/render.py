@@ -47,15 +47,18 @@ def render_video(ctx: Context) -> Context:
     bg_clip = ColorClip(size=size, color=(20, 20, 30), duration=total_duration)
     clips: list = [bg_clip]
 
-    if ctx.matched_clips and ctx.source_video_path:
+    # Spec §2: render must ignore accidental source="fallback" rows (construction default).
+    usable_clips = [mc for mc in ctx.matched_clips if mc.source != "fallback"]
+
+    if usable_clips and ctx.source_video_path:
         from moviepy.editor import VideoFileClip
         try:
             source = VideoFileClip(ctx.source_video_path)
         except Exception as e:
             print(f"  fallback to text: cannot open source video: {e}")
-            ctx.matched_clips = []
+            usable_clips = []
         else:
-            for mc in ctx.matched_clips:
+            for mc in usable_clips:
                 seg_duration = mc.narr_end - mc.narr_start
                 src_duration = mc.src_end - mc.src_start
                 try:
@@ -74,7 +77,7 @@ def render_video(ctx: Context) -> Context:
 
     # Always add text overlays for any segment not covered by footage
     footage_segments = set()
-    for mc in ctx.matched_clips:
+    for mc in usable_clips:
         footage_segments.add(mc.segment_index)
 
     for i, seg in enumerate(ctx.timed_segments):

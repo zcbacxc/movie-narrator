@@ -3,40 +3,61 @@ name: CI
 on: [push, pull_request]
 
 jobs:
-test:
-runs-on: ubuntu-latest
-strategy:
-matrix:
-python-version: ["3.10", "3.11", "3.12"]
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
 
-steps:
-- uses: actions/checkout@v4
-- uses: actions/setup-python@v5
-with:
-python-version: ${{ matrix.python-version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
 
-- name: Install system dependencies
-run: |
-sudo apt-get update
-sudo apt-get install -y ffmpeg fonts-noto-cjk
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-noto-cjk
 
-- run: pip install -e ".[dev]"
-- name: Run unit tests
-run: pytest tests/ -v
+      - run: pip install -e ".[dev]"
+      - name: Run unit tests
+        run: pytest tests/ -v
 
-- name: Verify CLI entry points
-run: |
-mn --help
-mn version
+      - name: Verify CLI entry points
+        run: |
+          mn --help
+          mn version
 
-- name: Smoke test (full pipeline with mock)
-env:
-CI: 1
-run: |
-mn create --movie "CI-Test" --style "test" --duration 10 --keep-cache
-test -f output/CI-Test/script.md
-test -f output/CI-Test/final.mp4
-test -f output/CI-Test/subtitle.srt
-test -f output/CI-Test/metadata.json
-test -f output/CI-Test/narration.mp3
-echo "Smoke test passed"
+      - name: Smoke test (full pipeline with mock)
+        env:
+          CI: 1
+        run: |
+          mn create --movie "CI-Test" --style "test" --duration 10 --keep-cache
+          test -f output/CI-Test/script.md
+          test -f output/CI-Test/final.mp4
+          test -f output/CI-Test/subtitle.srt
+          test -f output/CI-Test/metadata.json
+          test -f output/CI-Test/narration.mp3
+          echo "Smoke test passed"
+
+  # Plan T18 / Spec §4: optional media job (allow_failure / continue-on-error)
+  media:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-noto-cjk
+
+      - name: Install with media extras
+        run: pip install -e ".[media,dev]"
+
+      - name: Run scene / match unit tests
+        run: pytest tests/test_scenes.py tests/test_match.py tests/test_optional_deps.py -v

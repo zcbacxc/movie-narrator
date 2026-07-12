@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -23,6 +24,10 @@ def test_research_unknown_provider_failed(tmp_path):
         research_plot(ctx)
     assert ctx.status.research == "failed"
     assert (tmp_path / "research.json").exists()
+    envelope = json.loads((tmp_path / "research.json").read_text(encoding="utf-8"))
+    assert envelope["status"] == "failed"
+    assert envelope["error"] is not None
+    assert isinstance(envelope["research"], dict)
 
 
 def test_research_llm_success(tmp_path):
@@ -45,5 +50,13 @@ def test_research_llm_success(tmp_path):
     assert ctx.research.title == "Inception"
     assert ctx.research.year == 2010
     assert (tmp_path / "research.json").exists()
-    envelope = (tmp_path / "research.json").read_text(encoding="utf-8")
-    assert '"status": "success"' in envelope
+    envelope = json.loads((tmp_path / "research.json").read_text(encoding="utf-8"))
+    assert envelope["status"] == "success"
+    assert envelope["error"] is None
+    assert isinstance(envelope["research"], dict)
+    assert envelope["research"]["title"] == "Inception"
+    assert envelope["research"]["year"] == 2010
+    assert envelope["research"]["summary"]
+    assert isinstance(envelope["research"]["genres"], list)
+    assert isinstance(envelope["research"]["cast"], list)
+    assert isinstance(envelope["research"]["keywords"], list)
