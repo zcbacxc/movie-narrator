@@ -13,14 +13,36 @@
 
 ## v0.2.x — Scene & Media
 
-- [ ] Research agent for movie plot research
-- [ ] WhisperX audio-text alignment
-- [ ] Scene detection from movie videos
-- [ ] Automatic clip matching based on script
-- [ ] Semantic scene search (embedding-based)
-- [ ] Background music integration (BGM mixing)
-- [ ] Script markdown export (`script.md`)
-- [ ] Scene-level clip output (`clips/`)
+- [x] Research agent for movie plot research (`--research`)
+- [x] WhisperX audio-text alignment
+- [x] Scene detection from movie videos
+- [x] Automatic clip matching based on script
+- [x] Semantic scene search (embedding-based)
+- [x] Background music integration (BGM mixing)
+- [x] Script markdown export (`script.md`)
+- [x] Scene-level clip output (`clips/`)
+
+### New CLI flags (v0.2)
+
+- `--video` — Source movie file path
+- `--library-dir` — Movie library directory
+- `--research` / `--no-research` — Toggle plot research
+- `--bgm` — Background music file
+- `--no-bgm` — Disable BGM
+- `--no-clips` — Skip clip export
+- `--strict` — Abort on soft step failure
+
+### Extras install
+
+```bash
+pip install "movie-narrator[media]"  # scenedetect
+pip install "movie-narrator[ml]"     # whisperx + sentence-transformers
+pip install "movie-narrator[full]"   # everything
+```
+
+### Graceful degradation
+
+Soft pipeline steps (research, align, scene detect, scene match, BGM, clip export) skip silently when optional dependencies are missing. Pipeline continues end-to-end. Use `--strict` to fail instead.
 
 ## v0.3.x — Platform & Workflow
 
