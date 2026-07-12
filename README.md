@@ -169,35 +169,41 @@ mn --help    # Show help
 output/
 └── 飞驰人生/
     ├── narration.mp3
+    ├── final_audio.mp3
     ├── subtitle.srt
+    ├── script.md
+    ├── script.json
+    ├── research.json
     ├── metadata.json
-    └── final.mp4
+    ├── final.mp4
+    ├── matches.json
+    └── clips/
 ```
 
 | File | Description |
 |------|-------------|
 | `narration.mp3` | AI-generated narration audio |
+| `final_audio.mp3` | Narration + BGM mix (when BGM enabled) |
 | `subtitle.srt` | Synchronized subtitle file |
-| `metadata.json` | Segment timings and video config |
+| `script.md` | Human-readable script |
+| `script.json` | Machine-readable script segments |
+| `research.json` | Movie research data (when `--research`) |
+| `metadata.json` | Segment timings, pipeline status, config |
 | `final.mp4` | Rendered video (16:9 or 9:16) |
-
-> Future versions will add `script.md` and `clips/` for scene-level output.
+| `matches.json` | Scene-to-segment matching (when video provided) |
+| `clips/` | Per-segment clip files |
 
 ---
 
 ## Pipeline
 
-Current workflow:
+13-step sequential pipeline (see [Architecture](docs/ARCHITECTURE.md)):
 
 ```text
-Movie → Script → TTS → Subtitle → Render
-```
-
-Future workflow (see [Roadmap](docs/ROADMAP.md)):
-
-```text
-Movie → Research → Script → TTS → Subtitle →
-Scene Detect → Scene Match → BGM → Render → Clip Export
+resolve_video → prepare_assets → research_plot → generate_script →
+export_script_md → generate_voice → align_audio → detect_scenes →
+match_clips → mix_bgm → generate_subtitle → render_video →
+export_clips
 ```
 
 **Soft steps** (research, align, scene detect, scene match, BGM, clip export) gracefully skip when optional dependencies are missing. Use `--strict` to abort instead.
@@ -209,26 +215,50 @@ Scene Detect → Scene Match → BGM → Render → Clip Export
 ```text
 movie-narrator/
 ├── src/movie_narrator/
-│   ├── __init__.py         # Package metadata (__version__)
-│   ├── cli.py              # Typer CLI entry point
-│   ├── config.py           # Pydantic settings
-│   ├── models.py           # Data models
+│   ├── __init__.py          # Package metadata (__version__)
+│   ├── cli.py               # Typer CLI entry point
+│   ├── config.py            # Pydantic settings
+│   ├── models.py            # Data models (Context, Status, etc.)
 │   ├── pipeline/
-│   │   ├── __init__.py
-│   │   ├── runner.py       # Pipeline orchestrator
-│   │   ├── script.py       # LLM script generation
-│   │   ├── tts.py          # Edge-TTS with caching
-│   │   ├── subtitle.py     # SRT generation
-│   │   └── render.py       # MoviePy video rendering
+│   │   ├── runner.py        # 13-step pipeline orchestrator
+│   │   ├── resolve.py       # Source video resolution
+│   │   ├── assets.py        # Asset validation
+│   │   ├── research.py      # LLM movie research
+│   │   ├── script.py        # LLM script generation
+│   │   ├── script_export.py # Script markdown export
+│   │   ├── tts.py           # Edge-TTS with caching
+│   │   ├── align.py         # WhisperX audio alignment
+│   │   ├── scenes.py        # PySceneDetect scene detection
+│   │   ├── match.py         # Heuristic clip matching
+│   │   ├── bgm.py           # Background music mixing
+│   │   ├── subtitle.py      # SRT generation
+│   │   ├── render.py        # MoviePy video rendering
+│   │   ├── export_clips.py  # Per-segment clip export
+│   │   └── errors.py        # PipelineStrictError
 │   └── utils/
-│       ├── __init__.py
-│       ├── async_utils.py  # Sync/async bridge
-│       ├── font.py         # CJK font fallback
-│       ├── llm.py          # OpenAI client wrapper
-│       ├── prompts.py      # Prompt templates
-│       └── json_parser.py  # LLM JSON extraction
+│       ├── async_utils.py   # Sync/async bridge
+│       ├── environment.py   # Environment collection
+│       ├── font.py          # CJK font fallback
+│       ├── json_parser.py   # LLM JSON extraction
+│       ├── llm.py           # OpenAI client wrapper
+│       ├── optional_deps.py # Optional dependency probing
+│       └── prompts.py       # Prompt templates
 ├── tests/
-│   └── test_context.py
+│   ├── test_context.py
+│   ├── test_settings.py
+│   ├── test_errors.py
+│   ├── test_align.py
+│   ├── test_assets.py
+│   ├── test_bgm.py
+│   ├── test_cli_resolve.py
+│   ├── test_match.py
+│   ├── test_optional_deps.py
+│   ├── test_render_real.py
+│   ├── test_research.py
+│   ├── test_resolve.py
+│   ├── test_runner_strict.py
+│   ├── test_scenes.py
+│   └── test_script_export.py
 ├── docs/
 ├── assets/
 └── .github/workflows/
@@ -249,16 +279,16 @@ movie-narrator/
 - [x] Metadata export (JSON)
 - [x] CI pipeline (unit tests + smoke test)
 
-### v0.2.x — Scene & Media
+### v0.2.x — Scene & Media ✅
 
-- [ ] Research agent for movie plot research
-- [ ] WhisperX audio-text alignment
-- [ ] Scene detection from movie videos
-- [ ] Automatic clip matching based on script
+- [x] Research agent for movie plot research (`--research`)
+- [x] WhisperX audio-text alignment
+- [x] Scene detection from movie videos
+- [x] Automatic clip matching based on script
 - [ ] Semantic scene search (embedding-based)
-- [ ] Background music integration (BGM mixing)
-- [ ] Script markdown export (`script.md`)
-- [ ] Scene-level clip output (`clips/`)
+- [x] Background music integration (BGM mixing)
+- [x] Script markdown export (`script.md`)
+- [x] Scene-level clip output (`clips/`)
 
 ### v0.3.x — Platform & Workflow
 
