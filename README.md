@@ -345,7 +345,7 @@ movie-narrator/
 - [x] WhisperX audio-text alignment
 - [x] Scene detection from movie videos
 - [x] Automatic clip matching based on script
-- [ ] Semantic scene search (embedding-based)
+- [x] Semantic scene search (embedding-based, requires `[ml]`)
 - [x] Background music integration (BGM mixing)
 - [x] Script markdown export (`script.md`)
 - [x] Scene-level clip output (`clips/`)

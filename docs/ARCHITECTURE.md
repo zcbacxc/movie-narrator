@@ -43,7 +43,7 @@ class PipelineStatus(BaseModel):
 7. **generate_voice** — Edge-TTS async with semaphore + content-hash cache → `narration.mp3` + `List[TimedSegment]`
 8. **align_audio** — (optional) WhisperX aligns narration to text → word-level timestamps
 9. **detect_scenes** — (optional) PySceneDetect splits source video into `Scene` list
-10. **match_clips** — (optional) heuristic matching maps scenes to script segments → `matches.json`
+10. **match_clips** — (optional) maps scenes to script segments. Baseline is proportional heuristic matching against the scene span (`source="heuristic"`). When `[ml]` is installed and more than one scene exists, re-rank candidates by multilingual sentence-similarity embeddings (`source="embedding"`); falls back to heuristic on probe/modelfailure → `matches.json`
 11. **mix_bgm** — (optional) mixes background music under narration → `final_audio.mp3`
 12. **generate_subtitle** — timed segments → `subtitle.srt`
 13. **render_video** — MoviePy composites: solid background + text overlays (or real footage for matched segments) + audio → `final.mp4` + `metadata.json`

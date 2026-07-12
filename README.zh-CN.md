@@ -345,7 +345,7 @@ movie-narrator/
 - [x] WhisperX 音频-文本对齐
 - [x] 电影视频场景检测
 - [x] 基于脚本的自动素材匹配
-- [ ] 语义化场景搜索（Embedding）
+- [x] 语义化场景搜索（Embedding，需要 `[ml]`）
 - [x] 背景音乐集成（BGM 混音）
 - [x] 脚本 Markdown 导出（`script.md`）
 - [x] 场景级片段输出（`clips/`）

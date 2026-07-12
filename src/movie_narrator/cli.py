@@ -133,6 +133,12 @@ def scenes(
     ctx = Context(movie_name="debug", output_dir=str(out), source_video_path=video)
     ctx.metadata["scene_threshold"] = threshold
     detect_scenes(ctx)
+    if ctx.status.scene == "disabled":
+        typer.echo(
+            "scenes: required dependency missing — install with `pip install movie-narrator[media]`",
+            err=True,
+        )
+        raise typer.Exit(code=1)
     scenes_json = out / "scenes.json"
     scenes_json.write_text(
         json.dumps([s.model_dump() for s in ctx.scenes], ensure_ascii=False, indent=2),
@@ -165,6 +171,12 @@ def align(
         timed_segments=segments,
     )
     align_audio(ctx)
+    if ctx.status.align == "disabled":
+        typer.echo(
+            "align: required dependency missing — install with `pip install movie-narrator[ml]`",
+            err=True,
+        )
+        raise typer.Exit(code=1)
     typer.echo(f"Align status: {ctx.status.align}")
     typer.echo(f"Segments: {len(ctx.timed_segments)}")
 
@@ -191,6 +203,12 @@ def clips(
         metadata={"export_clips": True},
     )
     export_clips(ctx)
+    if ctx.status.export == "disabled":
+        typer.echo(
+            "clips: required dependency missing — install with `pip install movie-narrator[media]`",
+            err=True,
+        )
+        raise typer.Exit(code=1)
     typer.echo(f"Export status: {ctx.status.export}")
     typer.echo(f"Clips dir: {ctx.clips_dir}")
 
