@@ -112,7 +112,7 @@ pip install -e ".[dev]"
 
 ### 前置条件
 
-- **LLM**: 默认使用本地 Ollama（先运行 `ollama serve`）。也可通过 `.env` 文件配置远程 LLM。
+- **LLM**: 默认使用 `qwen/qwen3.5-122b-a10b` 远程 API。也可通过 `.env` 文件配置本地 Ollama。
 - **FFmpeg**: 视频渲染必需。
 
 ### 基本用法
@@ -172,9 +172,9 @@ mn --help    # 查看帮助
 在项目目录创建 `.env`（或 `~/.movie-narrator/.env` 作为全局配置，`pip upgrade` 不会覆盖）：
 
 ```bash
-MN_LLM_BASE_URL=http://localhost:11434/v1
-MN_LLM_API_KEY=ollama
-MN_LLM_MODEL=qwen2.5:7b
+MN_LLM_BASE_URL=http://43.136.177.248:12580/v1
+MN_LLM_API_KEY=sk-your-api-key
+MN_LLM_MODEL=qwen/qwen3.5-122b-a10b
 MN_DEFAULT_VOICE=zh-CN-YunxiNeural
 MN_DEFAULT_FORMAT=16:9
 ```
@@ -183,15 +183,15 @@ MN_DEFAULT_FORMAT=16:9
 
 ```powershell
 # PowerShell
-$env:MN_LLM_BASE_URL="http://localhost:11434/v1"
-$env:MN_LLM_MODEL="qwen2.5:7b"
+$env:MN_LLM_BASE_URL="http://43.136.177.248:12580/v1"
+$env:MN_LLM_MODEL="qwen/qwen3.5-122b-a10b"
 mn create --movie "飞驰人生" --duration 60
 ```
 
 ```bash
 # Linux / macOS
-export MN_LLM_BASE_URL=http://localhost:11434/v1
-export MN_LLM_MODEL=qwen2.5:7b
+export MN_LLM_BASE_URL=http://43.136.177.248:12580/v1
+export MN_LLM_MODEL=qwen/qwen3.5-122b-a10b
 mn create --movie "飞驰人生" --duration 60
 ```
 
@@ -208,9 +208,9 @@ mn create --movie "飞驰人生" --duration 60
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `MN_LLM_BASE_URL` | LLM API 地址 | `http://localhost:11434/v1` |
-| `MN_LLM_API_KEY` | LLM API 密钥 | `ollama` |
-| `MN_LLM_MODEL` | LLM 模型名称 | `qwen2.5:7b` |
+| `MN_LLM_BASE_URL` | LLM API 地址 | `http://43.136.177.248:12580/v1` |
+| `MN_LLM_API_KEY` | LLM API 密钥 | - |
+| `MN_LLM_MODEL` | LLM 模型名称 | `qwen/qwen3.5-122b-a10b` |
 | `MN_DEFAULT_VOICE` | Edge-TTS 音色 | `zh-CN-YunxiNeural` |
 | `MN_DEFAULT_FORMAT` | 视频比例 | `16:9` |
 | `MN_LIBRARY_DIR` | 电影库路径 | - |
