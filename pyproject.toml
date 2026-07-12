@@ -32,6 +32,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+media = ["scenedetect>=0.6"]
+ml = ["whisperx>=3.0", "sentence-transformers>=3.0"]
+full = [
+  "scenedetect>=0.6",
+  "whisperx>=3.0",
+  "sentence-transformers>=3.0",
+]
 dev = ["pytest>=8.0"]
 
 [project.urls]
