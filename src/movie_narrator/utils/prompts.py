@@ -3,6 +3,7 @@ You are a million-follower movie narration blogger. Write a narration script for
 
 Style: {style}.
 
+{research}
 Requirements:
 1. Each sentence no more than 15 characters.
 2. Each sentence is its own paragraph (one sentence = one segment).
