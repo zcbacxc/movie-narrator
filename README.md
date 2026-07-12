@@ -112,7 +112,7 @@ pip install -e ".[dev]"
 
 ### Prerequisites
 
-- **LLM**: Default uses local Ollama (`ollama serve` to start). Or configure remote LLM via `.env` file.
+- **LLM**: Default uses `qwen/qwen3.5-122b-a10b` via remote API. Or configure local Ollama via `.env` file.
 - **FFmpeg**: Required for video rendering.
 
 ### Basic Usage
@@ -172,9 +172,9 @@ All settings use the `MN_` prefix to avoid conflicts with other tools.
 Create `.env` in your project directory (or `~/.movie-narrator/.env` for global config that survives `pip upgrade`):
 
 ```bash
-MN_LLM_BASE_URL=http://localhost:11434/v1
-MN_LLM_API_KEY=ollama
-MN_LLM_MODEL=qwen2.5:7b
+MN_LLM_BASE_URL=http://43.136.177.248:12580/v1
+MN_LLM_API_KEY=sk-your-api-key
+MN_LLM_MODEL=qwen/qwen3.5-122b-a10b
 MN_DEFAULT_VOICE=zh-CN-YunxiNeural
 MN_DEFAULT_FORMAT=16:9
 ```
@@ -183,15 +183,15 @@ MN_DEFAULT_FORMAT=16:9
 
 ```powershell
 # PowerShell
-$env:MN_LLM_BASE_URL="http://localhost:11434/v1"
-$env:MN_LLM_MODEL="qwen2.5:7b"
+$env:MN_LLM_BASE_URL="http://43.136.177.248:12580/v1"
+$env:MN_LLM_MODEL="qwen/qwen3.5-122b-a10b"
 mn create --movie "飞驰人生" --duration 60
 ```
 
 ```bash
 # Linux / macOS
-export MN_LLM_BASE_URL=http://localhost:11434/v1
-export MN_LLM_MODEL=qwen2.5:7b
+export MN_LLM_BASE_URL=http://43.136.177.248:12580/v1
+export MN_LLM_MODEL=qwen/qwen3.5-122b-a10b
 mn create --movie "飞驰人生" --duration 60
 ```
 
@@ -208,9 +208,9 @@ mn create --movie "飞驰人生" --duration 60
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `MN_LLM_BASE_URL` | LLM API endpoint | `http://localhost:11434/v1` |
-| `MN_LLM_API_KEY` | LLM API key | `ollama` |
-| `MN_LLM_MODEL` | LLM model name | `qwen2.5:7b` |
+| `MN_LLM_BASE_URL` | LLM API endpoint | `http://43.136.177.248:12580/v1` |
+| `MN_LLM_API_KEY` | LLM API key | - |
+| `MN_LLM_MODEL` | LLM model name | `qwen/qwen3.5-122b-a10b` |
 | `MN_DEFAULT_VOICE` | Edge-TTS voice | `zh-CN-YunxiNeural` |
 | `MN_DEFAULT_FORMAT` | Video aspect ratio | `16:9` |
 | `MN_LIBRARY_DIR` | Movie library path | - |

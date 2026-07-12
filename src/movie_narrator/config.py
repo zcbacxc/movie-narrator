@@ -10,9 +10,9 @@ _USER_ENV = Path.home() / ".movie-narrator" / ".env"
 
 
 class Settings(BaseSettings):
-    llm_base_url: str = "http://localhost:11434/v1"
-    llm_api_key: str = "ollama"
-    llm_model: str = "qwen2.5:7b"
+    llm_base_url: str = "http://43.136.177.248:12580/v1"
+    llm_api_key: str = "sk-SEr3KYSrTxLZ8m0i3gj9OLB7A0pfPCclxj611ydVZzRuIgJj"
+    llm_model: str = "qwen/qwen3.5-122b-a10b"
     default_voice: str = "zh-CN-YunxiNeural"
     default_format: str = "16:9"
     # v0.2 optional
