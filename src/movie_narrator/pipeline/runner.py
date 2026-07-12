@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -19,6 +20,14 @@ from .script_export import export_script_md
 from .subtitle import generate_subtitle
 from .tts import generate_voice
 from .render import render_video
+
+# ANSI colors
+_BLUE = "\033[94m"
+_GREEN = "\033[92m"
+_YELLOW = "\033[93m"
+_RED = "\033[91m"
+_RESET = "\033[0m"
+_BOLD = "\033[1m"
 
 SOFT_STATUS_STEPS = {
     "research_plot",
@@ -44,6 +53,14 @@ STEPS = [
     render_video,
     export_clips,
 ]
+
+
+def _fmt_time(seconds: float) -> str:
+    if seconds < 1:
+        return f"{seconds*1000:.0f}ms"
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+    return f"{seconds/60:.1f}m"
 
 
 def run_pipeline(
@@ -106,17 +123,23 @@ def run_pipeline(
         }
     )
 
+    total_start = time.time()
+
     for step in STEPS:
         name = step.__name__
-        print(f"▶ {name}")
+        step_start = time.time()
+        print(f"{_BLUE}▶ {name}{_RESET}", end="", flush=True)
         try:
             ctx = step(ctx)
         except Exception as e:
-            print(f"✗ {name}: {e}")
+            elapsed = time.time() - step_start
+            print(f"\r{_RED}✗ {name}{_RESET}: {e} {_YELLOW}({_fmt_time(elapsed)}){_RESET}")
             raise
 
+        elapsed = time.time() - step_start
+
         if name not in SOFT_STATUS_STEPS:
-            print(f"✓ {name}")
+            print(f"\r{_GREEN}✓ {name}{_RESET}  {_BOLD}{_fmt_time(elapsed)}{_RESET}")
         else:
             status_map = {
                 "research_plot": ctx.status.research,
@@ -128,10 +151,13 @@ def run_pipeline(
             }
             st = status_map.get(name)
             if st == "success":
-                print(f"✓ {name}")
+                print(f"\r{_GREEN}✓ {name}{_RESET}  {_BOLD}{_fmt_time(elapsed)}{_RESET}")
             # skipped/disabled/failed already logged inside step
 
         _check_strict(ctx, name)
+
+    total_elapsed = time.time() - total_start
+    print(f"\n{_BOLD}Done in {_fmt_time(total_elapsed)}{_RESET}")
 
     return ctx
 
