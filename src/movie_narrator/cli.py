@@ -1,3 +1,4 @@
+import json
 import re
 from pathlib import Path
 from typing import Optional
@@ -5,6 +6,9 @@ from typing import Optional
 import typer
 
 from . import __version__
+from .models import Context
+from .pipeline.resolve import resolve_video
+from .pipeline.research import research_plot
 from .pipeline.runner import run_pipeline
 
 app = typer.Typer(help="Generate narrated movie recap videos from a single prompt.")
@@ -65,6 +69,54 @@ def create(
         strict=strict,
     )
     typer.echo(f"{ctx.video_path}")
+
+
+@app.command()
+def resolve(
+    movie: str = typer.Option(..., "--movie", "-m", help="Movie name to resolve"),
+    library_dir: Optional[str] = typer.Option(None, "--library-dir", help="Movie library directory"),
+    json_output: bool = typer.Option(False, "--json", help="Output result as JSON"),
+):
+    """Resolve a movie from library directory."""
+    output_dir = Path("output") / _sanitize_filename(movie)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    ctx = Context(movie_name=movie, output_dir=str(output_dir))
+    if library_dir:
+        ctx.library_dir = library_dir
+    resolve_video(ctx)
+
+    if json_output:
+        result = {"matched": ctx.source_video_path is not None, "path": ctx.source_video_path}
+        typer.echo(json.dumps(result, ensure_ascii=False))
+    else:
+        if ctx.source_video_path:
+            typer.echo(ctx.source_video_path)
+        else:
+            typer.echo("No match found", err=True)
+            raise typer.Exit(1)
+
+
+@app.command()
+def research(
+    movie: str = typer.Option(..., "--movie", "-m", help="Movie name to research"),
+):
+    """Run plot research and write research.json to output/<movie>/."""
+    output_dir = Path("output") / _sanitize_filename(movie)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    ctx = Context(movie_name=movie, output_dir=str(output_dir))
+    ctx.metadata["research_enabled"] = True
+    research_plot(ctx)
+
+    if ctx.status.research == "failed":
+        raise typer.Exit(1)
+
+    research_path = output_dir / "research.json"
+    if research_path.exists():
+        typer.echo(f"Research written to: {research_path}")
+    else:
+        typer.echo("Research completed.")
 
 
 @app.command()
