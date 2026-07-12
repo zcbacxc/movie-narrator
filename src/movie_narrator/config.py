@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=(".env", str(_USER_ENV)),
         env_file_encoding="utf-8",
+        env_prefix="MN_",
     )
 
 
