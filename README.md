@@ -21,6 +21,9 @@ Movie Narrator is an open-source toolkit that automatically generates movie reca
 - 🔊 Text-to-Speech narration (Edge-TTS by default)
 - 💬 Automatic SRT subtitle generation
 - 🎞️ Video rendering with MoviePy and FFmpeg
+- 📝 Script markdown export (`script.md`)
+- 🎵 Background music integration (BGM)
+- 🎬 Scene-level clip export
 - 📦 Metadata export
 - 🔌 Extensible pipeline architecture
 - 🐍 Pure Python implementation
@@ -84,6 +87,19 @@ cd movie-narrator
 pip install -e .
 ```
 
+#### Optional extras
+
+```bash
+# Scene detection (PySceneDetect)
+pip install "movie-narrator[media]"
+
+# WhisperX + semantic search (requires PyTorch)
+pip install "movie-narrator[ml]"
+
+# Everything
+pip install "movie-narrator[full]"
+```
+
 For development:
 
 ```bash
@@ -121,6 +137,14 @@ mn create --movie "飞驰人生" --keep-cache
 | `--duration, -d` | Target duration (seconds) | `60` |
 | `--voice, -v` | Edge-TTS voice | `zh-CN-YunxiNeural` |
 | `--format, -f` | Video format (`16:9` or `9:16`) | `16:9` |
+| `--video, -V` | Source movie file path | - |
+| `--library-dir` | Movie library directory | - |
+| `--research` | Enable plot research via LLM | `false` |
+| `--no-research` | Disable plot research | - |
+| `--bgm` | Background music file path | - |
+| `--no-bgm` | Disable BGM even if default is set | `false` |
+| `--no-clips` | Skip scene-level clip export | `false` |
+| `--strict` | Abort pipeline on soft step failure | `false` |
 | `--keep-cache` | Keep TTS cache files | `false` |
 
 ### Offline Demo (No LLM Required)
@@ -173,8 +197,10 @@ Future workflow (see [Roadmap](docs/ROADMAP.md)):
 
 ```text
 Movie → Research → Script → TTS → Subtitle →
-Scene Detect → Scene Match → BGM → Render
+Scene Detect → Scene Match → BGM → Render → Clip Export
 ```
+
+**Soft steps** (research, align, scene detect, scene match, BGM, clip export) gracefully skip when optional dependencies are missing. Use `--strict` to abort instead.
 
 ---
 
