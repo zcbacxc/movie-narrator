@@ -32,6 +32,7 @@ def _run_detect_with_fake_scenedetect(ctx, threshold_expected):
     mock_settings.scene_threshold = 42.5
 
     mock_video = MagicMock()
+    mock_video.duration.frame_num = 1000
     mock_manager = MagicMock()
     mock_manager.get_scene_list.return_value = []
     mock_detector_cls = MagicMock()
