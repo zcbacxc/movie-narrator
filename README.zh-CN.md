@@ -163,6 +163,66 @@ mn --help    # 查看帮助
 
 ---
 
+## 配置
+
+所有配置项使用 `MN_` 前缀，避免与其他工具冲突。
+
+### 通过 `.env` 文件（推荐）
+
+在项目目录创建 `.env`（或 `~/.movie-narrator/.env` 作为全局配置，`pip upgrade` 不会覆盖）：
+
+```bash
+MN_LLM_BASE_URL=http://localhost:11434/v1
+MN_LLM_API_KEY=ollama
+MN_LLM_MODEL=qwen2.5:7b
+MN_DEFAULT_VOICE=zh-CN-YunxiNeural
+MN_DEFAULT_FORMAT=16:9
+```
+
+### 通过环境变量
+
+```powershell
+# PowerShell
+$env:MN_LLM_BASE_URL="http://localhost:11434/v1"
+$env:MN_LLM_MODEL="qwen2.5:7b"
+mn create --movie "飞驰人生" --duration 60
+```
+
+```bash
+# Linux / macOS
+export MN_LLM_BASE_URL=http://localhost:11434/v1
+export MN_LLM_MODEL=qwen2.5:7b
+mn create --movie "飞驰人生" --duration 60
+```
+
+### 配置查找顺序
+
+| 优先级 | 位置 | 说明 |
+|--------|------|------|
+| 1 | 环境变量（`MN_*`） | 最高优先 |
+| 2 | `当前目录/.env` | 项目级 |
+| 3 | `~/.movie-narrator/.env` | 用户级，pip upgrade 不覆盖 |
+| 4 | 内置默认值 | 本地 Ollama |
+
+### 完整配置项
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `MN_LLM_BASE_URL` | LLM API 地址 | `http://localhost:11434/v1` |
+| `MN_LLM_API_KEY` | LLM API 密钥 | `ollama` |
+| `MN_LLM_MODEL` | LLM 模型名称 | `qwen2.5:7b` |
+| `MN_DEFAULT_VOICE` | Edge-TTS 音色 | `zh-CN-YunxiNeural` |
+| `MN_DEFAULT_FORMAT` | 视频比例 | `16:9` |
+| `MN_LIBRARY_DIR` | 电影库路径 | - |
+| `MN_DEFAULT_BGM` | 默认背景音乐 | - |
+| `MN_RESEARCH_ENABLED` | 自动启用调研 | `false` |
+| `MN_RESEARCH_PROVIDER` | 调研后端 | `llm` |
+| `MN_SCENE_THRESHOLD` | PySceneDetect 阈值 | `27.0` |
+| `MN_MATCH_MIN_SCORE` | 最低匹配分数 | `0.25` |
+| `MN_EXPORT_CLIPS_DEFAULT` | 自动导出片段 | `true` |
+
+---
+
 ## 输出结构
 
 ```text

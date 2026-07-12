@@ -163,6 +163,66 @@ mn --help    # Show help
 
 ---
 
+## Configuration
+
+All settings use the `MN_` prefix to avoid conflicts with other tools.
+
+### Via `.env` file (recommended)
+
+Create `.env` in your project directory (or `~/.movie-narrator/.env` for global config that survives `pip upgrade`):
+
+```bash
+MN_LLM_BASE_URL=http://localhost:11434/v1
+MN_LLM_API_KEY=ollama
+MN_LLM_MODEL=qwen2.5:7b
+MN_DEFAULT_VOICE=zh-CN-YunxiNeural
+MN_DEFAULT_FORMAT=16:9
+```
+
+### Via environment variables
+
+```powershell
+# PowerShell
+$env:MN_LLM_BASE_URL="http://localhost:11434/v1"
+$env:MN_LLM_MODEL="qwen2.5:7b"
+mn create --movie "飞驰人生" --duration 60
+```
+
+```bash
+# Linux / macOS
+export MN_LLM_BASE_URL=http://localhost:11434/v1
+export MN_LLM_MODEL=qwen2.5:7b
+mn create --movie "飞驰人生" --duration 60
+```
+
+### Config lookup order
+
+| Priority | Location | Notes |
+|----------|----------|-------|
+| 1 | Environment variables (`MN_*`) | Highest |
+| 2 | `当前目录/.env` | Project-level |
+| 3 | `~/.movie-narrator/.env` | User-level, survives upgrades |
+| 4 | Built-in defaults | Local Ollama |
+
+### Full reference
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `MN_LLM_BASE_URL` | LLM API endpoint | `http://localhost:11434/v1` |
+| `MN_LLM_API_KEY` | LLM API key | `ollama` |
+| `MN_LLM_MODEL` | LLM model name | `qwen2.5:7b` |
+| `MN_DEFAULT_VOICE` | Edge-TTS voice | `zh-CN-YunxiNeural` |
+| `MN_DEFAULT_FORMAT` | Video aspect ratio | `16:9` |
+| `MN_LIBRARY_DIR` | Movie library path | - |
+| `MN_DEFAULT_BGM` | Default BGM file | - |
+| `MN_RESEARCH_ENABLED` | Auto-enable research | `false` |
+| `MN_RESEARCH_PROVIDER` | Research backend | `llm` |
+| `MN_SCENE_THRESHOLD` | PySceneDetect threshold | `27.0` |
+| `MN_MATCH_MIN_SCORE` | Minimum match score | `0.25` |
+| `MN_EXPORT_CLIPS_DEFAULT` | Auto-export clips | `true` |
+
+---
+
 ## Output
 
 ```text
