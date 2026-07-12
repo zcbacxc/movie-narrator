@@ -49,6 +49,7 @@ def render_video(ctx: Context) -> Context:
 
     # Spec §2: render must ignore accidental source="fallback" rows (construction default).
     usable_clips = [mc for mc in ctx.matched_clips if mc.source != "fallback"]
+    source = None
 
     if usable_clips and ctx.source_video_path:
         from moviepy.editor import VideoFileClip
@@ -73,7 +74,7 @@ def render_video(ctx: Context) -> Context:
                     img_clip = ImageClip(img_array, transparent=True)
                     img_clip = img_clip.set_duration(seg_duration).set_start(mc.narr_start)
                     clips.append(img_clip)
-            source.close()
+            # NOTE: source must NOT be closed here — subclips still need its reader during write_videofile.
 
     # Always add text overlays for any segment not covered by footage
     footage_segments = set()
@@ -102,6 +103,8 @@ def render_video(ctx: Context) -> Context:
     finally:
         final_video.close()
         audio_clip.close()
+        if source is not None:
+            source.close()
         for clip in clips:
             if hasattr(clip, "close"):
                 clip.close()
