@@ -17,10 +17,16 @@ def generate_script(ctx: Context) -> Context:
     for attempt in range(3):
         try:
             llm = get_llm_client()
+
+            research_block = ""
+            if ctx.research and ctx.research.summary:
+                research_block = f"\nResearch context: {ctx.research.summary}\nGenres: {', '.join(ctx.research.genres)}\n"
+
             prompt = SCRIPT_PROMPT.format(
                 movie=ctx.movie_name,
                 style=ctx.style,
                 duration=ctx.duration,
+                research=research_block,
             )
             response = llm.client.chat.completions.create(
                 model=llm.model,
