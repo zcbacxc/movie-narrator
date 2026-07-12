@@ -3,7 +3,7 @@ import shutil
 from pathlib import Path
 
 import numpy as np
-from moviepy.editor import AudioFileClip, ColorClip, CompositeVideoClip, ImageClip
+from moviepy.editor import AudioFileClip, ColorClip, CompositeVideoClip, ImageClip, VideoFileClip
 from PIL import Image, ImageDraw
 
 from ..models import Context
@@ -45,9 +45,41 @@ def render_video(ctx: Context) -> Context:
     total_duration = audio_clip.duration
 
     bg_clip = ColorClip(size=size, color=(20, 20, 30), duration=total_duration)
-    clips = [bg_clip]
+    clips: list = [bg_clip]
 
-    for seg in ctx.timed_segments:
+    if ctx.matched_clips and ctx.source_video_path:
+        from moviepy.editor import VideoFileClip
+        try:
+            source = VideoFileClip(ctx.source_video_path)
+        except Exception as e:
+            print(f"  fallback to text: cannot open source video: {e}")
+            ctx.matched_clips = []
+        else:
+            for mc in ctx.matched_clips:
+                seg_duration = mc.narr_end - mc.narr_start
+                src_duration = mc.src_end - mc.src_start
+                try:
+                    subclip = source.subclip(mc.src_start, mc.src_end)
+                    if src_duration > 0:
+                        subclip = subclip.speedx(factor=src_duration / max(seg_duration, 0.1))
+                    subclip = subclip.set_start(mc.narr_start)
+                    clips.append(subclip)
+                except Exception as ie:
+                    print(f"  fallback for segment {mc.segment_index}: {ie}")
+                    img_array = _create_text_image(mc.text, size, fontsize=100)
+                    img_clip = ImageClip(img_array, transparent=True)
+                    img_clip = img_clip.set_duration(seg_duration).set_start(mc.narr_start)
+                    clips.append(img_clip)
+            source.close()
+
+    # Always add text overlays for any segment not covered by footage
+    footage_segments = set()
+    for mc in ctx.matched_clips:
+        footage_segments.add(mc.segment_index)
+
+    for i, seg in enumerate(ctx.timed_segments):
+        if i in footage_segments:
+            continue
         img_array = _create_text_image(seg.text, size, fontsize=100)
         img_clip = ImageClip(img_array, transparent=True)
         img_clip = img_clip.set_duration(seg.end - seg.start).set_start(seg.start)
@@ -55,7 +87,6 @@ def render_video(ctx: Context) -> Context:
 
     final_video = CompositeVideoClip(clips).set_audio(audio_clip)
     video_path = output_dir / "final.mp4"
-
     write_kwargs = dict(
         fps=24,
         codec="libx264",
@@ -63,7 +94,6 @@ def render_video(ctx: Context) -> Context:
         threads=4,
         logger=None,
     )
-
     try:
         final_video.write_videofile(str(video_path), **write_kwargs)
     finally:
