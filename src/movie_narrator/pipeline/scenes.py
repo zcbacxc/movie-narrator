@@ -1,4 +1,8 @@
-from ..models import Context
+import json
+from pathlib import Path
+from typing import Optional
+
+from ..models import Context, Scene
 from ..utils.optional_deps import probe
 
 
@@ -12,6 +16,29 @@ def detect_scenes(ctx: Context) -> Context:
         ctx.status.scene = "skipped"
         print("⏭ detect_scenes: no source video")
         return ctx
-    ctx.status.scene = "skipped"
-    print("⏭ detect_scenes: implementation pending M3")
-    return ctx
+    try:
+        from scenedetect import open_video, SceneManager
+        from scenedetect.detectors import ContentDetector
+
+        video = open_video(ctx.source_video_path)
+        scene_manager = SceneManager()
+        scene_manager.add_detector(ContentDetector(threshold=27.0))
+        scene_manager.detect_scenes(video, show_progress=False)
+        scene_list = scene_manager.get_scene_list()
+        scenes = []
+        for i, (start, end) in enumerate(scene_list):
+            scenes.append(
+                Scene(
+                    index=i,
+                    start=start.get_seconds(),
+                    end=end.get_seconds(),
+                )
+            )
+        ctx.scenes = scenes
+        ctx.status.scene = "success"
+        print(f"✓ detect_scenes: {len(scenes)} scenes")
+        return ctx
+    except Exception as e:
+        print(f"✗ detect_scenes: {e}")
+        ctx.status.scene = "failed"
+        return ctx
