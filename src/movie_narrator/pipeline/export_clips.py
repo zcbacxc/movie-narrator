@@ -36,7 +36,7 @@ def export_clips(ctx: Context) -> Context:
                         codec="libx264",
                         audio_codec="aac",
                         verbose=False,
-                        logger=None,
+                        logger="bar",
                     )
                     scene.clip_path = str(clip_path)
                     subclip.close()
