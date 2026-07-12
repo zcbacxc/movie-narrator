@@ -10,7 +10,10 @@ from movie_narrator.pipeline.scenes import detect_scenes
 
 def test_detect_scenes_disabled_without_dep(tmp_path):
     ctx = Context(movie_name="m", output_dir=str(tmp_path))
-    detect_scenes(ctx)
+    with patch(
+        "movie_narrator.pipeline.scenes.probe", return_value=(False, "scenedetect not installed")
+    ):
+        detect_scenes(ctx)
     assert ctx.status.scene == "disabled"
 
 
