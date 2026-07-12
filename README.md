@@ -169,7 +169,7 @@ All settings use the `MN_` prefix to avoid conflicts with other tools.
 
 ### Via `.env` file (recommended)
 
-Create `.env` in your project directory (or `~/.movie-narrator/.env` for global config that survives `pip upgrade`):
+Create `.env` in your project directory (or `~/.movie-narrator/.env` for global config — this file lives outside the package, so `pip install/upgrade/uninstall` never touches it):
 
 ```bash
 MN_LLM_BASE_URL=http://localhost:11434/v1
@@ -201,7 +201,7 @@ mn create --movie "飞驰人生" --duration 60
 |----------|----------|-------|
 | 1 | Environment variables (`MN_*`) | Highest |
 | 2 | `当前目录/.env` | Project-level |
-| 3 | `~/.movie-narrator/.env` | User-level, survives upgrades |
+| 3 | `~/.movie-narrator/.env` | User-level, never lost on pip install/upgrade/uninstall |
 | 4 | Built-in defaults | Local Ollama |
 
 ### Full reference

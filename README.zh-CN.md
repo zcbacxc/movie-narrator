@@ -169,7 +169,7 @@ mn --help    # 查看帮助
 
 ### 通过 `.env` 文件（推荐）
 
-在项目目录创建 `.env`（或 `~/.movie-narrator/.env` 作为全局配置，`pip upgrade` 不会覆盖）：
+在项目目录创建 `.env`（或 `~/.movie-narrator/.env` 作为全局配置——该文件在包目录之外，`pip install/upgrade/uninstall` 均不会触碰）：
 
 ```bash
 MN_LLM_BASE_URL=http://localhost:11434/v1
@@ -201,7 +201,7 @@ mn create --movie "飞驰人生" --duration 60
 |--------|------|------|
 | 1 | 环境变量（`MN_*`） | 最高优先 |
 | 2 | `当前目录/.env` | 项目级 |
-| 3 | `~/.movie-narrator/.env` | 用户级，pip upgrade 不覆盖 |
+| 3 | `~/.movie-narrator/.env` | 用户级，pip install/upgrade/uninstall 均不会丢失 |
 | 4 | 内置默认值 | 本地 Ollama |
 
 ### 完整配置项
