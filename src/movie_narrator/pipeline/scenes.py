@@ -22,8 +22,9 @@ def detect_scenes(ctx: Context) -> Context:
         from scenedetect.detectors import ContentDetector
 
         # Spec §3/§4: use Settings.scene_threshold; allow metadata override (e.g. mn scenes --threshold).
-        threshold = ctx.metadata.get("scene_threshold", get_settings().scene_threshold)
-        frame_skip = ctx.metadata.get("scene_frame_skip", 10)
+        settings = get_settings()
+        threshold = ctx.metadata.get("scene_threshold", settings.scene_threshold)
+        frame_skip = ctx.metadata.get("scene_frame_skip", settings.scene_frame_skip)
 
         video = open_video(ctx.source_video_path)
         scene_manager = SceneManager()
