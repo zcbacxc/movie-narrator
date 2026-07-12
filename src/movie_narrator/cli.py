@@ -120,6 +120,81 @@ def research(
 
 
 @app.command()
+def scenes(
+    video: str = typer.Option(..., "--video", help="Video file path"),
+    threshold: float = typer.Option(27.0, "--threshold", help="Scene detection threshold"),
+    output: Optional[str] = typer.Option(None, "--output", help="Output directory"),
+):
+    """Detect scenes in a video file."""
+    from movie_narrator.pipeline.scenes import detect_scenes
+    from movie_narrator.models import Context
+    out = Path(output) if output else Path("output") / "scenes_debug"
+    out.mkdir(parents=True, exist_ok=True)
+    ctx = Context(movie_name="debug", output_dir=str(out), source_video_path=video)
+    detect_scenes(ctx)
+    scenes_json = out / "scenes.json"
+    scenes_json.write_text(
+        json.dumps([s.model_dump() for s in ctx.scenes], ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    typer.echo(f"Scenes: {len(ctx.scenes)} (written to {scenes_json})")
+
+
+@app.command()
+def align(
+    audio: str = typer.Option(..., "--audio", help="Audio file path"),
+    script: Optional[str] = typer.Option(None, "--script", help="Script text file (one per line)"),
+    output: Optional[str] = typer.Option(None, "--output", help="Output directory"),
+):
+    """Align audio with script using WhisperX."""
+    from movie_narrator.pipeline.align import align_audio
+    from movie_narrator.models import Context, TimedSegment
+    out = Path(output) if output else Path("output") / "align_debug"
+    out.mkdir(parents=True, exist_ok=True)
+    segments = []
+    if script and Path(script).is_file():
+        for line in Path(script).read_text(encoding="utf-8").strip().split("\n"):
+            line = line.strip()
+            if line:
+                segments.append(TimedSegment(text=line, start=0.0, end=2.0))
+    ctx = Context(
+        movie_name="align_debug",
+        output_dir=str(out),
+        audio_path=audio,
+        timed_segments=segments,
+    )
+    align_audio(ctx)
+    typer.echo(f"Align status: {ctx.status.align}")
+    typer.echo(f"Segments: {len(ctx.timed_segments)}")
+
+
+@app.command()
+def clips(
+    video: str = typer.Option(..., "--video", help="Source video path"),
+    scenes_path: str = typer.Option(..., "--scenes", help="scenes.json path"),
+    output: Optional[str] = typer.Option(None, "--output", help="Output directory"),
+):
+    """Export clips from scenes.json."""
+    from movie_narrator.pipeline.export_clips import export_clips
+    from movie_narrator.models import Context, Scene
+    import json
+    out = Path(output) if output else Path("output") / "clips_debug"
+    out.mkdir(parents=True, exist_ok=True)
+    data = json.loads(Path(scenes_path).read_text(encoding="utf-8"))
+    scenes = [Scene(**s) for s in data]
+    ctx = Context(
+        movie_name="clips_debug",
+        output_dir=str(out),
+        source_video_path=video,
+        scenes=scenes,
+        metadata={"export_clips": True},
+    )
+    export_clips(ctx)
+    typer.echo(f"Export status: {ctx.status.export}")
+    typer.echo(f"Clips dir: {ctx.clips_dir}")
+
+
+@app.command()
 def version():
     """Show version."""
     typer.echo(f"movie-narrator v{__version__}")
