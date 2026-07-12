@@ -1,8 +1,12 @@
+import os
+from pathlib import Path
 from typing import Optional
 
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_USER_ENV = Path.home() / ".movie-narrator" / ".env"
 
 
 class Settings(BaseSettings):
@@ -21,7 +25,7 @@ class Settings(BaseSettings):
     export_clips_default: bool = True
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", str(_USER_ENV)),
         env_file_encoding="utf-8",
     )
 
