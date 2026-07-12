@@ -27,7 +27,8 @@ def detect_scenes(ctx: Context) -> Context:
         video = open_video(ctx.source_video_path)
         scene_manager = SceneManager()
         scene_manager.add_detector(ContentDetector(threshold=threshold))
-        scene_manager.detect_scenes(video, show_progress=False)
+        scene_manager.detect_scenes(video, show_progress=True)
+
         scene_list = scene_manager.get_scene_list()
         scenes = []
         for i, (start, end) in enumerate(scene_list):
