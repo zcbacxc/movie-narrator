@@ -37,7 +37,7 @@ def mix_bgm(ctx: Context) -> Context:
 
     try:
         narration = AudioSegment.from_file(ctx.audio_path)
-        bgm = AudioSegment.from_file(ctx.assets.bgm) + BGM_GAIN_DB
+        bgm = AudioSegment.from_file(ctx.assets.bgm).apply_gain(BGM_GAIN_DB)
         if len(bgm) < len(narration):
             times = len(narration) // max(len(bgm), 1) + 1
             bgm = bgm * times
