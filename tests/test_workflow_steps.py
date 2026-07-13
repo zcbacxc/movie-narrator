@@ -12,7 +12,7 @@ from movie_narrator.pipeline.scenes import detect_scenes
 def test_research_disabled_by_workflow_steps(tmp_path):
     ctx = Context(movie_name="X", output_dir=str(tmp_path))
     ctx.metadata["research_enabled"] = True
-    ctx.metadata["workflow_steps"] = {"research": False}
+    ctx.metadata["workflow_steps"] = {"research_plot": False}
     with patch("movie_narrator.pipeline.research.get_llm_client") as gl:
         research_plot(ctx)
     gl.assert_not_called()
@@ -38,7 +38,7 @@ def test_align_disabled_by_workflow_steps(tmp_path):
         output_dir=str(tmp_path),
         audio_path=str(tmp_path / "a.mp3"),
     )
-    ctx.metadata["workflow_steps"] = {"align": False}
+    ctx.metadata["workflow_steps"] = {"align_audio": False}
     with patch("movie_narrator.pipeline.align.probe") as probe:
         align_audio(ctx)
     probe.assert_not_called()
@@ -51,7 +51,7 @@ def test_scene_disabled_by_workflow_steps(tmp_path):
         output_dir=str(tmp_path),
         source_video_path=str(tmp_path / "v.mp4"),
     )
-    ctx.metadata["workflow_steps"] = {"scene": False}
+    ctx.metadata["workflow_steps"] = {"detect_scenes": False}
     with patch("movie_narrator.pipeline.scenes.probe") as probe:
         detect_scenes(ctx)
     probe.assert_not_called()
@@ -67,7 +67,7 @@ def test_match_disabled_by_workflow_steps(tmp_path):
         timed_segments=[TimedSegment(text="A", start=0.0, end=1.0)],
     )
     ctx.status.scene = "success"
-    ctx.metadata["workflow_steps"] = {"match": False}
+    ctx.metadata["workflow_steps"] = {"match_clips": False}
     match_clips(ctx)
     assert ctx.status.match == "disabled"
     assert ctx.matched_clips == []
@@ -110,7 +110,7 @@ def test_bgm_disabled_by_workflow_steps(tmp_path):
     )
     ctx.metadata["bgm_request"] = "explicit"
     ctx.assets.bgm = str(tmp_path / "b.mp3")
-    ctx.metadata["workflow_steps"] = {"bgm": False}
+    ctx.metadata["workflow_steps"] = {"mix_bgm": False}
     mix_bgm(ctx)
     assert ctx.status.bgm == "disabled"
     assert ctx.final_audio_path == str(audio)
@@ -119,7 +119,7 @@ def test_bgm_disabled_by_workflow_steps(tmp_path):
 def test_export_disabled_by_workflow_steps(tmp_path):
     ctx = Context(movie_name="X", output_dir=str(tmp_path))
     ctx.metadata["export_clips"] = True
-    ctx.metadata["workflow_steps"] = {"export": False}
+    ctx.metadata["workflow_steps"] = {"export_clips": False}
     with patch("movie_narrator.pipeline.export_clips.probe") as probe:
         export_clips(ctx)
     probe.assert_not_called()

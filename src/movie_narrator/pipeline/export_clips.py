@@ -7,7 +7,7 @@ from ..utils.optional_deps import probe
 
 
 def export_clips(ctx: Context) -> Context:
-    if ctx.metadata.get("workflow_steps", {}).get("export") is False:
+    if ctx.metadata.get("workflow_steps", {}).get("export_clips") is False:
         ctx.status.export = "disabled"
         ctx.step_state.result = StepResult.SKIPPED
         ctx.step_state.message = "disabled by workflow config"

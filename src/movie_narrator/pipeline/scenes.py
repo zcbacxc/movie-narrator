@@ -8,7 +8,7 @@ from ..utils.optional_deps import probe
 
 
 def detect_scenes(ctx: Context) -> Context:
-    if ctx.metadata.get("workflow_steps", {}).get("scene") is False:
+    if ctx.metadata.get("workflow_steps", {}).get("detect_scenes") is False:
         ctx.status.scene = "disabled"
         ctx.step_state.result = StepResult.SKIPPED
         ctx.step_state.message = "disabled by workflow config"

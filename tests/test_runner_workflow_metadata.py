@@ -21,11 +21,11 @@ def test_run_pipeline_writes_workflow_metadata(tmp_path):
             voice=None,
             format="16:9",
             output_dir=tmp_path,
-            workflow_steps={"align": False, "export": False},
+            workflow_steps={"align_audio": False, "export_clips": False},
             params={"scene_threshold": 33.0, "match_min_score": 0.5, "research_provider": "llm"},
             config_path=str(tmp_path / "job.yaml"),
         )
-    assert ctx.metadata["workflow_steps"] == {"align": False, "export": False}
+    assert ctx.metadata["workflow_steps"] == {"align_audio": False, "export_clips": False}
     assert ctx.metadata["scene_threshold"] == 33.0
     assert ctx.metadata["match_min_score"] == 0.5
     assert ctx.metadata["research_provider"] == "llm"
