@@ -5,15 +5,31 @@ on:
     tags: ["v*"]
 
 permissions:
-  id-token: write   # OIDC for trusted publishing to PyPI
+  id-token: write   # OIDC for trusted publishing
   contents: write   # needed to create GitHub Release
 
 jobs:
   publish:
     runs-on: ubuntu-latest
 
+    outputs:
+      publish_target: ${{ steps.determine_target.outputs.target }}
+
     steps:
       - uses: actions/checkout@v4
+
+      - name: Determine publish target
+        id: determine_target
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          if [[ "$TAG" == *"-test" ]]; then
+            echo "target=testpypi" >> "$GITHUB_OUTPUT"
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "target=pypi" >> "$GITHUB_OUTPUT"
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-python@v5
         with:
@@ -28,25 +44,24 @@ jobs:
       - name: Check distribution
         run: twine check dist/*
 
-      - name: Publish to PyPI
+      - name: Publish to ${{ steps.determine_target.outputs.target }}
         uses: pypa/gh-action-pypi-publish@release/v1
-
-      - name: Extract version from tag
-        id: version
-        run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+        with:
+          repository-url: ${{ steps.determine_target.outputs.target == 'testpypi' && 'https://test.pypi.org/legacy/' || '' }}
 
       - name: Generate release notes from CHANGELOG
         id: notes
         run: |
-          TAG_VERSION="${{ steps.version.outputs.version }}"
+          TAG_VERSION="${{ steps.determine_target.outputs.tag }}"
           python3 -c "
-          import re, sys
+          import re
           with open('CHANGELOG.md') as f:
               content = f.read()
-          pattern = r'## \[' + re.escape('${TAG_VERSION}') + r'\](.*?)(?=\n## \[|\Z)'
+          # Strip -test suffix for CHANGELOG lookup
+          ver = '${TAG_VERSION}'.replace('-test', '')
+          pattern = r'## \[' + re.escape(ver) + r'\](.*?)(?=\n## \[|\Z)'
           m = re.search(pattern, content, re.DOTALL)
           if m:
-              # Strip the header line, keep only section content
               lines = m.group(1).strip().split('\n', 1)
               body = lines[1] if len(lines) > 1 else lines[0]
               with open('/tmp/release_notes.md', 'w') as out:
@@ -63,4 +78,4 @@ jobs:
           name: ${{ github.ref_name }}
           body_path: /tmp/release_notes.md
           draft: false
-          prerelease: false
+          prerelease: ${{ steps.determine_target.outputs.is_prerelease }}
