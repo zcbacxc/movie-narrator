@@ -48,14 +48,6 @@ STEPS = [
 ]
 
 
-def _fmt_time(seconds: float) -> str:
-    if seconds < 1:
-        return f"{seconds * 1000:.0f}ms"
-    if seconds < 60:
-        return f"{seconds:.1f}s"
-    return f"{seconds / 60:.1f}m"
-
-
 def run_pipeline(
     movie: str,
     style: str,
@@ -170,7 +162,7 @@ def run_pipeline(
         _check_strict(ctx, name)
 
     total_elapsed = time.time() - total_start
-    print(f"\n\033[1mDone in {_fmt_time(total_elapsed)}\033[0m")
+    console.done(total_elapsed)
 
     return ctx
 

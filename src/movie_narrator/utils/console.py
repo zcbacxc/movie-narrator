@@ -45,6 +45,7 @@ class Console(Protocol):
     def debug(self, msg: str) -> None: ...
     def inline_warn(self, msg: str) -> None: ...
     def final(self, msg: str) -> None: ...
+    def done(self, elapsed: float) -> None: ...
     def progress(self, *args, **kwargs): ...
 
 
@@ -80,6 +81,11 @@ class PlainConsole:
         t = _fmt_time(elapsed)
         print(f"\r{_RED}✗{_RESET} {name}: {exc} {_YELLOW}({t}){_RESET}")
         self._log.error(f"STEP_ERR {name}", exc_info=True)
+
+    def done(self, elapsed: float) -> None:
+        """Final 'Done in ...' banner at end of pipeline."""
+        print(f"\n{_BOLD}Done in {_fmt_time(elapsed)}{_RESET}")
+        self._log.info(f"PIPELINE_DONE elapsed={elapsed:.3f}s")
 
     # ── in-process messages (called by steps directly) ─────
 
