@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from contextlib import contextmanager
 
 import httpx
 from openai import OpenAI
@@ -12,12 +13,17 @@ class LLMClient:
     model: str
 
 
-def get_llm_client() -> LLMClient:
+@contextmanager
+def get_llm_client():
+    """Yield an LLMClient backed by a managed httpx.Client (closed on exit)."""
     settings = get_settings()
     http_client = httpx.Client(timeout=60)
-    client = OpenAI(
-        base_url=settings.llm_base_url,
-        api_key=settings.llm_api_key,
-        http_client=http_client,
-    )
-    return LLMClient(client=client, model=settings.llm_model)
+    try:
+        client = OpenAI(
+            base_url=settings.llm_base_url,
+            api_key=settings.llm_api_key,
+            http_client=http_client,
+        )
+        yield LLMClient(client=client, model=settings.llm_model)
+    finally:
+        http_client.close()
