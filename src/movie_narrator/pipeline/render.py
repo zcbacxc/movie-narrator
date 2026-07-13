@@ -5,7 +5,6 @@ from pathlib import Path
 import numpy as np
 from moviepy.editor import AudioFileClip, ColorClip, CompositeVideoClip, ImageClip, VideoFileClip
 from PIL import Image, ImageDraw
-from tqdm import tqdm
 
 from ..models import Context
 from ..utils.font import get_font
@@ -93,14 +92,6 @@ def render_video(ctx: Context) -> Context:
     tmp_dir = output_dir / ".tmp"
     tmp_dir.mkdir(exist_ok=True)
 
-    # tqdm progress bar for rendering
-    total_frames = int(total_duration * 24)  # fps=24
-    pbar = tqdm(total=total_frames, unit="frames", desc="Rendering", dynamic_ncols=True)
-
-    def _progress_bar_logger(t, total):
-        current = int(t * 24)
-        pbar.update(current - pbar.n)
-
     write_kwargs = dict(
         fps=24,
         codec="libx264",
@@ -112,7 +103,6 @@ def render_video(ctx: Context) -> Context:
     try:
         final_video.write_videofile(str(video_path), **write_kwargs)
     finally:
-        pbar.close()
         final_video.close()
         audio_clip.close()
         if source is not None:
