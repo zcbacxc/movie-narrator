@@ -48,8 +48,14 @@ Soft pipeline steps (research, align, scene detect, scene match, BGM, clip expor
 
 - [x] Declarative workflow config for soft-step toggles + params
 - [x] YAML-based job configuration (`mn create --config`)
+- [x] Console / structured-step-state logging refactor (`ctx.services.console`, `StepState`)
+- [x] Multi-language subtitle support (`--subtitle-lang` / `--subtitle-mode`; LLM translation with retry-then-soft-degrade; three-file SRT output)
 - [ ] Web UI (Gradio / FastAPI)
-- [ ] Multi-language subtitle support
+
+### v0.3 New CLI flags
+
+- `--subtitle-lang` — Target language tag (`en`, `ja`, `zh-TW`, ...); empty = feature off
+- `--subtitle-mode` — Overlay mode: `original` / `translated` / `bilingual` (default `original`)
 
 ## v0.4.x — Extensibility
 
