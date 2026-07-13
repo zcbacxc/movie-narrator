@@ -50,6 +50,10 @@ def _cosine_top1(target_vec, candidate_matrix):
 
 
 def match_clips(ctx: Context) -> Context:
+    if ctx.metadata.get("workflow_steps", {}).get("match") is False:
+        ctx.status.match = "disabled"
+        print("⏭ match_clips: disabled by workflow config")
+        return ctx
     if not ctx.source_video_path:
         ctx.status.match = "skipped"
         print("⏭ match_clips: no source video")
@@ -68,7 +72,7 @@ def match_clips(ctx: Context) -> Context:
         return ctx
 
     settings = get_settings()
-    min_score = settings.match_min_score
+    min_score = ctx.metadata.get("match_min_score", settings.match_min_score)
     output_dir = Path(ctx.output_dir)
 
     # Compute total scene span

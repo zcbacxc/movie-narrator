@@ -7,6 +7,10 @@ from ..utils.optional_deps import probe
 
 
 def export_clips(ctx: Context) -> Context:
+    if ctx.metadata.get("workflow_steps", {}).get("export") is False:
+        ctx.status.export = "disabled"
+        print("⏭ export_clips: disabled by workflow config")
+        return ctx
     if not ctx.metadata.get("export_clips", True):
         ctx.status.export = "skipped"
         print("⏭ export_clips: disabled by flag")
