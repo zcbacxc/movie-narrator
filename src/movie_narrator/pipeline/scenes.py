@@ -3,23 +3,26 @@ from pathlib import Path
 from typing import Optional
 
 from ..config import get_settings
-from ..models import Context, Scene
+from ..models import Context, Scene, StepResult
 from ..utils.optional_deps import probe
 
 
 def detect_scenes(ctx: Context) -> Context:
     if ctx.metadata.get("workflow_steps", {}).get("scene") is False:
         ctx.status.scene = "disabled"
-        print("⏭ detect_scenes: disabled by workflow config")
+        ctx.step_state.result = StepResult.SKIPPED
+        ctx.step_state.message = "disabled by workflow config"
         return ctx
     ok, hint = probe("scenedetect")
     if not ok:
         ctx.status.scene = "disabled"
-        print(f"⏭ detect_scenes: {hint}")
+        ctx.step_state.result = StepResult.SKIPPED
+        ctx.step_state.message = hint
         return ctx
     if not ctx.source_video_path:
         ctx.status.scene = "skipped"
-        print("⏭ detect_scenes: no source video")
+        ctx.step_state.result = StepResult.SKIPPED
+        ctx.step_state.message = "no source video"
         return ctx
     try:
         from scenedetect import open_video, SceneManager
@@ -47,9 +50,9 @@ def detect_scenes(ctx: Context) -> Context:
             )
         ctx.scenes = scenes
         ctx.status.scene = "success"
-        print(f"✓ detect_scenes: {len(scenes)} scenes")
         return ctx
     except Exception as e:
-        print(f"✗ detect_scenes: {e}")
+        ctx.step_state.result = StepResult.WARNING
+        ctx.step_state.message = str(e)
         ctx.status.scene = "failed"
         return ctx

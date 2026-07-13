@@ -4,7 +4,8 @@ from typing import Any, Dict, Optional
 
 from .. import __version__
 from ..config import get_settings
-from ..models import Assets, Context
+from ..models import Assets, Context, Services, StepState
+from ..utils.console import build_console
 from ..utils.environment import collect_environment
 from .align import align_audio
 from .assets import prepare_assets
@@ -20,14 +21,6 @@ from .script_export import export_script_md
 from .subtitle import generate_subtitle
 from .tts import generate_voice
 from .render import render_video
-
-# ANSI colors
-_BLUE = "\033[94m"
-_GREEN = "\033[92m"
-_YELLOW = "\033[93m"
-_RED = "\033[91m"
-_RESET = "\033[0m"
-_BOLD = "\033[1m"
 
 SOFT_STATUS_STEPS = {
     "research_plot",
@@ -57,10 +50,10 @@ STEPS = [
 
 def _fmt_time(seconds: float) -> str:
     if seconds < 1:
-        return f"{seconds*1000:.0f}ms"
+        return f"{seconds * 1000:.0f}ms"
     if seconds < 60:
         return f"{seconds:.1f}s"
-    return f"{seconds/60:.1f}m"
+    return f"{seconds / 60:.1f}m"
 
 
 def run_pipeline(
@@ -126,7 +119,6 @@ def run_pipeline(
         }
     )
 
-
     if workflow_steps:
         ctx.metadata["workflow_steps"] = dict(workflow_steps)
     if params:
@@ -136,43 +128,84 @@ def run_pipeline(
     if config_path:
         ctx.metadata["config_path"] = config_path
 
+    # Build console and inject into ctx
+    console = build_console(output_dir)
+    ctx.services = Services(console=console)
+
     total_start = time.time()
 
     for step in STEPS:
         name = step.__name__
+
+        # ── Pre-check: workflow_steps disabled? ──────────────
+        if workflow_steps and not workflow_steps.get(name, True):
+            ctx.step_state = StepState()  # reset first
+            ctx.step_state.result = "skipped"  # type: ignore[assignment]
+            ctx.step_state.message = "disabled by workflow config"
+            console.step_skip(name, ctx.step_state.message)
+            _set_pipeline_status_disabled(ctx, name)
+            _check_strict(ctx, name)
+            continue
+
+        # ── Execute step ────────────────────────────────────
+        ctx.step_state = StepState()  # reset before each step
         step_start = time.time()
-        print(f"{_BLUE}▶ {name}{_RESET}", end="", flush=True)
+        console.step(name)
+
         try:
             ctx = step(ctx)
         except Exception as e:
             elapsed = time.time() - step_start
-            print(f"\r{_RED}✗ {name}{_RESET}: {e} {_YELLOW}({_fmt_time(elapsed)}){_RESET}")
+            console.step_err(name, e, elapsed)
             raise
 
         elapsed = time.time() - step_start
 
-        if name not in SOFT_STATUS_STEPS:
-            print(f"\r{_GREEN}✓ {name}{_RESET}  {_BOLD}{_fmt_time(elapsed)}{_RESET}")
-        else:
-            status_map = {
-                "research_plot": ctx.status.research,
-                "align_audio": ctx.status.align,
-                "detect_scenes": ctx.status.scene,
-                "match_clips": ctx.status.match,
-                "mix_bgm": ctx.status.bgm,
-                "export_clips": ctx.status.export,
-            }
-            st = status_map.get(name)
-            if st == "success":
-                print(f"\r{_GREEN}✓ {name}{_RESET}  {_BOLD}{_fmt_time(elapsed)}{_RESET}")
-            # skipped/disabled/failed already logged inside step
+        # ── Render step result ───────────────────────────────
+        _render_step_result(ctx, name, elapsed, console)
+
+        # ── Reset step_state for next iteration ──────────────
+        ctx.step_state = StepState()
 
         _check_strict(ctx, name)
 
     total_elapsed = time.time() - total_start
-    print(f"\n{_BOLD}Done in {_fmt_time(total_elapsed)}{_RESET}")
+    print(f"\n\033[1mDone in {_fmt_time(total_elapsed)}\033[0m")
 
     return ctx
+
+
+def _set_pipeline_status_disabled(ctx: Context, name: str) -> None:
+    """Set the corresponding PipelineStatus field to 'disabled'."""
+    status_field_map = {
+        "research_plot": "research",
+        "align_audio": "align",
+        "detect_scenes": "scene",
+        "match_clips": "match",
+        "mix_bgm": "bgm",
+        "export_clips": "export",
+    }
+    field = status_field_map.get(name)
+    if field:
+        setattr(ctx.status, field, "disabled")
+
+
+def _render_step_result(
+    ctx: Context,
+    name: str,
+    elapsed: float,
+    console,
+) -> None:
+    """Read ctx.step_state and call the appropriate console method."""
+    result = ctx.step_state.result
+    msg = ctx.step_state.message
+
+    if result.value == "success":
+        console.step_ok(name, elapsed)
+    elif result.value == "skipped":
+        console.step_skip(name, msg or "skipped")
+    elif result.value == "warning":
+        console.step_warn(name, msg or "warning")
 
 
 def _check_strict(ctx: Context, step_name: str) -> None:

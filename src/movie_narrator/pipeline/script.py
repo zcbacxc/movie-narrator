@@ -49,7 +49,7 @@ def generate_script(ctx: Context) -> Context:
                 return ctx
         except Exception as e:
             if attempt == 2:
-                print(f"LLM fallback (3 attempts failed): {e}")
+                ctx.services.console.inline_warn(f"LLM fallback (3 attempts failed): {e}")
                 ctx.segments = [ScriptSegment(text=s) for s in MOCK_SEGMENTS]
                 ctx.metadata["script_source"] = "mock"
                 return ctx

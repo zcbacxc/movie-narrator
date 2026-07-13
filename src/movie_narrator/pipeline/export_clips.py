@@ -2,27 +2,31 @@ import json
 import shutil
 from pathlib import Path
 
-from ..models import Context
+from ..models import Context, StepResult
 from ..utils.optional_deps import probe
 
 
 def export_clips(ctx: Context) -> Context:
     if ctx.metadata.get("workflow_steps", {}).get("export") is False:
         ctx.status.export = "disabled"
-        print("⏭ export_clips: disabled by workflow config")
+        ctx.step_state.result = StepResult.SKIPPED
+        ctx.step_state.message = "disabled by workflow config"
         return ctx
     if not ctx.metadata.get("export_clips", True):
         ctx.status.export = "skipped"
-        print("⏭ export_clips: disabled by flag")
+        ctx.step_state.result = StepResult.SKIPPED
+        ctx.step_state.message = "disabled by flag"
         return ctx
     ok, hint = probe("scenedetect")
     if not ok:
         ctx.status.export = "disabled"
-        print(f"⏭ export_clips: {hint}")
+        ctx.step_state.result = StepResult.SKIPPED
+        ctx.step_state.message = hint
         return ctx
     if not ctx.scenes and not ctx.matched_clips:
         ctx.status.export = "skipped"
-        print("⏭ export_clips: nothing to export")
+        ctx.step_state.result = StepResult.SKIPPED
+        ctx.step_state.message = "nothing to export"
         return ctx
     output_dir = Path(ctx.output_dir)
     clips_dir = output_dir / "clips"
@@ -51,16 +55,16 @@ def export_clips(ctx: Context) -> Context:
                     scene.clip_path = str(clip_path)
                     subclip.close()
                 except Exception as e:
-                    print(f" skip scene {scene.index}: {e}")
+                    ctx.services.console.inline_warn(f"skip scene {scene.index}: {e}")
             source.close()
         # Clean up temp directory
         if temp_dir.exists():
             shutil.rmtree(temp_dir, ignore_errors=True)
         ctx.clips_dir = str(clips_dir)
         ctx.status.export = "success"
-        print(f"✓ export_clips: {len(ctx.scenes)} scenes exported")
         return ctx
     except Exception as e:
-        print(f"✗ export_clips: {e}")
+        ctx.step_state.result = StepResult.WARNING
+        ctx.step_state.message = str(e)
         ctx.status.export = "failed"
         return ctx
