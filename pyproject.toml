@@ -35,12 +35,12 @@ dependencies = [
 [project.optional-dependencies]
 media = ["scenedetect>=0.6"]
 ml = ["whisperx>=3.0", "sentence-transformers>=3.0"]
-web = ["gradio>=4.44,<5"]
+web = ["gradio>=6.0"]
 full = [
   "scenedetect>=0.6",
   "whisperx>=3.0",
   "sentence-transformers>=3.0",
-  "gradio>=4.44,<5",
+  "gradio>=6.0",
 ]
 dev = ["pytest>=8.0"]
 
