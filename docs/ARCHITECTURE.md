@@ -58,6 +58,42 @@ run_pipeline(...) # STEPS order unchanged
 - Multi-language subtitle top-level keys: `subtitle_lang`, `subtitle_mode` (validated in `JobConfig` — `subtitle_mode ∈ {translated, bilingual}` without `subtitle_lang` raises `JobConfigError` at merge time)
 - `STEPS` remains the single source of step order; no DAG / plugins in v0.3
 
+## Web UI Layer (v0.3.5)
+
+The Gradio-based Web UI is a thin shell over the same pipeline entry points:
+
+```text
+Browser form
+    ▼
+bridge.py (form → build_context kwargs)
+    ▼
+build_context(..., services=Services(console=GradioConsole))
+    ▼
+run_pipeline(ctx, controller=GradioController)  ← background thread
+    ▼
+bridge polls GradioConsole.snapshot() every 200ms → yields to Gradio
+```
+
+### Key design rules
+
+- **No second implementation**: Web calls `build_context` + `run_pipeline` — the same functions CLI uses
+- **Cancel is runtime-only**: `RunController` / `PipelineCancelled` never enter `Context`, `PipelineStatus`, or `metadata.json`. Cancel is a distinct terminal path (not warn, not error, does not trip `--strict`)
+- **empty = no override**: form fields left blank do NOT inject into `params` — Settings (`.env` / `MN_*`) defaults apply
+- **Uploads to temp dirs**: uploaded files go to `mn_web_*` temp dirs, never to `output/`
+- **Single-job per session**: re-entrancy guard via `WebRun.status` in `gr.State`
+
+### Modules
+
+| Module | Responsibility |
+|--------|---------------|
+| `web/app.py` | Gradio Blocks layout, event handlers, `launch_web()` |
+| `web/bridge.py` | Generator: form → background thread → yield UI updates |
+| `web/form.py` | `FormData` dataclass, `validate_form()`, `form_to_context_args()` |
+| `web/console.py` | `GradioConsole` — thread-safe buffered console (`threading.Lock`) |
+| `web/controller.py` | `GradioController` — cooperative cancel flag (`threading.Event`) |
+| `web/models.py` | `RunStatus` enum, `WebRun` per-session state |
+| `web/utils.py` | Upload handling, `collect_artifacts()`, filename sanitization |
+
 ## Data Flow
 
 1. **Context** (`models.Context`) — shared mutable state passed through all steps

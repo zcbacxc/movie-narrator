@@ -50,12 +50,19 @@ Soft pipeline steps (research, align, scene detect, scene match, BGM, clip expor
 - [x] YAML-based job configuration (`mn create --config`)
 - [x] Console / structured-step-state logging refactor (`ctx.services.console`, `StepState`)
 - [x] Multi-language subtitle support (`--subtitle-lang` / `--subtitle-mode`; LLM translation with retry-then-soft-degrade; three-file SRT output)
-- [ ] Web UI (Gradio / FastAPI)
+- [x] Web UI (Gradio local browser app via `mn web`; requires `[web]` extra)
 
 ### v0.3 New CLI flags
 
 - `--subtitle-lang` — Target language tag (`en`, `ja`, `zh-TW`, ...); empty = feature off
 - `--subtitle-mode` — Overlay mode: `original` / `translated` / `bilingual` (default `original`)
+
+### v0.3.5 Web UI
+
+- `mn web` — Launch local Gradio browser app (requires `pip install "movie-narrator[web]"`)
+- Cooperative cancel at step boundaries (Cancel button in UI)
+- Form fields mirror CLI options; advanced params follow "empty = no override" rule (Settings defaults apply)
+- Uploads go to `mn_web_*` temp dirs, never pollute `output/`
 
 ## v0.4.x — Extensibility
 

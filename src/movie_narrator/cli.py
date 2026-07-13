@@ -9,7 +9,7 @@ from . import __version__
 from .models import Context
 from .pipeline.resolve import resolve_video
 from .pipeline.research import research_plot
-from .pipeline.runner import run_pipeline
+from .pipeline.runner import build_context, run_pipeline
 
 app = typer.Typer(help="Generate narrated movie recap videos from a single prompt.")
 
@@ -113,7 +113,7 @@ def create(
     output_dir = Path("output") / _sanitize_filename(resolved.movie)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    ctx = run_pipeline(
+    ctx = build_context(
         movie=resolved.movie,
         style=resolved.style,
         duration=resolved.duration,
@@ -134,6 +134,7 @@ def create(
         subtitle_lang=resolved.subtitle_lang,
         subtitle_mode=resolved.subtitle_mode,
     )
+    ctx = run_pipeline(ctx)
     typer.echo(f"{ctx.video_path}")
 
 
@@ -283,3 +284,22 @@ def clips(
 def version():
     """Show version."""
     typer.echo(f"movie-narrator v{__version__}")
+
+
+@app.command()
+def web(
+    host: str = typer.Option("127.0.0.1", "--host", help="Bind host"),
+    port: int = typer.Option(7860, "--port", help="Bind port"),
+    share: bool = typer.Option(False, "--share", help="Create public Gradio link"),
+):
+    """Launch the browser UI (local Gradio app)."""
+    try:
+        from .web import launch_web
+    except ImportError:
+        typer.echo(
+            "Web UI requires the 'web' extra. Install with:\n"
+            "  pip install \"movie-narrator[web]\"",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    launch_web(host=host, port=port, share=share)

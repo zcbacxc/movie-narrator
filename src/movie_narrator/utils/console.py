@@ -46,6 +46,7 @@ class Console(Protocol):
     def inline_warn(self, msg: str) -> None: ...
     def final(self, msg: str) -> None: ...
     def done(self, elapsed: float) -> None: ...
+    def cancelled(self, msg: str) -> None: ...
     def progress(self, *args, **kwargs): ...
 
 
@@ -86,6 +87,11 @@ class PlainConsole:
         """Final 'Done in ...' banner at end of pipeline."""
         print(f"\n{_BOLD}Done in {_fmt_time(elapsed)}{_RESET}")
         self._log.info(f"PIPELINE_DONE elapsed={elapsed:.3f}s")
+
+    def cancelled(self, msg: str) -> None:
+        """Cancel banner — distinct terminal path (not warn, not error)."""
+        print(f"\n{_YELLOW}⊘ Cancelled{_RESET} {msg}")
+        self._log.info(f"PIPELINE_CANCELLED {msg}")
 
     # ── in-process messages (called by steps directly) ─────
 

@@ -10,7 +10,7 @@ from ..utils.environment import collect_environment
 from .align import align_audio
 from .assets import prepare_assets
 from .bgm import mix_bgm
-from .errors import PipelineStrictError
+from .errors import PipelineCancelled, PipelineStrictError, RunController, check_cancelled
 from .export_clips import export_clips
 from .match import match_clips
 from .research import research_plot
@@ -69,7 +69,10 @@ STEPS = [
 ]
 
 
-def run_pipeline(
+# ── Context construction (shared by CLI and Web) ───────────
+
+
+def build_context(
     movie: str,
     style: str,
     duration: int,
@@ -88,10 +91,20 @@ def run_pipeline(
     workflow_steps: Optional[Dict[str, bool]] = None,
     params: Optional[Dict[str, Any]] = None,
     config_path: Optional[str] = None,
-    # Multi-language subtitle (v0.3).
     subtitle_lang: Optional[str] = None,
     subtitle_mode: Optional[str] = None,
+    services: Optional[Services] = None,
 ) -> Context:
+    """Assemble a :class:`Context` ready for :func:`run_pipeline`.
+
+    Handles Settings merge, BGM resolution, console/logger wiring, and
+    metadata initialisation. Both CLI and Web call this — the only
+    difference is the ``services`` inject (Web passes a
+    ``GradioConsole``-backed ``Services``; CLI passes ``None`` and gets
+    the default ``PlainConsole``).
+
+    This function does **not** run any pipeline steps.
+    """
     settings = get_settings()
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -112,8 +125,8 @@ def run_pipeline(
         bgm_path = None
         bgm_request = "none"
 
-    console = build_console(output_dir)
-    services = Services(console=console)
+    if services is None:
+        services = Services(console=build_console(output_dir))
 
     ctx = Context(
         movie_name=movie,
@@ -153,10 +166,37 @@ def run_pipeline(
     if config_path:
         ctx.metadata["config_path"] = config_path
 
+    return ctx
+
+
+# ── Pipeline execution ─────────────────────────────────────
+
+
+def run_pipeline(
+    ctx: Context,
+    *,
+    controller: Optional[RunController] = None,
+) -> Context:
+    """Execute the 14-step pipeline against *ctx*.
+
+    ``controller=None`` means CLI mode — no cancel checks fire. Web
+    passes a ``GradioController`` so the user can request a cooperative
+    cancel at step boundaries.
+
+    ``PipelineCancelled`` raises before ``_check_strict``, so ``--strict``
+    never trips on cancellation. Cancel is a distinct terminal path —
+    it is NOT a soft-step warning and does NOT set status fields to
+    ``failed``.
+    """
+    console = ctx.services.console
+    workflow_steps: Optional[Dict[str, bool]] = ctx.metadata.get("workflow_steps")
+
     total_start = time.time()
 
     for step in STEPS:
         name = step.__name__
+
+        check_cancelled(controller)
 
         # ── Pre-check: workflow_steps disabled? ──────────────
         # Authoritative path: runner short-circuits before step runs.
@@ -169,6 +209,8 @@ def run_pipeline(
             _check_strict(ctx, name)
             continue
 
+        check_cancelled(controller)
+
         # ── Execute step with soft/hard exception fork ───────
         # Soft steps: exception → ⚠ + continue (no abort).
         # Hard steps: exception → ✗ + re-raise (abort pipeline).
@@ -178,6 +220,9 @@ def run_pipeline(
 
         try:
             ctx = step(ctx)
+        except PipelineCancelled:
+            console.cancelled("Pipeline cancelled.")
+            raise
         except Exception as e:
             elapsed = time.time() - step_start
             if name in SOFT_STATUS_STEPS:
