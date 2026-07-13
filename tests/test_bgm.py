@@ -10,6 +10,26 @@ def _write_silent_mp3(path: Path, ms: int = 500):
     AudioSegment.silent(duration=ms).export(path, format="mp3")
 
 
+def _write_tone_mp3(path: Path, ms: int = 500, freq: int = 440):
+    """Write a sine-wave tone so gain is actually applied (non-silent)."""
+    import math
+    import struct
+    sample_rate = 44100
+    n_samples = int(sample_rate * ms / 1000.0)
+    amplitude = 2 ** 15 - 1
+    sine_wave = bytearray()
+    for i in range(n_samples):
+        val = int(amplitude * math.sin(2.0 * math.pi * freq * i / sample_rate))
+        sine_wave.extend(struct.pack("<h", val))
+    seg = AudioSegment(
+        data=bytes(sine_wave),
+        sample_width=2,
+        frame_rate=sample_rate,
+        channels=1,
+    )
+    seg.export(path, format="mp3")
+
+
 def test_mix_bgm_skipped_none(tmp_path):
     narr = tmp_path / "narration.mp3"
     _write_silent_mp3(narr)
@@ -33,8 +53,8 @@ def test_mix_bgm_explicit_missing_failed(tmp_path):
 def test_mix_bgm_success(tmp_path):
     narr = tmp_path / "narration.mp3"
     bgm = tmp_path / "bgm.mp3"
-    _write_silent_mp3(narr, 800)
-    _write_silent_mp3(bgm, 400)
+    _write_tone_mp3(narr, 800, freq=440)
+    _write_tone_mp3(bgm, 400, freq=880)
     ctx = Context(
         movie_name="m",
         output_dir=str(tmp_path),
