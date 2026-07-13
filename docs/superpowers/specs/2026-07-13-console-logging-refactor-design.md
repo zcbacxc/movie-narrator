@@ -223,9 +223,12 @@ class PlainConsole:
 from pathlib import Path
 
 def cleanup_logs(logs_dir: Path, keep: int = 3) -> None:
-    """保留最近 `keep` 个 .log 文件，删除更早的。"""
+    """保留最近 `keep` 个**时间戳** .log 文件（YYYYmmdd_HHMMSS.log），删除更早的。
+    `latest.log` 不在清理范围内 — 它每次被 truncate-write 而非删除重建，始终保留。"""
+    # 只清理时间戳格式的日志文件（排除 latest.log 和任何非时间戳命名文件）
     logs = sorted(
-        logs_dir.glob("*.log"),
+        [p for p in logs_dir.glob("*.log")
+         if p.name != "latest.log"],
         key=lambda p: p.stat().st_mtime,
         reverse=True,
     )
@@ -251,12 +254,22 @@ def build_console(output_dir: Path) -> PlainConsole:
     log_file = logs_dir / f"{timestamp}.log"
 
     # latest 副本（Windows 兼容：直接双写而非 symlink）
+    # 使用 truncate-write 替代 unlink+重建，避免文件系统竞态窗口
     latest = logs_dir / "latest.log"
-    if latest.exists():
-        latest.unlink()
+    # 清空旧内容而非删除重建，避免竞态窗口 + 保持 inode 稳定
+    with open(latest, "w", encoding="utf-8") as f:
+        f.write("")
 
     logger = AppLogger(log_file)
-    # 双写：时间戳文件 + latest 副本
+    # 双写：时间戳文件 + latest 副本（每次 truncate 清空后重新 append）
+    # handler 去重：若已有 latest_handler 则先移除再添加
+    existing_handlers = [
+        h for h in logger._logger.handlers
+        if isinstance(h, logging.FileHandler) and Path(h.baseFilename).name == "latest.log"
+    ]
+    for h in existing_handlers:
+        logger._logger.removeHandler(h)
+
     latest_handler = logging.FileHandler(latest, encoding="utf-8")
     latest_handler.setFormatter(logging.Formatter(
         "%(asctime)s [%(levelname)s] %(message)s",
@@ -278,29 +291,49 @@ For each step in STEPS:
   1. console.step(name)              ← 输出 ▶  + 写 STEP_START 日志
   2. 执行 step(ctx)
   3. On exception:
-     - console.step_err(name, e, elapsed)  ← 输出 ✗ 摘要 + 写 STEP_ERR + traceback
-     - re-raise (hard stop)
+     - 若 name ∈ SOFT_STATUS_STEPS（soft step）：
+       • console.step_warn(name, str(e))  ← 输出 ⚠ + 写 STEP_WARN 日志
+       • 设置 ctx.status.<field> = "failed"
+       • continue（不中断 pipeline）
+     - 若 name ∉ SOFT_STATUS_STEPS（hard step）：
+       • console.step_err(name, e, elapsed)  ← 输出 ✗ 摘要 + 写 STEP_ERR + traceback
+       • re-raise（hard stop）
   4. 读取 ctx.step_state.result:
      - SUCCESS → console.step_ok(name, elapsed)
      - SKIPPED → console.step_skip(name, ctx.step_state.message)
      - WARNING → console.step_warn(name, ctx.step_state.message)
   5. 重置 ctx.step_state 为默认值（SUCCESS, message=None）
-  6. _check_strict(ctx, name)
+  6. _check_strict(ctx, name)  ← 检查 ctx.status（PipelineStatus）中的 "failed" 字段
 After loop:
   console.final(f"✅ 视频已生成: {ctx.video_path}")
 ```
 
 ### 关键变化
 
-- 不再区分 `SOFT_STATUS_STEPS` — 所有 step 统一走 `StepState` 回传
+- `SOFT_STATUS_STEPS` 仍保留定义：用于 runner 异常分叉（soft → continue / hard → re-raise）。**所有 step 统一走 `StepState` 回传** 指 UI 渲染路径统一，与异常分叉不冲突。
 - 不再有 `print()` 裸调用
 - ANSI 颜色码收敛到 PlainConsole 内部
 - `_fmt_time` 收敛到 PlainConsole 内部（或保留为 console 的静态方法）
 - `PipelineStatus`（软步骤状态）与 `StepState`（单次运行状态）共存：
   - `PipelineStatus` 保留给跨 step 的软状态追踪（research/align/scene/match/bgm/export），值域不变：`disabled | skipped | success | failed`
   - `StepState` 是每个 step 返回时的即时状态，由 runner 消费后重置
-- **软步骤失败处理**：soft step 内部 catch 异常后设置 `PipelineStatus.<field> = "failed"` 和 `StepState.result = WARNING`，runner 渲染 ⚠。`--strict` 模式下 `_check_strict` 检查的是 `PipelineStatus` 中的 `"failed"`（与现状一致），不会因为引入 StepState 而丢失 strict 行为。
+  - **职责边界**：`PipelineStatus` = 跨 step 累积/诊断用（写一次，读多次）；`StepState` = 单 step 此时此刻的结果（写一次，读一次后重置）。冲突时 `PipelineStatus` 优先（runner 渲染以 PipelineStatus 为准，StepState 仅用于单步调试日志）。
+- **软步骤失败处理**：soft step 内部 catch 异常后设置 `PipelineStatus.<field> = "failed"` 和 `StepState.result = WARNING`，runner 渲染 ⚠ 并 continue（不中断 pipeline）。`--strict` 模式下 `_check_strict` 检查的是 `PipelineStatus` 中的 `"failed"`（与现状一致），不会因为引入 StepState 而丢失 strict 行为。
 - **硬步骤失败处理**：hard step 抛出异常 → runner catch → `console.step_err()` → re-raise（与现状一致），StepState 不参与。
+
+**PipelineStatus ↔ StepState ↔ Console 方法映射表**：
+
+| PipelineStatus | StepState | Console 方法 | 触发场景 |
+|---------------|-----------|-------------|---------|
+| `success` | `SUCCESS` | `console.step_ok()` | 正常完成 |
+| `disabled` | `SKIPPED` | `console.step_skip("disabled by workflow config")` | workflow_steps 设为 false |
+| `skipped` | `SKIPPED` | `console.step_skip(reason)` | 前置条件不满足（如无 source video） |
+| `failed`（soft）| `WARNING` | `console.step_warn(name, reason)` | soft step 内部 catch 异常后 |
+| `failed`（hard）| — | `console.step_err()` → re-raise | hard step 异常，StepState 不参与 |
+
+**`disabled` → `StepState.SKIPPED` 映射说明**：
+- runner 在执行 step **之前**检查 `workflow_steps`：若 step 被禁用，**不执行 step**，直接设置 `ctx.step_state.result = SKIPPED`、`ctx.step_state.message = "disabled by workflow config"`、`ctx.status.<field> = "disabled"`，调用 `console.step_skip()`。
+- soft step 内部也保留 disabled 判断（如 `research.py` 的 `if not research_enabled`），双重检查确保安全。
 
 ## Step 改造
 
@@ -369,7 +402,12 @@ except Exception as e:
 ```python
 # models.py — 新增
 
+from pydantic import ConfigDict
+
 class Context(BaseModel):
+    # Pydantic v2 配置：允许嵌入非 Pydantic 类型（@dataclass / Protocol）
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     # ... 现有字段不变 ...
 
     # 新增：基础设施依赖（不是业务数据）
@@ -379,9 +417,12 @@ class Context(BaseModel):
     step_state: StepState = Field(default_factory=StepState)
 ```
 
-注意：`Services` 和 `StepState` 是 `@dataclass`（非 Pydantic），因为 `Console` 是 Protocol 无法被 Pydantic 校验。`Context` 需调整 model_config 允许任意类型，或将 services/step_state 作为非 Pydantic 属性挂载。
+**实现注意**：
 
-具体实现方式：利用 Pydantic 的 `model_config = {"arbitrary_types_allowed": True}`，或者将这两个字段放在 `Context.__init__` 中手动赋值（Pydantic 会忽略未声明的 attribute）。
+1. 必须使用 Pydantic v2 语法 `ConfigDict(arbitrary_types_allowed=True)`（非 v1 的 dict 形式）。
+2. `StepState` 使用 `Field(default_factory=StepState)` — runner 每次循环结束时重置 `ctx.step_state = StepState()`（重置为默认值）。
+3. **`services` 字段序列化排除**：`Console` 是 `Protocol`（`@runtime_checkable`），实例不可被 JSON 序列化，`ctx.model_dump()` 必须使用 `exclude={'services'}`。当前 `model_dump()` 的调用点（render.py metadata 写入、`_check_strict`）不依赖 `services` 字段，兼容。
+4. `build_context()` 负责创建 `Services(console=...)` 并赋值 `ctx.services = services`。
 
 ## 日志文件示例
 
@@ -446,6 +487,7 @@ class Context(BaseModel):
 - **不改 step 函数签名**：保持 `step(ctx) -> ctx`
 - **不用模块级单例**：Console 通过 Services 注入，可测试、可替换
 - **不动 tqdm**：透传即可，不与 logging 融合
+- **render.py 的 tqdm 进度条为已知例外**：MoviePy 的 `SceneProgressCallback` 是回调函数，不持有 `ctx` 引用，无法通过 `ctx.services.console.progress()` 访问 Console。在 step 迁移阶段（实现顺序第 6 步），改为通过回调闭包捕获 `ctx` 或 `console` 引用：`SceneProgressCallback(lambda *a, **kw: ctx.services.console.progress(*a, **kw))`。若闭包方案不可行（MoviePy 限制），则保留直接 `tqdm` 导入，列为"已记录的架构例外"。
 - **不把日志写入数据库/远程**：YAGNI
 
 ## 实现顺序

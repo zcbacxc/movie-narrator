@@ -146,6 +146,19 @@ mn create --movie "飞驰人生" --keep-cache
 | `--no-clips` | 跳过场景片段导出 | `false` |
 | `--strict` | 软步骤失败时中止 | `false` |
 | `--keep-cache` | 保留 TTS 缓存文件 | `false` |
+| `--config` | Job YAML 配置文件路径（movie/steps/params）；CLI 参数覆盖 YAML | - |
+
+### Job YAML 配置（v0.3）
+
+```bash
+# 通过 YAML 文件驱动任务（movie 可只写在 YAML 中）
+mn create --config examples/job.example.yaml
+
+# CLI 参数优先级高于 YAML
+mn create --config examples/job.example.yaml --movie "其他电影" --no-clips
+```
+
+参见 [`examples/job.example.yaml`](examples/job.example.yaml) 查看完整白名单：`steps:` 下的软步骤开关（`research`、`align`、`scene`、`match`、`bgm`、`export`）和 `params:`（`scene_threshold`、`match_min_score`、`research_provider`）。相对路径 `video` / `bgm` / `library_dir` 以 YAML 文件所在目录为基准解析。LLM 凭证仅保存在 `.env` / `MN_*` 环境变量中。
 
 ### 离线演示（无需 LLM）
 
@@ -229,36 +242,38 @@ mn create --movie "飞驰人生" --duration 60
 ```text
 output/
 └── 飞驰人生/
-    ├── narration.mp3
-    ├── final_audio.mp3
+    ├── narration.mp3       # TTS 解说音频
+    ├── mixed.mp3            # 解说 + BGM 混音（启用 BGM 时）
     ├── subtitle.srt
     ├── script.md
     ├── script.json
-    ├── research.json
+    ├── research.json        # （使用 --research 时）
+    ├── scenes.json          # （提供视频时）
+    ├── matches.json         # （提供视频时）
     ├── metadata.json
     ├── final.mp4
-    ├── matches.json
-    └── clips/
+    └── clips/               # （未设置 --no-clips 时）
 ```
 
 | 文件 | 说明 |
 |------|------|
 | `narration.mp3` | AI 生成的解说音频 |
-| `final_audio.mp3` | 解说 + BGM 混合音频（启用 BGM 时） |
+| `mixed.mp3` | 解说 + BGM 混音（启用 BGM 时；否则直接使用 `narration.mp3`） |
 | `subtitle.srt` | 同步字幕文件 |
 | `script.md` | 人类可读的脚本 |
 | `script.json` | 机器可读的脚本分段 |
 | `research.json` | 电影调研数据（使用 `--research` 时） |
+| `scenes.json` | 检测到的场景边界（提供视频时） |
 | `metadata.json` | 片段时间戳、流水线状态、配置 |
 | `final.mp4` | 渲染的视频（16:9 或 9:16） |
 | `matches.json` | 场景-片段匹配结果（提供视频时） |
-| `clips/` | 逐片段剪辑文件 |
+| `clips/` | 逐片段剪辑 .mp4 文件（未设置 `--no-clips` 时） |
 
 ---
 
 ## 流水线
 
-13 步顺序流水线（详见[架构设计](docs/ARCHITECTURE.md)）：
+14 步顺序流水线（详见[架构设计](docs/ARCHITECTURE.md)）：
 
 ```text
 resolve_video → prepare_assets → research_plot → generate_script →
@@ -281,7 +296,7 @@ movie-narrator/
 │   ├── config.py            # Pydantic 配置
 │   ├── models.py            # 数据模型（Context、Status 等）
 │   ├── pipeline/
-│   │   ├── runner.py        # 13 步流水线协调器
+│   │   ├── runner.py        # 14 步流水线协调器
 │   │   ├── resolve.py       # 源视频解析
 │   │   ├── assets.py        # 素材验证
 │   │   ├── research.py      # LLM 电影调研
@@ -296,6 +311,11 @@ movie-narrator/
 │   │   ├── render.py        # MoviePy 视频渲染
 │   │   ├── export_clips.py  # 逐片段剪辑导出
 │   │   └── errors.py        # PipelineStrictError
+│   ├── workflow/
+│   │   ├── schema.py        # JobConfig / JobSteps / JobParams
+│   │   ├── load.py          # YAML 加载与验证
+│   │   ├── merge.py         # CLI > YAML > Settings 合并
+│   │   └── errors.py        # JobConfigError
 │   └── utils/
 │       ├── async_utils.py   # 同步/异步桥接
 │       ├── environment.py   # 环境信息收集
@@ -311,6 +331,7 @@ movie-narrator/
 │   ├── test_align.py
 │   ├── test_assets.py
 │   ├── test_bgm.py
+│   ├── test_cli_config.py
 │   ├── test_cli_resolve.py
 │   ├── test_match.py
 │   ├── test_optional_deps.py
@@ -318,8 +339,10 @@ movie-narrator/
 │   ├── test_research.py
 │   ├── test_resolve.py
 │   ├── test_runner_strict.py
+│   ├── test_runner_workflow_metadata.py
 │   ├── test_scenes.py
-│   └── test_script_export.py
+│   ├── test_script_export.py
+│   └── test_workflow_steps.py
 ├── docs/
 ├── assets/
 └── .github/workflows/
@@ -351,10 +374,10 @@ movie-narrator/
 - [x] 脚本 Markdown 导出（`script.md`）
 - [x] 场景级片段输出（`clips/`）
 
-### v0.3.x — 平台与工作流
+### v0.3.x — 平台与工作流 ✅
 
-- [ ] 工作流 DSL（流水线自定义）
-- [ ] YAML 流水线配置
+- [x] 声明式工作流配置（软步骤开关 + 参数调节）
+- [x] YAML 任务配置文件（`mn create --config`）
 - [ ] Web UI（Gradio / FastAPI）
 - [ ] 多语言字幕支持
 
