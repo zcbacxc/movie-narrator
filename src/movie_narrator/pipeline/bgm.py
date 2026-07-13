@@ -2,7 +2,7 @@ from pathlib import Path
 
 from pydub import AudioSegment
 
-from ..models import Context
+from ..models import Context, StepResult
 
 BGM_GAIN_DB = -18
 
@@ -11,7 +11,8 @@ def mix_bgm(ctx: Context) -> Context:
     if ctx.metadata.get("workflow_steps", {}).get("bgm") is False:
         ctx.status.bgm = "disabled"
         ctx.final_audio_path = ctx.audio_path
-        print("⏭ mix_bgm: disabled by workflow config")
+        ctx.step_state.result = StepResult.SKIPPED
+        ctx.step_state.message = "disabled by workflow config"
         return ctx
     if not ctx.audio_path:
         ctx.status.bgm = "skipped"
@@ -25,7 +26,8 @@ def mix_bgm(ctx: Context) -> Context:
         return ctx
 
     if req == "explicit" and not ctx.assets.bgm:
-        print("✗ mix_bgm: explicit BGM missing")
+        ctx.step_state.result = StepResult.WARNING
+        ctx.step_state.message = "explicit BGM missing"
         ctx.status.bgm = "failed"
         ctx.final_audio_path = ctx.audio_path
         return ctx
@@ -49,7 +51,8 @@ def mix_bgm(ctx: Context) -> Context:
         ctx.status.bgm = "success"
         return ctx
     except Exception as e:
-        print(f"✗ mix_bgm: {e}")
+        ctx.step_state.result = StepResult.WARNING
+        ctx.step_state.message = str(e)
         ctx.status.bgm = "failed"
         ctx.final_audio_path = ctx.audio_path
         return ctx

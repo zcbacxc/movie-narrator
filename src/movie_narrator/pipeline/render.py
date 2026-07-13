@@ -53,7 +53,7 @@ def render_video(ctx: Context) -> Context:
         try:
             source = VideoFileClip(ctx.source_video_path)
         except Exception as e:
-            print(f"  fallback to text: cannot open source video: {e}")
+            ctx.services.console.debug(f"  fallback to text: cannot open source video: {e}")
             usable_clips = []
         else:
             for mc in usable_clips:
@@ -66,7 +66,7 @@ def render_video(ctx: Context) -> Context:
                     subclip = subclip.set_start(mc.narr_start)
                     clips.append(subclip)
                 except Exception as ie:
-                    print(f"  fallback for segment {mc.segment_index}: {ie}")
+                    ctx.services.console.debug(f"  fallback for segment {mc.segment_index}: {ie}")
                     img_array = _create_text_image(mc.text, size, fontsize=100)
                     img_clip = ImageClip(img_array, transparent=True)
                     img_clip = img_clip.set_duration(seg_duration).set_start(mc.narr_start)

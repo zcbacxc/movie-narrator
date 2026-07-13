@@ -1,4 +1,4 @@
-from ..models import Context
+from ..models import Context, StepResult
 from ..utils.optional_deps import probe
 
 
@@ -24,16 +24,19 @@ def align_audio(ctx: Context) -> Context:
     """
     if ctx.metadata.get("workflow_steps", {}).get("align") is False:
         ctx.status.align = "disabled"
-        print("⏭ align_audio: disabled by workflow config")
+        ctx.step_state.result = StepResult.SKIPPED
+        ctx.step_state.message = "disabled by workflow config"
         return ctx
     ok, hint = probe("whisperx")
     if not ok:
         ctx.status.align = "disabled"
-        print(f"⏭ align_audio: {hint}")
+        ctx.step_state.result = StepResult.SKIPPED
+        ctx.step_state.message = hint
         return ctx
     if not ctx.audio_path:
         ctx.status.align = "skipped"
-        print("⏭ align_audio: no audio")
+        ctx.step_state.result = StepResult.SKIPPED
+        ctx.step_state.message = "no audio"
         return ctx
 
     try:
@@ -59,9 +62,9 @@ def align_audio(ctx: Context) -> Context:
                     ts.end = aligned[i]["end"]
 
         ctx.status.align = "success"
-        print("✓ align_audio")
         return ctx
     except Exception as e:
-        print(f"✗ align_audio: {e}")
+        ctx.step_state.result = StepResult.WARNING
+        ctx.step_state.message = str(e)
         ctx.status.align = "failed"
         return ctx

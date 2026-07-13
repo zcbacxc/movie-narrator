@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 from ..config import get_settings
-from ..models import Context, ResearchInfo
+from ..models import Context, ResearchInfo, StepResult
 from ..utils.json_parser import extract_json
 from ..utils.llm import get_llm_client
 
@@ -37,11 +37,13 @@ def _write_envelope(output_dir: Path, status: str, error: str | None, research: 
 def research_plot(ctx: Context) -> Context:
     if ctx.metadata.get("workflow_steps", {}).get("research") is False:
         ctx.status.research = "disabled"
-        print("⏭ research_plot: disabled by workflow config")
+        ctx.step_state.result = StepResult.SKIPPED
+        ctx.step_state.message = "disabled by workflow config"
         return ctx
     if not ctx.metadata.get("research_enabled"):
         ctx.status.research = "skipped"
-        print("⏭ research_plot: research disabled")
+        ctx.step_state.result = StepResult.SKIPPED
+        ctx.step_state.message = "research disabled"
         return ctx
 
     provider = ctx.metadata.get("research_provider", get_settings().research_provider)
@@ -49,7 +51,8 @@ def research_plot(ctx: Context) -> Context:
 
     if provider != "llm":
         err = f"unknown provider: {provider}"
-        print(f"✗ research_plot: {err}")
+        ctx.step_state.result = StepResult.WARNING
+        ctx.step_state.message = err
         _write_envelope(output_dir, "failed", err, None)
         ctx.status.research = "failed"
         return ctx
@@ -76,11 +79,11 @@ def research_plot(ctx: Context) -> Context:
             )
             _write_envelope(output_dir, "success", None, ctx.research.model_dump())
             ctx.status.research = "success"
-            print("✓ research_plot")
             return ctx
     except Exception as e:
         err = str(e)
-        print(f"✗ research_plot: {err}")
+        ctx.step_state.result = StepResult.WARNING
+        ctx.step_state.message = err
         _write_envelope(output_dir, "failed", err, None)
         ctx.status.research = "failed"
         return ctx

@@ -1,8 +1,51 @@
-from typing import Any, Dict, List, Literal, Optional
+from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any, Dict, List, Literal, Optional, Protocol, runtime_checkable
+
+from pydantic import BaseModel, ConfigDict, Field
 
 StepStatus = Literal["disabled", "skipped", "success", "failed"]
+
+
+# ── Step result ────────────────────────────────────────────
+
+
+class StepResult(Enum):
+    SUCCESS = "success"
+    SKIPPED = "skipped"
+    WARNING = "warning"
+
+
+@dataclass
+class StepState:
+    result: StepResult = StepResult.SUCCESS
+    message: str | None = None
+
+
+# ── Services container ──────────────────────────────────────
+
+
+@runtime_checkable
+class Console(Protocol):
+    """Output abstraction — console rendering + log dispatch."""
+
+    def step(self, name: str) -> None: ...
+    def step_ok(self, name: str, elapsed: float) -> None: ...
+    def step_skip(self, name: str, reason: str) -> None: ...
+    def step_warn(self, name: str, reason: str) -> None: ...
+    def step_err(self, name: str, exc: Exception, elapsed: float) -> None: ...
+    def warn(self, msg: str) -> None: ...
+    def debug(self, msg: str) -> None: ...
+    def inline_warn(self, msg: str) -> None: ...
+    def final(self, msg: str) -> None: ...
+    def progress(self, *args, **kwargs): ...
+
+
+@dataclass
+class Services:
+    console: Console
 
 
 class ScriptSegment(BaseModel):
@@ -61,6 +104,8 @@ class MatchedClip(BaseModel):
 
 
 class Context(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     movie_name: str
     style: str = "热血搞笑"
     duration: int = 60
@@ -85,5 +130,11 @@ class Context(BaseModel):
     scenes: List[Scene] = Field(default_factory=list)
     matched_clips: List[MatchedClip] = Field(default_factory=list)
     status: PipelineStatus = Field(default_factory=PipelineStatus)
+
+    # Infrastructure — injected by build_context(), excluded from serialization
+    services: Optional[Services] = None
+
+    # Single-step return state — consumed by runner, reset after each step
+    step_state: StepState = Field(default_factory=StepState)
 
     metadata: Dict[str, Any] = Field(default_factory=dict)

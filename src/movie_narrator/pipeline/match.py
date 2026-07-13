@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Optional
 
 from ..config import get_settings
-from ..models import Context, MatchedClip
+from ..models import Context, MatchedClip, StepResult
 from ..utils.optional_deps import probe
 
 _EMBEDDING_MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
@@ -52,29 +52,44 @@ def _cosine_top1(target_vec, candidate_matrix):
 def match_clips(ctx: Context) -> Context:
     if ctx.metadata.get("workflow_steps", {}).get("match") is False:
         ctx.status.match = "disabled"
-        print("⏭ match_clips: disabled by workflow config")
+        ctx.step_state.result = StepResult.SKIPPED
+        ctx.step_state.message = "disabled by workflow config"
         return ctx
     if not ctx.source_video_path:
         ctx.status.match = "skipped"
-        print("⏭ match_clips: no source video")
+        ctx.step_state.result = StepResult.SKIPPED
+        ctx.step_state.message = "no source video"
         return ctx
     if ctx.status.scene == "disabled":
         ctx.status.match = "disabled"
-        print("⏭ match_clips: scene disabled")
+        ctx.step_state.result = StepResult.SKIPPED
+        ctx.step_state.message = "scene disabled"
         return ctx
     if not ctx.scenes:
         ctx.status.match = "skipped"
-        print("⏭ match_clips: no scenes")
+        ctx.step_state.result = StepResult.SKIPPED
+        ctx.step_state.message = "no scenes"
         return ctx
     if not ctx.timed_segments:
         ctx.status.match = "skipped"
-        print("⏭ match_clips: no timed segments")
+        ctx.step_state.result = StepResult.SKIPPED
+        ctx.step_state.message = "no timed segments"
         return ctx
 
     settings = get_settings()
     min_score = ctx.metadata.get("match_min_score", settings.match_min_score)
     output_dir = Path(ctx.output_dir)
 
+    try:
+        return _match_clips_impl(ctx, min_score, output_dir)
+    except Exception as e:
+        ctx.status.match = "failed"
+        ctx.step_state.result = StepResult.WARNING
+        ctx.step_state.message = str(e)
+        return ctx
+
+
+def _match_clips_impl(ctx: Context, min_score: float, output_dir: Path) -> Context:
     # Compute total scene span
     scene_start = min(s.start for s in ctx.scenes)
     scene_end = max(s.end for s in ctx.scenes)
@@ -131,7 +146,7 @@ def match_clips(ctx: Context) -> Context:
                 score = float(scene_vecs[best_idx] @ narration_vecs[i])
                 final.append((heuristic[i], score, best_scene, "embedding"))
         except Exception as e:
-            print(f"⏭ match_clips: embedding re-rank unavailable ({e}); using heuristic")
+            ctx.services.console.inline_warn(f"embedding re-rank unavailable ({e}); using heuristic")
             final = [(h, 1.0, None, "heuristic") for h in heuristic]
     else:
         final = [(h, 1.0, None, "heuristic") for h in heuristic]
@@ -167,7 +182,9 @@ def match_clips(ctx: Context) -> Context:
         encoding="utf-8",
     )
     ctx.status.match = "success"
-    print(
-        f"✓ match_clips: {len(matched_clips)}/{len(ctx.timed_segments)} matched"
-    )
     return ctx
+
+
+# Backwards-compatible alias for in-process callers that imported this
+# from the module top-level before the refactor.
+match_clips_original = _match_clips_impl

@@ -3,7 +3,7 @@ import unicodedata
 from pathlib import Path
 from typing import Optional
 
-from ..models import Context
+from ..models import Context, StepResult
 
 _VIDEO_EXTS = {".mp4", ".mkv", ".mov", ".avi", ".webm", ".m4v"}
 
@@ -49,7 +49,8 @@ def resolve_video(ctx: Context) -> Context:
     if ctx.library_dir:
         hit = find_in_library(ctx.movie_name, ctx.library_dir)
         if hit:
-            print(f"library match: {hit}")
+            if ctx.services:
+                ctx.services.console.debug(f"library match: {hit}")
             ctx.source_video_path = hit
             return ctx
     ctx.source_video_path = None
