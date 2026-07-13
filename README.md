@@ -5,7 +5,7 @@
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/github/license/zcbacxc/movie-narrator)
-![CI](https://github.com/zcbacxc/movie-narrator/actions/workflows/test.yml/badge.svg)
+![CI](https://github.com/zcbacxc/movie-narrator/actions/workflows/ci.yml/badge.svg)
 ![PyPI](https://img.shields.io/pypi/v/movie-narrator)
 ![Downloads](https://img.shields.io/pypi/dm/movie-narrator)
 
@@ -20,6 +20,7 @@ Movie Narrator is an open-source toolkit that automatically generates movie reca
 - 🎬 Generate movie recap scripts with LLMs
 - 🔊 Text-to-Speech narration (Edge-TTS by default)
 - 💬 Automatic SRT subtitle generation
+- 🌐 Multi-language subtitles (`--subtitle-lang en` translates narration cues via LLM and writes `subtitle.<lang>.srt` + `subtitle.bilingual.srt`)
 - 🎞️ Video rendering with MoviePy and FFmpeg
 - 📝 Script markdown export (`script.md`)
 - 🎵 Background music integration (BGM)
@@ -145,6 +146,8 @@ mn create --movie "飞驰人生" --keep-cache
 | `--no-bgm` | Disable BGM even if default is set | `false` |
 | `--no-clips` | Skip scene-level clip export | `false` |
 | `--strict` | Abort pipeline on soft step failure | `false` |
+| `--subtitle-lang` | Target language tag (`en`, `ja`, `zh-TW`, ...); empty = feature off | - |
+| `--subtitle-mode` | Overlay mode: `original` / `translated` / `bilingual` | `original` |
 | `--config` | Path to job YAML (movie/steps/params); CLI flags override YAML | - |
 
 ### Job YAML config (v0.3)
@@ -157,7 +160,33 @@ mn create --config examples/job.example.yaml
 mn create --config examples/job.example.yaml --movie "OtherTitle" --no-clips
 ```
 
-See [`examples/job.example.yaml`](examples/job.example.yaml) for the full whitelist: soft-step toggles under `steps:` (`research`, `align`, `scene`, `match`, `bgm`, `export`) and params (`scene_threshold`, `match_min_score`, `research_provider`). Relative `video` / `bgm` / `library_dir` paths resolve against the YAML file's directory. LLM credentials stay in `.env` / `MN_*` only.
+See [`examples/job.example.yaml`](examples/job.example.yaml) for the full whitelist: soft-step toggles under `steps:` (`research`, `align`, `scene`, `match`, `bgm`, `export`, `translate`), `params:` (`scene_threshold`, `match_min_score`, `research_provider`, `translate_provider`, `translate_retries`, `translate_chunk_chars`, `translate_chunk_size`), and the multi-language subtitle top-level keys `subtitle_lang` / `subtitle_mode`. Relative `video` / `bgm` / `library_dir` paths resolve against the YAML file's directory. LLM credentials stay in `.env` / `MN_*` only.
+
+### Multi-language subtitles
+
+```bash
+# Translate narration cues to English and overlay them on the video
+mn create --movie "Inception" --subtitle-lang en --subtitle-mode bilingual
+
+# Or just write the translated SRT files (no on-screen change)
+mn create --movie "Inception" --subtitle-lang en
+```
+
+When `--subtitle-lang` is set, `generate_subtitle` always writes three SRT files:
+
+- `subtitle.srt` — original narration (always present, `subtitle_path` invariant)
+- `subtitle.<lang>.srt` — translated (e.g. `subtitle.en.srt`)
+- `subtitle.bilingual.srt` — cue body `f"{original}\n{translation}"` (LF between lines)
+
+`--subtitle-mode` chooses which file `render_video` reads:
+
+| Mode | Overlay text source |
+|------|---------------------|
+| `original` (default) | `subtitle.srt` |
+| `translated` | `subtitle.<lang>.srt` (falls back to `subtitle.srt` with a warn if missing) |
+| `bilingual` | `subtitle.bilingual.srt` (same fallback) |
+
+Setting `subtitle_mode=translated|bilingual` without `subtitle_lang` raises `JobConfigError` at merge time. Failure policy: LLM retries `MN_TRANSLATE_RETRIES` times, then soft-degrades to filling the translation track with the original text and surfacing a warning.
 
 ### Offline Demo (No LLM Required)
 
@@ -233,6 +262,10 @@ mn create --movie "飞驰人生" --duration 60
 | `MN_SCENE_FRAME_SKIP` | Frames to skip in scene detection | `10` |
 | `MN_MATCH_MIN_SCORE` | Minimum match score | `0.25` |
 | `MN_EXPORT_CLIPS_DEFAULT` | Auto-export clips | `true` |
+| `MN_SUBTITLE_LANG` | Default target language tag; empty = feature off | - |
+| `MN_SUBTITLE_MODE` | Default overlay mode (`original` / `translated` / `bilingual`) | `original` |
+| `MN_TRANSLATE_PROVIDER` | Translation backend (v0.3: `llm` only) | `llm` |
+| `MN_TRANSLATE_RETRIES` | LLM translation retries before soft-degrade | `3` |
 
 ---
 
@@ -244,6 +277,8 @@ output/
     ├── narration.mp3       # TTS narration audio
     ├── mixed.mp3            # Narration + BGM mix (when BGM enabled)
     ├── subtitle.srt
+    ├── subtitle.<lang>.srt    # (when --subtitle-lang set; e.g. subtitle.en.srt)
+    ├── subtitle.bilingual.srt # (when --subtitle-lang set; original + LF + translation per cue)
     ├── script.md
     ├── script.json
     ├── research.json        # (when --research)
@@ -258,7 +293,9 @@ output/
 |------|-------------|
 | `narration.mp3` | AI-generated narration audio |
 | `mixed.mp3` | Narration + BGM overlay (when BGM enabled; otherwise `narration.mp3` used directly) |
-| `subtitle.srt` | Synchronized subtitle file |
+| `subtitle.srt` | Synchronized subtitle file (original narration) |
+| `subtitle.<lang>.srt` | Translated subtitle (when `--subtitle-lang` set) |
+| `subtitle.bilingual.srt` | Bilingual subtitle (when `--subtitle-lang` set; cue body `f"{src}\n{dst}"`) |
 | `script.md` | Human-readable script |
 | `script.json` | Machine-readable script segments |
 | `research.json` | Movie research data (when `--research`) |
@@ -277,11 +314,11 @@ output/
 ```text
 resolve_video → prepare_assets → research_plot → generate_script →
 export_script_md → generate_voice → align_audio → detect_scenes →
-match_clips → mix_bgm → generate_subtitle → render_video →
-export_clips
+match_clips → mix_bgm → translate_subtitles → generate_subtitle →
+render_video → export_clips
 ```
 
-**Soft steps** (research, align, scene detect, scene match, BGM, clip export) gracefully skip when optional dependencies are missing. Use `--strict` to abort instead.
+**Soft steps** (research, align, scene detect, scene match, BGM, translate, clip export) gracefully skip or soft-degrade when optional dependencies are missing or upstream data is unavailable. Use `--strict` to abort instead.
 
 ---
 
@@ -306,7 +343,8 @@ movie-narrator/
 │   │   ├── scenes.py        # PySceneDetect scene detection
 │   │   ├── match.py         # Heuristic clip matching
 │   │   ├── bgm.py           # Background music mixing
-│   │   ├── subtitle.py      # SRT generation
+│   │   ├── translate.py     # Multi-language subtitle translation (LLM)
+│   │   ├── subtitle.py      # SRT generation (single / translated / bilingual)
 │   │   ├── render.py        # MoviePy video rendering
 │   │   ├── export_clips.py  # Per-segment clip export
 │   │   └── errors.py        # PipelineStrictError
@@ -317,12 +355,16 @@ movie-narrator/
 │   │   └── errors.py        # JobConfigError
 │   └── utils/
 │       ├── async_utils.py   # Sync/async bridge
+│       ├── console.py       # Console Protocol + PlainConsole + build_console
 │       ├── environment.py   # Environment collection
 │       ├── font.py          # CJK font fallback
 │       ├── json_parser.py   # LLM JSON extraction
 │       ├── llm.py           # OpenAI client wrapper
+│       ├── log.py           # AppLogger (file logging layer)
+│       ├── metadata_export.py # metadata.json builder
 │       ├── optional_deps.py # Optional dependency probing
-│       └── prompts.py       # Prompt templates
+│       ├── prompts.py       # Prompt templates
+│       └── retention.py     # Log file retention
 ├── tests/
 │   ├── test_context.py
 │   ├── test_settings.py
@@ -341,6 +383,7 @@ movie-narrator/
 │   ├── test_runner_workflow_metadata.py
 │   ├── test_scenes.py
 │   ├── test_script_export.py
+│   ├── test_translate.py
 │   └── test_workflow_steps.py
 ├── docs/
 ├── assets/
@@ -377,8 +420,9 @@ movie-narrator/
 
 - [x] Declarative workflow config for soft-step toggles + params
 - [x] YAML-based job configuration (`mn create --config`)
+- [x] Console / structured-step-state logging refactor (`ctx.services.console`, `StepState`)
+- [x] Multi-language subtitle support (`--subtitle-lang` / `--subtitle-mode`; LLM translation with retry-then-soft-degrade; `subtitle.<lang>.srt` + `subtitle.bilingual.srt` outputs)
 - [ ] Web UI (Gradio / FastAPI)
-- [ ] Multi-language subtitle support
 
 ### v0.4.x — Extensibility
 
