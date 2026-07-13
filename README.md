@@ -241,36 +241,38 @@ mn create --movie "飞驰人生" --duration 60
 ```text
 output/
 └── 飞驰人生/
-    ├── narration.mp3
-    ├── final_audio.mp3
+    ├── narration.mp3       # TTS narration audio
+    ├── mixed.mp3            # Narration + BGM mix (when BGM enabled)
     ├── subtitle.srt
     ├── script.md
     ├── script.json
-    ├── research.json
+    ├── research.json        # (when --research)
+    ├── scenes.json          # (when video provided)
+    ├── matches.json         # (when video provided)
     ├── metadata.json
     ├── final.mp4
-    ├── matches.json
-    └── clips/
+    └── clips/               # (when --no-clips not set)
 ```
 
 | File | Description |
 |------|-------------|
 | `narration.mp3` | AI-generated narration audio |
-| `final_audio.mp3` | Narration + BGM mix (when BGM enabled) |
+| `mixed.mp3` | Narration + BGM overlay (when BGM enabled; otherwise `narration.mp3` used directly) |
 | `subtitle.srt` | Synchronized subtitle file |
 | `script.md` | Human-readable script |
 | `script.json` | Machine-readable script segments |
 | `research.json` | Movie research data (when `--research`) |
+| `scenes.json` | Detected scene boundaries (when video provided) |
 | `metadata.json` | Segment timings, pipeline status, config |
 | `final.mp4` | Rendered video (16:9 or 9:16) |
-| `matches.json` | Scene-to-segment matching (when video provided) |
-| `clips/` | Per-segment clip files |
+| `matches.json` | Scene-to-segment clip matching (when video provided) |
+| `clips/` | Per-segment clip .mp4 files (when `--no-clips` not set) |
 
 ---
 
 ## Pipeline
 
-13-step sequential pipeline (see [Architecture](docs/ARCHITECTURE.md)):
+14-step sequential pipeline (see [Architecture](docs/ARCHITECTURE.md)):
 
 ```text
 resolve_video → prepare_assets → research_plot → generate_script →
@@ -293,7 +295,7 @@ movie-narrator/
 │   ├── config.py            # Pydantic settings
 │   ├── models.py            # Data models (Context, Status, etc.)
 │   ├── pipeline/
-│   │   ├── runner.py        # 13-step pipeline orchestrator
+│   │   ├── runner.py        # 14-step pipeline orchestrator
 │   │   ├── resolve.py       # Source video resolution
 │   │   ├── assets.py        # Asset validation
 │   │   ├── research.py      # LLM movie research
@@ -308,6 +310,11 @@ movie-narrator/
 │   │   ├── render.py        # MoviePy video rendering
 │   │   ├── export_clips.py  # Per-segment clip export
 │   │   └── errors.py        # PipelineStrictError
+│   ├── workflow/
+│   │   ├── schema.py        # JobConfig / JobSteps / JobParams
+│   │   ├── load.py          # YAML loader + validation
+│   │   ├── merge.py         # CLI > YAML > Settings merge
+│   │   └── errors.py        # JobConfigError
 │   └── utils/
 │       ├── async_utils.py   # Sync/async bridge
 │       ├── environment.py   # Environment collection
@@ -323,6 +330,7 @@ movie-narrator/
 │   ├── test_align.py
 │   ├── test_assets.py
 │   ├── test_bgm.py
+│   ├── test_cli_config.py
 │   ├── test_cli_resolve.py
 │   ├── test_match.py
 │   ├── test_optional_deps.py
@@ -330,8 +338,10 @@ movie-narrator/
 │   ├── test_research.py
 │   ├── test_resolve.py
 │   ├── test_runner_strict.py
+│   ├── test_runner_workflow_metadata.py
 │   ├── test_scenes.py
-│   └── test_script_export.py
+│   ├── test_script_export.py
+│   └── test_workflow_steps.py
 ├── docs/
 ├── assets/
 └── .github/workflows/
@@ -363,10 +373,10 @@ movie-narrator/
 - [x] Script markdown export (`script.md`)
 - [x] Scene-level clip output (`clips/`)
 
-### v0.3.x — Platform & Workflow
+### v0.3.x — Platform & Workflow ✅
 
-- [ ] Workflow DSL for pipeline customization
-- [ ] YAML-based pipeline configuration
+- [x] Declarative workflow config for soft-step toggles + params
+- [x] YAML-based job configuration (`mn create --config`)
 - [ ] Web UI (Gradio / FastAPI)
 - [ ] Multi-language subtitle support
 
