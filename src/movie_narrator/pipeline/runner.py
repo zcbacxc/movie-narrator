@@ -79,6 +79,9 @@ def run_pipeline(
     no_bgm: bool = False,
     no_clips: bool = False,
     strict: bool = False,
+    workflow_steps: Optional[Dict[str, bool]] = None,
+    params: Optional[Dict[str, Any]] = None,
+    config_path: Optional[str] = None,
 ) -> Context:
     settings = get_settings()
     output_dir = Path(output_dir)
@@ -122,6 +125,16 @@ def run_pipeline(
             "environment": collect_environment(),
         }
     )
+
+
+    if workflow_steps:
+        ctx.metadata["workflow_steps"] = dict(workflow_steps)
+    if params:
+        for key in ("scene_threshold", "match_min_score", "research_provider"):
+            if key in params and params[key] is not None:
+                ctx.metadata[key] = params[key]
+    if config_path:
+        ctx.metadata["config_path"] = config_path
 
     total_start = time.time()
 
