@@ -45,6 +45,18 @@ jobs:
           test -f output/CI-Test/narration.mp3
           echo "Smoke test passed"
 
+
+    - name: Smoke test (YAML config)
+      working-directory: examples
+      env:
+        CI: 1
+      run: |
+        mn create --config ci-test.yaml
+        test -f output/CI-YAML-Test/script.md
+        test -f output/CI-YAML-Test/final.mp4
+        test -f output/CI-YAML-Test/metadata.json
+        test -f output/CI-YAML-Test/subtitle.srt
+        echo "YAML config smoke test passed"
   media:
     runs-on: ubuntu-latest
     continue-on-error: true
