@@ -21,6 +21,7 @@ Movie Narrator is an open-source toolkit that automatically generates movie reca
 - 🔊 Text-to-Speech narration (Edge-TTS by default)
 - 💬 Automatic SRT subtitle generation
 - 🌐 Multi-language subtitles (`--subtitle-lang en` translates narration cues via LLM and writes `subtitle.<lang>.srt` + `subtitle.bilingual.srt`)
+- 🖥️ Web UI (`mn web` — local Gradio browser app with form inputs, cooperative cancel, and artifact download)
 - 🎞️ Video rendering with MoviePy and FFmpeg
 - 📝 Script markdown export (`script.md`)
 - 🎵 Background music integration (BGM)
@@ -96,6 +97,9 @@ pip install "movie-narrator[media]"
 
 # WhisperX + semantic search (requires PyTorch)
 pip install "movie-narrator[ml]"
+
+# Web UI (Gradio)
+pip install "movie-narrator[web]"
 
 # Everything
 pip install "movie-narrator[full]"
@@ -187,6 +191,26 @@ When `--subtitle-lang` is set, `generate_subtitle` always writes three SRT files
 | `bilingual` | `subtitle.bilingual.srt` (same fallback) |
 
 Setting `subtitle_mode=translated|bilingual` without `subtitle_lang` raises `JobConfigError` at merge time. Failure policy: LLM retries `MN_TRANSLATE_RETRIES` times, then soft-degrades to filling the translation track with the original text and surfacing a warning.
+
+### Web UI (v0.3.5)
+
+```bash
+# Install with web extra
+pip install "movie-narrator[web]"
+
+# Launch local browser app
+mn web
+
+# Or with custom host/port
+mn web --host 0.0.0.0 --port 8080
+
+# Create a public Gradio share link (temporary)
+mn web --share
+```
+
+The Web UI provides a form-based interface to all CLI options: movie name, style, duration, voice, format, video/BGM upload, subtitle settings, and advanced params. A Cancel button allows cooperative cancellation at step boundaries. Artifacts (video, subtitles, script, metadata) are available for download at all terminal states — including after cancellation.
+
+**empty = no override**: Advanced form fields left blank do NOT override Settings (`.env` / `MN_*`) defaults. Only fill a field if you want to explicitly override.
 
 ### Offline Demo (No LLM Required)
 
@@ -353,18 +377,28 @@ movie-narrator/
 │   │   ├── load.py          # YAML loader + validation
 │   │   ├── merge.py         # CLI > YAML > Settings merge
 │   │   └── errors.py        # JobConfigError
-│   └── utils/
+│   ├── utils/
 │       ├── async_utils.py   # Sync/async bridge
 │       ├── console.py       # Console Protocol + PlainConsole + build_console
 │       ├── environment.py   # Environment collection
 │       ├── font.py          # CJK font fallback
-│       ├── json_parser.py   # LLM JSON extraction
+│       ├── json_parser.py   # LLM JSON extraction (with truncation recovery)
 │       ├── llm.py           # OpenAI client wrapper
 │       ├── log.py           # AppLogger (file logging layer)
 │       ├── metadata_export.py # metadata.json builder
 │       ├── optional_deps.py # Optional dependency probing
 │       ├── prompts.py       # Prompt templates
 │       └── retention.py     # Log file retention
+│   └── web/                     # Gradio browser UI (v0.3.5; requires [web] extra)
+│       ├── __init__.py          # lazy launch_web export
+│       ├── __main__.py          # python -m movie_narrator.web
+│       ├── app.py               # Gradio Blocks layout + event handlers
+│       ├── bridge.py            # form → background thread → yield UI updates
+│       ├── form.py              # FormData + validate_form + form_to_context_args
+│       ├── console.py           # GradioConsole (thread-safe via threading.Lock)
+│       ├── controller.py        # GradioController (cooperative cancel flag)
+│       ├── models.py            # RunStatus enum + WebRun per-session state
+│       └── utils.py             # upload handling + collect_artifacts + sanitize_filename
 ├── tests/
 │   ├── test_context.py
 │   ├── test_settings.py
@@ -384,6 +418,11 @@ movie-narrator/
 │   ├── test_scenes.py
 │   ├── test_script_export.py
 │   ├── test_translate.py
+│   ├── test_json_parser.py
+│   ├── test_pipeline_cancel.py
+│   ├── test_web_console.py
+│   ├── test_web_controller.py
+│   ├── test_web_form.py
 │   └── test_workflow_steps.py
 ├── docs/
 ├── assets/
@@ -422,7 +461,7 @@ movie-narrator/
 - [x] YAML-based job configuration (`mn create --config`)
 - [x] Console / structured-step-state logging refactor (`ctx.services.console`, `StepState`)
 - [x] Multi-language subtitle support (`--subtitle-lang` / `--subtitle-mode`; LLM translation with retry-then-soft-degrade; `subtitle.<lang>.srt` + `subtitle.bilingual.srt` outputs)
-- [ ] Web UI (Gradio / FastAPI)
+- [x] Web UI (Gradio local browser app via `mn web`; cooperative cancel; requires `[web]` extra)
 
 ### v0.4.x — Extensibility
 
