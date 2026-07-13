@@ -55,29 +55,29 @@ def research_plot(ctx: Context) -> Context:
         return ctx
 
     try:
-        llm = get_llm_client()
-        prompt = RESEARCH_PROMPT.format(movie=ctx.movie_name)
-        response = llm.client.chat.completions.create(
-            model=llm.model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.3,
-            max_tokens=1024,
-        )
-        raw = response.choices[0].message.content
-        data = extract_json(raw)
+        with get_llm_client() as llm:
+            prompt = RESEARCH_PROMPT.format(movie=ctx.movie_name)
+            response = llm.client.chat.completions.create(
+                model=llm.model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.3,
+                max_tokens=1024,
+            )
+            raw = response.choices[0].message.content
+            data = extract_json(raw)
 
-        ctx.research = ResearchInfo(
-            title=data.get("title", ctx.movie_name),
-            year=data.get("year"),
-            summary=data.get("summary", ""),
-            genres=data.get("genres", []),
-            cast=data.get("cast", []),
-            keywords=data.get("keywords", []),
-        )
-        _write_envelope(output_dir, "success", None, ctx.research.model_dump())
-        ctx.status.research = "success"
-        print("✓ research_plot")
-        return ctx
+            ctx.research = ResearchInfo(
+                title=data.get("title", ctx.movie_name),
+                year=data.get("year"),
+                summary=data.get("summary", ""),
+                genres=data.get("genres", []),
+                cast=data.get("cast", []),
+                keywords=data.get("keywords", []),
+            )
+            _write_envelope(output_dir, "success", None, ctx.research.model_dump())
+            ctx.status.research = "success"
+            print("✓ research_plot")
+            return ctx
     except Exception as e:
         err = str(e)
         print(f"✗ research_plot: {err}")

@@ -17,10 +17,6 @@ VIDEO_SIZES = {
 }
 
 
-def _find_ffmpeg() -> str | None:
-    return shutil.which("ffmpeg") or shutil.which("ffmpeg.exe")
-
-
 def _create_text_image(text: str, size: tuple, fontsize: int = 100) -> np.ndarray:
     img = Image.new("RGBA", size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)

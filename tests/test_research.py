@@ -43,6 +43,7 @@ def test_research_llm_success(tmp_path):
     with patch("movie_narrator.pipeline.research.get_settings") as gs, \
          patch("movie_narrator.pipeline.research.get_llm_client") as gl:
         gs.return_value.research_provider = "llm"
+        gl.return_value.__enter__.return_value = gl.return_value
         gl.return_value.client.chat.completions.create.return_value = mock_response
         research_plot(ctx)
 
