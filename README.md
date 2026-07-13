@@ -145,7 +145,19 @@ mn create --movie "飞驰人生" --keep-cache
 | `--no-bgm` | Disable BGM even if default is set | `false` |
 | `--no-clips` | Skip scene-level clip export | `false` |
 | `--strict` | Abort pipeline on soft step failure | `false` |
-| `--keep-cache` | Keep TTS cache files | `false` |
+| `--config` | Path to job YAML (movie/steps/params); CLI flags override YAML | - |
+
+### Job YAML config (v0.3)
+
+```bash
+# Drive a job from YAML (movie may live only in the file)
+mn create --config examples/job.example.yaml
+
+# CLI flags still win over YAML
+mn create --config examples/job.example.yaml --movie "OtherTitle" --no-clips
+```
+
+See [`examples/job.example.yaml`](examples/job.example.yaml) for the full whitelist: soft-step toggles under `steps:` (`research`, `align`, `scene`, `match`, `bgm`, `export`) and params (`scene_threshold`, `match_min_score`, `research_provider`). Relative `video` / `bgm` / `library_dir` paths resolve against the YAML file's directory. LLM credentials stay in `.env` / `MN_*` only.
 
 ### Offline Demo (No LLM Required)
 

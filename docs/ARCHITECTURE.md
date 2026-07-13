@@ -32,6 +32,25 @@ class PipelineStatus(BaseModel):
     export: StepStatus     # export_clips
 ```
 
+## Job config merge layer (v0.3)
+
+Optional declarative job YAML sits **in front of** `run_pipeline`:
+
+```text
+CLI flags + optional job.yaml
+        ▼
+load_job_config (YAML → JobConfig)
+        ▼
+merge_job (CLI > YAML > Settings → ResolvedJob)
+        ▼
+run_pipeline(...) # STEPS order unchanged
+```
+
+- Module: `movie_narrator.workflow` (`load_job_config`, `merge_job`, `JobConfigError`)
+- Soft steps honor `metadata["workflow_steps"][<field>] is False` → `status.<field> = "disabled"`
+- Params whitelist (`scene_threshold`, `match_min_score`, `research_provider`) land in `ctx.metadata`
+- `STEPS` remains the single source of step order; no DAG / plugins in v0.3
+
 ## Data Flow
 
 1. **Context** (`models.Context`) — shared mutable state passed through all steps

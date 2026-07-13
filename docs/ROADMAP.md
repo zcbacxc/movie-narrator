@@ -46,8 +46,8 @@ Soft pipeline steps (research, align, scene detect, scene match, BGM, clip expor
 
 ## v0.3.x — Platform & Workflow
 
-- [ ] Workflow DSL for pipeline customization
-- [ ] YAML-based pipeline configuration
+- [x] Declarative workflow config for soft-step toggles + params
+- [x] YAML-based job configuration (`mn create --config`)
 - [ ] Web UI (Gradio / FastAPI)
 - [ ] Multi-language subtitle support
 
