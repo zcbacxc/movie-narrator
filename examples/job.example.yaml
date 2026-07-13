@@ -1,0 +1,31 @@
+# job.yaml — every field optional; omit = keep Settings / CLI defaults
+version: 1
+movie: 飞驰人生
+style: 热血搞笑
+duration: 60
+voice: zh-CN-YunxiNeural
+format: "16:9"
+keep_cache: false
+
+# Paths: relative paths resolve against the directory containing this file
+video: ./films/飞驰人生.mp4
+library_dir: D:/movies
+bgm: ./assets/bgm.mp3
+no_bgm: false
+no_clips: false
+strict: false
+
+# Soft-step toggles (keys align with PipelineStatus fields)
+steps:
+  research: true
+  align: false
+  scene: true
+  match: true
+  bgm: true
+  export: false
+
+# Fine-grained parameters (whitelist)
+params:
+  scene_threshold: 27.0
+  match_min_score: 0.25
+  research_provider: llm
