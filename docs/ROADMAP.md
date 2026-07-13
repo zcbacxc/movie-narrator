@@ -64,8 +64,22 @@ Soft pipeline steps (research, align, scene detect, scene match, BGM, clip expor
 - Form fields mirror CLI options; advanced params follow "empty = no override" rule (Settings defaults apply)
 - Uploads go to `mn_web_*` temp dirs, never pollute `output/`
 
-## v0.4.x — Extensibility
+## v0.4.x — TTS Abstraction & Extensibility
 
+- [x] TTS provider abstraction (`TTSProvider` protocol, `BaseTTSProvider`, `EdgeTTSProvider`, `OpenAITTSProvider`)
+- [x] Provider selection via `MN_TTS_PROVIDER` (`edge` / `openai`)
+- [x] OpenAI TTS support (sync SDK via `asyncio.to_thread`; voice whitelist; credential fallback to `MN_LLM_API_KEY`)
+- [x] Cache key upgrade (sha256, 7 dimensions, two-level fan-out, per-provider version map)
+- [x] CI temp-file isolation (silent audio never enters cache)
+- [x] `is_ci()` single source of truth for CI detection
+- [x] `ConfigError` cross-cutting error class
 - [ ] Plugin system for custom pipeline steps
 - [ ] Python SDK for programmatic usage
 - [ ] Third-party extension support
+
+### v0.4 Environment variables
+
+- `MN_TTS_PROVIDER` — `edge` (default) or `openai`
+- `MN_OPENAI_TTS_MODEL` — OpenAI TTS model (default `tts-1`)
+- `MN_OPENAI_TTS_API_KEY` — OpenAI TTS API key (falls back to `MN_LLM_API_KEY`)
+- `MN_OPENAI_TTS_BASE_URL` — OpenAI TTS base URL (falls back to `MN_LLM_BASE_URL`)

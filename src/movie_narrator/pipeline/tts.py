@@ -1,62 +1,77 @@
-import os
+import asyncio
 from pathlib import Path
 
-import pydub
 from pydub import AudioSegment
 
-from ..config import get_settings
+from ..config import get_settings, TTSProviderType
 from ..models import Context, TimedSegment
 from ..utils.async_utils import run_async
+from ..tts import TTSCacheKey, get_tts_provider, is_ci
+from ..tts.cache import (
+    cache_path_for,
+    CACHE_SCHEMA_VERSION,
+    PROVIDER_CACHE_VERSIONS,
+)
 
-DEFAULT_VOICE = get_settings().default_voice
 PAUSE_MS = 300
+MAX_CONCURRENT = 3
 
-
-def _estimate_duration(text: str) -> float:
-    return max(1.0, len(text) * 0.35)
-
-
-async def _generate_all(segments, voice: str, cache_dir) -> list[tuple[AudioSegment, float]]:
-    if os.getenv("CI"):
-        durations = [_estimate_duration(seg.text) for seg in segments]
-        return [(AudioSegment.silent(duration=int(d * 1000)), d) for d in durations]
-
-    import edge_tts, hashlib, json
-    from pathlib import Path
-
-    CACHE_VERSION = "v1"
-    MAX_CONCURRENT = 3
-
-    def _cache_key(text: str, voice: str) -> str:
-        data = {"version": CACHE_VERSION, "text": text, "voice": voice, "pause_ms": PAUSE_MS}
-        return hashlib.md5(json.dumps(data, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
-
-    sem = __import__("asyncio").Semaphore(MAX_CONCURRENT)
-
-    async def _one(seg):
-        async with sem:
-            key = _cache_key(seg.text, voice)
-            tmp = cache_dir / f"{key}.mp3"
-            if not tmp.exists():
-                await edge_tts.Communicate(seg.text, voice).save(str(tmp))
-            audio = AudioSegment.from_mp3(tmp)
-            return audio, round(len(audio) / 1000.0, 3)
-
-    return await __import__("asyncio").gather(*[_one(s) for s in segments])
+__all__ = ["generate_voice", "PAUSE_MS"]
 
 
 def generate_voice(ctx: Context) -> Context:
+    settings = get_settings()
     output_dir = Path(ctx.output_dir)
-    cache_dir = output_dir / "cache"
-    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_root = output_dir / "cache" / "tts" / settings.tts_provider.value
+    cache_root.mkdir(parents=True, exist_ok=True)
 
-    voice = ctx.metadata.get("voice") or DEFAULT_VOICE
-    results = run_async(_generate_all(ctx.segments, voice, cache_dir))
+    voice = ctx.metadata.get("voice") or settings.default_voice
+    provider = get_tts_provider(settings)
+
+    def _key(seg_text: str) -> TTSCacheKey:
+        return TTSCacheKey(
+            schema_version=CACHE_SCHEMA_VERSION,
+            provider=settings.tts_provider.value,
+            provider_version=PROVIDER_CACHE_VERSIONS[settings.tts_provider.value],
+            model=(
+                settings.openai_tts_model
+                if settings.tts_provider is TTSProviderType.OPENAI
+                else ""
+            ),
+            voice=voice,
+            text=seg_text,
+            pause_ms=PAUSE_MS,
+        )
+
+    async def _run_all():
+        sem = asyncio.Semaphore(MAX_CONCURRENT)
+
+        async def _one(seg):
+            async with sem:
+                key = _key(seg.text)
+                cached = cache_path_for(cache_root, key)
+                if is_ci():
+                    # CI bypasses cache: synthesize to a temp path, probe, then
+                    # delete. Silent-audio files must never enter the cache —
+                    # otherwise a subsequent non-CI run would hit the silent
+                    # cache and skip real synthesis.
+                    tmp = output_dir / f".ci_{cached.name}"
+                    await provider.synthesize(seg.text, voice, tmp)
+                    audio = AudioSegment.from_mp3(tmp)
+                    tmp.unlink(missing_ok=True)
+                else:
+                    if not cached.exists():
+                        await provider.synthesize(seg.text, voice, cached)
+                    audio = AudioSegment.from_mp3(cached)
+                return audio, round(len(audio) / 1000.0, 3)
+
+        return await asyncio.gather(*[_one(s) for s in ctx.segments])
+
+    results = run_async(_run_all())
 
     combined = AudioSegment.empty()
     timed_segments = []
     current_time = 0.0
-
     for i, (audio, duration) in enumerate(results):
         combined += audio
         pause = (PAUSE_MS / 1000.0) if i < len(ctx.segments) - 1 else 0
@@ -72,4 +87,5 @@ def generate_voice(ctx: Context) -> Context:
     ctx.audio_path = str(audio_path)
     ctx.timed_segments = timed_segments
     ctx.metadata["voice_used"] = voice
+    ctx.metadata["tts_provider"] = settings.tts_provider.value
     return ctx

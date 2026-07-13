@@ -1,4 +1,5 @@
 import os
+from enum import Enum
 from pathlib import Path
 from typing import Optional
 
@@ -7,6 +8,11 @@ from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _USER_ENV = Path.home() / ".movie-narrator" / ".env"
+
+
+class TTSProviderType(str, Enum):
+    EDGE = "edge"
+    OPENAI = "openai"
 
 
 class Settings(BaseSettings):
@@ -32,6 +38,11 @@ class Settings(BaseSettings):
     translate_retries: int = 3
     translate_chunk_chars: int = 4000
     translate_chunk_size: int = 20
+    # ── TTS abstraction (v0.4) ──
+    tts_provider: TTSProviderType = TTSProviderType.EDGE
+    openai_tts_model: str = "tts-1"
+    openai_tts_api_key: Optional[str] = None   # falls back to llm_api_key
+    openai_tts_base_url: Optional[str] = None  # falls back to llm_base_url
 
     model_config = SettingsConfigDict(
         env_file=(".env", str(_USER_ENV)),

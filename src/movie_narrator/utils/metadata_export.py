@@ -31,6 +31,7 @@ def build_metadata_json(ctx: Context) -> Dict[str, Any]:
             "duration": ctx.duration,
             "voice": ctx.metadata.get("voice_used"),
             "format": ctx.metadata.get("format"),
+            "tts_provider": ctx.metadata.get("tts_provider"),
         },
         "segments_count": len(ctx.timed_segments),
         "segments": [
