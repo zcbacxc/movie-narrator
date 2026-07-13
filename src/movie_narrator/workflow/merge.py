@@ -21,9 +21,9 @@ def merge_job(
         return getattr(job, name)
 
     def pick_optional(cli_val, yaml_val, default=None):
-        if cli_val is not None:
+        if cli_val is not None and cli_val != "":
             return cli_val
-        if yaml_val is not None:
+        if yaml_val is not None and yaml_val != "":
             return yaml_val
         return default
 
@@ -69,7 +69,7 @@ def merge_job(
 
     params: Dict[str, Any] = {}
     if job is not None and job.params is not None:
-        for key in ("scene_threshold", "match_min_score", "research_provider"):
+        for key in ("scene_threshold", "scene_frame_skip", "match_min_score", "research_provider"):
             val = getattr(job.params, key)
             if val is not None:
                 params[key] = val

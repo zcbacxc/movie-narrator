@@ -11,7 +11,7 @@ def test_load_minimal_movie_only(tmp_path):
     p.write_text("movie: 飞驰人生\n", encoding="utf-8")
     cfg = load_job_config(p)
     assert cfg.movie == "飞驰人生"
-    assert cfg.version == 1
+    assert cfg.duration is None
 
 
 def test_load_full_document_and_relative_paths(tmp_path):
@@ -26,7 +26,6 @@ def test_load_full_document_and_relative_paths(tmp_path):
     p.write_text(
         "\n".join(
             [
-                "version: 1",
                 "movie: 飞驰人生",
                 "style: 热血搞笑",
                 "duration: 60",
@@ -96,14 +95,6 @@ def test_load_unknown_top_level_key(tmp_path):
         load_job_config(p)
     msg = str(exc.value)
     assert "unknown key" in msg.lower() or "extra" in msg.lower() or "foo" in msg
-
-
-def test_load_unsupported_version(tmp_path):
-    p = tmp_path / "job.yaml"
-    p.write_text("version: 2\nmovie: X\n", encoding="utf-8")
-    with pytest.raises(JobConfigError) as exc:
-        load_job_config(p)
-    assert "unsupported config version: 2 (supported: 1)" in str(exc.value)
 
 
 def test_load_bad_duration_type(tmp_path):

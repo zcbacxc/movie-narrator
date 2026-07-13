@@ -20,6 +20,7 @@ class JobParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     scene_threshold: Optional[float] = None
+    scene_frame_skip: Optional[int] = None
     match_min_score: Optional[float] = None
     research_provider: Optional[str] = None
 
@@ -27,7 +28,6 @@ class JobParams(BaseModel):
 class JobConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    version: int = 1
     movie: Optional[str] = None
     style: Optional[str] = None
     duration: Optional[int] = None
@@ -42,13 +42,6 @@ class JobConfig(BaseModel):
     strict: Optional[bool] = None
     steps: Optional[JobSteps] = None
     params: Optional[JobParams] = None
-
-    @field_validator("version")
-    @classmethod
-    def _check_version(cls, v: int) -> int:
-        if v != 1:
-            raise JobConfigError(f"unsupported config version: {v} (supported: 1)")
-        return v
 
     @field_validator("duration")
     @classmethod
