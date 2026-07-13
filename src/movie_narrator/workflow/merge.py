@@ -1,7 +1,8 @@
 from typing import Any, Dict, Optional
 
 from ..config import Settings
-from .schema import JobConfig, ResolvedJob
+from .errors import JobConfigError
+from .schema import JobConfig, ResolvedJob, VALID_SUBTITLE_MODES
 
 _STYLE_DEFAULT = "热血搞笑"
 _DURATION_DEFAULT = 60
@@ -60,7 +61,7 @@ def merge_job(
     research = cli.get("research")
     workflow_steps: Dict[str, bool] = {}
     if job is not None and job.steps is not None:
-        for key in ("research", "align", "scene", "match", "bgm", "export"):
+        for key in ("research", "align", "scene", "match", "bgm", "export", "translate"):
             val = getattr(job.steps, key)
             if val is not None:
                 workflow_steps[key] = bool(val)
@@ -69,10 +70,32 @@ def merge_job(
 
     params: Dict[str, Any] = {}
     if job is not None and job.params is not None:
-        for key in ("scene_threshold", "scene_frame_skip", "match_min_score", "research_provider"):
+        for key in (
+            "scene_threshold", "scene_frame_skip", "match_min_score",
+            "research_provider",
+            "translate_provider", "translate_retries",
+            "translate_chunk_chars", "translate_chunk_size",
+        ):
             val = getattr(job.params, key)
             if val is not None:
                 params[key] = val
+
+    # Multi-language subtitle (v0.3).
+    subtitle_lang = pick_optional(cli.get("subtitle_lang"), yaml_get("subtitle_lang"), None)
+    if subtitle_lang is not None:
+        subtitle_lang = str(subtitle_lang).strip() or None
+    subtitle_mode = pick_optional(
+        cli.get("subtitle_mode"), yaml_get("subtitle_mode"), None
+    ) or "original"
+    if subtitle_mode not in VALID_SUBTITLE_MODES:
+        raise JobConfigError(
+            f"subtitle_mode must be one of {sorted(VALID_SUBTITLE_MODES)}, got {subtitle_mode!r}"
+        )
+    # Spec §5.1: mode in {translated, bilingual} without lang → error.
+    if subtitle_mode in {"translated", "bilingual"} and not subtitle_lang:
+        raise JobConfigError(
+            f"subtitle_mode={subtitle_mode!r} requires --subtitle-lang / subtitle_lang"
+        )
 
     config_path = cli.get("config_path")
     if config_path is not None:
@@ -95,4 +118,6 @@ def merge_job(
         workflow_steps=workflow_steps,
         params=params,
         config_path=config_path,
+        subtitle_lang=subtitle_lang,
+        subtitle_mode=subtitle_mode,
     )

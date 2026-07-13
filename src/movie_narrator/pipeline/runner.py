@@ -19,6 +19,7 @@ from .scenes import detect_scenes
 from .script import generate_script
 from .script_export import export_script_md
 from .subtitle import generate_subtitle
+from .translate import translate_subtitles
 from .tts import generate_voice
 from .render import render_video
 
@@ -32,6 +33,7 @@ SOFT_STATUS_STEPS = {
     "match_clips",
     "mix_bgm",
     "export_clips",
+    "translate_subtitles",
 }
 
 # Map soft step name → PipelineStatus field name. Steps not in this map
@@ -44,6 +46,7 @@ STATUS_FIELD_FOR_STEP: Dict[str, str] = {
     "match_clips": "match",
     "mix_bgm": "bgm",
     "export_clips": "export",
+    "translate_subtitles": "translate",
 }
 
 STEPS = [
@@ -57,6 +60,9 @@ STEPS = [
     detect_scenes,
     match_clips,
     mix_bgm,
+    # Multi-language subtitle (v0.3) — soft step before generate_subtitle.
+    # Produces ctx.translated_texts; downstream formatter writes three SRTs.
+    translate_subtitles,
     generate_subtitle,
     render_video,
     export_clips,
@@ -82,6 +88,9 @@ def run_pipeline(
     workflow_steps: Optional[Dict[str, bool]] = None,
     params: Optional[Dict[str, Any]] = None,
     config_path: Optional[str] = None,
+    # Multi-language subtitle (v0.3).
+    subtitle_lang: Optional[str] = None,
+    subtitle_mode: Optional[str] = None,
 ) -> Context:
     settings = get_settings()
     output_dir = Path(output_dir)
@@ -127,6 +136,11 @@ def run_pipeline(
             "bgm_request": bgm_request,
             "version": __version__,
             "environment": collect_environment(),
+            # Multi-language subtitle (v0.3). Empty lang → feature off.
+            "subtitle_lang": (subtitle_lang or settings.subtitle_lang or None),
+            "subtitle_mode": (subtitle_mode or settings.subtitle_mode or "original"),
+            "translate_provider": (params or {}).get("translate_provider", settings.translate_provider),
+            "translate_retries": (params or {}).get("translate_retries", settings.translate_retries),
         }
     )
 
