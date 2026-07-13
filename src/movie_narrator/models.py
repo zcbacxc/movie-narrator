@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, Protocol, runtime_checkable
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 StepStatus = Literal["disabled", "skipped", "success", "failed"]
 
@@ -132,10 +132,56 @@ class Context(BaseModel):
     matched_clips: List[MatchedClip] = Field(default_factory=list)
     status: PipelineStatus = Field(default_factory=PipelineStatus)
 
-    # Infrastructure — injected by build_context(), excluded from serialization
-    services: Optional[Services] = None
+    # Infrastructure — strictly required (no Optional, no default). The
+    # Pydantic model_validator below guarantees `ctx.services` is never
+    # `None` at runtime: a `_SilentConsole`-backed `Services` is injected
+    # when the caller omits the field (e.g. in unit tests that build a
+    # bare Context). Production paths (the runner) always pass a real
+    # `Services(console=build_console(...))`.
+    services: Services
 
     # Single-step return state — consumed by runner, reset after each step
     step_state: StepState = Field(default_factory=StepState)
 
     metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _fill_missing_services(cls, data: Any) -> Any:
+        """Inject a `_SilentConsole`-backed Services when caller omits it.
+
+        Why: tests across 13 files construct `Context(movie_name=...)`
+        without wiring up `services=`. Rather than mutate each test (or
+        introduce a test-only conftest that monkey-patches Context), we
+        let the model itself guarantee `services` is always set. The
+        field stays strictly typed (`Services`, no Optional, no default);
+        only the *input* may be missing and gets a sentinel default.
+        """
+        if isinstance(data, dict) and "services" not in data:
+            data["services"] = Services(console=_SilentConsole())
+        return data
+
+
+class _SilentConsole:
+    """No-op Console implementation.
+
+    Used as the default `services.console` when a Context is built without
+    an explicit Console. It satisfies the Console Protocol structurally
+    (Python's runtime_checkable Protocol allows duck-typed instances),
+    so step-internal `ctx.services.console.debug(...)` etc. never raise
+    AttributeError. The progress() method returns None so callers that
+    use it as a context manager (with pbar: ...) simply do nothing.
+    """
+
+    def step(self, name: str) -> None: ...
+    def step_ok(self, name: str, elapsed: float) -> None: ...
+    def step_skip(self, name: str, reason: str) -> None: ...
+    def step_warn(self, name: str, reason: str) -> None: ...
+    def step_err(self, name: str, exc: Exception, elapsed: float) -> None: ...
+    def warn(self, msg: str) -> None: ...
+    def debug(self, msg: str) -> None: ...
+    def inline_warn(self, msg: str) -> None: ...
+    def final(self, msg: str) -> None: ...
+    def done(self, elapsed: float) -> None: ...
+    def progress(self, *args, **kwargs):
+        return None

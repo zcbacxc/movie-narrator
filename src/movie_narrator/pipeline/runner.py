@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional
 
 from .. import __version__
 from ..config import get_settings
-from ..models import Assets, Context, Services, StepState
+from ..models import Assets, Context, Services, StepResult, StepState
 from ..utils.console import build_console
 from ..utils.environment import collect_environment
 from .align import align_audio
@@ -22,6 +22,9 @@ from .subtitle import generate_subtitle
 from .tts import generate_voice
 from .render import render_video
 
+# ── Step metadata (module-level constants) ──────────────────
+# Single source of truth: a soft step whose exception is caught by the runner
+# (rendered as ⚠ + continue) instead of being re-raised as a hard failure.
 SOFT_STATUS_STEPS = {
     "research_plot",
     "align_audio",
@@ -29,6 +32,18 @@ SOFT_STATUS_STEPS = {
     "match_clips",
     "mix_bgm",
     "export_clips",
+}
+
+# Map soft step name → PipelineStatus field name. Steps not in this map
+# (e.g. resolve_video, generate_script, render_video) do not write to
+# PipelineStatus because a hard failure there aborts the pipeline anyway.
+STATUS_FIELD_FOR_STEP: Dict[str, str] = {
+    "research_plot": "research",
+    "align_audio": "align",
+    "detect_scenes": "scene",
+    "match_clips": "match",
+    "mix_bgm": "bgm",
+    "export_clips": "export",
 }
 
 STEPS = [
@@ -88,6 +103,9 @@ def run_pipeline(
         bgm_path = None
         bgm_request = "none"
 
+    console = build_console(output_dir)
+    services = Services(console=console)
+
     ctx = Context(
         movie_name=movie,
         style=style,
@@ -95,6 +113,7 @@ def run_pipeline(
         output_dir=str(output_dir),
         library_dir=lib,
         assets=Assets(bgm=bgm_path),
+        services=services,
     )
     ctx.metadata.update(
         {
@@ -120,27 +139,26 @@ def run_pipeline(
     if config_path:
         ctx.metadata["config_path"] = config_path
 
-    # Build console and inject into ctx
-    console = build_console(output_dir)
-    ctx.services = Services(console=console)
-
     total_start = time.time()
 
     for step in STEPS:
         name = step.__name__
 
         # ── Pre-check: workflow_steps disabled? ──────────────
+        # Authoritative path: runner short-circuits before step runs.
         if workflow_steps and not workflow_steps.get(name, True):
-            ctx.step_state = StepState()  # reset first
-            ctx.step_state.result = "skipped"  # type: ignore[assignment]
-            ctx.step_state.message = "disabled by workflow config"
-            console.step_skip(name, ctx.step_state.message)
+            ctx.step_state = StepState(
+                result=StepResult.SKIPPED, message="disabled by workflow config"
+            )
             _set_pipeline_status_disabled(ctx, name)
+            console.step_skip(name, ctx.step_state.message)
             _check_strict(ctx, name)
             continue
 
-        # ── Execute step ────────────────────────────────────
-        ctx.step_state = StepState()  # reset before each step
+        # ── Execute step with soft/hard exception fork ───────
+        # Soft steps: exception → ⚠ + continue (no abort).
+        # Hard steps: exception → ✗ + re-raise (abort pipeline).
+        ctx.step_state = StepState()  # reset before execution
         step_start = time.time()
         console.step(name)
 
@@ -148,6 +166,14 @@ def run_pipeline(
             ctx = step(ctx)
         except Exception as e:
             elapsed = time.time() - step_start
+            if name in SOFT_STATUS_STEPS:
+                _set_pipeline_status_failed(ctx, name)
+                ctx.step_state = StepState(
+                    result=StepResult.WARNING, message=str(e)
+                )
+                console.step_warn(name, ctx.step_state.message)
+                _check_strict(ctx, name)
+                continue
             console.step_err(name, e, elapsed)
             raise
 
@@ -155,11 +181,10 @@ def run_pipeline(
 
         # ── Render step result ───────────────────────────────
         _render_step_result(ctx, name, elapsed, console)
+        _check_strict(ctx, name)
 
         # ── Reset step_state for next iteration ──────────────
         ctx.step_state = StepState()
-
-        _check_strict(ctx, name)
 
     total_elapsed = time.time() - total_start
     console.done(total_elapsed)
@@ -167,19 +192,18 @@ def run_pipeline(
     return ctx
 
 
-def _set_pipeline_status_disabled(ctx: Context, name: str) -> None:
+def _set_pipeline_status_disabled(ctx: Context, step_name: str) -> None:
     """Set the corresponding PipelineStatus field to 'disabled'."""
-    status_field_map = {
-        "research_plot": "research",
-        "align_audio": "align",
-        "detect_scenes": "scene",
-        "match_clips": "match",
-        "mix_bgm": "bgm",
-        "export_clips": "export",
-    }
-    field = status_field_map.get(name)
+    field = STATUS_FIELD_FOR_STEP.get(step_name)
     if field:
         setattr(ctx.status, field, "disabled")
+
+
+def _set_pipeline_status_failed(ctx: Context, step_name: str) -> None:
+    """Set the corresponding PipelineStatus field to 'failed'."""
+    field = STATUS_FIELD_FOR_STEP.get(step_name)
+    if field:
+        setattr(ctx.status, field, "failed")
 
 
 def _render_step_result(
@@ -192,11 +216,11 @@ def _render_step_result(
     result = ctx.step_state.result
     msg = ctx.step_state.message
 
-    if result.value == "success":
+    if result is StepResult.SUCCESS:
         console.step_ok(name, elapsed)
-    elif result.value == "skipped":
+    elif result is StepResult.SKIPPED:
         console.step_skip(name, msg or "skipped")
-    elif result.value == "warning":
+    elif result is StepResult.WARNING:
         console.step_warn(name, msg or "warning")
 
 
