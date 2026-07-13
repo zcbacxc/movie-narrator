@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "movie-narrator"
-version = "2026.7.13"
+version = "0.3.1"
 description = "Generate narrated movie recap videos from a single prompt."
 readme = "README.md"
 license = "AGPL-3.0"
