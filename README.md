@@ -290,6 +290,10 @@ mn create --movie "飞驰人生" --duration 60
 | `MN_SUBTITLE_MODE` | Default overlay mode (`original` / `translated` / `bilingual`) | `original` |
 | `MN_TRANSLATE_PROVIDER` | Translation backend (v0.3: `llm` only) | `llm` |
 | `MN_TRANSLATE_RETRIES` | LLM translation retries before soft-degrade | `3` |
+| `MN_TTS_PROVIDER` | TTS backend: `edge` (default) or `openai` | `edge` |
+| `MN_OPENAI_TTS_MODEL` | OpenAI TTS model (when `MN_TTS_PROVIDER=openai`) | `tts-1` |
+| `MN_OPENAI_TTS_API_KEY` | OpenAI TTS API key (falls back to `MN_LLM_API_KEY`) | - |
+| `MN_OPENAI_TTS_BASE_URL` | OpenAI TTS base URL (falls back to `MN_LLM_BASE_URL`) | - |
 
 ---
 
@@ -362,7 +366,7 @@ movie-narrator/
 │   │   ├── research.py      # LLM movie research
 │   │   ├── script.py        # LLM script generation
 │   │   ├── script_export.py # Script markdown export
-│   │   ├── tts.py           # Edge-TTS with caching
+│   │   ├── tts.py           # TTS orchestration (uses tts/ package; caching + concurrency)
 │   │   ├── align.py         # WhisperX audio alignment
 │   │   ├── scenes.py        # PySceneDetect scene detection
 │   │   ├── match.py         # Heuristic clip matching
@@ -377,18 +381,27 @@ movie-narrator/
 │   │   ├── load.py          # YAML loader + validation
 │   │   ├── merge.py         # CLI > YAML > Settings merge
 │   │   └── errors.py        # JobConfigError
+│   ├── tts/                     # TTS abstraction layer (v0.4)
+│   │   ├── __init__.py          # re-exports public API
+│   │   ├── protocol.py          # TTSProvider ABC
+│   │   ├── base.py              # BaseTTSProvider (CI silent fallback), is_ci()
+│   │   ├── edge.py              # EdgeTTSProvider
+│   │   ├── openai_provider.py   # OpenAITTSProvider (voice whitelist, lazy SDK)
+│   │   ├── factory.py           # get_tts_provider(settings)
+│   │   └── cache.py             # TTSCacheKey, cache_path_for, PROVIDER_CACHE_VERSIONS
 │   ├── utils/
-│       ├── async_utils.py   # Sync/async bridge
-│       ├── console.py       # Console Protocol + PlainConsole + build_console
-│       ├── environment.py   # Environment collection
-│       ├── font.py          # CJK font fallback
-│       ├── json_parser.py   # LLM JSON extraction (with truncation recovery)
-│       ├── llm.py           # OpenAI client wrapper
-│       ├── log.py           # AppLogger (file logging layer)
-│       ├── metadata_export.py # metadata.json builder
-│       ├── optional_deps.py # Optional dependency probing
-│       ├── prompts.py       # Prompt templates
-│       └── retention.py     # Log file retention
+│   │   ├── async_utils.py   # Sync/async bridge
+│   │   ├── console.py       # Console Protocol + PlainConsole + build_console
+│   │   ├── environment.py   # Environment collection
+│   │   ├── errors.py        # ConfigError (cross-cutting config-error class)
+│   │   ├── font.py          # CJK font fallback
+│   │   ├── json_parser.py   # LLM JSON extraction (with truncation recovery)
+│   │   ├── llm.py           # OpenAI client wrapper
+│   │   ├── log.py           # AppLogger (file logging layer)
+│   │   ├── metadata_export.py # metadata.json builder
+│   │   ├── optional_deps.py # Optional dependency probing
+│   │   ├── prompts.py       # Prompt templates
+│   │   └── retention.py     # Log file retention
 │   └── web/                     # Gradio browser UI (v0.3.5; requires [web] extra)
 │       ├── __init__.py          # lazy launch_web export
 │       ├── __main__.py          # python -m movie_narrator.web
@@ -463,8 +476,15 @@ movie-narrator/
 - [x] Multi-language subtitle support (`--subtitle-lang` / `--subtitle-mode`; LLM translation with retry-then-soft-degrade; `subtitle.<lang>.srt` + `subtitle.bilingual.srt` outputs)
 - [x] Web UI (Gradio local browser app via `mn web`; cooperative cancel; requires `[web]` extra)
 
-### v0.4.x — Extensibility
+### v0.4.x — TTS Abstraction & Extensibility
 
+- [x] TTS provider abstraction (`TTSProvider` protocol, Edge + OpenAI backends)
+- [x] Provider selection via `MN_TTS_PROVIDER` (`edge` / `openai`)
+- [x] OpenAI TTS support (voice whitelist, credential fallback, lazy SDK import)
+- [x] Cache key upgrade (sha256, 7 dimensions, two-level fan-out, per-provider version map)
+- [x] CI temp-file isolation (silent audio never enters cache)
+- [x] `is_ci()` single source of truth for CI detection
+- [x] `ConfigError` cross-cutting error class
 - [ ] Plugin system for custom pipeline steps
 - [ ] Python SDK for programmatic usage
 - [ ] Third-party extension support

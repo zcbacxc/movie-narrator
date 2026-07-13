@@ -291,6 +291,10 @@ mn create --movie "飞驰人生" --duration 60
 | `MN_SUBTITLE_MODE` | 默认叠加模式（`original` / `translated` / `bilingual`） | `original` |
 | `MN_TRANSLATE_PROVIDER` | 翻译后端（v0.3 仅支持 `llm`） | `llm` |
 | `MN_TRANSLATE_RETRIES` | LLM 翻译失败重试次数，超出后软降级 | `3` |
+| `MN_TTS_PROVIDER` | TTS 后端：`edge`（默认）或 `openai` | `edge` |
+| `MN_OPENAI_TTS_MODEL` | OpenAI TTS 模型（`MN_TTS_PROVIDER=openai` 时生效） | `tts-1` |
+| `MN_OPENAI_TTS_API_KEY` | OpenAI TTS API 密钥（回退到 `MN_LLM_API_KEY`） | - |
+| `MN_OPENAI_TTS_BASE_URL` | OpenAI TTS 基地址（回退到 `MN_LLM_BASE_URL`） | - |
 
 ---
 
@@ -363,7 +367,7 @@ movie-narrator/
 │   │   ├── research.py      # LLM 电影调研
 │   │   ├── script.py        # LLM 脚本生成
 │   │   ├── script_export.py # 脚本 Markdown 导出
-│   │   ├── tts.py           # Edge-TTS 语音合成（带缓存）
+│   │   ├── tts.py           # TTS 编排（使用 tts/ 包；缓存 + 并发）
 │   │   ├── align.py         # WhisperX 音频对齐
 │   │   ├── scenes.py        # PySceneDetect 场景检测
 │   │   ├── match.py         # 启发式片段匹配
@@ -378,18 +382,27 @@ movie-narrator/
 │   │   ├── load.py          # YAML 加载与验证
 │   │   ├── merge.py         # CLI > YAML > Settings 合并
 │   │   └── errors.py        # JobConfigError
+│   ├── tts/                     # TTS 抽象层（v0.4）
+│   │   ├── __init__.py          # 导出公共 API
+│   │   ├── protocol.py          # TTSProvider ABC
+│   │   ├── base.py              # BaseTTSProvider（CI 静音回退）、is_ci()
+│   │   ├── edge.py              # EdgeTTSProvider
+│   │   ├── openai_provider.py   # OpenAITTSProvider（voice 白名单、延迟 SDK 导入）
+│   │   ├── factory.py           # get_tts_provider(settings)
+│   │   └── cache.py             # TTSCacheKey、cache_path_for、PROVIDER_CACHE_VERSIONS
 │   ├── utils/
-│       ├── async_utils.py   # 同步/异步桥接
-│       ├── console.py       # Console Protocol + PlainConsole + build_console
-│       ├── environment.py   # 环境信息采集
-│       ├── font.py          # CJK 字体回退
-│       ├── json_parser.py   # LLM JSON 抽取
-│       ├── llm.py           # OpenAI 客户端封装
-│       ├── log.py           # AppLogger（文件日志层）
-│       ├── metadata_export.py # metadata.json 构造器
-│       ├── optional_deps.py # 可选依赖探测
-│       ├── prompts.py       # 提示词模板
-│       └── retention.py     # 日志文件保留策略
+│   │   ├── async_utils.py   # 同步/异步桥接
+│   │   ├── console.py       # Console Protocol + PlainConsole + build_console
+│   │   ├── environment.py   # 环境信息采集
+│   │   ├── errors.py        # ConfigError（横切配置错误类）
+│   │   ├── font.py          # CJK 字体回退
+│   │   ├── json_parser.py   # LLM JSON 抽取
+│   │   ├── llm.py           # OpenAI 客户端封装
+│   │   ├── log.py           # AppLogger（文件日志层）
+│   │   ├── metadata_export.py # metadata.json 构造器
+│   │   ├── optional_deps.py # 可选依赖探测
+│   │   ├── prompts.py       # 提示词模板
+│   │   └── retention.py     # 日志文件保留策略
 │   └── web/                     # Gradio 浏览器 UI（v0.3.5；需安装 [web] extra）
 │       ├── __init__.py          # 延迟导出 launch_web
 │       ├── __main__.py          # python -m movie_narrator.web
@@ -464,8 +477,15 @@ movie-narrator/
 - [x] 多语言字幕（`--subtitle-lang` / `--subtitle-mode`；LLM 翻译 + 重试软降级；输出 `subtitle.<lang>.srt` + `subtitle.bilingual.srt`）
 - [x] Web UI（Gradio 本地浏览器应用，`mn web`；协作式取消；需安装 `[web]` extra）
 
-### v0.4.x — 可扩展性
+### v0.4.x — TTS 抽象与可扩展性 ✅
 
+- [x] TTS Provider 抽象（`TTSProvider` 协议、Edge + OpenAI 后端）
+- [x] 通过 `MN_TTS_PROVIDER` 选择后端（`edge` / `openai`）
+- [x] OpenAI TTS 支持（voice 白名单、凭证回退、延迟 SDK 导入）
+- [x] 缓存键升级（sha256、7 维度、两级散列、per-provider 版本映射）
+- [x] CI 临时文件隔离（静音音频不进入缓存）
+- [x] `is_ci()` CI 检测单一来源
+- [x] `ConfigError` 横切配置错误类
 - [ ] 插件系统（自定义流水线步骤）
 - [ ] SDK
 - [ ] 第三方扩展
