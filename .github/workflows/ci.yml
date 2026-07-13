@@ -5,6 +5,7 @@ on:
     branches: ["main", "feature/*", "hotfix/*"]
   pull_request:
     branches: ["main"]
+  workflow_dispatch:
 
 jobs:
   test:
