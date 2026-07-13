@@ -8,6 +8,10 @@ from ..utils.optional_deps import probe
 
 
 def detect_scenes(ctx: Context) -> Context:
+    if ctx.metadata.get("workflow_steps", {}).get("scene") is False:
+        ctx.status.scene = "disabled"
+        print("⏭ detect_scenes: disabled by workflow config")
+        return ctx
     ok, hint = probe("scenedetect")
     if not ok:
         ctx.status.scene = "disabled"

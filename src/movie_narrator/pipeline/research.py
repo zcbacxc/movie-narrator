@@ -35,12 +35,16 @@ def _write_envelope(output_dir: Path, status: str, error: str | None, research: 
 
 
 def research_plot(ctx: Context) -> Context:
+    if ctx.metadata.get("workflow_steps", {}).get("research") is False:
+        ctx.status.research = "disabled"
+        print("⏭ research_plot: disabled by workflow config")
+        return ctx
     if not ctx.metadata.get("research_enabled"):
         ctx.status.research = "skipped"
         print("⏭ research_plot: research disabled")
         return ctx
 
-    provider = get_settings().research_provider
+    provider = ctx.metadata.get("research_provider", get_settings().research_provider)
     output_dir = Path(ctx.output_dir)
 
     if provider != "llm":
