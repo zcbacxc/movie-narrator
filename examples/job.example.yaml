@@ -1,5 +1,4 @@
 # job.yaml — every field optional; omit = keep Settings / CLI defaults
-version: 1
 movie: 飞驰人生
 style: 热血搞笑
 duration: 60
@@ -27,5 +26,6 @@ steps:
 # Fine-grained parameters (whitelist)
 params:
   scene_threshold: 27.0
+  scene_frame_skip: 10
   match_min_score: 0.25
   research_provider: llm

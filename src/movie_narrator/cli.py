@@ -95,7 +95,7 @@ def create(
             param_hint="--movie",
         )
 
-    if resolved.video is not None and not Path(resolved.video).is_file():
+    if resolved.video and not Path(resolved.video).is_file():
         raise typer.BadParameter(
             f"video not found: {resolved.video}",
             param_hint="--video",

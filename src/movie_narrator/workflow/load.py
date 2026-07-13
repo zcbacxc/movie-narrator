@@ -10,7 +10,6 @@ from .schema import JobConfig
 _PATH_KEYS = ("video", "bgm", "library_dir")
 
 _ALLOWED_TOP = (
-    "version",
     "movie",
     "style",
     "duration",
@@ -68,7 +67,7 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
     if "params" in data and data["params"] is not None:
         if not isinstance(data["params"], dict):
             raise JobConfigError("params must be a mapping")
-        allowed_params = {"scene_threshold", "match_min_score", "research_provider"}
+        allowed_params = {"scene_threshold", "scene_frame_skip", "match_min_score", "research_provider"}
         for k in data["params"].keys():
             if k not in allowed_params:
                 raise JobConfigError(

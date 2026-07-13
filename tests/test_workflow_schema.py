@@ -1,13 +1,11 @@
 import pytest
 from pydantic import ValidationError
 
-from movie_narrator.workflow.errors import JobConfigError
 from movie_narrator.workflow.schema import JobConfig, JobParams, JobSteps, ResolvedJob
 
 
-def test_job_config_defaults_version_1():
+def test_job_config_default_values():
     cfg = JobConfig()
-    assert cfg.version == 1
     assert cfg.movie is None
     assert cfg.steps is None
     assert cfg.params is None
@@ -15,7 +13,6 @@ def test_job_config_defaults_version_1():
 
 def test_job_config_accepts_full_whitelist():
     cfg = JobConfig(
-        version=1,
         movie="飞驰人生",
         style="热血搞笑",
         duration=60,
@@ -48,13 +45,7 @@ def test_job_steps_rejects_hard_step_key():
 
 def test_job_params_rejects_unknown_key():
     with pytest.raises(ValidationError):
-        JobParams.model_validate({"scene_frame_skip": 10})
-
-
-def test_job_config_unsupported_version_raises_job_config_error():
-    with pytest.raises((JobConfigError, ValidationError)) as exc:
-        JobConfig.model_validate({"version": 2})
-    assert "unsupported config version: 2 (supported: 1)" in str(exc.value)
+        JobParams.model_validate({"unknown_param": 10})
 
 
 def test_job_config_duration_must_be_positive():
