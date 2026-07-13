@@ -89,6 +89,10 @@ def render_video(ctx: Context) -> Context:
     final_video = CompositeVideoClip(clips).set_audio(audio_clip)
     video_path = output_dir / "final.mp4"
 
+
+    tmp_dir = output_dir / ".tmp"
+    tmp_dir.mkdir(exist_ok=True)
+
     # tqdm progress bar for rendering
     total_frames = int(total_duration * 24)  # fps=24
     pbar = tqdm(total=total_frames, unit="frames", desc="Rendering", dynamic_ncols=True)
@@ -103,6 +107,7 @@ def render_video(ctx: Context) -> Context:
         audio_codec="aac",
         threads=4,
         logger="bar",
+        temp_audiofile=str(tmp_dir / "temp_audio.wav"),
     )
     try:
         final_video.write_videofile(str(video_path), **write_kwargs)
