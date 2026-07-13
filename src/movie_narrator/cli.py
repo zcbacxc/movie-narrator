@@ -32,7 +32,7 @@ def _sanitize_filename(name: str) -> str:
 
 @app.command()
 def create(
-    movie: str = typer.Option(..., "--movie", "-m", help="Movie name"),
+    movie: Optional[str] = typer.Option(None, "--movie", "-m", help="Movie name"),
     style: str = typer.Option("热血搞笑", "--style", "-s", help="Narration style"),
     duration: int = typer.Option(60, "--duration", "-d", help="Target duration (seconds)"),
     voice: Optional[str] = typer.Option(None, "--voice", "-v", help="TTS voice (Edge TTS)"),
@@ -45,28 +45,83 @@ def create(
     no_bgm: bool = typer.Option(False, "--no-bgm", help="Disable BGM even if default set"),
     no_clips: bool = typer.Option(False, "--no-clips", help="Skip clips/export"),
     strict: bool = typer.Option(False, "--strict", help="Abort on soft step failure"),
+    config: Optional[str] = typer.Option(None, "--config", help="Path to job YAML config"),
 ):
-    if video is not None and not Path(video).is_file():
-        raise typer.BadParameter(f"video not found: {video}", param_hint="--video")
+    from .config import get_settings
+    from .workflow import JobConfigError, load_job_config, merge_job
 
-    output_dir = Path("output") / _sanitize_filename(movie)
+    if config is None and movie is None:
+        raise typer.BadParameter(
+            "movie is required (set --movie or config.movie)",
+            param_hint="--movie",
+        )
+
+    job = None
+    config_path = None
+    if config is not None:
+        config_path = str(Path(config))
+        if not Path(config_path).is_file():
+            raise typer.BadParameter(
+                f"config not found: {config_path}",
+                param_hint="--config",
+            )
+        try:
+            job = load_job_config(config_path)
+        except JobConfigError as e:
+            typer.echo(str(e), err=True)
+            raise typer.Exit(code=1)
+
+    cli_snapshot = {
+        "movie": movie,
+        "style": style,
+        "duration": duration,
+        "voice": voice,
+        "format": format,
+        "keep_cache": keep_cache,
+        "video": video,
+        "library_dir": library_dir,
+        "research": research,
+        "bgm": bgm,
+        "no_bgm": no_bgm,
+        "no_clips": no_clips,
+        "strict": strict,
+        "config_path": config_path,
+    }
+    resolved = merge_job(cli_snapshot, job, get_settings())
+
+    if not resolved.movie:
+        raise typer.BadParameter(
+            "movie is required (set --movie or config.movie)",
+            param_hint="--movie",
+        )
+
+    if resolved.video is not None and not Path(resolved.video).is_file():
+        raise typer.BadParameter(
+            f"video not found: {resolved.video}",
+            param_hint="--video",
+        )
+
+    output_dir = Path("output") / _sanitize_filename(resolved.movie)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     ctx = run_pipeline(
-        movie=movie,
-        style=style,
-        duration=duration,
-        voice=voice,
-        format=format,
+        movie=resolved.movie,
+        style=resolved.style,
+        duration=resolved.duration,
+        voice=resolved.voice,
+        format=resolved.format,
         output_dir=output_dir,
-        keep_cache=keep_cache,
-        video=video,
-        library_dir=library_dir,
-        research=research,
-        bgm=bgm,
-        no_bgm=no_bgm,
-        no_clips=no_clips,
-        strict=strict,
+        keep_cache=resolved.keep_cache,
+        video=resolved.video,
+        library_dir=resolved.library_dir,
+        research=resolved.research,
+        bgm=resolved.bgm,
+        no_bgm=resolved.no_bgm,
+        no_clips=resolved.no_clips,
+        strict=resolved.strict,
+        workflow_steps=resolved.workflow_steps or None,
+        params=resolved.params or None,
+        config_path=resolved.config_path,
     )
     typer.echo(f"{ctx.video_path}")
 
