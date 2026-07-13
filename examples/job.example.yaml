@@ -28,6 +28,14 @@ steps:
   match: true # 场景-脚本片段匹配
   bgm: false # 背景音乐混音（需配置 bgm 路径）
   export: false # 场景片段剪辑导出（需 [media] 额外依赖）
+  translate: true # 多语言字幕翻译（v0.3，需设置 subtitle_lang）
+
+# --- 多语言字幕（v0.3）---
+# 留空 = 关闭翻译功能（仅生成原版 subtitle.srt）
+# 设置 lang 后，默认 mode=original（仅文件落盘，渲染仍用原版）
+# 想要视频画面显示翻译，需显式 mode=translated 或 mode=bilingual
+subtitle_lang: en # 目标语言标签，如 en / ja / zh-TW
+subtitle_mode: original # original | translated | bilingual
 
 # --- 精细参数（白名单，其余参数不会被接受）---
 params:
@@ -35,3 +43,7 @@ params:
   scene_frame_skip: 10 # 场景检测跳帧数，每 N 帧处理 1 帧，越大越快但精度越低
   match_min_score: 0.25 # 场景匹配最低余弦相似度，低于此值不匹配
   research_provider: llm # 调研后端，目前仅支持 llm
+  translate_provider: llm # 翻译后端，目前仅支持 llm
+  translate_retries: 3 # LLM 失败重试次数
+  # translate_chunk_chars: 4000 # 分块字符阈值
+  # translate_chunk_size: 20 # 分块条数阈值

@@ -22,3 +22,27 @@ Output in JSON format:
 
 Output ONLY the JSON, no extra text or markdown markers.
 """
+
+# Translation prompt — multi-language subtitle (v0.3).
+# The LLM must return a JSON object with a "translations" array aligned
+# 1:1 with the input. Constraints are explicit: no merging/splitting,
+# preserve proper nouns, output ONLY the JSON.
+TRANSLATE_PROMPT = """\
+You are a professional subtitle translator. Translate the following {count} narration cue(s) from {source_lang} into {target_lang}.
+
+Strict requirements:
+- Preserve proper nouns, brand names, character names, and numbers exactly.
+- Do NOT merge or split cues. One input cue → exactly one output translation.
+- Do NOT include SRT indices, timestamps, or any markup.
+- Do NOT add explanations, greetings, or markdown code fences.
+- Output ONLY a single JSON object in this exact shape:
+
+{{
+  "translations": ["translation 1", "translation 2", ...]
+}}
+
+The "translations" array MUST contain exactly {count} string items, in the same order as the input cues. Each item must be non-empty.
+
+Input cues (JSON array of strings):
+{cues}
+"""

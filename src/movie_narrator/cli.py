@@ -46,6 +46,13 @@ def create(
     no_clips: bool = typer.Option(False, "--no-clips", help="Skip clips/export"),
     strict: bool = typer.Option(False, "--strict", help="Abort on soft step failure"),
     config: Optional[str] = typer.Option(None, "--config", help="Path to job YAML config"),
+    # Multi-language subtitle (v0.3).
+    subtitle_lang: Optional[str] = typer.Option(
+        None, "--subtitle-lang", help="Target language tag (e.g. en, ja, zh-TW); empty = feature off",
+    ),
+    subtitle_mode: Optional[str] = typer.Option(
+        None, "--subtitle-mode", help="Overlay mode: original|translated|bilingual",
+    ),
 ):
     from .config import get_settings
     from .workflow import JobConfigError, load_job_config, merge_job
@@ -86,6 +93,8 @@ def create(
         "no_clips": no_clips,
         "strict": strict,
         "config_path": config_path,
+        "subtitle_lang": subtitle_lang,
+        "subtitle_mode": subtitle_mode,
     }
     resolved = merge_job(cli_snapshot, job, get_settings())
 
@@ -122,6 +131,8 @@ def create(
         workflow_steps=resolved.workflow_steps or None,
         params=resolved.params or None,
         config_path=resolved.config_path,
+        subtitle_lang=resolved.subtitle_lang,
+        subtitle_mode=resolved.subtitle_mode,
     )
     typer.echo(f"{ctx.video_path}")
 

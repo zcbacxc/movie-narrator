@@ -66,6 +66,10 @@ class PipelineStatus(BaseModel):
     match: StepStatus = "disabled"
     bgm: StepStatus = "disabled"
     export: StepStatus = "disabled"
+    # translate defaults to "skipped" (feature off, not explicitly disabled)
+    # — distinct semantics from "disabled" (explicit workflow_steps=false or
+    # provider unknown). See multi-language-subtitle-design.md §4.1.
+    translate: StepStatus = "skipped"
 
 
 class Assets(BaseModel):
@@ -73,6 +77,19 @@ class Assets(BaseModel):
     bgm: Optional[str] = None
     watermark: Optional[str] = None
     font: Optional[str] = None
+
+
+class SubtitlePaths(BaseModel):
+    """Paths to the three subtitle files produced when translation path runs.
+
+    - `original` is always populated (subtitle.srt)
+    - `translated` / `bilingual` populated only when translation succeeded
+      (or degraded-with-originals — same on-disk content, but the field
+      is still set so render_subtitle_path resolution can pick the track).
+    """
+    original: str
+    translated: Optional[str] = None
+    bilingual: Optional[str] = None
 
 
 class ResearchInfo(BaseModel):
@@ -122,9 +139,17 @@ class Context(BaseModel):
 
     audio_path: Optional[str] = None
     final_audio_path: Optional[str] = None
-    subtitle_path: Optional[str] = None
+    subtitle_path: Optional[str] = None  # ALWAYS original subtitle.srt (invariant)
     script_md_path: Optional[str] = None
     clips_dir: Optional[str] = None
+
+    # ── Multi-language subtitle (v0.3) ──────────────────────
+    # translated_texts is parallel to timed_segments (texts only, no time axis).
+    # subtitle_paths bundles the three possible files; render_subtitle_path is
+    # the mode-selected track for the renderer.
+    translated_texts: List[str] = Field(default_factory=list)
+    subtitle_paths: Optional[SubtitlePaths] = None
+    render_subtitle_path: Optional[str] = None
 
     research: ResearchInfo = Field(default_factory=ResearchInfo)
     assets: Assets = Field(default_factory=Assets)

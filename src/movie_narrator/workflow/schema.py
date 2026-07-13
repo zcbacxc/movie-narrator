@@ -14,6 +14,9 @@ class JobSteps(BaseModel):
     match: Optional[bool] = None
     bgm: Optional[bool] = None
     export: Optional[bool] = None
+    # Multi-language subtitle toggle (v0.3). Short status-field key per
+    # convention; the step itself also accepts `translate_subtitles`.
+    translate: Optional[bool] = None
 
 
 class JobParams(BaseModel):
@@ -23,6 +26,14 @@ class JobParams(BaseModel):
     scene_frame_skip: Optional[int] = None
     match_min_score: Optional[float] = None
     research_provider: Optional[str] = None
+    # Multi-language subtitle tuning (v0.3).
+    translate_provider: Optional[str] = None
+    translate_retries: Optional[int] = None
+    translate_chunk_chars: Optional[int] = None
+    translate_chunk_size: Optional[int] = None
+
+
+VALID_SUBTITLE_MODES = frozenset({"original", "translated", "bilingual"})
 
 
 class JobConfig(BaseModel):
@@ -40,6 +51,9 @@ class JobConfig(BaseModel):
     no_bgm: Optional[bool] = None
     no_clips: Optional[bool] = None
     strict: Optional[bool] = None
+    # Multi-language subtitle (v0.3).
+    subtitle_lang: Optional[str] = None
+    subtitle_mode: Optional[str] = None
     steps: Optional[JobSteps] = None
     params: Optional[JobParams] = None
 
@@ -55,6 +69,15 @@ class JobConfig(BaseModel):
     def _check_format(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v not in ("16:9", "9:16"):
             raise ValueError("format must be '16:9' or '9:16'")
+        return v
+
+    @field_validator("subtitle_mode")
+    @classmethod
+    def _check_subtitle_mode(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in VALID_SUBTITLE_MODES:
+            raise ValueError(
+                f"subtitle_mode must be one of {sorted(VALID_SUBTITLE_MODES)}"
+            )
         return v
 
 
@@ -75,3 +98,6 @@ class ResolvedJob(BaseModel):
     workflow_steps: Dict[str, bool] = Field(default_factory=dict)
     params: Dict[str, Any] = Field(default_factory=dict)
     config_path: Optional[str] = None
+    # Multi-language subtitle (v0.3).
+    subtitle_lang: Optional[str] = None
+    subtitle_mode: str = "original"

@@ -5,6 +5,15 @@ from ..models import Context
 
 
 def build_metadata_json(ctx: Context) -> Dict[str, Any]:
+    subtitle_lang = ctx.metadata.get("subtitle_lang")
+    # Default source/script/voice to zh-CN per spec §5.4; reserved for
+    # future full-pipeline multi-language support.
+    content_language = {
+        "source_lang": ctx.metadata.get("source_lang", "zh-CN"),
+        "script_lang": "zh-CN",
+        "voice_lang": "zh-CN",
+        "subtitle_lang": subtitle_lang,
+    }
     meta: Dict[str, Any] = {
         "version": ctx.metadata.get("version", __version__),
         "movie_name": ctx.movie_name,
@@ -28,5 +37,16 @@ def build_metadata_json(ctx: Context) -> Dict[str, Any]:
             {"text": s.text, "start": s.start, "end": s.end}
             for s in ctx.timed_segments
         ],
+        # Multi-language subtitle (v0.3).
+        "content_language": content_language,
+        "subtitle_mode": ctx.metadata.get("subtitle_mode", "original"),
+        "translate_provider": ctx.metadata.get("translate_provider"),
+        "subtitle_paths": (
+            ctx.subtitle_paths.model_dump()
+            if ctx.subtitle_paths is not None
+            else None
+        ),
+        "render_subtitle_path": ctx.render_subtitle_path,
+        "warnings": ctx.metadata.get("warnings", []),
     }
     return meta

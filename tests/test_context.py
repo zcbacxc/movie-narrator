@@ -62,6 +62,7 @@ def test_pipeline_status_fields():
         "match": "disabled",
         "bgm": "disabled",
         "export": "disabled",
+        "translate": "skipped",
     }
 
 

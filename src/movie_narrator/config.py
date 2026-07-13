@@ -24,6 +24,14 @@ class Settings(BaseSettings):
     scene_frame_skip: int = 10
     match_min_score: float = 0.25
     export_clips_default: bool = True
+    # v0.3 multi-language subtitle defaults.
+    # Empty/None subtitle_lang = feature off (status.translate=skipped).
+    subtitle_lang: Optional[str] = None
+    subtitle_mode: str = "original"
+    translate_provider: str = "llm"
+    translate_retries: int = 3
+    translate_chunk_chars: int = 4000
+    translate_chunk_size: int = 20
 
     model_config = SettingsConfigDict(
         env_file=(".env", str(_USER_ENV)),
