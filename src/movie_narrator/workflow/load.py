@@ -24,6 +24,8 @@ _ALLOWED_TOP = (
     "strict",
     "steps",
     "params",
+    "subtitle_lang",
+    "subtitle_mode",
 )
 
 
@@ -57,7 +59,7 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
     if "steps" in data and data["steps"] is not None:
         if not isinstance(data["steps"], dict):
             raise JobConfigError("steps must be a mapping")
-        allowed_steps = {"research", "align", "scene", "match", "bgm", "export"}
+        allowed_steps = {"research", "align", "scene", "match", "bgm", "export", "translate"}
         for k in data["steps"].keys():
             if k not in allowed_steps:
                 raise JobConfigError(
@@ -67,7 +69,7 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
     if "params" in data and data["params"] is not None:
         if not isinstance(data["params"], dict):
             raise JobConfigError("params must be a mapping")
-        allowed_params = {"scene_threshold", "scene_frame_skip", "match_min_score", "research_provider"}
+        allowed_params = {"scene_threshold", "scene_frame_skip", "match_min_score", "research_provider", "translate_provider", "translate_retries", "translate_chunk_chars", "translate_chunk_size"}
         for k in data["params"].keys():
             if k not in allowed_params:
                 raise JobConfigError(
