@@ -1,0 +1,5 @@
+# Minimal CI config — no external file dependencies
+movie: CI-YAML-Test
+style: test
+duration: 5
+keep_cache: true
