@@ -97,7 +97,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - workflow_steps 和 params 元数据注入
 - 控制台日志重构设计
 
-[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v0.3.3...HEAD
+[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.0...HEAD
+0.4.0: https://github.com/zcbacxc/movie-narrator/compare/v0.3.5...v0.4.0
+0.3.5: https://github.com/zcbacxc/movie-narrator/compare/v0.3.4...v0.3.5
+0.3.4: https://github.com/zcbacxc/movie-narrator/compare/v0.3.3...v0.3.4
 0.3.3: https://github.com/zcbacxc/movie-narrator/compare/v0.3.2...v0.3.3
 0.3.2: https://github.com/zcbacxc/movie-narrator/compare/v0.3.1...v0.3.2
 0.3.1: https://github.com/zcbacxc/movie-narrator/compare/v0.3.0...v0.3.1
