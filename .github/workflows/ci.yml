@@ -1,6 +1,10 @@
 name: CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches: ["main", "feature/*", "hotfix/*"]
+  pull_request:
+    branches: ["main"]
 
 jobs:
   test:
@@ -41,10 +45,10 @@ jobs:
           test -f output/CI-Test/narration.mp3
           echo "Smoke test passed"
 
-  # Plan T18 / Spec §4: optional media job (allow_failure / continue-on-error)
   media:
     runs-on: ubuntu-latest
     continue-on-error: true
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
