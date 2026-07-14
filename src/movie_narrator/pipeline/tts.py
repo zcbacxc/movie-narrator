@@ -36,6 +36,8 @@ def generate_voice(ctx: Context) -> Context:
             model=(
                 settings.openai_tts_model
                 if settings.tts_provider is TTSProviderType.OPENAI
+                else settings.mimo_tts_model
+                if settings.tts_provider is TTSProviderType.MIMO
                 else ""
             ),
             voice=voice,

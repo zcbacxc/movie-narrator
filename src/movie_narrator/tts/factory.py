@@ -12,6 +12,9 @@ def get_tts_provider(settings: Settings) -> TTSProvider:
     elif settings.tts_provider is TTSProviderType.OPENAI:
         from .openai_provider import OpenAITTSProvider
         return OpenAITTSProvider(settings)
+    elif settings.tts_provider is TTSProviderType.MIMO:
+        from .mimo_provider import MimoTTSProvider
+        return MimoTTSProvider(settings)
     else:
         raise ConfigError(
             f"Unsupported TTS provider: {settings.tts_provider!r}. "

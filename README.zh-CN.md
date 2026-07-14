@@ -291,10 +291,14 @@ mn create --movie "飞驰人生" --duration 60
 | `MN_SUBTITLE_MODE` | 默认叠加模式（`original` / `translated` / `bilingual`） | `original` |
 | `MN_TRANSLATE_PROVIDER` | 翻译后端（v0.3 仅支持 `llm`） | `llm` |
 | `MN_TRANSLATE_RETRIES` | LLM 翻译失败重试次数，超出后软降级 | `3` |
-| `MN_TTS_PROVIDER` | TTS 后端：`edge`（默认）或 `openai` | `edge` |
+| `MN_TTS_PROVIDER` | TTS 后端：`edge`（默认）、`openai` 或 `mimo` | `edge` |
 | `MN_OPENAI_TTS_MODEL` | OpenAI TTS 模型（`MN_TTS_PROVIDER=openai` 时生效） | `tts-1` |
 | `MN_OPENAI_TTS_API_KEY` | OpenAI TTS API 密钥（回退到 `MN_LLM_API_KEY`） | - |
 | `MN_OPENAI_TTS_BASE_URL` | OpenAI TTS 基地址（回退到 `MN_LLM_BASE_URL`） | - |
+| `MN_MIMO_TTS_MODEL` | MiMo TTS 模型（`mimo-v2.5-tts`、`mimo-v2.5-tts-voiceclone`、`mimo-v2.5-tts-voicedesign`） | `mimo-v2.5-tts` |
+| `MN_MIMO_API_KEY` | MiMo API 密钥（回退到 `MN_LLM_API_KEY`） | - |
+| `MN_MIMO_BASE_URL` | MiMo 基地址 | `https://api.xiaomimimo.com/v1` |
+| `MN_MIMO_STYLE_PROMPT` | `mimo-v2.5-tts` 风格描述（可选） | - |
 
 ---
 
@@ -388,6 +392,7 @@ movie-narrator/
 │   │   ├── base.py              # BaseTTSProvider（CI 静音回退）、is_ci()
 │   │   ├── edge.py              # EdgeTTSProvider
 │   │   ├── openai_provider.py   # OpenAITTSProvider（voice 白名单、延迟 SDK 导入）
+│   │   ├── mimo_provider.py     # MimoTTSProvider（3 模型：指定音色、声音克隆、声音设计）
 │   │   ├── factory.py           # get_tts_provider(settings)
 │   │   └── cache.py             # TTSCacheKey、cache_path_for、PROVIDER_CACHE_VERSIONS
 │   ├── utils/
@@ -479,9 +484,10 @@ movie-narrator/
 
 ### v0.4.x — TTS 抽象与可扩展性 ✅
 
-- [x] TTS Provider 抽象（`TTSProvider` 协议、Edge + OpenAI 后端）
-- [x] 通过 `MN_TTS_PROVIDER` 选择后端（`edge` / `openai`）
+- [x] TTS Provider 抽象（`TTSProvider` 协议、Edge + OpenAI + MiMo 后端）
+- [x] 通过 `MN_TTS_PROVIDER` 选择后端（`edge` / `openai` / `mimo`）
 - [x] OpenAI TTS 支持（voice 白名单、凭证回退、延迟 SDK 导入）
+- [x] MiMo TTS 支持（3 模型：指定音色、声音克隆、声音设计；限时免费）
 - [x] 缓存键升级（sha256、7 维度、两级散列、per-provider 版本映射）
 - [x] CI 临时文件隔离（静音音频不进入缓存）
 - [x] `is_ci()` CI 检测单一来源

@@ -12,6 +12,7 @@ Covers:
 """
 
 import asyncio
+import base64
 import json
 import os
 import shutil
@@ -108,8 +109,10 @@ class TestTTSCacheKey:
     def test_provider_cache_versions_dict(self):
         assert "edge" in PROVIDER_CACHE_VERSIONS
         assert "openai" in PROVIDER_CACHE_VERSIONS
+        assert "mimo" in PROVIDER_CACHE_VERSIONS
         assert PROVIDER_CACHE_VERSIONS["edge"] >= 1
         assert PROVIDER_CACHE_VERSIONS["openai"] >= 1
+        assert PROVIDER_CACHE_VERSIONS["mimo"] >= 1
 
     def test_schema_version_is_2(self):
         assert CACHE_SCHEMA_VERSION == 2
@@ -321,6 +324,165 @@ class TestOpenAITTSProvider:
         assert provider._write_audio.call_count == len(OPENAI_TTS_VOICES)
 
 
+# ─── MiMo TTSProvider ───
+
+
+class TestMimoTTSProvider:
+    def _make_settings(self, **overrides):
+        from movie_narrator.config import Settings, TTSProviderType
+        defaults = dict(
+            tts_provider=TTSProviderType.MIMO,
+            mimo_tts_model="mimo-v2.5-tts",
+            mimo_api_key="mimo-test-key",
+            mimo_base_url="https://api.xiaomimimo.com/v1",
+            mimo_style_prompt="",
+            llm_api_key="llm-key",
+            llm_base_url="http://localhost:11434/v1",
+        )
+        defaults.update(overrides)
+        return Settings(**defaults)
+
+    def _make_mock_completion(self, audio_data=b"fake wav bytes"):
+        msg = MagicMock()
+        msg.audio.data = base64.b64encode(audio_data).decode("utf-8")
+        completion = MagicMock()
+        completion.choices = [MagicMock(message=msg)]
+        return completion
+
+    def test_constructor_uses_explicit_api_key(self):
+        from movie_narrator.tts.mimo_provider import MimoTTSProvider
+        settings = self._make_settings(mimo_api_key="mimo-explicit")
+        with patch("openai.OpenAI") as mock_openai:
+            MimoTTSProvider(settings)
+            call_kwargs = mock_openai.call_args.kwargs
+            assert call_kwargs["api_key"] == "mimo-explicit"
+
+    def test_constructor_falls_back_to_llm_api_key(self):
+        from movie_narrator.tts.mimo_provider import MimoTTSProvider
+        settings = self._make_settings(mimo_api_key=None, llm_api_key="llm-fallback")
+        with patch("openai.OpenAI") as mock_openai:
+            MimoTTSProvider(settings)
+            call_kwargs = mock_openai.call_args.kwargs
+            assert call_kwargs["api_key"] == "llm-fallback"
+
+    def test_constructor_raises_on_missing_key(self):
+        from movie_narrator.tts.mimo_provider import MimoTTSProvider
+        settings = self._make_settings(mimo_api_key=None, llm_api_key="")
+        with patch("openai.OpenAI"):
+            with pytest.raises(ConfigError, match="requires.*API_KEY"):
+                MimoTTSProvider(settings)
+
+    def test_constructor_uses_custom_base_url(self):
+        from movie_narrator.tts.mimo_provider import MimoTTSProvider
+        settings = self._make_settings(mimo_base_url="https://custom.mimo.api/v1")
+        with patch("openai.OpenAI") as mock_openai:
+            MimoTTSProvider(settings)
+            call_kwargs = mock_openai.call_args.kwargs
+            assert call_kwargs["base_url"] == "https://custom.mimo.api/v1"
+
+    @requires_mp3
+    def test_named_voice_mode_calls_api_correctly(self, tmp_path):
+        from movie_narrator.tts.mimo_provider import MimoTTSProvider, MIMO_TTS
+        settings = self._make_settings(
+            mimo_tts_model=MIMO_TTS,
+            mimo_style_prompt="Bright and bouncy tone.",
+        )
+        with patch("openai.OpenAI"):
+            provider = MimoTTSProvider(settings)
+
+        provider._call_api = MagicMock(return_value=self._make_mock_completion())
+        out = tmp_path / "mimo.mp3"
+        asyncio.run(provider._real_synthesize("Hello world", "Chloe", out))
+
+        assert provider._call_api.call_count == 1
+        args = provider._call_api.call_args.args
+        assert args[0] == "Hello world"       # text
+        assert args[1] == "Bright and bouncy tone."  # user_content (style prompt)
+        audio_param = args[2]
+        assert audio_param["voice"] == "Chloe"
+        assert audio_param["format"] == "wav"
+        assert out.exists()
+
+    @requires_mp3
+    def test_voiceclone_mode_encodes_audio_file(self, tmp_path):
+        from movie_narrator.tts.mimo_provider import MimoTTSProvider, MIMO_VOICECLONE
+        # Create a fake voice file
+        voice_file = tmp_path / "voice.wav"
+        voice_file.write_bytes(b"fake wav header + data")
+
+        settings = self._make_settings(mimo_tts_model=MIMO_VOICECLONE)
+        with patch("openai.OpenAI"):
+            provider = MimoTTSProvider(settings)
+
+        provider._call_api = MagicMock(return_value=self._make_mock_completion())
+        out = tmp_path / "clone.mp3"
+        asyncio.run(provider._real_synthesize("Test text", str(voice_file), out))
+
+        audio_param = provider._call_api.call_args.args[2]
+        assert audio_param["voice"].startswith("data:audio/wav;base64,")
+        # Verify the base64 content matches the file
+        b64_part = audio_param["voice"].split(",", 1)[1]
+        assert base64.b64decode(b64_part) == b"fake wav header + data"
+        # User content should be empty for voiceclone
+        assert provider._call_api.call_args.args[1] == ""
+
+    def test_voiceclone_raises_on_missing_file(self, tmp_path):
+        from movie_narrator.tts.mimo_provider import MimoTTSProvider, MIMO_VOICECLONE
+        settings = self._make_settings(mimo_tts_model=MIMO_VOICECLONE)
+        with patch("openai.OpenAI"):
+            provider = MimoTTSProvider(settings)
+
+        with pytest.raises(ConfigError, match="Voice clone file not found"):
+            asyncio.run(provider._real_synthesize("text", "/nonexistent/voice.wav", tmp_path / "out.mp3"))
+
+    @requires_mp3
+    def test_voicedesign_mode_uses_voice_as_description(self, tmp_path):
+        from movie_narrator.tts.mimo_provider import MimoTTSProvider, MIMO_VOICEDESIGN
+        settings = self._make_settings(mimo_tts_model=MIMO_VOICEDESIGN)
+        with patch("openai.OpenAI"):
+            provider = MimoTTSProvider(settings)
+
+        provider._call_api = MagicMock(return_value=self._make_mock_completion())
+        out = tmp_path / "designed.mp3"
+        asyncio.run(provider._real_synthesize("Hello", "young male tone", out))
+
+        args = provider._call_api.call_args.args
+        # voice description goes in user_content
+        assert args[1] == "young male tone"
+        audio_param = args[2]
+        assert "voice" not in audio_param
+        assert audio_param.get("optimize_text_preview") is True
+
+    def test_unsupported_model_raises_config_error(self, tmp_path):
+        from movie_narrator.tts.mimo_provider import MimoTTSProvider
+        settings = self._make_settings(mimo_tts_model="mimo-unsupported-model")
+        with patch("openai.OpenAI"):
+            provider = MimoTTSProvider(settings)
+
+        with pytest.raises(ConfigError, match="Unsupported MiMo TTS model"):
+            asyncio.run(provider._real_synthesize("text", "voice", tmp_path / "out.mp3"))
+
+    def test_voice_b64_cache_avoids_reread(self, tmp_path):
+        from movie_narrator.tts.mimo_provider import MimoTTSProvider, MIMO_VOICECLONE
+        voice_file = tmp_path / "voice.wav"
+        voice_file.write_bytes(b"cache test data")
+
+        settings = self._make_settings(mimo_tts_model=MIMO_VOICECLONE)
+        with patch("openai.OpenAI"):
+            provider = MimoTTSProvider(settings)
+
+        # First call reads file
+        uri1 = provider._encode_voice_file(str(voice_file))
+        # Second call should use cache
+        uri2 = provider._encode_voice_file(str(voice_file))
+        assert uri1 == uri2
+        assert len(provider._voice_b64_cache) == 1
+
+    def test_is_protocol_subclass(self):
+        from movie_narrator.tts.mimo_provider import MimoTTSProvider
+        assert issubclass(MimoTTSProvider, TTSProvider)
+
+
 # ─── Factory ───
 
 
@@ -348,6 +510,17 @@ class TestFactory:
         p1 = get_tts_provider(settings)
         p2 = get_tts_provider(settings)
         assert p1 is not p2
+
+    def test_returns_mimo_provider(self):
+        from movie_narrator.config import Settings, TTSProviderType
+        settings = Settings(
+            tts_provider=TTSProviderType.MIMO,
+            mimo_api_key="mimo-test",
+        )
+        with patch("openai.OpenAI"):
+            provider = get_tts_provider(settings)
+        from movie_narrator.tts.mimo_provider import MimoTTSProvider
+        assert isinstance(provider, MimoTTSProvider)
 
 
 # ─── pipeline/tts.generate_voice (CI path) ───
@@ -504,6 +677,22 @@ class TestSettingsTTS:
         monkeypatch.setenv("MN_TTS_PROVIDER", "invalid-provider")
         with pytest.raises(ValidationError):
             Settings()
+        get_settings.cache_clear()
+
+    def test_mimo_defaults(self):
+        from movie_narrator.config import Settings
+        s = Settings()
+        assert s.mimo_tts_model == "mimo-v2.5-tts"
+        assert s.mimo_api_key is None
+        assert s.mimo_base_url == "https://api.xiaomimimo.com/v1"
+        assert s.mimo_style_prompt == ""
+
+    def test_env_prefix_mimo_provider(self, monkeypatch):
+        from movie_narrator.config import Settings, TTSProviderType
+        get_settings.cache_clear()
+        monkeypatch.setenv("MN_TTS_PROVIDER", "mimo")
+        s = Settings()
+        assert s.tts_provider is TTSProviderType.MIMO
         get_settings.cache_clear()
 
 
