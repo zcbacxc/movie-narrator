@@ -140,7 +140,7 @@ mn create --movie "飞驰人生" --keep-cache
 | `--movie, -m` | 电影名称（必填） | - |
 | `--style, -s` | 解说风格 | `热血搞笑` |
 | `--duration, -d` | 目标时长（秒） | `60` |
-| `--voice, -v` | Edge-TTS 音色 | `zh-CN-YunxiNeural` |
+| `--voice, -v` | TTS 音色（由 Provider 解释） | `zh-CN-YunxiNeural` |
 | `--format, -f` | 视频比例（`16:9` 或 `9:16`） | `16:9` |
 | `--video, -V` | 源电影文件路径 | - |
 | `--library-dir` | 电影库目录 | - |
@@ -151,6 +151,7 @@ mn create --movie "飞驰人生" --keep-cache
 | `--no-clips` | 跳过场景片段导出 | `false` |
 | `--strict` | 软步骤失败时中止 | `false` |
 | `--keep-cache` | 保留 TTS 缓存文件 | `false` |
+| `--retry` | 硬步骤失败时启用交互式重试 | `false` |
 | `--subtitle-lang` | 目标语言标签（`en`、`ja`、`zh-TW`...），留空 = 关闭翻译 | - |
 | `--subtitle-mode` | 渲染叠加模式：`original` / `translated` / `bilingual` | `original` |
 | `--config` | Job YAML 配置文件路径（movie/steps/params）；CLI 参数覆盖 YAML | - |
@@ -235,7 +236,7 @@ mn --help    # 查看帮助
 
 ### 通过 `.env` 文件（推荐）
 
-在项目目录创建 `.env`（或 `~/.movie-narrator/.env` 作为全局配置——该文件在包目录之外，`pip install/upgrade/uninstall` 均不会触碰）：
+在项目目录创建 `.env`（或 `~/.movie-narrator/.env` 作为全局配置——首次运行时自动创建并填入默认值，该文件在包目录之外，`pip install/upgrade/uninstall` 均不会触碰）：
 
 ```bash
 MN_LLM_BASE_URL=http://localhost:11434/v1
@@ -291,6 +292,8 @@ mn create --movie "飞驰人生" --duration 60
 | `MN_SUBTITLE_MODE` | 默认叠加模式（`original` / `translated` / `bilingual`） | `original` |
 | `MN_TRANSLATE_PROVIDER` | 翻译后端（v0.3 仅支持 `llm`） | `llm` |
 | `MN_TRANSLATE_RETRIES` | LLM 翻译失败重试次数，超出后软降级 | `3` |
+| `MN_TRANSLATE_CHUNK_CHARS` | 每个翻译块的最大字符数 | `4000` |
+| `MN_TRANSLATE_CHUNK_SIZE` | 每个翻译块的最大段数 | `20` |
 | `MN_TTS_PROVIDER` | TTS 后端：`edge`（默认）、`openai` 或 `mimo` | `edge` |
 | `MN_OPENAI_TTS_MODEL` | OpenAI TTS 模型（`MN_TTS_PROVIDER=openai` 时生效） | `tts-1` |
 | `MN_OPENAI_TTS_API_KEY` | OpenAI TTS API 密钥（回退到 `MN_LLM_API_KEY`） | - |
@@ -378,9 +381,10 @@ movie-narrator/
 │   │   ├── bgm.py           # 背景音乐混音
 │   │   ├── translate.py     # 多语言字幕翻译（LLM）
 │   │   ├── subtitle.py      # SRT 生成（原版 / 翻译 / 双语）
-│   │   ├── render.py        # MoviePy 视频渲染
-│   │   ├── export_clips.py  # 场景片段导出
-│   │   └── errors.py        # PipelineStrictError
+│   │   ├── render.py        # MoviePy 2.x 视频渲染
+│   │   ├── export_clips.py  # 场景片段导出（直调 ffmpeg）
+│   │   ├── preflight.py     # 运行前 LLM/TTS 校验（快速失败）
+│   │   └── errors.py        # PipelineStrictError, PipelineCancelled, RunController, StepAction
 │   ├── workflow/
 │   │   ├── schema.py        # JobConfig / JobSteps / JobParams
 │   │   ├── load.py          # YAML 加载与验证
@@ -492,6 +496,11 @@ movie-narrator/
 - [x] CI 临时文件隔离（静音音频不进入缓存）
 - [x] `is_ci()` CI 检测单一来源
 - [x] `ConfigError` 横切配置错误类
+- [x] MoviePy 1.x → 2.x 升级（Python 3.13+ 兼容）
+- [x] 运行前 LLM/TTS 预检（preflight 校验）
+- [x] 步骤级重试机制（`--retry` 标志，`StepAction` 枚举）
+- [x] 首次运行自动创建 `~/.movie-narrator/.env`
+- [x] `export_clips` 直调 ffmpeg 子进程（设计选择，非临时方案）
 
 ### v0.5.x — 生态系统（规划中）
 

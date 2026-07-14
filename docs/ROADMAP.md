@@ -74,6 +74,11 @@ Soft pipeline steps (research, align, scene detect, scene match, BGM, clip expor
 - [x] CI temp-file isolation (silent audio never enters cache)
 - [x] `is_ci()` single source of truth for CI detection
 - [x] `ConfigError` cross-cutting error class
+- [x] MoviePy 1.x → 2.x upgrade (Python 3.13+ compatibility)
+- [x] Preflight LLM/TTS validation before pipeline execution
+- [x] Step-level retry mechanism (`--retry` flag, `StepAction` enum)
+- [x] Auto-create `~/.movie-narrator/.env` on first run
+- [x] `export_clips` direct ffmpeg subprocess (design choice)
 
 ### v0.4 Environment variables
 
