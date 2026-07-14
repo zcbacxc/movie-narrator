@@ -105,6 +105,8 @@ pip install "movie-narrator[web]"
 pip install "movie-narrator[full]"
 ```
 
+> **Python 3.13+ note**: `[ml]` extras (whisperx, sentence-transformers) depend on PyTorch wheels that may lag behind new Python releases. On Python 3.14 these packages are automatically skipped — `align_audio` and `match_clips` will soft-degrade to heuristic fallbacks. Use Python 3.12 for full ML features.
+
 For development:
 
 ```bash
@@ -234,7 +236,7 @@ All settings use the `MN_` prefix to avoid conflicts with other tools.
 
 ### Via `.env` file (recommended)
 
-Create `.env` in your project directory (or `~/.movie-narrator/.env` for global config — this file lives outside the package, so `pip install/upgrade/uninstall` never touches it):
+`~/.movie-narrator/.env` is auto-created with default values on first run — edit it to configure LLM, TTS, and other settings. This file lives outside the package, so `pip install/upgrade/uninstall` never touches it. You can also create a project-level `.env` in your working directory for per-project overrides.
 
 ```bash
 MN_LLM_BASE_URL=http://localhost:11434/v1
