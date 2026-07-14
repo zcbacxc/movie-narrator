@@ -2,6 +2,7 @@ import asyncio
 from pathlib import Path
 
 from pydub import AudioSegment
+from tqdm.asyncio import tqdm_asyncio
 
 from ..config import get_settings, TTSProviderType
 from ..models import Context, TimedSegment
@@ -67,7 +68,11 @@ def generate_voice(ctx: Context) -> Context:
                     audio = AudioSegment.from_mp3(cached)
                 return audio, round(len(audio) / 1000.0, 3)
 
-        return await asyncio.gather(*[_one(s) for s in ctx.segments])
+        return await tqdm_asyncio.gather(
+            *[_one(s) for s in ctx.segments],
+            desc="Narrating",
+            unit="seg",
+        )
 
     results = run_async(_run_all())
 
