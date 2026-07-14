@@ -20,6 +20,8 @@ from __future__ import annotations
 import os
 from typing import List, Optional, Sequence
 
+from tqdm import tqdm
+
 from ..config import get_settings
 from ..models import Context, StepResult
 from ..utils.json_parser import extract_json
@@ -157,7 +159,7 @@ def _translate_via_llm(
     chunks = _chunk_texts(texts, max_chars=max_chars, max_items=max_items)
     result: List[Optional[str]] = [None] * len(texts)
 
-    for chunk_indices in chunks:
+    for chunk_indices in tqdm(chunks, desc="Translating", unit="chunk"):
         chunk_texts = [texts[i] for i in chunk_indices]
         success = False
         last_error: Optional[Exception] = None
