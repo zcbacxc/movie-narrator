@@ -95,7 +95,7 @@ pip install -e .
 # 场景检测（PySceneDetect）
 pip install "movie-narrator[media]"
 
-# WhisperX + 语义搜索（需要 PyTorch）
+# WhisperX + 语义搜索（需要 PyTorch，Python < 3.14）
 pip install "movie-narrator[ml]"
 
 # Web UI（Gradio）
