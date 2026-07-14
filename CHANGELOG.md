@@ -18,6 +18,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-07-14
+
+### Added
+- MiMo TTS provider (`tts/mimo_provider.py`): Xiaomi MiMo TTS via OpenAI-compatible `chat.completions` API. Three models supported (all limited-time free):
+  - `mimo-v2.5-tts`: Named voice (e.g. "Chloe") with optional style prompt (`MN_MIMO_STYLE_PROMPT`)
+  - `mimo-v2.5-tts-voiceclone`: Voice cloning from audio file (base64 data URI, cached per path)
+  - `mimo-v2.5-tts-voicedesign`: Voice design from text description
+- New Settings: `mimo_tts_model`, `mimo_api_key` (falls back to `llm_api_key`), `mimo_base_url` (default `https://api.xiaomimimo.com/v1`), `mimo_style_prompt`
+- MiMo registered in `PROVIDER_CACHE_VERSIONS` and `TTSProviderType` enum
+- Tests: 11 new MiMo cases (constructor, credential fallback, named voice mode, voiceclone encoding + cache, voicedesign mode, unsupported model error, missing file error, factory, settings defaults, env prefix)
+
+### Changed
+- `pipeline/tts.py`: cache key `model` field now resolves `mimo_tts_model` when provider is MiMo
+- MiMo provider converts wav→mp3 internally (API returns wav; pipeline expects mp3)
+
 ## [0.4.0] - 2026-07-14
 
 ### Added
@@ -97,7 +112,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - workflow_steps 和 params 元数据注入
 - 控制台日志重构设计
 
-[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.1...HEAD
+0.4.1: https://github.com/zcbacxc/movie-narrator/compare/v0.4.0...v0.4.1
 0.4.0: https://github.com/zcbacxc/movie-narrator/compare/v0.3.5...v0.4.0
 0.3.5: https://github.com/zcbacxc/movie-narrator/compare/v0.3.4...v0.3.5
 0.3.4: https://github.com/zcbacxc/movie-narrator/compare/v0.3.3...v0.3.4

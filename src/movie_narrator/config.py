@@ -13,6 +13,7 @@ _USER_ENV = Path.home() / ".movie-narrator" / ".env"
 class TTSProviderType(str, Enum):
     EDGE = "edge"
     OPENAI = "openai"
+    MIMO = "mimo"
 
 
 class Settings(BaseSettings):
@@ -43,6 +44,13 @@ class Settings(BaseSettings):
     openai_tts_model: str = "tts-1"
     openai_tts_api_key: Optional[str] = None   # falls back to llm_api_key
     openai_tts_base_url: Optional[str] = None  # falls back to llm_base_url
+    # ── MiMo TTS (v0.4.1) ──
+    # Three models: mimo-v2.5-tts (named voice), mimo-v2.5-tts-voiceclone (audio file),
+    #               mimo-v2.5-tts-voicedesign (text description)
+    mimo_tts_model: str = "mimo-v2.5-tts"
+    mimo_api_key: Optional[str] = None         # falls back to llm_api_key
+    mimo_base_url: str = "https://api.xiaomimimo.com/v1"
+    mimo_style_prompt: str = ""                # style description for user message (mimo-v2.5-tts only)
 
     model_config = SettingsConfigDict(
         env_file=(".env", str(_USER_ENV)),

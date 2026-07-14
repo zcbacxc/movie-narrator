@@ -290,10 +290,14 @@ mn create --movie "飞驰人生" --duration 60
 | `MN_SUBTITLE_MODE` | Default overlay mode (`original` / `translated` / `bilingual`) | `original` |
 | `MN_TRANSLATE_PROVIDER` | Translation backend (v0.3: `llm` only) | `llm` |
 | `MN_TRANSLATE_RETRIES` | LLM translation retries before soft-degrade | `3` |
-| `MN_TTS_PROVIDER` | TTS backend: `edge` (default) or `openai` | `edge` |
+| `MN_TTS_PROVIDER` | TTS backend: `edge` (default), `openai`, or `mimo` | `edge` |
 | `MN_OPENAI_TTS_MODEL` | OpenAI TTS model (when `MN_TTS_PROVIDER=openai`) | `tts-1` |
 | `MN_OPENAI_TTS_API_KEY` | OpenAI TTS API key (falls back to `MN_LLM_API_KEY`) | - |
 | `MN_OPENAI_TTS_BASE_URL` | OpenAI TTS base URL (falls back to `MN_LLM_BASE_URL`) | - |
+| `MN_MIMO_TTS_MODEL` | MiMo TTS model (`mimo-v2.5-tts`, `mimo-v2.5-tts-voiceclone`, `mimo-v2.5-tts-voicedesign`) | `mimo-v2.5-tts` |
+| `MN_MIMO_API_KEY` | MiMo API key (falls back to `MN_LLM_API_KEY`) | - |
+| `MN_MIMO_BASE_URL` | MiMo base URL | `https://api.xiaomimimo.com/v1` |
+| `MN_MIMO_STYLE_PROMPT` | Style description for `mimo-v2.5-tts` (optional) | - |
 
 ---
 
@@ -387,6 +391,7 @@ movie-narrator/
 │   │   ├── base.py              # BaseTTSProvider (CI silent fallback), is_ci()
 │   │   ├── edge.py              # EdgeTTSProvider
 │   │   ├── openai_provider.py   # OpenAITTSProvider (voice whitelist, lazy SDK)
+│   │   ├── mimo_provider.py     # MimoTTSProvider (3 models: named voice, voice clone, voice design)
 │   │   ├── factory.py           # get_tts_provider(settings)
 │   │   └── cache.py             # TTSCacheKey, cache_path_for, PROVIDER_CACHE_VERSIONS
 │   ├── utils/
@@ -478,9 +483,10 @@ movie-narrator/
 
 ### v0.4.x — TTS Abstraction & Extensibility
 
-- [x] TTS provider abstraction (`TTSProvider` protocol, Edge + OpenAI backends)
-- [x] Provider selection via `MN_TTS_PROVIDER` (`edge` / `openai`)
+- [x] TTS provider abstraction (`TTSProvider` protocol, Edge + OpenAI + MiMo backends)
+- [x] Provider selection via `MN_TTS_PROVIDER` (`edge` / `openai` / `mimo`)
 - [x] OpenAI TTS support (voice whitelist, credential fallback, lazy SDK import)
+- [x] MiMo TTS support (3 models: named voice, voice clone, voice design; limited-time free)
 - [x] Cache key upgrade (sha256, 7 dimensions, two-level fan-out, per-provider version map)
 - [x] CI temp-file isolation (silent audio never enters cache)
 - [x] `is_ci()` single source of truth for CI detection

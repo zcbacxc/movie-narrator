@@ -10,6 +10,7 @@ CACHE_SCHEMA_VERSION = 2  # v0.4: key shape gains provider + provider_version + 
 PROVIDER_CACHE_VERSIONS: dict[str, int] = {
     "edge": 1,
     "openai": 1,
+    "mimo": 1,
 }
 
 

@@ -66,9 +66,10 @@ Soft pipeline steps (research, align, scene detect, scene match, BGM, clip expor
 
 ## v0.4.x — TTS Abstraction & Extensibility
 
-- [x] TTS provider abstraction (`TTSProvider` protocol, `BaseTTSProvider`, `EdgeTTSProvider`, `OpenAITTSProvider`)
-- [x] Provider selection via `MN_TTS_PROVIDER` (`edge` / `openai`)
+- [x] TTS provider abstraction (`TTSProvider` protocol, `BaseTTSProvider`, `EdgeTTSProvider`, `OpenAITTSProvider`, `MimoTTSProvider`)
+- [x] Provider selection via `MN_TTS_PROVIDER` (`edge` / `openai` / `mimo`)
 - [x] OpenAI TTS support (sync SDK via `asyncio.to_thread`; voice whitelist; credential fallback to `MN_LLM_API_KEY`)
+- [x] MiMo TTS support (3 models: named voice, voice clone, voice design; wav→mp3 conversion; style prompt)
 - [x] Cache key upgrade (sha256, 7 dimensions, two-level fan-out, per-provider version map)
 - [x] CI temp-file isolation (silent audio never enters cache)
 - [x] `is_ci()` single source of truth for CI detection
@@ -79,7 +80,11 @@ Soft pipeline steps (research, align, scene detect, scene match, BGM, clip expor
 
 ### v0.4 Environment variables
 
-- `MN_TTS_PROVIDER` — `edge` (default) or `openai`
+- `MN_TTS_PROVIDER` — `edge` (default), `openai`, or `mimo`
 - `MN_OPENAI_TTS_MODEL` — OpenAI TTS model (default `tts-1`)
 - `MN_OPENAI_TTS_API_KEY` — OpenAI TTS API key (falls back to `MN_LLM_API_KEY`)
 - `MN_OPENAI_TTS_BASE_URL` — OpenAI TTS base URL (falls back to `MN_LLM_BASE_URL`)
+- `MN_MIMO_TTS_MODEL` — MiMo TTS model (default `mimo-v2.5-tts`; also `mimo-v2.5-tts-voiceclone`, `mimo-v2.5-tts-voicedesign`)
+- `MN_MIMO_API_KEY` — MiMo API key (falls back to `MN_LLM_API_KEY`)
+- `MN_MIMO_BASE_URL` — MiMo base URL (default `https://api.xiaomimimo.com/v1`)
+- `MN_MIMO_STYLE_PROMPT` — Style description for `mimo-v2.5-tts` user message (default empty)

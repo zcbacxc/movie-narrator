@@ -114,7 +114,7 @@ pipeline probes duration via AudioSegment.from_mp3
 - **CI temp-file isolation**: CI synthesizes to `output/.ci_<hash>.mp3`, probes, deletes — silent-audio files never enter cache
 - **`is_ci()` single source of truth**: defined in `tts/base.py`, imported by pipeline (no duplicate `os.getenv("CI")`)
 - **`PROVIDER_CACHE_VERSIONS` dict**: extensible per-provider cache version (Open/Closed Principle)
-- **Credential fallback**: `openai_tts_api_key` → `llm_api_key`; `openai_tts_base_url` → `llm_base_url`
+- **Credential fallback**: `openai_tts_api_key` → `llm_api_key`; `openai_tts_base_url` → `llm_base_url`; `mimo_api_key` → `llm_api_key`
 
 ### Modules
 
@@ -124,6 +124,7 @@ pipeline probes duration via AudioSegment.from_mp3
 | `tts/base.py` | `BaseTTSProvider` (CI silent fallback), `is_ci()`, `_estimate_duration_s()` |
 | `tts/edge.py` | `EdgeTTSProvider` — wraps `edge_tts.Communicate` |
 | `tts/openai_provider.py` | `OpenAITTSProvider` — wraps sync OpenAI SDK via `asyncio.to_thread`; voice whitelist |
+| `tts/mimo_provider.py` | `MimoTTSProvider` — Xiaomi MiMo TTS via `chat.completions`; 3 models (named voice, voice clone, voice design); wav→mp3 conversion |
 | `tts/factory.py` | `get_tts_provider(settings)` — settings → provider instance (no singleton) |
 | `tts/cache.py` | `TTSCacheKey` dataclass, `cache_path_for()` (two-level fan-out), `PROVIDER_CACHE_VERSIONS` |
 | `utils/errors.py` | `ConfigError` — cross-cutting config-error class |
@@ -136,7 +137,7 @@ pipeline probes duration via AudioSegment.from_mp3
 4. **research_plot** — LLM fetches movie metadata (title, cast, keywords) → `research.json`
 5. **generate_script** — LLM returns JSON → `List[ScriptSegment]`; writes `script.json`
 6. **export_script_md** — renders segments to human-readable `script.md`
-7. **generate_voice** — TTS provider (Edge-TTS or OpenAI) async with semaphore + sha256 content-addressable cache (7-dimension key, two-level fan-out) → `narration.mp3` + `List[TimedSegment]`. CI mode uses silent fallback with temp-file isolation.
+7. **generate_voice** — TTS provider (Edge-TTS, OpenAI, or MiMo) async with semaphore + sha256 content-addressable cache (7-dimension key, two-level fan-out) → `narration.mp3` + `List[TimedSegment]`. CI mode uses silent fallback with temp-file isolation.
 8. **align_audio** — (optional) WhisperX aligns narration to text → word-level timestamps
 9. **detect_scenes** — (optional) PySceneDetect splits source video into `Scene` list
 10. **match_clips** — (optional) maps scenes to script segments. Baseline is proportional heuristic matching against the scene span (`source="heuristic"`). When `[ml]` is installed and more than one scene exists, re-rank candidates by multilingual sentence-similarity embeddings (`source="embedding"`); falls back to heuristic on probe/modelfailure → `matches.json`
