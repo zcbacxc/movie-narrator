@@ -342,7 +342,20 @@ class TestMimoTTSProvider:
         defaults.update(overrides)
         return Settings(**defaults)
 
-    def _make_mock_completion(self, audio_data=b"fake wav bytes"):
+    def _make_mock_completion(self, audio_data=None):
+        """Return a mock completion with valid WAV audio data.
+
+        Default generates 100ms of silence as a real WAV file so that
+        ``AudioSegment.from_file(..., format="wav")`` in the provider
+        can actually decode it (CI ffmpeg has full codec support).
+        """
+        if audio_data is None:
+            from io import BytesIO
+            from pydub import AudioSegment as _seg
+            seg = _seg.silent(duration=100, frame_rate=8000)
+            buf = BytesIO()
+            seg.export(buf, format="wav")
+            audio_data = buf.getvalue()
         msg = MagicMock()
         msg.audio.data = base64.b64encode(audio_data).decode("utf-8")
         completion = MagicMock()
