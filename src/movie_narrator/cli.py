@@ -137,6 +137,11 @@ def create(
     try:
         ctx = run_pipeline(ctx)
     except Exception as e:
+        # PreflightError gets a targeted remediation hint.
+        from .pipeline.preflight import PreflightError
+        if isinstance(e, PreflightError):
+            typer.echo(str(e), err=True)
+            raise typer.Exit(code=1)
         # step_err already printed the single-line summary and wrote the
         # full traceback to the log file.  Suppress Typer's Rich
         # traceback to keep the console output clean.
