@@ -86,7 +86,21 @@ Soft pipeline steps (research, align, scene detect, scene match, BGM, clip expor
 - `MN_MIMO_BASE_URL` — MiMo base URL (default `https://api.xiaomimimo.com/v1`)
 - `MN_MIMO_STYLE_PROMPT` — Style description for `mimo-v2.5-tts` user message (default empty)
 
+### Provider env-var naming convention
+
+Future TTS providers (Azure, ElevenLabs, FishAudio, CosyVoice, ...) follow a uniform pattern:
+
+```
+MN_<PROVIDER>_TTS_MODEL   — model name
+MN_<PROVIDER>_API_KEY     — API key (falls back to MN_LLM_API_KEY)
+MN_<PROVIDER>_BASE_URL    — base URL (provider-specific default)
+```
+
+Provider-specific extras (e.g. `MN_MIMO_STYLE_PROMPT`) are appended as needed.
+
 ## v0.5.x — Ecosystem
+
+> **Goal**: Freeze the public API surface (Pipeline, Workflow, Plugin, SDK) before Cloud features depend on it.
 
 - [ ] Plugin API for custom pipeline steps (step registration, lifecycle hooks, dependency declaration)
 - [ ] Python SDK for programmatic usage (`from movie_narrator import ...`)

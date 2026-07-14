@@ -495,11 +495,15 @@ movie-narrator/
 
 ### v0.5.x — 生态系统（规划中）
 
+> **目标**：在 Cloud 功能依赖之前，冻结公开 API 表面（Pipeline、Workflow、Plugin、SDK）。
+
 - [ ] 插件 API（自定义流水线步骤：步骤注册、生命周期钩子、依赖声明）
 - [ ] Python SDK（`from movie_narrator import ...`）
 - [ ] 自定义步骤注册（`@register_step`）
 - [ ] 第三方 Provider 扩展（TTS、LLM、研究后端，通过插件 API）
 - [ ] 社区扩展发现与打包规范
+
+> SDK 与 Plugin API 一起设计——两者必须在同一版本中稳定。
 
 ### v0.6.x — 云端（规划中）
 
