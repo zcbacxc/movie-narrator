@@ -189,6 +189,8 @@ def extract_json(raw_text: str) -> dict:
 
     Raises ``ValueError`` if no strategy yields a valid object.
     """
+    if not raw_text:
+        raise ValueError("LLM returned empty response")
     raw_text = raw_text.strip()
     if not raw_text:
         raise ValueError("LLM returned empty response")

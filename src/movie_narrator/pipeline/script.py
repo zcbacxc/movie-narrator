@@ -33,7 +33,7 @@ def generate_script(ctx: Context) -> Context:
                     temperature=0.7,
                     max_tokens=2048,
                 )
-                raw = response.choices[0].message.content
+                raw = response.choices[0].message.content or ""
                 data = extract_json(raw)
                 raw_segments = data.get("segments", [])
                 segments = []
