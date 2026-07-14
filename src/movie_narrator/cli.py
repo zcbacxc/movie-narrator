@@ -13,6 +13,43 @@ from .pipeline.runner import build_context, run_pipeline
 
 app = typer.Typer(help="Generate narrated movie recap videos from a single prompt.")
 
+
+class InteractiveCLIController:
+    """RunController with interactive retry/skip/abort on hard step failure.
+
+    Used when ``--retry`` is passed to ``mn create``.  When a hard step
+    raises an exception, the user is prompted to choose:
+
+    - **R** — retry the step (ctx state is preserved, so cached partial
+      results like TTS segments are reused)
+    - **S** — skip the step and continue (downstream may fail)
+    - **A** — abort the pipeline
+    """
+
+    def __init__(self):
+        self._cancelled = False
+
+    def is_cancelled(self) -> bool:
+        return self._cancelled
+
+    def on_step_error(self, step_name: str, error: Exception, attempt: int):
+        from .pipeline.errors import StepAction
+
+        typer.echo(
+            f"\n  Step '{step_name}' failed (attempt {attempt}): {error}",
+            err=True,
+        )
+        typer.echo("  [R]etry  [S]kip  [A]bort", err=True)
+        try:
+            choice = input("  > ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            return StepAction.ABORT
+        if choice.startswith("r"):
+            return StepAction.RETRY
+        elif choice.startswith("s"):
+            return StepAction.SKIP
+        return StepAction.ABORT
+
 _RESERVED_NAMES = {
     "CON", "PRN", "AUX", "NUL",
     *(f"COM{i}" for i in range(1, 10)),
@@ -45,6 +82,7 @@ def create(
     no_bgm: bool = typer.Option(False, "--no-bgm", help="Disable BGM even if default set"),
     no_clips: bool = typer.Option(False, "--no-clips", help="Skip clips/export"),
     strict: bool = typer.Option(False, "--strict", help="Abort on soft step failure"),
+    retry: bool = typer.Option(False, "--retry", help="Enable interactive retry on hard step failure"),
     config: Optional[str] = typer.Option(None, "--config", help="Path to job YAML config"),
     # Multi-language subtitle (v0.3).
     subtitle_lang: Optional[str] = typer.Option(
@@ -92,6 +130,7 @@ def create(
         "no_bgm": no_bgm,
         "no_clips": no_clips,
         "strict": strict,
+        "retry": retry,
         "config_path": config_path,
         "subtitle_lang": subtitle_lang,
         "subtitle_mode": subtitle_mode,
@@ -134,8 +173,9 @@ def create(
         subtitle_lang=resolved.subtitle_lang,
         subtitle_mode=resolved.subtitle_mode,
     )
+    controller = InteractiveCLIController() if retry else None
     try:
-        ctx = run_pipeline(ctx)
+        ctx = run_pipeline(ctx, controller=controller)
     except Exception as e:
         # PreflightError gets a targeted remediation hint.
         from .pipeline.preflight import PreflightError
