@@ -494,11 +494,15 @@ movie-narrator/
 
 ### v0.5.x — Ecosystem (Planned)
 
+> **Goal**: Freeze the public API surface (Pipeline, Workflow, Plugin, SDK) before Cloud features depend on it.
+
 - [ ] Plugin API for custom pipeline steps (step registration, lifecycle hooks, dependency declaration)
 - [ ] Python SDK for programmatic usage (`from movie_narrator import ...`)
 - [ ] Custom pipeline step registration (`@register_step`)
 - [ ] Third-party provider extensions (TTS, LLM, research backends via Plugin API)
 - [ ] Community extension discovery and packaging conventions
+
+> SDK and Plugin API are designed together — both must stabilize in the same release.
 
 ### v0.6.x — Cloud (Planned)
 

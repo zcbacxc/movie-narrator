@@ -33,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `pipeline/tts.py`: cache key `model` field now resolves `mimo_tts_model` when provider is MiMo
 - MiMo provider converts wav→mp3 internally (API returns wav; pipeline expects mp3)
 - Roadmap restructured: Plugin/SDK/Extension moved from v0.4 to new v0.5 (Ecosystem); v0.4 retitled "TTS Abstraction & Infrastructure"; added v0.6 (Cloud) long-term direction
+- v0.5 design goal added: freeze public API surface before Cloud features depend on it
+- Provider env-var naming convention documented (`MN_<PROVIDER>_TTS_MODEL` / `_API_KEY` / `_BASE_URL`)
 
 ## [0.4.0] - 2026-07-14
 
