@@ -10,7 +10,7 @@ from ..utils.environment import collect_environment
 from .align import align_audio
 from .assets import prepare_assets
 from .bgm import mix_bgm
-from .errors import PipelineCancelled, PipelineStrictError, RunController, check_cancelled
+from .errors import PipelineCancelled, PipelineStrictError, RunController, StepAction, check_cancelled
 from .export_clips import export_clips
 from .match import match_clips
 from .preflight import PreflightError, run_preflight
@@ -221,28 +221,47 @@ def run_pipeline(
 
         # ── Execute step with soft/hard exception fork ───────
         # Soft steps: exception → ⚠ + continue (no abort).
-        # Hard steps: exception → ✗ + re-raise (abort pipeline).
+        # Hard steps: exception → ✗ + re-raise (abort pipeline),
+        #   unless the controller offers interactive retry.
         ctx.step_state = StepState()  # reset before execution
         step_start = time.time()
         console.step(name)
 
-        try:
-            ctx = step(ctx)
-        except PipelineCancelled:
-            console.cancelled("Pipeline cancelled.")
-            raise
-        except Exception as e:
-            elapsed = time.time() - step_start
-            if name in SOFT_STATUS_STEPS:
-                _set_pipeline_status_failed(ctx, name)
-                ctx.step_state = StepState(
-                    result=StepResult.WARNING, message=str(e)
-                )
-                console.step_warn(name, ctx.step_state.message)
-                _check_strict(ctx, name)
-                continue
-            console.step_err(name, e, elapsed)
-            raise
+        attempt = 0
+        while True:
+            attempt += 1
+            try:
+                ctx = step(ctx)
+                break  # success — exit retry loop
+            except PipelineCancelled:
+                console.cancelled("Pipeline cancelled.")
+                raise
+            except Exception as e:
+                elapsed = time.time() - step_start
+                if name in SOFT_STATUS_STEPS:
+                    _set_pipeline_status_failed(ctx, name)
+                    ctx.step_state = StepState(
+                        result=StepResult.WARNING, message=str(e)
+                    )
+                    console.step_warn(name, ctx.step_state.message)
+                    _check_strict(ctx, name)
+                    break  # exit retry loop, continue to next step
+
+                # Hard step failure — check for interactive retry.
+                action = _handle_step_error(controller, name, e, attempt, console)
+                if action is StepAction.RETRY:
+                    console.debug(f"  retrying {name} (attempt {attempt + 1})...")
+                    ctx.step_state = StepState()
+                    continue
+                elif action is StepAction.SKIP:
+                    console.step_warn(name, f"skipped after {attempt} attempt(s): {e}")
+                    ctx.step_state = StepState(
+                        result=StepResult.WARNING, message=f"skipped: {e}"
+                    )
+                    break  # exit retry loop, continue to next step
+
+                console.step_err(name, e, elapsed)
+                raise
 
         elapsed = time.time() - step_start
 
@@ -297,3 +316,24 @@ def _check_strict(ctx: Context, step_name: str) -> None:
         failed = [k for k, v in ctx.status.model_dump().items() if v == "failed"]
         if failed:
             raise PipelineStrictError(step=step_name, status=ctx.status.model_dump())
+
+
+def _handle_step_error(
+    controller: Optional[RunController],
+    name: str,
+    error: Exception,
+    attempt: int,
+    console,
+) -> StepAction:
+    """Ask the controller how to handle a hard step failure.
+
+    If the controller does not implement ``on_step_error`` (e.g. the
+    GradioController or ``controller=None``), returns ``ABORT`` to
+    preserve the existing fail-fast behavior.
+    """
+    if controller is None:
+        return StepAction.ABORT
+    handler = getattr(controller, "on_step_error", None)
+    if handler is None:
+        return StepAction.ABORT
+    return handler(name, error, attempt)

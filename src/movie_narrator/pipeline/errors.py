@@ -1,4 +1,21 @@
+from enum import Enum
 from typing import Any, Dict, Optional, Protocol
+
+
+class StepAction(Enum):
+    """User's choice when a hard step fails and interactive retry is enabled.
+
+    - ``RETRY``: re-run the step (ctx state is preserved, so cached
+      partial results like TTS segments are reused).
+    - ``SKIP``: mark the step as skipped/warning and continue to the
+      next step.  Downstream steps may fail if they depend on the
+      skipped step's output.
+    - ``ABORT``: stop the pipeline (re-raise the original exception).
+    """
+
+    RETRY = "retry"
+    SKIP = "skip"
+    ABORT = "abort"
 
 
 class PipelineStrictError(RuntimeError):
