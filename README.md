@@ -95,7 +95,7 @@ pip install -e .
 # Scene detection (PySceneDetect)
 pip install "movie-narrator[media]"
 
-# WhisperX + semantic search (requires PyTorch)
+# WhisperX + semantic search (requires PyTorch; Python < 3.14)
 pip install "movie-narrator[ml]"
 
 # Web UI (Gradio)
@@ -105,7 +105,7 @@ pip install "movie-narrator[web]"
 pip install "movie-narrator[full]"
 ```
 
-> **Python 3.13+ note**: `[ml]` extras (whisperx, sentence-transformers) depend on PyTorch wheels that may lag behind new Python releases. On Python 3.14 these packages are automatically skipped — `align_audio` and `match_clips` will soft-degrade to heuristic fallbacks. Use Python 3.12 for full ML features.
+> **Note on Python 3.14+**: The `[ml]` extra (WhisperX + sentence-transformers) is currently gated to Python < 3.14 due to upstream dependency wheel availability. On Python 3.14+, `pip install "movie-narrator[full]"` will install all other extras and **silently skip** the ML components. The `align` and `match` pipeline steps will soft-degrade (see [Soft steps](#soft-steps)) instead of failing.
 
 For development:
 
