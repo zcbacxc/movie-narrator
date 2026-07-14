@@ -134,7 +134,13 @@ def create(
         subtitle_lang=resolved.subtitle_lang,
         subtitle_mode=resolved.subtitle_mode,
     )
-    ctx = run_pipeline(ctx)
+    try:
+        ctx = run_pipeline(ctx)
+    except Exception as e:
+        # step_err already printed the single-line summary and wrote the
+        # full traceback to the log file.  Suppress Typer's Rich
+        # traceback to keep the console output clean.
+        raise typer.Exit(code=1)
     typer.echo(f"{ctx.video_path}")
 
 
