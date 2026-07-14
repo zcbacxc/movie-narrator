@@ -2,7 +2,7 @@
 
 ## Pipeline Overview
 
-14-step sequential pipeline orchestrated by `pipeline/runner.py`:
+14-step sequential pipeline orchestrated by `pipeline/runner.py`. Before any step executes, `preflight.py` probes LLM connectivity and TTS provider configuration — failing fast with `PreflightError` instead of silently degrading to mock content.
 
 ```text
 resolve_video → prepare_assets → research_plot → generate_script →
@@ -152,7 +152,7 @@ pipeline probes duration via AudioSegment.from_mp3
 ```
 output/<movie>/
 ├── narration.mp3          # TTS output
-├── final_audio.mp3        # narration + BGM mix (when BGM enabled)
+├── mixed.mp3        # narration + BGM mix (when BGM enabled)
 ├── subtitle.srt           # SRT subtitles (original narration; always written)
 ├── subtitle.<lang>.srt    # translated subtitles (when --subtitle-lang set)
 ├── subtitle.bilingual.srt # bilingual subtitles (when --subtitle-lang set; cue body "src\ndst")

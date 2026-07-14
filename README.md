@@ -142,7 +142,7 @@ mn create --movie "飞驰人生" --keep-cache
 | `--movie, -m` | Movie name (required) | - |
 | `--style, -s` | Narration style | `热血搞笑` |
 | `--duration, -d` | Target duration (seconds) | `60` |
-| `--voice, -v` | Edge-TTS voice | `zh-CN-YunxiNeural` |
+| `--voice, -v` | TTS voice (provider-interpreted) | `zh-CN-YunxiNeural` |
 | `--format, -f` | Video format (`16:9` or `9:16`) | `16:9` |
 | `--video, -V` | Source movie file path | - |
 | `--library-dir` | Movie library directory | - |
@@ -152,6 +152,8 @@ mn create --movie "飞驰人生" --keep-cache
 | `--no-bgm` | Disable BGM even if default is set | `false` |
 | `--no-clips` | Skip scene-level clip export | `false` |
 | `--strict` | Abort pipeline on soft step failure | `false` |
+| `--keep-cache` | Keep TTS cache files for debugging | `false` |
+| `--retry` | Enable interactive retry on hard step failure | `false` |
 | `--subtitle-lang` | Target language tag (`en`, `ja`, `zh-TW`, ...); empty = feature off | - |
 | `--subtitle-mode` | Overlay mode: `original` / `translated` / `bilingual` | `original` |
 | `--config` | Path to job YAML (movie/steps/params); CLI flags override YAML | - |
@@ -292,6 +294,8 @@ mn create --movie "飞驰人生" --duration 60
 | `MN_SUBTITLE_MODE` | Default overlay mode (`original` / `translated` / `bilingual`) | `original` |
 | `MN_TRANSLATE_PROVIDER` | Translation backend (v0.3: `llm` only) | `llm` |
 | `MN_TRANSLATE_RETRIES` | LLM translation retries before soft-degrade | `3` |
+| `MN_TRANSLATE_CHUNK_CHARS` | Max characters per translation chunk | `4000` |
+| `MN_TRANSLATE_CHUNK_SIZE` | Max segments per translation chunk | `20` |
 | `MN_TTS_PROVIDER` | TTS backend: `edge` (default), `openai`, or `mimo` | `edge` |
 | `MN_OPENAI_TTS_MODEL` | OpenAI TTS model (when `MN_TTS_PROVIDER=openai`) | `tts-1` |
 | `MN_OPENAI_TTS_API_KEY` | OpenAI TTS API key (falls back to `MN_LLM_API_KEY`) | - |
@@ -379,9 +383,10 @@ movie-narrator/
 │   │   ├── bgm.py           # Background music mixing
 │   │   ├── translate.py     # Multi-language subtitle translation (LLM)
 │   │   ├── subtitle.py      # SRT generation (single / translated / bilingual)
-│   │   ├── render.py        # MoviePy video rendering
-│   │   ├── export_clips.py  # Per-segment clip export
-│   │   └── errors.py        # PipelineStrictError
+│   │   ├── render.py        # MoviePy 2.x video rendering
+│   │   ├── export_clips.py  # Per-segment clip export (direct ffmpeg)
+│   │   ├── preflight.py     # Pre-run LLM/TTS validation (fail-fast)
+│   │   └── errors.py        # PipelineStrictError, PipelineCancelled, RunController, StepAction
 │   ├── workflow/
 │   │   ├── schema.py        # JobConfig / JobSteps / JobParams
 │   │   ├── load.py          # YAML loader + validation
@@ -483,7 +488,7 @@ movie-narrator/
 - [x] Multi-language subtitle support (`--subtitle-lang` / `--subtitle-mode`; LLM translation with retry-then-soft-degrade; `subtitle.<lang>.srt` + `subtitle.bilingual.srt` outputs)
 - [x] Web UI (Gradio local browser app via `mn web`; cooperative cancel; requires `[web]` extra)
 
-### v0.4.x — TTS Abstraction & Infrastructure
+### v0.4.x — TTS Abstraction & Infrastructure ✅
 
 - [x] TTS provider abstraction (`TTSProvider` protocol, Edge + OpenAI + MiMo backends)
 - [x] Provider selection via `MN_TTS_PROVIDER` (`edge` / `openai` / `mimo`)
@@ -493,6 +498,11 @@ movie-narrator/
 - [x] CI temp-file isolation (silent audio never enters cache)
 - [x] `is_ci()` single source of truth for CI detection
 - [x] `ConfigError` cross-cutting error class
+- [x] MoviePy 1.x → 2.x upgrade (Python 3.13+ compatibility)
+- [x] Preflight LLM/TTS validation before pipeline execution
+- [x] Step-level retry mechanism (`--retry` flag, `StepAction` enum)
+- [x] Auto-create `~/.movie-narrator/.env` on first run
+- [x] `export_clips` direct ffmpeg subprocess (design choice, not workaround)
 
 ### v0.5.x — Ecosystem (Planned)
 
