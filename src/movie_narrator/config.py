@@ -7,7 +7,75 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-_USER_ENV = Path.home() / ".movie-narrator" / ".env"
+_USER_DIR = Path.home() / ".movie-narrator"
+_USER_ENV = _USER_DIR / ".env"
+
+# Template written to ~/.movie-narrator/.env on first run.
+# Mirrors .env.example — kept inline so it works regardless of install method.
+_DEFAULT_ENV_TEMPLATE = """\
+# ============================================================
+# Movie Narrator — global configuration
+# ============================================================
+# This file was auto-created on first run.  Edit values as needed.
+# Project-level .env (current directory) and MN_* environment
+# variables override entries here.
+# ============================================================
+
+# ── LLM ──
+MN_LLM_BASE_URL=http://localhost:11434/v1
+MN_LLM_API_KEY=ollama
+MN_LLM_MODEL=qwen2.5:7b
+
+# ── TTS voice (unified, interpreted per-provider) ──
+MN_DEFAULT_VOICE=zh-CN-YunxiNeural
+
+# ── Video output ──
+MN_DEFAULT_FORMAT=16:9
+
+# ── TTS provider: edge | openai | mimo ──
+# MN_TTS_PROVIDER=edge
+
+# ── OpenAI TTS (active when MN_TTS_PROVIDER=openai) ──
+# MN_OPENAI_TTS_MODEL=tts-1
+# MN_OPENAI_TTS_API_KEY=           # falls back to MN_LLM_API_KEY
+# MN_OPENAI_TTS_BASE_URL=          # falls back to MN_LLM_BASE_URL
+
+# ── MiMo TTS (active when MN_TTS_PROVIDER=mimo) ──
+# MN_MIMO_TTS_MODEL=mimo-v2.5-tts
+# MN_MIMO_API_KEY=                 # falls back to MN_LLM_API_KEY
+# MN_MIMO_BASE_URL=https://api.xiaomimimo.com/v1
+# MN_MIMO_STYLE_PROMPT=            # style description, mimo-v2.5-tts only
+
+# ── v0.2 optional ──
+# MN_LIBRARY_DIR=
+# MN_DEFAULT_BGM=
+# MN_RESEARCH_ENABLED=false
+# MN_RESEARCH_PROVIDER=llm
+# MN_SCENE_THRESHOLD=27.0
+# MN_SCENE_FRAME_SKIP=10
+# MN_MATCH_MIN_SCORE=0.25
+# MN_EXPORT_CLIPS_DEFAULT=true
+
+# ── v0.3 multi-language subtitles ──
+# MN_SUBTITLE_LANG=                # empty = feature off
+# MN_SUBTITLE_MODE=original
+# MN_TRANSLATE_PROVIDER=llm
+# MN_TRANSLATE_RETRIES=3
+# MN_TRANSLATE_CHUNK_CHARS=4000
+# MN_TRANSLATE_CHUNK_SIZE=20
+"""
+
+
+def ensure_user_config() -> Path:
+    """Create ``~/.movie-narrator/.env`` from defaults if it does not exist.
+
+    Returns the path to the user-level .env (existing or newly created).
+    Safe to call multiple times — never overwrites an existing file.
+    """
+    if not _USER_ENV.exists():
+        _USER_DIR.mkdir(parents=True, exist_ok=True)
+        _USER_ENV.write_text(_DEFAULT_ENV_TEMPLATE, encoding="utf-8")
+    return _USER_ENV
 
 
 class TTSProviderType(str, Enum):
@@ -61,4 +129,5 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    ensure_user_config()
     return Settings()

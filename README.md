@@ -236,7 +236,7 @@ All settings use the `MN_` prefix to avoid conflicts with other tools.
 
 ### Via `.env` file (recommended)
 
-Create `.env` in your project directory (or `~/.movie-narrator/.env` for global config — this file lives outside the package, so `pip install/upgrade/uninstall` never touches it):
+`~/.movie-narrator/.env` is auto-created with default values on first run — edit it to configure LLM, TTS, and other settings. This file lives outside the package, so `pip install/upgrade/uninstall` never touches it. You can also create a project-level `.env` in your working directory for per-project overrides.
 
 ```bash
 MN_LLM_BASE_URL=http://localhost:11434/v1
