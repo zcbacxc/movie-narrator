@@ -83,12 +83,12 @@ def _chainable_clip(end: float = 2.0):
     clip.size = (1920, 1080)
     clip.audio = None
     clip.mask = None
-    clip.speedx.return_value = clip
-    clip.set_start.return_value = clip
-    clip.set_duration.return_value = clip
-    clip.set_position.return_value = clip
-    clip.set_audio.return_value = clip
-    clip.resize.return_value = clip
+    clip.with_speed_scaled.return_value = clip
+    clip.with_start.return_value = clip
+    clip.with_duration.return_value = clip
+    clip.with_position.return_value = clip
+    clip.with_audio.return_value = clip
+    clip.resized.return_value = clip
     clip.write_videofile = MagicMock()
     clip.close = MagicMock()
     return clip
@@ -109,7 +109,7 @@ def test_render_without_matched_clips(tmp_path):
     audio.close = MagicMock()
 
     final = _chainable_clip(end=_AUDIO_SECONDS)
-    final.set_audio = MagicMock(return_value=final)
+    final.with_audio = MagicMock(return_value=final)
 
     def _fake_write(path, **kwargs):
         Path(path).write_bytes(b"")
@@ -139,7 +139,7 @@ def test_render_with_matched_clips(tmp_path):
     ctx = _make_ctx(tmp_path, matched=True, include_fallback=True)
 
     fake_source = MagicMock(name="source")
-    fake_source.subclip = MagicMock(side_effect=lambda s, e: _chainable_clip(end=e - s))
+    fake_source.subclipped = MagicMock(side_effect=lambda s, e: _chainable_clip(end=e - s))
     fake_source.close = MagicMock()
 
     final = _chainable_clip(end=_AUDIO_SECONDS)
@@ -150,7 +150,7 @@ def test_render_with_matched_clips(tmp_path):
     audio.close = MagicMock()
 
     with (
-        patch("moviepy.editor.VideoFileClip", return_value=fake_source) as mock_vfc,
+        patch("movie_narrator.pipeline.render.VideoFileClip", return_value=fake_source) as mock_vfc,
         patch("movie_narrator.pipeline.render.CompositeVideoClip", return_value=final) as mock_cvc,
         patch("movie_narrator.pipeline.render.ColorClip", return_value=bg),
         patch("movie_narrator.pipeline.render.ImageClip", return_value=img),
@@ -161,8 +161,8 @@ def test_render_with_matched_clips(tmp_path):
 
     mock_vfc.assert_called_once_with(str(tmp_path / "source.mp4"))
     # Only the heuristic row is used; the fallback row must be skipped.
-    assert fake_source.subclip.call_count == 1
-    fake_source.subclip.assert_called_with(0.0, 2.0)
+    assert fake_source.subclipped.call_count == 1
+    fake_source.subclipped.assert_called_with(0.0, 2.0)
     fake_source.close.assert_called_once()
     mock_cvc.assert_called_once()
     final.write_videofile.assert_called_once()
