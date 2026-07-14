@@ -118,6 +118,7 @@ def _call_llm_chunk(
         resp = llm.client.chat.completions.create(
             model=llm.model,
             messages=[{"role": "user", "content": prompt}],
+            max_tokens=4096,
         )
     raw = (resp.choices[0].message.content or "").strip()
     parsed = extract_json(raw)
