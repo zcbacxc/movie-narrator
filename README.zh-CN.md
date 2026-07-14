@@ -277,7 +277,7 @@ mn create --movie "飞驰人生" --duration 60
 | `MN_LLM_BASE_URL` | LLM API 地址 | `http://localhost:11434/v1` |
 | `MN_LLM_API_KEY` | LLM API 密钥 | `ollama` |
 | `MN_LLM_MODEL` | LLM 模型名称 | `qwen2.5:7b` |
-| `MN_DEFAULT_VOICE` | Edge-TTS 音色 | `zh-CN-YunxiNeural` |
+| `MN_DEFAULT_VOICE` | 当前 TTS Provider 的默认音色（由 Provider 解释） | `zh-CN-YunxiNeural` |
 | `MN_DEFAULT_FORMAT` | 视频比例 | `16:9` |
 | `MN_LIBRARY_DIR` | 电影库路径 | - |
 | `MN_DEFAULT_BGM` | 默认背景音乐 | - |

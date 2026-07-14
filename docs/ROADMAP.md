@@ -78,6 +78,7 @@ Soft pipeline steps (research, align, scene detect, scene match, BGM, clip expor
 ### v0.4 Environment variables
 
 - `MN_TTS_PROVIDER` — `edge` (default), `openai`, or `mimo`
+- `MN_DEFAULT_VOICE` — Default voice identifier for the selected TTS provider; each provider interprets this string (Edge: `zh-CN-YunxiNeural`, OpenAI: `alloy`, MiMo: voice name / file path / description depending on model)
 - `MN_OPENAI_TTS_MODEL` — OpenAI TTS model (default `tts-1`)
 - `MN_OPENAI_TTS_API_KEY` — OpenAI TTS API key (falls back to `MN_LLM_API_KEY`)
 - `MN_OPENAI_TTS_BASE_URL` — OpenAI TTS base URL (falls back to `MN_LLM_BASE_URL`)

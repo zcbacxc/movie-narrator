@@ -276,7 +276,7 @@ mn create --movie "飞驰人生" --duration 60
 | `MN_LLM_BASE_URL` | LLM API endpoint | `http://localhost:11434/v1` |
 | `MN_LLM_API_KEY` | LLM API key | `ollama` |
 | `MN_LLM_MODEL` | LLM model name | `qwen2.5:7b` |
-| `MN_DEFAULT_VOICE` | Edge-TTS voice | `zh-CN-YunxiNeural` |
+| `MN_DEFAULT_VOICE` | Default voice for the selected TTS provider (provider-interpreted) | `zh-CN-YunxiNeural` |
 | `MN_DEFAULT_FORMAT` | Video aspect ratio | `16:9` |
 | `MN_LIBRARY_DIR` | Movie library path | - |
 | `MN_DEFAULT_BGM` | Default BGM file | - |
