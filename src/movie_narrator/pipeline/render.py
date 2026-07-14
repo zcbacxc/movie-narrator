@@ -5,10 +5,29 @@ from pathlib import Path
 import numpy as np
 from moviepy.editor import AudioFileClip, ColorClip, CompositeVideoClip, ImageClip, VideoFileClip
 from PIL import Image, ImageDraw
+from proglog import TqdmProgressBarLogger
 
 from ..models import Context, TimedSegment
 from ..utils.font import get_font
 from ..utils.metadata_export import build_metadata_json
+
+
+class _RenderProgressLogger(TqdmProgressBarLogger):
+    """MoviePy progress logger with readable bar descriptions.
+
+    Replaces the cryptic ``t:`` prefix (from ``iter_bar(t=...)``) with
+    ``Rendering:`` so the progress bar is self-explanatory.
+    """
+
+    _BAR_LABELS = {
+        "t": "Rendering",
+    }
+
+    def bars_callback(self, bar, attr, value, old_value):
+        # Rename bar title before tqdm creates the bar (first callback only)
+        if bar in self.bars and self.bars[bar]["title"] == bar:
+            self.bars[bar]["title"] = self._BAR_LABELS.get(bar, bar)
+        super().bars_callback(bar, attr, value, old_value)
 
 VIDEO_SIZES = {
     "16:9": (1920, 1080),
@@ -148,7 +167,7 @@ def render_video(ctx: Context) -> Context:
         codec="libx264",
         audio_codec="aac",
         threads=4,
-        logger="bar",
+        logger=_RenderProgressLogger(),
         temp_audiofile=str(tmp_dir / "temp_audio.wav"),
     )
     try:
