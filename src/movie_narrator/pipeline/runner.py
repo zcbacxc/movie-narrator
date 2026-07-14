@@ -13,6 +13,7 @@ from .bgm import mix_bgm
 from .errors import PipelineCancelled, PipelineStrictError, RunController, check_cancelled
 from .export_clips import export_clips
 from .match import match_clips
+from .preflight import PreflightError, run_preflight
 from .research import research_plot
 from .resolve import resolve_video
 from .scenes import detect_scenes
@@ -190,6 +191,13 @@ def run_pipeline(
     """
     console = ctx.services.console
     workflow_steps: Optional[Dict[str, bool]] = ctx.metadata.get("workflow_steps")
+
+    # ── Preflight: fail fast if LLM / TTS is not usable ────
+    # Avoids silent degradation to mock content when services are down.
+    try:
+        run_preflight(ctx)
+    except PreflightError:
+        raise
 
     total_start = time.time()
 
