@@ -275,35 +275,19 @@ mn create --movie "飞驰人生" --duration 60
 
 ### Full reference
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `MN_LLM_BASE_URL` | LLM API endpoint | `http://localhost:11434/v1` |
-| `MN_LLM_API_KEY` | LLM API key | `ollama` |
-| `MN_LLM_MODEL` | LLM model name | `qwen2.5:7b` |
-| `MN_DEFAULT_VOICE` | Default voice for the selected TTS provider (provider-interpreted) | `zh-CN-YunxiNeural` |
-| `MN_DEFAULT_FORMAT` | Video aspect ratio | `16:9` |
-| `MN_LIBRARY_DIR` | Movie library path | - |
-| `MN_DEFAULT_BGM` | Default BGM file | - |
-| `MN_RESEARCH_ENABLED` | Auto-enable research | `false` |
-| `MN_RESEARCH_PROVIDER` | Research backend | `llm` |
-| `MN_SCENE_THRESHOLD` | PySceneDetect threshold | `27.0` |
-| `MN_SCENE_FRAME_SKIP` | Frames to skip in scene detection | `10` |
-| `MN_MATCH_MIN_SCORE` | Minimum match score | `0.25` |
-| `MN_EXPORT_CLIPS_DEFAULT` | Auto-export clips | `true` |
-| `MN_SUBTITLE_LANG` | Default target language tag; empty = feature off | - |
-| `MN_SUBTITLE_MODE` | Default overlay mode (`original` / `translated` / `bilingual`) | `original` |
-| `MN_TRANSLATE_PROVIDER` | Translation backend (v0.3: `llm` only) | `llm` |
-| `MN_TRANSLATE_RETRIES` | LLM translation retries before soft-degrade | `3` |
-| `MN_TRANSLATE_CHUNK_CHARS` | Max characters per translation chunk | `4000` |
-| `MN_TRANSLATE_CHUNK_SIZE` | Max segments per translation chunk | `20` |
-| `MN_TTS_PROVIDER` | TTS backend: `edge` (default), `openai`, or `mimo` | `edge` |
-| `MN_OPENAI_TTS_MODEL` | OpenAI TTS model (when `MN_TTS_PROVIDER=openai`) | `tts-1` |
-| `MN_OPENAI_TTS_API_KEY` | OpenAI TTS API key (falls back to `MN_LLM_API_KEY`) | - |
-| `MN_OPENAI_TTS_BASE_URL` | OpenAI TTS base URL (falls back to `MN_LLM_BASE_URL`) | - |
-| `MN_MIMO_TTS_MODEL` | MiMo TTS model (`mimo-v2.5-tts`, `mimo-v2.5-tts-voiceclone`, `mimo-v2.5-tts-voicedesign`) | `mimo-v2.5-tts` |
-| `MN_MIMO_API_KEY` | MiMo API key (falls back to `MN_LLM_API_KEY`) | - |
-| `MN_MIMO_BASE_URL` | MiMo base URL | `https://api.xiaomimimo.com/v1` |
-| `MN_MIMO_STYLE_PROMPT` | Style description for `mimo-v2.5-tts` (optional) | - |
+See [`.env.example`](.env.example) for the complete list of all 27 environment variables with defaults and inline comments.
+
+### LLM Provider Guides
+
+Movie Narrator works with any OpenAI-compatible LLM. New user? Check out the [LLM Provider Guides](docs/LLM_PROVIDERS.md) for step-by-step registration and free-tier setup:
+
+| Provider | Free Tier | Best For |
+|----------|-----------|----------|
+| [Ollama](docs/llm-providers/ollama.md) | Completely free (local) | Privacy, offline use |
+| [Zhipu (GLM)](docs/llm-providers/zhipu.md) | glm-4-flash unlimited free | Zero-cost, no GPU |
+| [Alibaba Bailian](docs/llm-providers/alibaba-bailian.md) | 1M tokens per model | Qwen flagship models |
+| [Xiaomi MiMo](docs/llm-providers/xiaomi-mimo.md) | Limited-time free + ¥10 invite bonus | LLM + TTS in one platform |
+| [SiliconFlow](docs/llm-providers/siliconflow.md) | Free models + voucher credits | Multi-model switching |
 
 ---
 
@@ -529,6 +513,7 @@ movie-narrator/
 
 - [Roadmap](docs/ROADMAP.md)
 - [Architecture](docs/ARCHITECTURE.md)
+- [LLM Provider Guides](docs/LLM_PROVIDERS.md)
 - [Contributing](docs/CONTRIBUTING.md)
 
 ---

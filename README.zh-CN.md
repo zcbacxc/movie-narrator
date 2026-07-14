@@ -273,35 +273,19 @@ mn create --movie "飞驰人生" --duration 60
 
 ### 完整配置项
 
-| 变量 | 说明 | 默认值 |
-|------|------|--------|
-| `MN_LLM_BASE_URL` | LLM API 地址 | `http://localhost:11434/v1` |
-| `MN_LLM_API_KEY` | LLM API 密钥 | `ollama` |
-| `MN_LLM_MODEL` | LLM 模型名称 | `qwen2.5:7b` |
-| `MN_DEFAULT_VOICE` | 当前 TTS Provider 的默认音色（由 Provider 解释） | `zh-CN-YunxiNeural` |
-| `MN_DEFAULT_FORMAT` | 视频比例 | `16:9` |
-| `MN_LIBRARY_DIR` | 电影库路径 | - |
-| `MN_DEFAULT_BGM` | 默认背景音乐 | - |
-| `MN_RESEARCH_ENABLED` | 自动启用调研 | `false` |
-| `MN_RESEARCH_PROVIDER` | 调研后端 | `llm` |
-| `MN_SCENE_THRESHOLD` | PySceneDetect 阈值 | `27.0` |
-| `MN_SCENE_FRAME_SKIP` | 场景检测跳帧数 | `10` |
-| `MN_MATCH_MIN_SCORE` | 最低匹配分数 | `0.25` |
-| `MN_EXPORT_CLIPS_DEFAULT` | 自动导出片段 | `true` |
-| `MN_SUBTITLE_LANG` | 默认目标语言标签；留空 = 关闭翻译 | - |
-| `MN_SUBTITLE_MODE` | 默认叠加模式（`original` / `translated` / `bilingual`） | `original` |
-| `MN_TRANSLATE_PROVIDER` | 翻译后端（v0.3 仅支持 `llm`） | `llm` |
-| `MN_TRANSLATE_RETRIES` | LLM 翻译失败重试次数，超出后软降级 | `3` |
-| `MN_TRANSLATE_CHUNK_CHARS` | 每个翻译块的最大字符数 | `4000` |
-| `MN_TRANSLATE_CHUNK_SIZE` | 每个翻译块的最大段数 | `20` |
-| `MN_TTS_PROVIDER` | TTS 后端：`edge`（默认）、`openai` 或 `mimo` | `edge` |
-| `MN_OPENAI_TTS_MODEL` | OpenAI TTS 模型（`MN_TTS_PROVIDER=openai` 时生效） | `tts-1` |
-| `MN_OPENAI_TTS_API_KEY` | OpenAI TTS API 密钥（回退到 `MN_LLM_API_KEY`） | - |
-| `MN_OPENAI_TTS_BASE_URL` | OpenAI TTS 基地址（回退到 `MN_LLM_BASE_URL`） | - |
-| `MN_MIMO_TTS_MODEL` | MiMo TTS 模型（`mimo-v2.5-tts`、`mimo-v2.5-tts-voiceclone`、`mimo-v2.5-tts-voicedesign`） | `mimo-v2.5-tts` |
-| `MN_MIMO_API_KEY` | MiMo API 密钥（回退到 `MN_LLM_API_KEY`） | - |
-| `MN_MIMO_BASE_URL` | MiMo 基地址 | `https://api.xiaomimimo.com/v1` |
-| `MN_MIMO_STYLE_PROMPT` | `mimo-v2.5-tts` 风格描述（可选） | - |
+完整环境变量列表（共 27 项）及默认值和说明，请查看 [`.env.example`](.env.example)。
+
+### LLM 服务商导航
+
+Movie Narrator 支持任何 OpenAI 兼容的 LLM。新用户不知道选哪个？查看 [LLM 服务商导航](docs/LLM_PROVIDERS.md)，含注册流程和免费额度说明：
+
+| 服务商 | 免费额度 | 适合场景 |
+|--------|---------|---------|
+| [Ollama](docs/llm-providers/ollama.md) | 完全免费（本地） | 隐私、离线使用 |
+| [智谱 GLM](docs/llm-providers/zhipu.md) | glm-4-flash 永久免费 | 零成本、无需显卡 |
+| [阿里云百炼](docs/llm-providers/alibaba-bailian.md) | 每模型 100 万 Tokens | 通义千问旗舰模型 |
+| [小米 MiMo](docs/llm-providers/xiaomi-mimo.md) | 限时免费 + 邀请码 ¥10 奖励 | LLM + TTS 一站式 |
+| [硅基流动](docs/llm-providers/siliconflow.md) | 免费模型 + 赠送额度 | 多模型灵活切换 |
 
 ---
 
@@ -527,6 +511,7 @@ movie-narrator/
 
 - [路线图](docs/ROADMAP.md)
 - [架构设计](docs/ARCHITECTURE.md)
+- [LLM 服务商导航](docs/LLM_PROVIDERS.md)
 - [贡献指南](docs/CONTRIBUTING.md)
 
 ---
