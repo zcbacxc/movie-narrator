@@ -60,8 +60,9 @@ def export_clips(ctx: Context) -> Context:
     for scene in tqdm(ctx.scenes, desc="Exporting clips", unit="clip"):
         try:
             clip_path = clips_dir / f"scene_{scene.index:04d}.mp4"
-            # Direct ffmpeg invocation — bypasses MoviePy entirely to
-            # avoid the Popen.stdout=None bug in MoviePy 1.0.3.
+            # Direct ffmpeg invocation — export_clips only does seek+cut+encode,
+            # so MoviePy adds unnecessary overhead.  Direct subprocess gives
+            # precise control over codec params, timeout, and error handling.
             cmd = [
                 ffmpeg, "-y",
                 "-ss", str(scene.start),

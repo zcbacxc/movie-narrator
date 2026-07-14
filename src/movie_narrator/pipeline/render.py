@@ -3,7 +3,7 @@ import shutil
 from pathlib import Path
 
 import numpy as np
-from moviepy.editor import AudioFileClip, ColorClip, CompositeVideoClip, ImageClip, VideoFileClip
+from moviepy import AudioFileClip, ColorClip, CompositeVideoClip, ImageClip, VideoFileClip
 from PIL import Image, ImageDraw
 from proglog import TqdmProgressBarLogger
 
@@ -115,7 +115,6 @@ def render_video(ctx: Context) -> Context:
     source = None
 
     if usable_clips and ctx.source_video_path:
-        from moviepy.editor import VideoFileClip
         try:
             source = VideoFileClip(ctx.source_video_path)
         except Exception as e:
@@ -126,10 +125,10 @@ def render_video(ctx: Context) -> Context:
                 seg_duration = mc.narr_end - mc.narr_start
                 src_duration = mc.src_end - mc.src_start
                 try:
-                    subclip = source.subclip(mc.src_start, mc.src_end)
+                    subclip = source.subclipped(mc.src_start, mc.src_end)
                     if src_duration > 0:
-                        subclip = subclip.speedx(factor=src_duration / max(seg_duration, 0.1))
-                    subclip = subclip.set_start(mc.narr_start)
+                        subclip = subclip.with_speed_scaled(factor=src_duration / max(seg_duration, 0.1))
+                    subclip = subclip.with_start(mc.narr_start)
                     clips.append(subclip)
                 except Exception as ie:
                     ctx.services.console.debug(f"  fallback for segment {mc.segment_index}: {ie}")
@@ -137,8 +136,8 @@ def render_video(ctx: Context) -> Context:
                         _overlay_text(ctx, mc.segment_index, ctx.timed_segments[mc.segment_index]),
                         size, fontsize=100,
                     )
-                    img_clip = ImageClip(img_array, transparent=True)
-                    img_clip = img_clip.set_duration(seg_duration).set_start(mc.narr_start)
+                    img_clip = ImageClip(img_array, is_mask=False)
+                    img_clip = img_clip.with_duration(seg_duration).with_start(mc.narr_start)
                     clips.append(img_clip)
             # NOTE: source must NOT be closed here — subclips still need its reader during write_videofile.
 
@@ -151,11 +150,11 @@ def render_video(ctx: Context) -> Context:
         if i in footage_segments:
             continue
         img_array = _create_text_image(_overlay_text(ctx, i, seg), size, fontsize=100)
-        img_clip = ImageClip(img_array, transparent=True)
-        img_clip = img_clip.set_duration(seg.end - seg.start).set_start(seg.start)
+        img_clip = ImageClip(img_array, is_mask=False)
+        img_clip = img_clip.with_duration(seg.end - seg.start).with_start(seg.start)
         clips.append(img_clip)
 
-    final_video = CompositeVideoClip(clips).set_audio(audio_clip)
+    final_video = CompositeVideoClip(clips).with_audio(audio_clip)
     video_path = output_dir / "final.mp4"
 
 
