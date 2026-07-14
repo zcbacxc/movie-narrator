@@ -1,5 +1,6 @@
 import json
 import shutil
+import subprocess
 from pathlib import Path
 
 from tqdm import tqdm
@@ -38,46 +39,54 @@ def export_clips(ctx: Context) -> Context:
         ctx.step_state.result = StepResult.SKIPPED
         ctx.step_state.message = "nothing to export"
         return ctx
+    if not ctx.source_video_path:
+        ctx.status.export = "skipped"
+        ctx.step_state.result = StepResult.SKIPPED
+        ctx.step_state.message = "no source video"
+        return ctx
+
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        ctx.status.export = "disabled"
+        ctx.step_state.result = StepResult.SKIPPED
+        ctx.step_state.message = "ffmpeg not found on PATH"
+        return ctx
+
     output_dir = Path(ctx.output_dir)
     clips_dir = output_dir / "clips"
-    temp_dir = output_dir / ".tmp"
     clips_dir.mkdir(parents=True, exist_ok=True)
-    temp_dir.mkdir(parents=True, exist_ok=True)
-    try:
-        from scenedetect import open_video, SceneManager
-        from scenedetect.detectors import ContentDetector
-        from moviepy.editor import VideoFileClip
-        if ctx.source_video_path:
-            source = VideoFileClip(ctx.source_video_path)
-            failed = 0
-            for scene in tqdm(ctx.scenes, desc="Exporting clips", unit="clip"):
-                try:
-                    subclip = source.subclip(scene.start, scene.end)
-                    clip_path = clips_dir / f"scene_{scene.index:04d}.mp4"
-                    temp_audio = str(temp_dir / f"scene_{scene.index:04d}_TEMP_MPY_wvf_snd.mp4")
-                    subclip.write_videofile(
-                        str(clip_path),
-                        codec="libx264",
-                        audio_codec="aac",
-                        logger=None,
-                        temp_audiofile=temp_audio,
-                    )
-                    scene.clip_path = str(clip_path)
-                    subclip.close()
-                except Exception as e:
-                    failed += 1
-                    tqdm.write(f"  ⚠ skip scene {scene.index}: {e}")
-            source.close()
-            if failed:
-                _append_export_warning(ctx, f"{failed} clip(s) failed to export")
-        # Clean up temp directory
-        if temp_dir.exists():
-            shutil.rmtree(temp_dir, ignore_errors=True)
-        ctx.clips_dir = str(clips_dir)
-        ctx.status.export = "success" if not failed else "partial"
-        return ctx
-    except Exception as e:
-        ctx.step_state.result = StepResult.WARNING
-        ctx.step_state.message = str(e)
-        ctx.status.export = "failed"
-        return ctx
+
+    failed = 0
+    for scene in tqdm(ctx.scenes, desc="Exporting clips", unit="clip"):
+        try:
+            clip_path = clips_dir / f"scene_{scene.index:04d}.mp4"
+            # Direct ffmpeg invocation — bypasses MoviePy entirely to
+            # avoid the Popen.stdout=None bug in MoviePy 1.0.3.
+            cmd = [
+                ffmpeg, "-y",
+                "-ss", str(scene.start),
+                "-to", str(scene.end),
+                "-i", ctx.source_video_path,
+                "-c:v", "libx264",
+                "-c:a", "aac",
+                "-movflags", "+faststart",
+                str(clip_path),
+            ]
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                timeout=300,
+            )
+            if result.returncode != 0:
+                stderr_tail = result.stderr.decode(errors="replace")[-300:]
+                raise RuntimeError(f"ffmpeg exited {result.returncode}: {stderr_tail}")
+            scene.clip_path = str(clip_path)
+        except Exception as e:
+            failed += 1
+            tqdm.write(f"  ⚠ skip scene {scene.index}: {e}")
+
+    if failed:
+        _append_export_warning(ctx, f"{failed} clip(s) failed to export")
+    ctx.clips_dir = str(clips_dir)
+    ctx.status.export = "success" if not failed else "partial"
+    return ctx
