@@ -482,7 +482,7 @@ movie-narrator/
 - [x] 多语言字幕（`--subtitle-lang` / `--subtitle-mode`；LLM 翻译 + 重试软降级；输出 `subtitle.<lang>.srt` + `subtitle.bilingual.srt`）
 - [x] Web UI（Gradio 本地浏览器应用，`mn web`；协作式取消；需安装 `[web]` extra）
 
-### v0.4.x — TTS 抽象与可扩展性 ✅
+### v0.4.x — TTS 抽象与基础设施 ✅
 
 - [x] TTS Provider 抽象（`TTSProvider` 协议、Edge + OpenAI + MiMo 后端）
 - [x] 通过 `MN_TTS_PROVIDER` 选择后端（`edge` / `openai` / `mimo`）
@@ -492,9 +492,21 @@ movie-narrator/
 - [x] CI 临时文件隔离（静音音频不进入缓存）
 - [x] `is_ci()` CI 检测单一来源
 - [x] `ConfigError` 横切配置错误类
-- [ ] 插件系统（自定义流水线步骤）
-- [ ] SDK
-- [ ] 第三方扩展
+
+### v0.5.x — 生态系统（规划中）
+
+- [ ] 插件 API（自定义流水线步骤：步骤注册、生命周期钩子、依赖声明）
+- [ ] Python SDK（`from movie_narrator import ...`）
+- [ ] 自定义步骤注册（`@register_step`）
+- [ ] 第三方 Provider 扩展（TTS、LLM、研究后端，通过插件 API）
+- [ ] 社区扩展发现与打包规范
+
+### v0.6.x — 云端（规划中）
+
+- [ ] 远程推理（将 LLM / TTS / 渲染卸载到云端 Worker）
+- [ ] 分布式渲染（跨节点拆分视频片段）
+- [ ] 任务队列（异步任务提交、进度轮询、重试）
+- [ ] Web 服务部署（REST API、认证、多租户）
 
 ---
 

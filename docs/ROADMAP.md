@@ -64,7 +64,7 @@ Soft pipeline steps (research, align, scene detect, scene match, BGM, clip expor
 - Form fields mirror CLI options; advanced params follow "empty = no override" rule (Settings defaults apply)
 - Uploads go to `mn_web_*` temp dirs, never pollute `output/`
 
-## v0.4.x — TTS Abstraction & Extensibility
+## v0.4.x — TTS Abstraction & Infrastructure
 
 - [x] TTS provider abstraction (`TTSProvider` protocol, `BaseTTSProvider`, `EdgeTTSProvider`, `OpenAITTSProvider`, `MimoTTSProvider`)
 - [x] Provider selection via `MN_TTS_PROVIDER` (`edge` / `openai` / `mimo`)
@@ -74,9 +74,6 @@ Soft pipeline steps (research, align, scene detect, scene match, BGM, clip expor
 - [x] CI temp-file isolation (silent audio never enters cache)
 - [x] `is_ci()` single source of truth for CI detection
 - [x] `ConfigError` cross-cutting error class
-- [ ] Plugin system for custom pipeline steps
-- [ ] Python SDK for programmatic usage
-- [ ] Third-party extension support
 
 ### v0.4 Environment variables
 
@@ -88,3 +85,20 @@ Soft pipeline steps (research, align, scene detect, scene match, BGM, clip expor
 - `MN_MIMO_API_KEY` — MiMo API key (falls back to `MN_LLM_API_KEY`)
 - `MN_MIMO_BASE_URL` — MiMo base URL (default `https://api.xiaomimimo.com/v1`)
 - `MN_MIMO_STYLE_PROMPT` — Style description for `mimo-v2.5-tts` user message (default empty)
+
+## v0.5.x — Ecosystem
+
+- [ ] Plugin API for custom pipeline steps (step registration, lifecycle hooks, dependency declaration)
+- [ ] Python SDK for programmatic usage (`from movie_narrator import ...`)
+- [ ] Custom pipeline step registration (`@register_step`)
+- [ ] Third-party provider extensions (TTS, LLM, research backends via Plugin API)
+- [ ] Community extension discovery and packaging conventions
+
+> **Design note**: SDK and Plugin API are designed together — the SDK is the primary consumer of the Plugin API, so both must stabilize in the same release to avoid compatibility pressure.
+
+## v0.6.x — Cloud
+
+- [ ] Remote inference (offload LLM / TTS / rendering to cloud workers)
+- [ ] Distributed rendering (split video segments across nodes)
+- [ ] Task queue (async job submission, progress polling, retry)
+- [ ] Web service deployment (REST API, authentication, multi-tenant)

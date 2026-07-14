@@ -481,7 +481,7 @@ movie-narrator/
 - [x] Multi-language subtitle support (`--subtitle-lang` / `--subtitle-mode`; LLM translation with retry-then-soft-degrade; `subtitle.<lang>.srt` + `subtitle.bilingual.srt` outputs)
 - [x] Web UI (Gradio local browser app via `mn web`; cooperative cancel; requires `[web]` extra)
 
-### v0.4.x — TTS Abstraction & Extensibility
+### v0.4.x — TTS Abstraction & Infrastructure
 
 - [x] TTS provider abstraction (`TTSProvider` protocol, Edge + OpenAI + MiMo backends)
 - [x] Provider selection via `MN_TTS_PROVIDER` (`edge` / `openai` / `mimo`)
@@ -491,9 +491,21 @@ movie-narrator/
 - [x] CI temp-file isolation (silent audio never enters cache)
 - [x] `is_ci()` single source of truth for CI detection
 - [x] `ConfigError` cross-cutting error class
-- [ ] Plugin system for custom pipeline steps
-- [ ] Python SDK for programmatic usage
-- [ ] Third-party extension support
+
+### v0.5.x — Ecosystem (Planned)
+
+- [ ] Plugin API for custom pipeline steps (step registration, lifecycle hooks, dependency declaration)
+- [ ] Python SDK for programmatic usage (`from movie_narrator import ...`)
+- [ ] Custom pipeline step registration (`@register_step`)
+- [ ] Third-party provider extensions (TTS, LLM, research backends via Plugin API)
+- [ ] Community extension discovery and packaging conventions
+
+### v0.6.x — Cloud (Planned)
+
+- [ ] Remote inference (offload LLM / TTS / rendering to cloud workers)
+- [ ] Distributed rendering (split video segments across nodes)
+- [ ] Task queue (async job submission, progress polling, retry)
+- [ ] Web service deployment (REST API, authentication, multi-tenant)
 
 ---
 
