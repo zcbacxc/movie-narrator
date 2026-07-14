@@ -66,7 +66,7 @@ def research_plot(ctx: Context) -> Context:
                 temperature=0.3,
                 max_tokens=1024,
             )
-            raw = response.choices[0].message.content
+            raw = response.choices[0].message.content or ""
             data = extract_json(raw)
 
             ctx.research = ResearchInfo(
