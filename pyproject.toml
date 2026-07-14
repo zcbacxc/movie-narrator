@@ -16,6 +16,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 requires-python = ">=3.10"
 dependencies = [
@@ -25,7 +26,7 @@ dependencies = [
     "pydantic-settings>=2.0.0",
     "python-dotenv>=1.0.0",
     "edge-tts>=7.0.0",
-    "moviepy>=1.0.3,<2.0",
+    "moviepy>=2.0,<3.0",
     "pillow>=11.0.0",
     "pydub>=0.25.0",
     "pyyaml>=6.0",
@@ -35,13 +36,16 @@ dependencies = [
 
 [project.optional-dependencies]
 media = ["scenedetect>=0.6"]
-ml = ["whisperx>=3.0", "sentence-transformers>=3.0"]
-web = ["gradio>=6.0"]
+ml = [
+    'whisperx>=3.0; python_version < "3.14"',
+    'sentence-transformers>=3.0; python_version < "3.14"',
+]
+web = ["gradio>=4.44,<7"]
 full = [
-  "scenedetect>=0.6",
-  "whisperx>=3.0",
-  "sentence-transformers>=3.0",
-  "gradio>=6.0",
+    "scenedetect>=0.6",
+    'whisperx>=3.0; python_version < "3.14"',
+    'sentence-transformers>=3.0; python_version < "3.14"',
+    "gradio>=4.44,<7",
 ]
 dev = ["pytest>=8.0"]
 
