@@ -2,6 +2,8 @@ import json
 import shutil
 from pathlib import Path
 
+from tqdm import tqdm
+
 from ..models import Context, StepResult
 from ..utils.optional_deps import probe
 
@@ -39,7 +41,7 @@ def export_clips(ctx: Context) -> Context:
         from moviepy.editor import VideoFileClip
         if ctx.source_video_path:
             source = VideoFileClip(ctx.source_video_path)
-            for scene in ctx.scenes:
+            for scene in tqdm(ctx.scenes, desc="Exporting clips", unit="clip"):
                 try:
                     subclip = source.subclip(scene.start, scene.end)
                     clip_path = clips_dir / f"scene_{scene.index:04d}.mp4"
