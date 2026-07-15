@@ -7,12 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### Changed (post-v0.4.7 — env/yaml boundary refactor)
-- **Breaking**: `.env` (Settings) now contains ONLY 21 LLM + TTS infrastructure fields. All 30 pipeline behavior params moved to `job.yaml` (params). Previously 60 `MN_*` env vars mixed LLM/TTS + pipeline behavior.
+## [0.4.8] - 2026-07-16
+
+### Fixed
+- Documentation: corrected "30 params" to "32 params" across all 5 docs (actual JobParams field count is 32, not 30).
+- Documentation: removed inline version annotations (v0.3, v0.3.5, v0.4, v0.4.7) from README and ARCHITECTURE section headers.
+- Documentation: added `examples/cli-usage.sh` — dedicated CLI example file (like `.env.example` for env and `job.example.yaml` for yaml).
+- Documentation: simplified README CLI section from 18-row table to brief description + link to example file.
+- `job.example.yaml`: `subtitle_lang` changed from `en` to `""` and `steps.translate` from `true` to `false` — safe defaults for new users.
+- `config.py`: removed `MN_DEFAULT_FORMAT` from `_read_example_env()` fallback template (field was deleted from Settings).
+
+### Changed (env/yaml boundary refactor)
+- **Breaking**: `.env` (Settings) now contains ONLY 21 LLM + TTS infrastructure fields. All 32 pipeline behavior params moved to `job.yaml` (params). Previously 60 `MN_*` env vars mixed LLM/TTS + pipeline behavior.
 - **Breaking**: `default_format` removed from Settings (was dead code, never read). `library_dir`, `default_bgm`, `research_enabled`, `export_clips_default`, `subtitle_lang`, `subtitle_mode` also removed — these are CLI/YAML fields, not env vars.
 - Deleted `defaults.py` — no code constants module. Pipeline modules use inline literals in `ctx.metadata.get()` calls, matching example files.
 - `.env.example` rewritten: 21 LLM + TTS vars only (was 60).
-- `job.example.yaml` expanded: all 30 params with inline comments.
+- `job.example.yaml` expanded: all 32 params with inline comments.
 - Settings `extra="ignore"` added so old `.env` vars don't break on upgrade.
 
 ## [0.4.7] - 2026-07-15
@@ -185,7 +195,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - workflow_steps 和 params 元数据注入
 - 控制台日志重构设计
 
-[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.7...HEAD
+[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.8...HEAD
+[0.4.8]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.7...v0.4.8
 [0.4.7]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.5...v0.4.6
 [0.4.5]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.3...v0.4.5
