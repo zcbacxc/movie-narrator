@@ -137,26 +137,12 @@ mn create --movie "飞驰人生" --keep-cache
 
 ### CLI Options
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--movie, -m` | Movie name (required) | - |
-| `--style, -s` | Narration style | `热血搞笑` |
-| `--duration, -d` | Target duration (seconds) | `60` |
-| `--voice, -v` | TTS voice (provider-interpreted) | `zh-CN-YunxiNeural` |
-| `--format, -f` | Video format (`16:9` or `9:16`) | `16:9` |
-| `--video, -V` | Source movie file path | - |
-| `--library-dir` | Movie library directory | - |
-| `--research` | Enable plot research via LLM | `false` |
-| `--no-research` | Disable plot research | - |
-| `--bgm` | Background music file path | - |
-| `--no-bgm` | Disable BGM even if default is set | `false` |
-| `--no-clips` | Skip scene-level clip export | `false` |
-| `--strict` | Abort pipeline on soft step failure | `false` |
-| `--keep-cache` | Keep TTS cache files for debugging | `false` |
-| `--retry` | Enable interactive retry on hard step failure | `false` |
-| `--subtitle-lang` | Target language tag (`en`, `ja`, `zh-TW`, ...); empty = feature off | - |
-| `--subtitle-mode` | Overlay mode: `original` / `translated` / `bilingual` | `original` |
-| `--config` | Path to job YAML (movie/steps/params); CLI flags override YAML | - |
+```bash
+# Basic usage
+mn create --movie "飞驰人生" --style "热血搞笑" --duration 60
+```
+
+All 18 CLI flags are documented in [`examples/cli-usage.sh`](examples/cli-usage.sh) with usage examples for every scenario: basic, video/library, research/BGM/clips, multi-language subtitles, and YAML config. Key flags: `--movie/-m`, `--style/-s`, `--duration/-d`, `--voice/-v`, `--format/-f`, `--video/-V`, `--library-dir`, `--research`, `--bgm`, `--no-bgm`, `--no-clips`, `--strict`, `--keep-cache`, `--retry`, `--subtitle-lang`, `--subtitle-mode`, `--config`.
 
 ### Job YAML config (v0.3)
 
