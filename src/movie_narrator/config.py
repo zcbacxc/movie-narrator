@@ -76,6 +76,15 @@ class Settings(BaseSettings):
     llm_base_url: str = "http://localhost:11434/v1"
     llm_api_key: str = "ollama"
     llm_model: str = "qwen2.5:7b"
+    # ── LLM call tuning ──
+    llm_timeout: int = 60                    # httpx client timeout (seconds)
+    script_temperature: float = 0.7          # script generation LLM temperature
+    script_max_tokens: int = 2048            # script generation LLM max_tokens
+    script_retries: int = 3                  # script generation retry attempts
+    script_retry_delay: float = 1.5          # delay between retries (seconds)
+    research_temperature: float = 0.3        # research LLM temperature
+    research_max_tokens: int = 1024          # research LLM max_tokens
+    translate_max_tokens: int = 4096         # translation LLM max_tokens
     default_voice: str = "zh-CN-YunxiNeural"
     default_format: str = "16:9"
     # v0.2 optional
