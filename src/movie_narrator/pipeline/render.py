@@ -64,6 +64,7 @@ def _overlay_text(ctx: Context, idx: int, seg: TimedSegment) -> str:
 
 
 def render_video(ctx: Context) -> Context:
+    settings = get_settings()
     output_dir = Path(ctx.output_dir)
     video_format = ctx.metadata.get("format", "16:9")
     size = _get_video_sizes().get(video_format, (1920, 1080))
@@ -73,7 +74,10 @@ def render_video(ctx: Context) -> Context:
     audio_clip = AudioFileClip(audio_path)
     total_duration = audio_clip.duration
 
-    bg_clip = ColorClip(size=size, color=(20, 20, 30), duration=total_duration)
+    # Parse background color "R,G,B" → tuple
+    bg_parts = [int(x.strip()) for x in settings.render_bg_color.split(",")]
+    bg_color = tuple(bg_parts[:3])
+    bg_clip = ColorClip(size=size, color=bg_color, duration=total_duration)
     clips: list = [bg_clip]
 
     # Spec §2: render must ignore accidental source="fallback" rows (construction default).
@@ -100,7 +104,7 @@ def render_video(ctx: Context) -> Context:
                     ctx.services.console.debug(f"  fallback for segment {mc.segment_index}: {ie}")
                     img_array = _create_text_image(
                         _overlay_text(ctx, mc.segment_index, ctx.timed_segments[mc.segment_index]),
-                        size, fontsize=100,
+                        size, fontsize=settings.render_font_size,
                     )
                     img_clip = ImageClip(img_array, is_mask=False)
                     img_clip = img_clip.with_duration(seg_duration).with_start(mc.narr_start)
@@ -115,13 +119,13 @@ def render_video(ctx: Context) -> Context:
     for i, seg in enumerate(ctx.timed_segments):
         if i in footage_segments:
             continue
-        img_array = _create_text_image(_overlay_text(ctx, i, seg), size, fontsize=100)
+        img_array = _create_text_image(_overlay_text(ctx, i, seg), size, fontsize=settings.render_font_size)
         img_clip = ImageClip(img_array, is_mask=False)
         img_clip = img_clip.with_duration(seg.end - seg.start).with_start(seg.start)
         clips.append(img_clip)
 
     final_video = CompositeVideoClip(clips).with_audio(audio_clip)
-    video_path = output_dir / "final.mp4"
+    video_path = output_dir / settings.render_output_name
 
 
     tmp_dir = output_dir / ".tmp"
