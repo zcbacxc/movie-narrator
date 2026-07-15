@@ -82,12 +82,12 @@ Soft pipeline steps (research, align, scene detect, scene match, BGM, clip expor
 
 ### v0.4.7 Config system overhaul
 
-- [x] 33 hardcoded constants promoted to Settings (60 total `MN_*` env vars)
+- [x] Strict env/yaml boundary: `.env` = 21 LLM + TTS infrastructure fields only; `job.yaml` = 30 pipeline behavior params
 - [x] YAML auto-discovery: `--config` not passed → `cwd/job.yaml` → packaged example → none
-- [x] `.env.example` as single source of truth for first-run config (replaces divergent inline template)
-- [x] All 14 YAML params properly connected through `runner.py` → `ctx.metadata` → pipeline steps
+- [x] `.env.example` and `job.example.yaml` as single sources of truth (no code constants module)
+- [x] All 30 YAML params properly connected through `runner.py` → `ctx.metadata` → pipeline steps
 - [x] Fixed `translate_chunk_chars/size` silently ignored (never copied to `ctx.metadata`)
-- [x] Fixed `export_clips` codecs hardcoded (now uses `settings.render_video_codec/audio_codec`)
+- [x] Fixed `export_clips` codecs hardcoded (now uses `ctx.metadata` → inline literal)
 - [x] Fixed `scene_frame_skip` missing from runner copy loop
 
 ### v0.4 Environment variables
@@ -102,20 +102,25 @@ Soft pipeline steps (research, align, scene detect, scene match, BGM, clip expor
 - `MN_MIMO_BASE_URL` — MiMo base URL (default `https://api.xiaomimimo.com/v1`)
 - `MN_MIMO_STYLE_PROMPT` — Style description for `mimo-v2.5-tts` user message (default empty)
 
-### v0.4.7 Environment variables (config system overhaul)
+### v0.4.7 env/yaml boundary (config system overhaul)
 
-See [`.env.example`](../.env.example) for the complete list of all 60 `MN_*` env vars. Key additions:
+Strict separation: `.env` contains ONLY LLM + TTS infrastructure (21 fields); `job.yaml` contains ALL pipeline behavior (30 params).
 
-- LLM tuning: `MN_LLM_TIMEOUT`, `MN_SCRIPT_TEMPERATURE`, `MN_SCRIPT_MAX_TOKENS`, `MN_SCRIPT_RETRIES`, `MN_SCRIPT_RETRY_DELAY`, `MN_RESEARCH_TEMPERATURE`, `MN_RESEARCH_MAX_TOKENS`, `MN_TRANSLATE_MAX_TOKENS`
-- TTS: `MN_TTS_MAX_CONCURRENT`, `MN_TTS_AUDIO_FORMAT`, `MN_TTS_AUDIO_BITRATE`
-- WhisperX: `MN_WHISPERX_DEVICE`, `MN_WHISPERX_MODEL`, `MN_WHISPERX_LANGUAGE`
-- Translate: `MN_TRANSLATE_SOURCE_LANG`
-- Render: `MN_RENDER_BG_COLOR`, `MN_RENDER_FONT_SIZE`, `MN_RENDER_OUTPUT_NAME`, `MN_RENDER_FFMPEG_TIMEOUT`
-- Match: `MN_MATCH_SPEED_CLAMP_MIN`, `MN_MATCH_SPEED_CLAMP_MAX`, `MN_SCENE_MERGE_MIN_DURATION`, `MN_EMBEDDING_MODEL_NAME`
-- BGM: `MN_BGM_GAIN_DB`
-- TTS pacing: `MN_TTS_PAUSE_MS`, `MN_TTS_CACHE_MAX_MB`
-- Video: `MN_VIDEO_SIZES` (JSON string)
-- Async: `MN_ASYNC_TIMEOUT`, `MN_ASYNC_MAX_WORKERS`
+**`.env` (Settings) — 21 fields:** See [`.env.example`](../.env.example)
+- LLM (11): `MN_LLM_BASE_URL`, `MN_LLM_API_KEY`, `MN_LLM_MODEL`, `MN_LLM_TIMEOUT`, `MN_SCRIPT_TEMPERATURE`, `MN_SCRIPT_MAX_TOKENS`, `MN_SCRIPT_RETRIES`, `MN_SCRIPT_RETRY_DELAY`, `MN_RESEARCH_TEMPERATURE`, `MN_RESEARCH_MAX_TOKENS`, `MN_TRANSLATE_MAX_TOKENS`
+- TTS (10): `MN_DEFAULT_VOICE`, `MN_TTS_PROVIDER`, `MN_TTS_CACHE_MAX_MB`, `MN_OPENAI_TTS_*`(3), `MN_MIMO_*`(4)
+
+**`job.yaml` (params) — 30 keys:** See [`job.example.yaml`](../examples/job.example.yaml)
+- Scene: `scene_threshold`, `scene_frame_skip`
+- Match: `match_min_score`, `match_speed_clamp_min/max`, `scene_merge_min_duration`, `embedding_model_name`
+- BGM: `bgm_gain_db`
+- TTS pacing: `tts_pause_ms`, `tts_max_concurrent`, `tts_audio_format`, `tts_audio_bitrate`
+- Translate: `translate_source_lang`, `translate_provider`, `translate_retries`, `translate_chunk_chars`, `translate_chunk_size`
+- Research: `research_provider`
+- WhisperX: `whisperx_device/model/language`
+- Render: `render_fps/video_codec/audio_codec/threads/bg_color/font_size/output_name/ffmpeg_timeout`
+- Async: `async_timeout`, `async_max_workers`
+- Video: `video_sizes`
 
 ### Provider env-var naming convention
 
