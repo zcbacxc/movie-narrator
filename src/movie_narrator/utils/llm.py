@@ -17,7 +17,7 @@ class LLMClient:
 def get_llm_client():
     """Yield an LLMClient backed by a managed httpx.Client (closed on exit)."""
     settings = get_settings()
-    http_client = httpx.Client(timeout=60)
+    http_client = httpx.Client(timeout=settings.llm_timeout)
     try:
         client = OpenAI(
             base_url=settings.llm_base_url,

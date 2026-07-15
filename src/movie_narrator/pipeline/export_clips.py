@@ -5,6 +5,7 @@ from pathlib import Path
 
 from tqdm import tqdm
 
+from ..config import get_settings
 from ..models import Context, StepResult
 from ..utils.optional_deps import probe
 from ..utils.warnings import append_warning
@@ -44,6 +45,7 @@ def export_clips(ctx: Context) -> Context:
     clips_dir = output_dir / "clips"
     clips_dir.mkdir(parents=True, exist_ok=True)
 
+    settings = get_settings()
     failed = 0
     for scene in tqdm(ctx.scenes, desc="Exporting clips", unit="clip"):
         try:
@@ -56,8 +58,8 @@ def export_clips(ctx: Context) -> Context:
                 "-ss", str(scene.start),
                 "-to", str(scene.end),
                 "-i", ctx.source_video_path,
-                "-c:v", "libx264",
-                "-c:a", "aac",
+                "-c:v", settings.render_video_codec,
+                "-c:a", settings.render_audio_codec,
                 "-movflags", "+faststart",
                 str(clip_path),
             ]
