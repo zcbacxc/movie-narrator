@@ -1,49 +1,75 @@
-# Movie Narrator 默认任务配置
+# Movie Narrator 任务配置文件模板
 # 所有字段可选 — 不填则使用 Settings / CLI 默认值
-# CLI 参数优先级 > 本文件 > Settings 默认值
+# 优先级：CLI 参数 > 本文件 > Settings 默认值
 
-# --- 基础参数 ---
-movie: "" # 电影名称（通常通过 CLI --movie 传入）
-style: "" # 解说风格，如：热血搞笑 / 历史悬疑 / 温情催泪（通常 CLI 传入）
-duration: 60 # 目标视频时长（秒）
-voice: zh-CN-YunxiNeural # Edge-TTS 音色
-format: "16:9" # 视频比例：16:9 或 9:16
-keep_cache: false # 是否保留 TTS 缓存文件
+# ============================================================
+# 基础参数
+# ============================================================
+movie: ""                   # 电影名称（通常通过 CLI --movie 传入）
+style: ""                   # 解说风格，如：热血搞笑 / 历史悬疑 / 温情催泪（通常 CLI 传入）
+duration: 60                # 目标视频时长（秒）
+voice: zh-CN-YunxiNeural    # TTS 音色（留空跟随 provider 默认）
+format: "16:9"              # 视频比例：16:9 或 9:16
+keep_cache: false           # 是否保留 TTS 缓存文件
 
-# --- 路径（相对路径以本文件所在目录为基准解析）---
-video: "" # 源电影文件路径（通常 CLI --video 传入）
-library_dir: # 电影库目录，模糊匹配电影名
-bgm: "" # 背景音乐文件路径
+# ============================================================
+# 路径（相对路径以本文件所在目录为基准解析）
+# ============================================================
+video: ""                   # 源电影文件路径（通常 CLI --video 传入）
+library_dir:                # 电影库目录，按文件名模糊匹配
+bgm: ""                     # 背景音乐文件路径（.mp3 / .wav 等）
 
-# --- 布尔开关 ---
-no_bgm: false # 强制禁用 BGM（即使配置了 bgm 路径）
-no_clips: false # 跳过场景片段导出
-strict: false # 软步骤失败时中止流水线
+# ============================================================
+# 布尔开关
+# ============================================================
+no_bgm: false               # 强制禁用 BGM（即使配置了 bgm 路径）
+no_clips: false             # 跳过场景片段导出
+strict: false               # 软步骤失败时中止流水线
 
-# --- 软步骤开关（键名对应 PipelineStatus 字段）---
+# ============================================================
+# 软步骤开关（键名对应 PipelineStatus 字段）
+# ============================================================
 steps:
-  research: true # LLM 电影剧情调研
-  align: false # WhisperX 音频对齐（需 [ml] 额外依赖）
-  scene: true # PySceneDetect 场景检测（需 [media] 额外依赖）
-  match: true # 场景-脚本片段匹配
-  bgm: false # 背景音乐混音（需配置 bgm 路径）
-  export: false # 场景片段剪辑导出（需 [media] 额外依赖）
-  translate: true # 多语言字幕翻译（v0.3，需设置 subtitle_lang）
+  research: true            # LLM 电影剧情调研（写入 research.json）
+  align: false              # WhisperX 音频对齐（需 [ml] 额外依赖）
+  scene: true               # PySceneDetect 场景检测（需 [media] 额外依赖）
+  match: true               # 场景 ↔ 解说片段匹配
+  bgm: false                # 背景音乐混音（需配置 bgm 路径）
+  export: false             # 场景子片段导出为 .mp4（需 [media] 额外依赖）
+  translate: true           # 多语言字幕翻译（需设置 subtitle_lang）
 
-# --- 多语言字幕（v0.3）---
-# 留空 = 关闭翻译功能（仅生成原版 subtitle.srt）
-# 设置 lang 后，默认 mode=original（仅文件落盘，渲染仍用原版）
-# 想要视频画面显示翻译，需显式 mode=translated 或 mode=bilingual
-subtitle_lang: en # 目标语言标签，如 en / ja / zh-TW
-subtitle_mode: original # original | translated | bilingual
+# ============================================================
+# 多语言字幕
+# ============================================================
+# subtitle_lang 留空 = 关闭翻译功能（仅生成原版 subtitle.srt）
+# 设置 lang 后默认 mode=original（翻译文件落盘，渲染画面仍用原版）
+# 想要画面显示翻译需显式 mode=translated 或 mode=bilingual
+subtitle_lang: en           # 目标语言标签，如 en / ja / zh-TW
+subtitle_mode: original     # original | translated | bilingual
 
-# --- 精细参数（白名单，其余参数不会被接受）---
+# ============================================================
+# 精细参数
+# ============================================================
+# 白名单（其余键会被拒绝）：
+#   scene_threshold / scene_frame_skip / match_min_score
+#   match_speed_clamp_min / match_speed_clamp_max / scene_merge_min_duration
+#   research_provider / translate_provider / translate_retries
+#   translate_chunk_chars / translate_chunk_size
 params:
-  scene_threshold: 27.0 # PySceneDetect 灵敏度，越高越不敏感（场景切分越少）
-  scene_frame_skip: 10 # 场景检测跳帧数，每 N 帧处理 1 帧，越大越快但精度越低
-  match_min_score: 0.25 # 场景匹配最低余弦相似度，低于此值不匹配
-  research_provider: llm # 调研后端，目前仅支持 llm
-  translate_provider: llm # 翻译后端，目前仅支持 llm
-  translate_retries: 3 # LLM 失败重试次数
-  # translate_chunk_chars: 4000 # 分块字符阈值
-  # translate_chunk_size: 20 # 分块条数阈值
+  # ---- 场景检测 ----
+  scene_threshold: 27.0     # PySceneDetect 灵敏度（越大越不敏感，切分越少）
+  scene_frame_skip: 10      # 每 N 帧检测 1 帧（越大越快，精度越低）
+  # ---- 场景匹配 ----
+  match_min_score: 0.25     # embedding 匹配最低余弦相似度（低于此值丢弃）
+  # ---- 速度缩放控制 ----
+  # 速度因子 = 匹配到的场景时长 / 解说片段时长。
+  # clamp 将速度限制在舒适范围，防止相邻片段忽快忽慢。
+  match_speed_clamp_min: 0.5    # 最慢速度因子（<1 = 慢放上限）
+  match_speed_clamp_max: 3.0    # 最快速度因子（>1 = 快进上限）
+  scene_merge_min_duration: 0   # 场景最短时长（秒），0=不合并；设为 3.0 可给 clamp 更大窗口
+  # ---- 后端选择 ----
+  research_provider: llm    # 调研后端（目前仅支持 llm）
+  translate_provider: llm   # 翻译后端（目前仅支持 llm）
+  translate_retries: 3      # 翻译 LLM 失败后重试次数
+  translate_chunk_chars: 4000   # 翻译分块字符阈值（注释掉则用默认值）
+  translate_chunk_size: 20      # 翻译分块条数阈值（注释掉则用默认值）
