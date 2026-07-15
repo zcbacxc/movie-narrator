@@ -169,7 +169,7 @@ def build_context(
         ctx.metadata["workflow_steps"] = dict(workflow_steps)
     if params:
         for key in (
-            "scene_threshold", "match_min_score", "research_provider",
+            "scene_threshold", "scene_frame_skip", "match_min_score", "research_provider",
             "match_speed_clamp_min", "match_speed_clamp_max",
             "scene_merge_min_duration",
             "translate_chunk_chars", "translate_chunk_size",
