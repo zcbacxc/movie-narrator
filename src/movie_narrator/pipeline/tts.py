@@ -14,7 +14,7 @@ from ..tts.cache import (
     PROVIDER_CACHE_VERSIONS,
 )
 
-MAX_CONCURRENT = 3
+MAX_CONCURRENT = 3  # default; overridden by settings.tts_max_concurrent at runtime
 
 __all__ = ["generate_voice"]
 
@@ -46,7 +46,7 @@ def generate_voice(ctx: Context) -> Context:
         )
 
     async def _run_all():
-        sem = asyncio.Semaphore(MAX_CONCURRENT)
+        sem = asyncio.Semaphore(settings.tts_max_concurrent)
 
         async def _one(seg):
             async with sem:
@@ -89,11 +89,12 @@ def generate_voice(ctx: Context) -> Context:
         )
         current_time += duration + pause
 
-    audio_path = output_dir / "narration.mp3"
+    audio_fmt = settings.tts_audio_format
+    audio_path = output_dir / f"narration.{audio_fmt}"
     # Explicit bitrate prevents pydub's default 32 kbps export, which
     # produces MPEG v2.5 audio that ffmpeg (used by MoviePy) can fail
     # to decode — resulting in a silent final video.
-    combined.export(audio_path, format="mp3", bitrate="128k")
+    combined.export(audio_path, format=audio_fmt, bitrate=settings.tts_audio_bitrate)
     ctx.audio_path = str(audio_path)
     ctx.timed_segments = timed_segments
     ctx.metadata["voice_used"] = voice

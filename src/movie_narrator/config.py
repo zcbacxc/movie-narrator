@@ -129,15 +129,31 @@ class Settings(BaseSettings):
     tts_cache_max_mb: int = 500                 # LRU eviction threshold for TTS cache
     # ── TTS pacing ──
     tts_pause_ms: int = 300                     # silence inserted between narration segments
+    tts_max_concurrent: int = 3                 # max parallel TTS synthesis tasks
+    tts_audio_format: str = "mp3"              # narration audio export format
+    tts_audio_bitrate: str = "128k"            # narration audio export bitrate
     # ── BGM mixing ──
     bgm_gain_db: float = -18.0                  # gain applied to BGM track before mixing with narration
     # ── Embedding model for match re-rank ──
     embedding_model_name: str = "paraphrase-multilingual-MiniLM-L12-v2"
+    # ── WhisperX (align step, optional [ml] dep) ──
+    whisperx_device: str = "cpu"                # inference device: cpu | cuda
+    whisperx_model: str = "medium"              # WhisperX model size: tiny|base|small|medium|large
+    whisperx_language: str = "zh"               # WhisperX transcription language
+    # ── Translate ──
+    translate_source_lang: str = "zh-CN"        # default source language for subtitle translation
     # ── Render ──
     render_fps: int = 24
     render_video_codec: str = "libx264"
     render_audio_codec: str = "aac"
     render_threads: int = 4
+    render_bg_color: str = "20,20,30"           # RGB background color (comma-separated)
+    render_font_size: int = 100                 # text overlay font size
+    render_output_name: str = "final.mp4"       # final video output filename
+    render_ffmpeg_timeout: int = 300            # export_clips ffmpeg subprocess timeout (seconds)
+    # ── Async ──
+    async_timeout: int = 300                    # async task timeout (seconds)
+    async_max_workers: int = 2                  # thread pool size for async execution
     # ── Video resolution presets ──
     # JSON string, parsed at render time: {"16:9": [1920, 1080], "9:16": [1080, 1920]}
     video_sizes: str = '{"16:9": [1920, 1080], "9:16": [1080, 1920]}'

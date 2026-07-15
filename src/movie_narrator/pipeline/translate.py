@@ -218,7 +218,7 @@ def translate_subtitles(ctx: Context) -> Context:
         append_warning(ctx, f"translate provider {provider!r} is not supported")
         return ctx
 
-    source_lang = (ctx.metadata.get("source_lang") or "zh-CN")
+    source_lang = (ctx.metadata.get("source_lang") or get_settings().translate_source_lang)
     ctx.metadata.setdefault("source_lang", source_lang)
 
     texts = [seg.text for seg in ctx.timed_segments]
