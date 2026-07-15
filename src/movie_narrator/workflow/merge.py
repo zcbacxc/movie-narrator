@@ -4,6 +4,10 @@ from ..config import Settings
 from .errors import JobConfigError
 from .schema import JobConfig, ResolvedJob, VALID_SUBTITLE_MODES
 
+# These mirror the typer Option defaults in cli.py — they are used as
+# the "typer_default" sentinel in pick_defaulted() to detect whether the
+# CLI value was explicitly set or left at the default.  They must stay in
+# sync with cli.py but are NOT user-configurable Settings.
 _STYLE_DEFAULT = "热血搞笑"
 _DURATION_DEFAULT = 60
 _FORMAT_DEFAULT = "16:9"
@@ -74,6 +78,7 @@ def merge_job(
             "scene_threshold", "scene_frame_skip", "match_min_score",
             "match_speed_clamp_min", "match_speed_clamp_max",
             "scene_merge_min_duration",
+            "bgm_gain_db", "tts_pause_ms", "embedding_model_name",
             "research_provider",
             "translate_provider", "translate_retries",
             "translate_chunk_chars", "translate_chunk_size",

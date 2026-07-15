@@ -35,6 +35,10 @@ class JobParams(BaseModel):
     match_speed_clamp_min: Optional[float] = None
     match_speed_clamp_max: Optional[float] = None
     scene_merge_min_duration: Optional[float] = None
+    # Hardcoded constants promoted to configurable (v0.4.7).
+    bgm_gain_db: Optional[float] = None
+    tts_pause_ms: Optional[int] = None
+    embedding_model_name: Optional[str] = None
 
 
 VALID_SUBTITLE_MODES = frozenset({"original", "translated", "bilingual"})
