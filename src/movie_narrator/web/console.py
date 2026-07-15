@@ -13,8 +13,10 @@ import threading
 from contextlib import nullcontext
 from typing import Tuple
 
+from ..utils.console import BaseConsole
 
-class GradioConsole:
+
+class GradioConsole(BaseConsole):
     """Buffered console for Gradio UI consumption.
 
     The pipeline thread writes lines via the Console Protocol methods;

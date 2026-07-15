@@ -50,10 +50,24 @@ class Console(Protocol):
     def progress(self, *args, **kwargs): ...
 
 
+# ── BaseConsole ─────────────────────────────────────────────
+
+
+class BaseConsole:
+    """Shared formatting helpers for Console implementations.
+
+    Inherited by ``PlainConsole`` and ``GradioConsole`` to centralize
+    common formatting logic.  Subclasses still implement the full
+    ``Console`` Protocol via their own methods.
+    """
+
+    _fmt_time = staticmethod(_fmt_time)
+
+
 # ── PlainConsole ────────────────────────────────────────────
 
 
-class PlainConsole:
+class PlainConsole(BaseConsole):
     """Standard Console implementation: ANSI + print + tqdm + typer.echo."""
 
     def __init__(self, logger: AppLogger) -> None:

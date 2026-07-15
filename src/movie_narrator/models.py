@@ -2,11 +2,52 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional, Protocol, runtime_checkable
+from typing import Any, Dict, List, Literal, Optional, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from .utils.console import Console
+
 StepStatus = Literal["disabled", "skipped", "success", "failed"]
+
+
+class MetadataDict(TypedDict, total=False):
+    """Type-safe metadata keys for Context.metadata.
+
+    All keys are optional (total=False).  Provides IDE autocompletion and
+    static-analysis catch for typos — zero runtime overhead.
+    """
+    # Pipeline I/O
+    voice: str
+    format: str
+    keep_cache: bool
+    # Step toggles
+    research_enabled: bool
+    workflow_steps: dict
+    strict: bool
+    # BGM
+    bgm_request: str
+    no_bgm: bool
+    # Scene matching
+    scene_threshold: float
+    match_min_score: float
+    no_clips: bool
+    export_clips: bool
+    # Subtitles
+    subtitle_lang: str
+    subtitle_mode: str
+    source_lang: str
+    translate_provider: str
+    translate_retries: int
+    translate_chunk_chars: int
+    translate_chunk_size: int
+    # Status tracking
+    script_source: str
+    script_degraded: bool
+    tts_provider: str
+    voice_used: str
+    # Warnings
+    warnings: list
 
 
 # ── Step result ────────────────────────────────────────────
@@ -25,24 +66,6 @@ class StepState:
 
 
 # ── Services container ──────────────────────────────────────
-
-
-@runtime_checkable
-class Console(Protocol):
-    """Output abstraction — console rendering + log dispatch."""
-
-    def step(self, name: str) -> None: ...
-    def step_ok(self, name: str, elapsed: float) -> None: ...
-    def step_skip(self, name: str, reason: str) -> None: ...
-    def step_warn(self, name: str, reason: str) -> None: ...
-    def step_err(self, name: str, exc: Exception, elapsed: float) -> None: ...
-    def warn(self, msg: str) -> None: ...
-    def debug(self, msg: str) -> None: ...
-    def inline_warn(self, msg: str) -> None: ...
-    def final(self, msg: str) -> None: ...
-    def done(self, elapsed: float) -> None: ...
-    def cancelled(self, msg: str) -> None: ...
-    def progress(self, *args, **kwargs): ...
 
 
 @dataclass
@@ -169,7 +192,7 @@ class Context(BaseModel):
     # Single-step return state — consumed by runner, reset after each step
     step_state: StepState = Field(default_factory=StepState)
 
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(default_factory=dict)  # see MetadataDict for known keys
 
     @model_validator(mode="before")
     @classmethod

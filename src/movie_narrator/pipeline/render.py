@@ -127,13 +127,17 @@ def render_video(ctx: Context) -> Context:
     try:
         final_video.write_videofile(str(video_path), **write_kwargs)
     finally:
-        final_video.close()
-        audio_clip.close()
-        if source is not None:
-            source.close()
-        for clip in clips:
-            if hasattr(clip, "close"):
-                clip.close()
+        # Exception-safe cleanup: each close is guarded so one failure
+        # doesn't prevent the remaining resources from being released.
+        # NOTE: source must NOT be closed before write_videofile — MoviePy 2.x
+        # subclipped() clips share the parent reader, so closing source early
+        # would crash during encoding.
+        for obj in (final_video, audio_clip, source, *clips):
+            if obj is not None:
+                try:
+                    obj.close()
+                except Exception:  # noqa: BLE001
+                    pass
 
     metadata = build_metadata_json(ctx)
     with open(output_dir / "metadata.json", "w", encoding="utf-8") as f:
