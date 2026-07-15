@@ -1,6 +1,10 @@
 # Movie Narrator 任务配置文件模板
-# 所有字段可选 — 不填则使用 Settings / CLI 默认值
-# 优先级：CLI 参数 > 本文件 > Settings 默认值
+# 所有字段可选 — 不填则使用内联默认值
+# 优先级：CLI 参数 > 本文件 > 内联默认值
+#
+# 边界说明：
+#   .env (Settings) = LLM + TTS 基础配置（凭证、端点、模型、调用参数）
+#   job.yaml (本文件) = 所有流水线行为参数（场景、匹配、渲染、翻译、BGM 等）
 
 # ============================================================
 # 基础参数
@@ -36,7 +40,7 @@ steps:
   match: true               # 场景 ↔ 解说片段匹配
   bgm: false                # 背景音乐混音（需配置 bgm 路径）
   export: false             # 场景子片段导出为 .mp4（需 [media] 额外依赖）
-  translate: false           # 多语言字幕翻译（需设置 subtitle_lang）
+  translate: false          # 多语言字幕翻译（需设置 subtitle_lang）
 
 # ============================================================
 # 多语言字幕
@@ -48,34 +52,75 @@ subtitle_lang: ""           # 目标语言标签，如 en / ja / zh-TW；留空 
 subtitle_mode: original     # original | translated | bilingual
 
 # ============================================================
-# 精细参数
+# 精细参数（所有流水线行为配置都在这里）
 # ============================================================
 # 白名单（其余键会被拒绝）：
-#   scene_threshold / scene_frame_skip / match_min_score
-#   match_speed_clamp_min / match_speed_clamp_max / scene_merge_min_duration
-#   bgm_gain_db / tts_pause_ms / embedding_model_name
-#   research_provider / translate_provider / translate_retries
-#   translate_chunk_chars / translate_chunk_size
+#   场景: scene_threshold / scene_frame_skip
+#   匹配: match_min_score / match_speed_clamp_min / match_speed_clamp_max
+#          scene_merge_min_duration / embedding_model_name
+#   BGM:  bgm_gain_db
+#   TTS:  tts_pause_ms / tts_max_concurrent / tts_audio_format / tts_audio_bitrate
+#   翻译: translate_source_lang / translate_provider / translate_retries
+#          translate_chunk_chars / translate_chunk_size
+#   调研: research_provider
+#   WhisperX: whisperx_device / whisperx_model / whisperx_language
+#   渲染: render_fps / render_video_codec / render_audio_codec / render_threads
+#          render_bg_color / render_font_size / render_output_name / render_ffmpeg_timeout
+#   异步: async_timeout / async_max_workers
+#   视频: video_sizes
 params:
   # ---- 场景检测 ----
   scene_threshold: 27.0     # PySceneDetect 灵敏度（越大越不敏感，切分越少）
   scene_frame_skip: 10      # 每 N 帧检测 1 帧（越大越快，精度越低）
+
   # ---- 场景匹配 ----
   match_min_score: 0.25     # embedding 匹配最低余弦相似度（低于此值丢弃）
-  # ---- 速度缩放控制 ----
   # 速度因子 = 匹配到的场景时长 / 解说片段时长。
   # clamp 将速度限制在舒适范围，防止相邻片段忽快忽慢。
   match_speed_clamp_min: 0.5    # 最慢速度因子（<1 = 慢放上限）
   match_speed_clamp_max: 3.0    # 最快速度因子（>1 = 快进上限）
   scene_merge_min_duration: 0   # 场景最短时长（秒），0=不合并；设为 3.0 可给 clamp 更大窗口
-  # ---- 音频 ----
-  # bgm_gain_db: -18          # BGM 混音增益（dB），默认 -18
-  # tts_pause_ms: 300         # 解说片段间静音时长（毫秒），默认 300
-  # ---- 匹配模型 ----
   # embedding_model_name: paraphrase-multilingual-MiniLM-L12-v2
-  # ---- 后端选择 ----
+
+  # ---- BGM ----
+  # bgm_gain_db: -18          # BGM 混音增益（dB）
+
+  # ---- TTS 音频 ----
+  # tts_pause_ms: 300         # 解说片段间静音时长（毫秒）
+  # tts_max_concurrent: 3     # 并发 TTS 合成数
+  # tts_audio_format: mp3     # 旁白导出格式
+  # tts_audio_bitrate: 128k   # 旁白导出比特率
+
+  # ---- 翻译 ----
+  # translate_source_lang: zh-CN  # 源语言
+  # translate_provider: llm   # 翻译后端（目前仅支持 llm）
+  # translate_retries: 3      # 翻译 LLM 失败后重试次数
+  # translate_chunk_chars: 4000   # 翻译分块字符阈值
+  # translate_chunk_size: 20      # 翻译分块条数阈值
+
+  # ---- 调研 ----
   research_provider: llm    # 调研后端（目前仅支持 llm）
-  translate_provider: llm   # 翻译后端（目前仅支持 llm）
-  translate_retries: 3      # 翻译 LLM 失败后重试次数
-  translate_chunk_chars: 4000   # 翻译分块字符阈值（注释掉则用默认值）
-  translate_chunk_size: 20      # 翻译分块条数阈值（注释掉则用默认值）
+
+  # ---- WhisperX（需 [ml] 额外依赖）----
+  # whisperx_device: cpu      # cpu | cuda
+  # whisperx_model: medium    # tiny|base|small|medium|large
+  # whisperx_language: zh     # 转录语言
+
+  # ---- 渲染 ----
+  # render_fps: 24            # 输出帧率
+  # render_video_codec: libx264  # 视频编码器
+  # render_audio_codec: aac   # 音频编码器
+  # render_threads: 4         # ffmpeg 编码线程数
+  # render_bg_color: "20,20,30"  # 背景色 RGB（逗号分隔）
+  # render_font_size: 100     # 文字叠加字体大小
+  # render_output_name: final.mp4  # 最终视频文件名
+  # render_ffmpeg_timeout: 300  # export_clips ffmpeg 超时（秒）
+
+  # ---- 异步 ----
+  # async_timeout: 300        # 异步任务超时（秒）
+  # async_max_workers: 2      # 线程池大小
+
+  # ---- 视频分辨率 ----
+  # video_sizes:
+  #   "16:9": [1920, 1080]
+  #   "9:16": [1080, 1920]

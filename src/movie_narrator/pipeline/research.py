@@ -41,7 +41,7 @@ def research_plot(ctx: Context) -> Context:
         ctx.step_state.message = "research disabled"
         return ctx
 
-    provider = ctx.metadata.get("research_provider", get_settings().research_provider)
+    provider = ctx.metadata.get("research_provider", "llm")
     output_dir = Path(ctx.output_dir)
 
     if provider != "llm":

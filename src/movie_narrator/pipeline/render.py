@@ -5,7 +5,6 @@ from pathlib import Path
 from moviepy import AudioFileClip, ColorClip, CompositeVideoClip, ImageClip, VideoFileClip
 from proglog import TqdmProgressBarLogger
 
-from ..config import get_settings
 from ..models import Context, MatchedClip, StepResult, TimedSegment
 from ..utils.metadata_export import build_metadata_json
 from ..utils.text_image import create_text_image as _create_text_image
@@ -28,20 +27,15 @@ class _RenderProgressLogger(TqdmProgressBarLogger):
             self.bars[bar]["title"] = self._BAR_LABELS.get(bar, bar)
         super().bars_callback(bar, attr, value, old_value)
 
-_DEFAULT_VIDEO_SIZES = {
-    "16:9": (1920, 1080),
-    "9:16": (1080, 1920),
-}
 
+def _get_video_sizes(ctx: Context) -> dict:
+    """Return video_sizes dict from job params (ctx.metadata) with defaults fallback.
 
-def _get_video_sizes() -> dict:
-    """Parse video_sizes from Settings, falling back to built-in defaults."""
-    raw = get_settings().video_sizes
-    try:
-        parsed = json.loads(raw)
-        return {k: tuple(v) for k, v in parsed.items()}
-    except (json.JSONDecodeError, TypeError):
-        return dict(_DEFAULT_VIDEO_SIZES)
+    The metadata value (from YAML) is already a dict; ``{"16:9": (1920, 1080), "9:16": (1080, 1920)}``
+    is also a dict — no JSON parsing needed.
+    """
+    raw = ctx.metadata.get("video_sizes", {"16:9": (1920, 1080), "9:16": (1080, 1920)})
+    return {k: tuple(v) for k, v in raw.items()}
 
 
 def _overlay_text(ctx: Context, idx: int, seg: TimedSegment) -> str:
@@ -64,18 +58,19 @@ def _overlay_text(ctx: Context, idx: int, seg: TimedSegment) -> str:
 
 
 def render_video(ctx: Context) -> Context:
-    settings = get_settings()
     output_dir = Path(ctx.output_dir)
     video_format = ctx.metadata.get("format", "16:9")
-    size = _get_video_sizes().get(video_format, (1920, 1080))
+    size = _get_video_sizes(ctx).get(video_format, (1920, 1080))
     keep_cache = ctx.metadata.get("keep_cache", False)
+    font_size = ctx.metadata.get("render_font_size", 100)
 
     audio_path = ctx.final_audio_path or ctx.audio_path
     audio_clip = AudioFileClip(audio_path)
     total_duration = audio_clip.duration
 
     # Parse background color "R,G,B" → tuple
-    bg_parts = [int(x.strip()) for x in settings.render_bg_color.split(",")]
+    bg_color_str = ctx.metadata.get("render_bg_color", "20,20,30")
+    bg_parts = [int(x.strip()) for x in bg_color_str.split(",")]
     bg_color = tuple(bg_parts[:3])
     bg_clip = ColorClip(size=size, color=bg_color, duration=total_duration)
     clips: list = [bg_clip]
@@ -104,7 +99,7 @@ def render_video(ctx: Context) -> Context:
                     ctx.services.console.debug(f"  fallback for segment {mc.segment_index}: {ie}")
                     img_array = _create_text_image(
                         _overlay_text(ctx, mc.segment_index, ctx.timed_segments[mc.segment_index]),
-                        size, fontsize=settings.render_font_size,
+                        size, fontsize=font_size,
                     )
                     img_clip = ImageClip(img_array, is_mask=False)
                     img_clip = img_clip.with_duration(seg_duration).with_start(mc.narr_start)
@@ -119,24 +114,24 @@ def render_video(ctx: Context) -> Context:
     for i, seg in enumerate(ctx.timed_segments):
         if i in footage_segments:
             continue
-        img_array = _create_text_image(_overlay_text(ctx, i, seg), size, fontsize=settings.render_font_size)
+        img_array = _create_text_image(_overlay_text(ctx, i, seg), size, fontsize=font_size)
         img_clip = ImageClip(img_array, is_mask=False)
         img_clip = img_clip.with_duration(seg.end - seg.start).with_start(seg.start)
         clips.append(img_clip)
 
     final_video = CompositeVideoClip(clips).with_audio(audio_clip)
-    video_path = output_dir / settings.render_output_name
+    video_path = output_dir / ctx.metadata.get("render_output_name", "final.mp4")
 
 
     tmp_dir = output_dir / ".tmp"
     tmp_dir.mkdir(exist_ok=True)
 
-    settings = get_settings()
     # temp_audiofile extension MUST match the audio_codec so the final
     # mux step ("-acodec copy") reads a correctly-typed bitstream.
     # With audio_codec="aac", a ".wav" extension causes a RIFF/WAV
     # header wrapping AAC data — ffmpeg then decodes only ~6 ms.
-    temp_ext = settings.render_audio_codec
+    audio_codec = ctx.metadata.get("render_audio_codec", "aac")
+    temp_ext = audio_codec
     # "copy" is a passthrough pseudo-codec; "aac" works for both AAC-LC
     # and the HE-AAC variants.  Map libmp3lame → mp3 so the temp file
     # always carries a real container extension.
@@ -149,10 +144,10 @@ def render_video(ctx: Context) -> Context:
     temp_ext = _EXT_NORM.get(temp_ext, temp_ext)
 
     write_kwargs = dict(
-        fps=settings.render_fps,
-        codec=settings.render_video_codec,
-        audio_codec=settings.render_audio_codec,
-        threads=settings.render_threads,
+        fps=ctx.metadata.get("render_fps", 24),
+        codec=ctx.metadata.get("render_video_codec", "libx264"),
+        audio_codec=audio_codec,
+        threads=ctx.metadata.get("render_threads", 4),
         logger=_RenderProgressLogger(),
         temp_audiofile=str(tmp_dir / f"temp_audio.{temp_ext}"),
     )

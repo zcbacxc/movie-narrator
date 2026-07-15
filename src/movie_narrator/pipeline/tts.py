@@ -14,8 +14,6 @@ from ..tts.cache import (
     PROVIDER_CACHE_VERSIONS,
 )
 
-MAX_CONCURRENT = 3  # default; overridden by settings.tts_max_concurrent at runtime
-
 __all__ = ["generate_voice"]
 
 
@@ -27,6 +25,10 @@ def generate_voice(ctx: Context) -> Context:
 
     voice = ctx.metadata.get("voice") or settings.default_voice
     provider = get_tts_provider(settings)
+    pause_ms = ctx.metadata.get("tts_pause_ms", 300)
+    max_concurrent = ctx.metadata.get("tts_max_concurrent", 3)
+    audio_fmt = ctx.metadata.get("tts_audio_format", "mp3")
+    audio_bitrate = ctx.metadata.get("tts_audio_bitrate", "128k")
 
     def _key(seg_text: str) -> TTSCacheKey:
         return TTSCacheKey(
@@ -42,11 +44,11 @@ def generate_voice(ctx: Context) -> Context:
             ),
             voice=voice,
             text=seg_text,
-            pause_ms=settings.tts_pause_ms,
+            pause_ms=pause_ms,
         )
 
     async def _run_all():
-        sem = asyncio.Semaphore(settings.tts_max_concurrent)
+        sem = asyncio.Semaphore(max_concurrent)
 
         async def _one(seg):
             async with sem:
@@ -80,7 +82,6 @@ def generate_voice(ctx: Context) -> Context:
     current_time = 0.0
     for i, (audio, duration) in enumerate(results):
         combined += audio
-        pause_ms = settings.tts_pause_ms
         pause = (pause_ms / 1000.0) if i < len(ctx.segments) - 1 else 0
         if pause > 0:
             combined += AudioSegment.silent(duration=pause_ms)
@@ -89,12 +90,11 @@ def generate_voice(ctx: Context) -> Context:
         )
         current_time += duration + pause
 
-    audio_fmt = settings.tts_audio_format
     audio_path = output_dir / f"narration.{audio_fmt}"
     # Explicit bitrate prevents pydub's default 32 kbps export, which
     # produces MPEG v2.5 audio that ffmpeg (used by MoviePy) can fail
     # to decode — resulting in a silent final video.
-    combined.export(audio_path, format=audio_fmt, bitrate=settings.tts_audio_bitrate)
+    combined.export(audio_path, format=audio_fmt, bitrate=audio_bitrate)
     ctx.audio_path = str(audio_path)
     ctx.timed_segments = timed_segments
     ctx.metadata["voice_used"] = voice
