@@ -36,7 +36,7 @@ steps:
   match: true               # 场景 ↔ 解说片段匹配
   bgm: false                # 背景音乐混音（需配置 bgm 路径）
   export: false             # 场景子片段导出为 .mp4（需 [media] 额外依赖）
-  translate: true           # 多语言字幕翻译（需设置 subtitle_lang）
+  translate: false           # 多语言字幕翻译（需设置 subtitle_lang）
 
 # ============================================================
 # 多语言字幕
@@ -44,7 +44,7 @@ steps:
 # subtitle_lang 留空 = 关闭翻译功能（仅生成原版 subtitle.srt）
 # 设置 lang 后默认 mode=original（翻译文件落盘，渲染画面仍用原版）
 # 想要画面显示翻译需显式 mode=translated 或 mode=bilingual
-subtitle_lang: en           # 目标语言标签，如 en / ja / zh-TW
+subtitle_lang: ""           # 目标语言标签，如 en / ja / zh-TW；留空 = 关闭翻译
 subtitle_mode: original     # original | translated | bilingual
 
 # ============================================================
