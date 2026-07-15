@@ -7,7 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [0.4.3] - 2026-07-14
+## [0.4.6] - 2026-07-15
+
+### Fixed
+- render_video: `temp_audiofile` extension now derived from `audio_codec` (`.aac` not `.wav`) to prevent AAC-in-WAV mismatch causing silent final.mp4 output
+
+## [0.4.5] - 2026-07-14
 
 ### Changed
 - Version bump to reflect accumulated documentation and robustness changes since 0.4.2
@@ -141,7 +146,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - workflow_steps 和 params 元数据注入
 - 控制台日志重构设计
 
-[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.3...HEAD
+[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.6...HEAD
+[0.4.6]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.5...v0.4.6
+[0.4.5]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.3...v0.4.5
 [0.4.3]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.0...v0.4.1
