@@ -2,7 +2,6 @@ from pathlib import Path
 
 from pydub import AudioSegment
 
-from ..config import get_settings
 from ..models import Context, StepResult
 
 
@@ -32,7 +31,7 @@ def mix_bgm(ctx: Context) -> Context:
 
     try:
         narration = AudioSegment.from_file(ctx.audio_path)
-        gain_db = ctx.metadata.get("bgm_gain_db", get_settings().bgm_gain_db)
+        gain_db = ctx.metadata.get("bgm_gain_db", -18.0)
         bgm = AudioSegment.from_file(ctx.assets.bgm).apply_gain(gain_db)
         if len(bgm) < len(narration):
             times = len(narration) // max(len(bgm), 1) + 1

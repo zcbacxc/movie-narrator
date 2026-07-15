@@ -5,15 +5,28 @@ from movie_narrator.config import Settings, ensure_user_config, _read_example_en
 from movie_narrator.utils.environment import collect_environment
 
 
-def test_settings_v02_defaults():
+def test_settings_llm_tts_defaults():
     s = Settings()
-    assert hasattr(s, "library_dir")
-    assert s.research_enabled is False
-    assert s.research_provider == "llm"
-    assert s.scene_threshold == 27.0
-    assert s.match_min_score == 0.25
-    assert s.export_clips_default is True
-    assert s.default_bgm is None
+    # LLM
+    assert s.llm_base_url
+    assert s.llm_api_key
+    assert s.llm_model
+    assert s.llm_timeout == 60
+    assert s.script_temperature == 0.7
+    assert s.script_max_tokens == 2048
+    assert s.script_retries == 3
+    assert s.script_retry_delay == 1.5
+    assert s.research_temperature == 0.3
+    assert s.research_max_tokens == 1024
+    assert s.translate_max_tokens == 4096
+    # TTS
+    assert s.default_voice
+    assert s.tts_cache_max_mb == 500
+    # Pipeline fields should NOT be in Settings (they're in job.yaml)
+    assert not hasattr(s, "scene_threshold")
+    assert not hasattr(s, "match_min_score")
+    assert not hasattr(s, "render_video_codec")
+    assert not hasattr(s, "library_dir")
 
 
 def test_collect_environment_keys():
