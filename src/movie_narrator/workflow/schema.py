@@ -22,23 +22,48 @@ class JobSteps(BaseModel):
 class JobParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    # ── Scene detection ──
     scene_threshold: Optional[float] = None
     scene_frame_skip: Optional[int] = None
+    # ── Match ──
     match_min_score: Optional[float] = None
-    research_provider: Optional[str] = None
-    # Multi-language subtitle tuning (v0.3).
+    match_speed_clamp_min: Optional[float] = None
+    match_speed_clamp_max: Optional[float] = None
+    scene_merge_min_duration: Optional[float] = None
+    embedding_model_name: Optional[str] = None
+    # ── BGM ──
+    bgm_gain_db: Optional[float] = None
+    # ── TTS pacing ──
+    tts_pause_ms: Optional[int] = None
+    tts_max_concurrent: Optional[int] = None
+    tts_audio_format: Optional[str] = None
+    tts_audio_bitrate: Optional[str] = None
+    # ── Translate ──
+    translate_source_lang: Optional[str] = None
     translate_provider: Optional[str] = None
     translate_retries: Optional[int] = None
     translate_chunk_chars: Optional[int] = None
     translate_chunk_size: Optional[int] = None
-    # Match speed clamp + scene merge (v0.4.6).
-    match_speed_clamp_min: Optional[float] = None
-    match_speed_clamp_max: Optional[float] = None
-    scene_merge_min_duration: Optional[float] = None
-    # Hardcoded constants promoted to configurable (v0.4.7).
-    bgm_gain_db: Optional[float] = None
-    tts_pause_ms: Optional[int] = None
-    embedding_model_name: Optional[str] = None
+    # ── Research ──
+    research_provider: Optional[str] = None
+    # ── WhisperX ──
+    whisperx_device: Optional[str] = None
+    whisperx_model: Optional[str] = None
+    whisperx_language: Optional[str] = None
+    # ── Render ──
+    render_fps: Optional[int] = None
+    render_video_codec: Optional[str] = None
+    render_audio_codec: Optional[str] = None
+    render_threads: Optional[int] = None
+    render_bg_color: Optional[str] = None
+    render_font_size: Optional[int] = None
+    render_output_name: Optional[str] = None
+    render_ffmpeg_timeout: Optional[int] = None
+    # ── Async ──
+    async_timeout: Optional[int] = None
+    async_max_workers: Optional[int] = None
+    # ── Video sizes ──
+    video_sizes: Optional[Dict[str, list]] = None
 
 
 VALID_SUBTITLE_MODES = frozenset({"original", "translated", "bilingual"})

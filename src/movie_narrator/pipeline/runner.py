@@ -117,8 +117,8 @@ def build_context(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    lib = library_dir if library_dir is not None else settings.library_dir
-    research_enabled = settings.research_enabled if research is None else research
+    lib = library_dir
+    research_enabled = research if research is not None else False
 
     if no_bgm:
         bgm_path = None
@@ -126,9 +126,6 @@ def build_context(
     elif bgm:
         bgm_path = bgm
         bgm_request = "explicit"
-    elif settings.default_bgm:
-        bgm_path = settings.default_bgm
-        bgm_request = "default"
     else:
         bgm_path = None
         bgm_request = "none"
@@ -152,16 +149,17 @@ def build_context(
             "keep_cache": keep_cache,
             "video_arg": video,
             "research_enabled": research_enabled,
-            "export_clips": (False if no_clips else settings.export_clips_default),
+            "export_clips": (False if no_clips else True),
             "strict": strict,
             "bgm_request": bgm_request,
             "version": __version__,
             "environment": collect_environment(),
-            # Multi-language subtitle (v0.3). Empty lang → feature off.
-            "subtitle_lang": (subtitle_lang or settings.subtitle_lang or None),
-            "subtitle_mode": (subtitle_mode or settings.subtitle_mode or "original"),
-            "translate_provider": (params or {}).get("translate_provider", settings.translate_provider),
-            "translate_retries": (params or {}).get("translate_retries", settings.translate_retries),
+            # Multi-language subtitle. Empty lang → feature off.
+            "subtitle_lang": (subtitle_lang or None),
+            "subtitle_mode": (subtitle_mode or "original"),
+            "translate_provider": (params or {}).get("translate_provider", "llm"),
+            "translate_retries": (params or {}).get("translate_retries", 3),
+            "research_provider": (params or {}).get("research_provider", "llm"),
         }
     )
 
@@ -169,11 +167,17 @@ def build_context(
         ctx.metadata["workflow_steps"] = dict(workflow_steps)
     if params:
         for key in (
-            "scene_threshold", "scene_frame_skip", "match_min_score", "research_provider",
+            "scene_threshold", "scene_frame_skip", "match_min_score",
             "match_speed_clamp_min", "match_speed_clamp_max",
-            "scene_merge_min_duration",
-            "translate_chunk_chars", "translate_chunk_size",
-            "bgm_gain_db", "tts_pause_ms", "embedding_model_name",
+            "scene_merge_min_duration", "embedding_model_name",
+            "bgm_gain_db", "tts_pause_ms",
+            "tts_max_concurrent", "tts_audio_format", "tts_audio_bitrate",
+            "translate_source_lang", "translate_chunk_chars", "translate_chunk_size",
+            "whisperx_device", "whisperx_model", "whisperx_language",
+            "render_fps", "render_video_codec", "render_audio_codec", "render_threads",
+            "render_bg_color", "render_font_size", "render_output_name", "render_ffmpeg_timeout",
+            "async_timeout", "async_max_workers",
+            "video_sizes",
         ):
             if key in params and params[key] is not None:
                 ctx.metadata[key] = params[key]

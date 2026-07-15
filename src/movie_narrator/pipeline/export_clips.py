@@ -5,7 +5,6 @@ from pathlib import Path
 
 from tqdm import tqdm
 
-from ..config import get_settings
 from ..models import Context, StepResult
 from ..utils.optional_deps import probe
 from ..utils.warnings import append_warning
@@ -45,7 +44,9 @@ def export_clips(ctx: Context) -> Context:
     clips_dir = output_dir / "clips"
     clips_dir.mkdir(parents=True, exist_ok=True)
 
-    settings = get_settings()
+    video_codec = ctx.metadata.get("render_video_codec", "libx264")
+    audio_codec = ctx.metadata.get("render_audio_codec", "aac")
+    ffmpeg_timeout = ctx.metadata.get("render_ffmpeg_timeout", 300)
     failed = 0
     for scene in tqdm(ctx.scenes, desc="Exporting clips", unit="clip"):
         try:
@@ -58,15 +59,15 @@ def export_clips(ctx: Context) -> Context:
                 "-ss", str(scene.start),
                 "-to", str(scene.end),
                 "-i", ctx.source_video_path,
-                "-c:v", settings.render_video_codec,
-                "-c:a", settings.render_audio_codec,
+                "-c:v", video_codec,
+                "-c:a", audio_codec,
                 "-movflags", "+faststart",
                 str(clip_path),
             ]
             result = subprocess.run(
                 cmd,
                 capture_output=True,
-                timeout=settings.render_ffmpeg_timeout,
+                timeout=ffmpeg_timeout,
             )
             if result.returncode != 0:
                 stderr_tail = result.stderr.decode(errors="replace")[-300:]

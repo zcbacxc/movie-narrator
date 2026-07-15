@@ -28,9 +28,6 @@ def test_detect_scenes_skipped_no_source(tmp_path):
 
 def _run_detect_with_fake_scenedetect(ctx, threshold_expected):
     """Inject fake scenedetect modules so tests run without [media] extras."""
-    mock_settings = MagicMock()
-    mock_settings.scene_threshold = 42.5
-
     mock_video = MagicMock()
     mock_video.duration.frame_num = 1000
     mock_manager = MagicMock()
@@ -46,7 +43,6 @@ def _run_detect_with_fake_scenedetect(ctx, threshold_expected):
 
     with (
         patch("movie_narrator.pipeline.scenes.probe", return_value=(True, "")),
-        patch("movie_narrator.pipeline.scenes.get_settings", return_value=mock_settings),
         patch.dict(
             sys.modules,
             {
@@ -61,15 +57,15 @@ def _run_detect_with_fake_scenedetect(ctx, threshold_expected):
     assert ctx.status.scene == "success"
 
 
-def test_detect_scenes_uses_settings_threshold(tmp_path):
-    """Spec §3/§4: ContentDetector must honor Settings.scene_threshold."""
+def test_detect_scenes_uses_default_threshold(tmp_path):
+    """ContentDetector uses inline default (27.0) when no metadata override."""
     ctx = Context(
         movie_name="m",
         output_dir=str(tmp_path),
         source_video_path=str(tmp_path / "src.mp4"),
     )
     (tmp_path / "src.mp4").write_bytes(b"00")
-    _run_detect_with_fake_scenedetect(ctx, threshold_expected=42.5)
+    _run_detect_with_fake_scenedetect(ctx, threshold_expected=27.0)
 
 
 def test_detect_scenes_metadata_threshold_override(tmp_path):

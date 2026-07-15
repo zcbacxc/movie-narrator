@@ -7,16 +7,11 @@ from typing import Any, Coroutine, TypeVar
 
 T = TypeVar("T")
 
-ASYNC_TIMEOUT = 300  # default; overridden by settings.async_timeout at runtime
 _executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="movie-narrator-async")
 atexit.register(lambda: _executor.shutdown(wait=False))
 
 
-def run_async(coro: Coroutine[Any, Any, T]) -> T:
-    from ..config import get_settings
-
-    settings = get_settings()
-    timeout = settings.async_timeout
+def run_async(coro: Coroutine[Any, Any, T], timeout: float = 300) -> T:
     try:
         asyncio.get_running_loop()
     except RuntimeError:
