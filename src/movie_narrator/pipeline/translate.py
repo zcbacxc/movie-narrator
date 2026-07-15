@@ -21,6 +21,7 @@ from typing import List, Optional, Sequence
 
 from tqdm import tqdm
 
+from ..config import get_settings
 from ..models import Context, StepResult
 from ..utils.json_parser import extract_json
 from ..utils.llm import get_llm_client
@@ -109,7 +110,7 @@ def _call_llm_chunk(
         resp = llm.client.chat.completions.create(
             model=llm.model,
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=4096,
+            max_tokens=get_settings().translate_max_tokens,
         )
     raw = (resp.choices[0].message.content or "").strip()
     parsed = extract_json(raw)
@@ -136,6 +137,8 @@ def _translate_via_llm(
     target_lang: str,
     source_lang: str,
     retries: int,
+    max_chars: int = DEFAULT_CHUNK_CHARS,
+    max_items: int = DEFAULT_CHUNK_SIZE,
     llm_factory=None,
 ) -> List[str]:
     """Translate via the LLM provider, chunked, with per-chunk retry.
@@ -145,9 +148,6 @@ def _translate_via_llm(
 
     ``llm_factory`` is forwarded to ``_call_llm_chunk`` for test injection.
     """
-    max_chars = DEFAULT_CHUNK_CHARS
-    max_items = DEFAULT_CHUNK_SIZE
-
     chunks = _chunk_texts(texts, max_chars=max_chars, max_items=max_items)
     result: List[Optional[str]] = [None] * len(texts)
 
@@ -234,7 +234,10 @@ def translate_subtitles(ctx: Context) -> Context:
         ctx.step_state.message = "ci-passthrough"
         return ctx
 
-    retries = int(ctx.metadata.get("translate_retries", 3))
+    retries = int(ctx.metadata.get("translate_retries", get_settings().translate_retries))
+    settings = get_settings()
+    max_chars = int(ctx.metadata.get("translate_chunk_chars", settings.translate_chunk_chars))
+    max_items = int(ctx.metadata.get("translate_chunk_size", settings.translate_chunk_size))
 
     try:
         ctx.translated_texts = _translate_via_llm(
@@ -242,6 +245,8 @@ def translate_subtitles(ctx: Context) -> Context:
             target_lang=target_lang,
             source_lang=source_lang,
             retries=retries,
+            max_chars=max_chars,
+            max_items=max_items,
         )
     except _ChunkFailure as cf:
         # At least one chunk failed after retries. Fill failed slots

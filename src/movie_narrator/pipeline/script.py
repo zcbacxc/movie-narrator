@@ -1,3 +1,4 @@
+from ..config import get_settings
 from ..models import Context, ScriptSegment
 from ..utils.prompts import SCRIPT_PROMPT
 from ..utils.llm import get_llm_client
@@ -13,7 +14,8 @@ MOCK_SEGMENTS = [
 
 
 def generate_script(ctx: Context) -> Context:
-    for attempt in range(3):
+    settings = get_settings()
+    for attempt in range(settings.script_retries):
         try:
             with get_llm_client() as llm:
 
@@ -30,8 +32,8 @@ def generate_script(ctx: Context) -> Context:
                 response = llm.client.chat.completions.create(
                     model=llm.model,
                     messages=[{"role": "user", "content": prompt}],
-                    temperature=0.7,
-                    max_tokens=2048,
+                    temperature=settings.script_temperature,
+                    max_tokens=settings.script_max_tokens,
                 )
                 raw = response.choices[0].message.content or ""
                 data = extract_json(raw)
@@ -48,8 +50,8 @@ def generate_script(ctx: Context) -> Context:
                 ctx.metadata["script_source"] = "llm"
                 return ctx
         except Exception as e:
-            if attempt == 2:
-                ctx.services.console.inline_warn(f"LLM fallback (3 attempts failed): {e}")
+            if attempt == settings.script_retries - 1:
+                ctx.services.console.inline_warn(f"LLM fallback ({settings.script_retries} attempts failed): {e}")
                 ctx.segments = [
                     ScriptSegment(text=s.format(movie_name=ctx.movie_name))
                     for s in MOCK_SEGMENTS
@@ -57,5 +59,5 @@ def generate_script(ctx: Context) -> Context:
                 ctx.metadata["script_source"] = "mock"
                 ctx.metadata["script_degraded"] = True
                 return ctx
-            sleep(1.5)
+            sleep(settings.script_retry_delay)
     return ctx

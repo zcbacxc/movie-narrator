@@ -53,13 +53,14 @@ def research_plot(ctx: Context) -> Context:
         return ctx
 
     try:
+        settings = get_settings()
         with get_llm_client() as llm:
             prompt = RESEARCH_PROMPT.format(movie=ctx.movie_name)
             response = llm.client.chat.completions.create(
                 model=llm.model,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.3,
-                max_tokens=1024,
+                temperature=settings.research_temperature,
+                max_tokens=settings.research_max_tokens,
             )
             raw = response.choices[0].message.content or ""
             data = extract_json(raw)

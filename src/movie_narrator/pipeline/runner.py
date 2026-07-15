@@ -172,6 +172,8 @@ def build_context(
             "scene_threshold", "match_min_score", "research_provider",
             "match_speed_clamp_min", "match_speed_clamp_max",
             "scene_merge_min_duration",
+            "translate_chunk_chars", "translate_chunk_size",
+            "bgm_gain_db", "tts_pause_ms", "embedding_model_name",
         ):
             if key in params and params[key] is not None:
                 ctx.metadata[key] = params[key]
