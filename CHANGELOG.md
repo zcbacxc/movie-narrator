@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.7] - 2026-07-15
+
 ### Added (v0.4.7 — config system overhaul)
 - 33 hardcoded constants promoted to configurable Settings fields with `MN_*` env var support:
   - LLM call tuning: `llm_timeout`, `script_temperature`, `script_max_tokens`, `script_retries`, `script_retry_delay`, `research_temperature`, `research_max_tokens`, `translate_max_tokens`
@@ -175,7 +177,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - workflow_steps 和 params 元数据注入
 - 控制台日志重构设计
 
-[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.6...HEAD
+[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.7...HEAD
+[0.4.7]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.5...v0.4.6
 [0.4.5]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.3...v0.4.5
 [0.4.3]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.2...v0.4.3
