@@ -69,7 +69,7 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
     if "params" in data and data["params"] is not None:
         if not isinstance(data["params"], dict):
             raise JobConfigError("params must be a mapping")
-        allowed_params = {"scene_threshold", "scene_frame_skip", "match_min_score", "research_provider", "translate_provider", "translate_retries", "translate_chunk_chars", "translate_chunk_size", "match_speed_clamp_min", "match_speed_clamp_max", "scene_merge_min_duration"}
+        allowed_params = {"scene_threshold", "scene_frame_skip", "match_min_score", "research_provider", "translate_provider", "translate_retries", "translate_chunk_chars", "translate_chunk_size", "match_speed_clamp_min", "match_speed_clamp_max", "scene_merge_min_duration", "bgm_gain_db", "tts_pause_ms", "embedding_model_name"}
         for k in data["params"].keys():
             if k not in allowed_params:
                 raise JobConfigError(

@@ -14,10 +14,9 @@ from ..tts.cache import (
     PROVIDER_CACHE_VERSIONS,
 )
 
-PAUSE_MS = 300
 MAX_CONCURRENT = 3
 
-__all__ = ["generate_voice", "PAUSE_MS"]
+__all__ = ["generate_voice"]
 
 
 def generate_voice(ctx: Context) -> Context:
@@ -43,7 +42,7 @@ def generate_voice(ctx: Context) -> Context:
             ),
             voice=voice,
             text=seg_text,
-            pause_ms=PAUSE_MS,
+            pause_ms=settings.tts_pause_ms,
         )
 
     async def _run_all():
@@ -81,9 +80,10 @@ def generate_voice(ctx: Context) -> Context:
     current_time = 0.0
     for i, (audio, duration) in enumerate(results):
         combined += audio
-        pause = (PAUSE_MS / 1000.0) if i < len(ctx.segments) - 1 else 0
+        pause_ms = settings.tts_pause_ms
+        pause = (pause_ms / 1000.0) if i < len(ctx.segments) - 1 else 0
         if pause > 0:
-            combined += AudioSegment.silent(duration=PAUSE_MS)
+            combined += AudioSegment.silent(duration=pause_ms)
         timed_segments.append(
             TimedSegment(text=ctx.segments[i].text, start=current_time, end=current_time + duration)
         )

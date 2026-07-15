@@ -7,7 +7,7 @@ from ..config import get_settings
 from ..models import Context, MatchedClip, Scene, StepResult, TimedSegment
 from ..utils.optional_deps import probe
 
-_EMBEDDING_MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
+_EMBEDDING_MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"  # default, overridden by Settings.embedding_model_name
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ def _build_scene_label(scene_index: int, start: float, end: float) -> str:
     return f"scene {scene_index} from {start:.1f}s to {end:.1f}s"
 
 
-def _embed_texts(texts: List[str]):
+def _embed_texts(texts: List[str], model_name: str = _EMBEDDING_MODEL_NAME):
     """Encode a list of strings to L2-normalized vectors.
 
     Returns ``None`` when sentence-transformers is unavailable or fails at
@@ -30,7 +30,7 @@ def _embed_texts(texts: List[str]):
     """
     from sentence_transformers import SentenceTransformer
 
-    model = SentenceTransformer(_EMBEDDING_MODEL_NAME)
+    model = SentenceTransformer(model_name)
     vectors = model.encode(texts)
     import numpy as np
 
@@ -277,8 +277,9 @@ def _match_clips_impl(
             scene_labels = [
                 _build_scene_label(s.index, s.start, s.end) for s in scenes
             ]
-            scene_vecs = _embed_texts(scene_labels)
-            narration_vecs = _embed_texts([seg.text for seg in ctx.timed_segments])
+            emb_model = ctx.metadata.get("embedding_model_name", get_settings().embedding_model_name)
+            scene_vecs = _embed_texts(scene_labels, emb_model)
+            narration_vecs = _embed_texts([seg.text for seg in ctx.timed_segments], emb_model)
             for i, seg in enumerate(ctx.timed_segments):
                 best_idx = _cosine_top1(narration_vecs[i], scene_vecs)
                 best_scene = scenes[best_idx]
