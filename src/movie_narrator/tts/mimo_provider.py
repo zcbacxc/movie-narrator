@@ -6,7 +6,7 @@ Supports three models (all limited-time free):
   - mimo-v2.5-tts-voicedesign: Design voice from text description
 
 All three return base64-encoded wav audio in completion.choices[0].message.audio.data.
-The provider converts wav → mp3 so the pipeline's AudioSegment.from_mp3() works unchanged.
+The provider saves as WAV so the pipeline's AudioSegment.from_file() works without ffmpeg mp3 support.
 """
 
 import asyncio
@@ -84,9 +84,10 @@ class MimoTTSProvider(BaseTTSProvider):
 
         raw = base64.b64decode(message.audio.data)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        # MiMo outputs wav; convert to mp3 so the pipeline's from_mp3() works.
+        # MiMo outputs wav; keep as WAV to avoid ffmpeg mp3 encoder dependency.
+        # The pipeline reads cache via AudioSegment.from_file() which auto-detects.
         audio = AudioSegment.from_file(BytesIO(raw), format="wav")
-        audio.export(output_path, format="mp3")
+        audio.export(output_path, format="wav")
 
     def _call_api(self, text: str, user_content: str, audio_param: dict):
         return self._client.chat.completions.create(

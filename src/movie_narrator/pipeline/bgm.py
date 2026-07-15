@@ -39,8 +39,8 @@ def mix_bgm(ctx: Context) -> Context:
             bgm = bgm * times
         bgm = bgm[: len(narration)]
         mixed = narration.overlay(bgm)
-        out = Path(ctx.output_dir) / "mixed.mp3"
-        mixed.export(out, format="mp3")
+        out = Path(ctx.output_dir) / "mixed.wav"
+        mixed.export(out, format="wav")
         ctx.final_audio_path = str(out)
         ctx.status.bgm = "success"
         return ctx

@@ -45,13 +45,13 @@ class BaseTTSProvider(TTSProvider):
         """Write silence sized to text; CI mode never blocks on network.
 
         Duration is NOT returned — the pipeline probes it from the
-        resulting file via ``AudioSegment.from_mp3``. This keeps duration
+        resulting file via ``AudioSegment.from_file``. This keeps duration
         calculation in one place across cache-hit, cache-miss, and CI paths.
         """
         dur = _estimate_duration_s(text)
         audio = AudioSegment.silent(duration=int(dur * 1000))
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        audio.export(output_path, format="mp3")
+        audio.export(output_path, format="wav")
 
     @abstractmethod
     async def _real_synthesize(self, text: str, voice: str, output_path: Path) -> None:

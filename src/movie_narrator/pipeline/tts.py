@@ -60,12 +60,12 @@ def generate_voice(ctx: Context) -> Context:
                     # cache and skip real synthesis.
                     tmp = output_dir / f".ci_{cached.name}"
                     await provider.synthesize(seg.text, voice, tmp)
-                    audio = AudioSegment.from_mp3(tmp)
+                    audio = AudioSegment.from_file(tmp)
                     tmp.unlink(missing_ok=True)
                 else:
                     if not cached.exists():
                         await provider.synthesize(seg.text, voice, cached)
-                    audio = AudioSegment.from_mp3(cached)
+                    audio = AudioSegment.from_file(cached)
                 return audio, round(len(audio) / 1000.0, 3)
 
         return await tqdm_asyncio.gather(
@@ -89,11 +89,12 @@ def generate_voice(ctx: Context) -> Context:
         )
         current_time += duration + pause
 
-    audio_path = output_dir / "narration.mp3"
-    # Explicit bitrate prevents pydub's default 32 kbps export, which
-    # produces MPEG v2.5 audio that ffmpeg (used by MoviePy) can fail
-    # to decode — resulting in a silent final video.
-    combined.export(audio_path, format="mp3", bitrate="128k")
+    audio_path = output_dir / "narration.wav"
+    # Export as WAV (PCM) instead of MP3.  The system ffmpeg may be a
+    # minimal build without MP3 decoder support (--disable-everything),
+    # causing MoviePy's AudioFileClip to silently produce a 6ms empty
+    # track.  WAV is always decodable by any ffmpeg build.
+    combined.export(audio_path, format="wav")
     ctx.audio_path = str(audio_path)
     ctx.timed_segments = timed_segments
     ctx.metadata["voice_used"] = voice
@@ -105,7 +106,7 @@ def generate_voice(ctx: Context) -> Context:
     _max_bytes = settings.tts_cache_max_mb * 1024 * 1024
     cache_parent = output_dir / "cache" / "tts"
     if cache_parent.exists():
-        mp3_files = list(cache_parent.rglob("*.mp3"))
+        mp3_files = list(cache_parent.rglob("*.wav")) + list(cache_parent.rglob("*.mp3"))
         total = sum(f.stat().st_size for f in mp3_files)
         if total > _max_bytes:
             for oldest in sorted(mp3_files, key=lambda f: f.stat().st_mtime):
