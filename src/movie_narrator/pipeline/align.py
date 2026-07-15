@@ -1,3 +1,4 @@
+from ..config import get_settings
 from ..models import Context, StepResult
 from ..utils.optional_deps import probe
 
@@ -37,10 +38,11 @@ def align_audio(ctx: Context) -> Context:
     try:
         import whisperx
 
-        device = "cpu"
+        settings = get_settings()
+        device = settings.whisperx_device
         audio = whisperx.load_audio(ctx.audio_path)
-        model = whisperx.load_model("medium", device=device)
-        result = model.transcribe(audio, language="zh")
+        model = whisperx.load_model(settings.whisperx_model, device=device)
+        result = model.transcribe(audio, language=settings.whisperx_language)
 
         if result and "segments" in result:
             aligned = []
