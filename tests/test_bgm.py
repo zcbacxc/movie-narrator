@@ -6,11 +6,11 @@ from movie_narrator.models import Assets, Context
 from movie_narrator.pipeline.bgm import mix_bgm
 
 
-def _write_silent_wav(path: Path, ms: int = 500):
-    AudioSegment.silent(duration=ms).export(path, format="wav")
+def _write_silent_mp3(path: Path, ms: int = 500):
+    AudioSegment.silent(duration=ms).export(path, format="mp3")
 
 
-def _write_tone_wav(path: Path, ms: int = 500, freq: int = 440):
+def _write_tone_mp3(path: Path, ms: int = 500, freq: int = 440):
     """Write a sine-wave tone so gain is actually applied (non-silent)."""
     import math
     import struct
@@ -27,12 +27,12 @@ def _write_tone_wav(path: Path, ms: int = 500, freq: int = 440):
         frame_rate=sample_rate,
         channels=1,
     )
-    seg.export(path, format="wav")
+    seg.export(path, format="mp3")
 
 
 def test_mix_bgm_skipped_none(tmp_path):
-    narr = tmp_path / "narration.wav"
-    _write_silent_wav(narr)
+    narr = tmp_path / "narration.mp3"
+    _write_silent_mp3(narr)
     ctx = Context(movie_name="m", output_dir=str(tmp_path), audio_path=str(narr))
     ctx.metadata["bgm_request"] = "none"
     mix_bgm(ctx)
@@ -41,8 +41,8 @@ def test_mix_bgm_skipped_none(tmp_path):
 
 
 def test_mix_bgm_explicit_missing_failed(tmp_path):
-    narr = tmp_path / "narration.wav"
-    _write_silent_wav(narr)
+    narr = tmp_path / "narration.mp3"
+    _write_silent_mp3(narr)
     ctx = Context(movie_name="m", output_dir=str(tmp_path), audio_path=str(narr))
     ctx.metadata["bgm_request"] = "explicit"
     mix_bgm(ctx)
@@ -51,10 +51,10 @@ def test_mix_bgm_explicit_missing_failed(tmp_path):
 
 
 def test_mix_bgm_success(tmp_path):
-    narr = tmp_path / "narration.wav"
-    bgm = tmp_path / "bgm.wav"
-    _write_tone_wav(narr, 800, freq=440)
-    _write_tone_wav(bgm, 400, freq=880)
+    narr = tmp_path / "narration.mp3"
+    bgm = tmp_path / "bgm.mp3"
+    _write_tone_mp3(narr, 800, freq=440)
+    _write_tone_mp3(bgm, 400, freq=880)
     ctx = Context(
         movie_name="m",
         output_dir=str(tmp_path),
@@ -64,5 +64,5 @@ def test_mix_bgm_success(tmp_path):
     ctx.metadata["bgm_request"] = "explicit"
     mix_bgm(ctx)
     assert ctx.status.bgm == "success"
-    assert Path(ctx.final_audio_path).name == "mixed.wav"
+    assert Path(ctx.final_audio_path).name == "mixed.mp3"
     assert Path(ctx.final_audio_path).exists()
