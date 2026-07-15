@@ -34,7 +34,6 @@ def _read_example_env() -> str:
         "MN_LLM_API_KEY=ollama\n"
         "MN_LLM_MODEL=qwen2.5:7b\n"
         "MN_DEFAULT_VOICE=zh-CN-YunxiNeural\n"
-        "MN_DEFAULT_FORMAT=16:9\n"
     )
 
 
