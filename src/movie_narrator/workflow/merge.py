@@ -72,6 +72,8 @@ def merge_job(
     if job is not None and job.params is not None:
         for key in (
             "scene_threshold", "scene_frame_skip", "match_min_score",
+            "match_speed_clamp_min", "match_speed_clamp_max",
+            "scene_merge_min_duration",
             "research_provider",
             "translate_provider", "translate_retries",
             "translate_chunk_chars", "translate_chunk_size",
