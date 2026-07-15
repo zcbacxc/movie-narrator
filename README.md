@@ -161,7 +161,7 @@ When `--config` is not passed, the CLI auto-discovers a YAML config in priority 
 
 This means new users can run `mn create --movie X` without creating any config file — the example YAML provides default steps/params automatically.
 
-See [`examples/job.example.yaml`](examples/job.example.yaml) for the full whitelist: soft-step toggles under `steps:` (`research`, `align`, `scene`, `match`, `bgm`, `export`, `translate`), all 30 `params:` keys (scene detection, match, BGM, TTS pacing, translate, research, WhisperX, render, async, video sizes), and the multi-language subtitle top-level keys `subtitle_lang` / `subtitle_mode`. Relative `video` / `bgm` / `library_dir` paths resolve against the YAML file's directory. LLM credentials stay in `.env` / `MN_*` only.
+See [`examples/job.example.yaml`](examples/job.example.yaml) for the full whitelist: soft-step toggles under `steps:` (`research`, `align`, `scene`, `match`, `bgm`, `export`, `translate`), all 32 `params:` keys (scene detection, match, BGM, TTS pacing, translate, research, WhisperX, render, async, video sizes), and the multi-language subtitle top-level keys `subtitle_lang` / `subtitle_mode`. Relative `video` / `bgm` / `library_dir` paths resolve against the YAML file's directory. LLM credentials stay in `.env` / `MN_*` only.
 
 ### Multi-language subtitles
 
@@ -267,7 +267,7 @@ mn create --movie "飞驰人生" --duration 60
 
 ### Full reference
 
-See [`.env.example`](.env.example) for the complete list of all 21 environment variables (LLM + TTS infrastructure only). All pipeline behavior is configured via [`examples/job.example.yaml`](examples/job.example.yaml) — 30 params keys covering scene detection, match, render, translate, BGM, WhisperX, async, and video sizes.
+See [`.env.example`](.env.example) for the complete list of all 21 environment variables (LLM + TTS infrastructure only). All pipeline behavior is configured via [`examples/job.example.yaml`](examples/job.example.yaml) — 32 params keys covering scene detection, match, render, translate, BGM, WhisperX, async, and video sizes.
 
 ### LLM Provider Guides
 
@@ -479,7 +479,7 @@ movie-narrator/
 - [x] Step-level retry mechanism (`--retry` flag, `StepAction` enum)
 - [x] Auto-create `~/.movie-narrator/.env` on first run
 - [x] `export_clips` direct ffmpeg subprocess (design choice, not workaround)
-- [x] Config system overhaul: strict env/yaml boundary — `.env` (Settings) contains 21 LLM + TTS infrastructure fields only; `job.yaml` (params) contains all 30 pipeline behavior keys; YAML auto-discovery (`--config` not passed → `cwd/job.yaml` → packaged example); `.env.example` and `job.example.yaml` are the single sources of truth; no code constants module — inline literals match example files
+- [x] Config system overhaul: strict env/yaml boundary — `.env` (Settings) contains 21 LLM + TTS infrastructure fields only; `job.yaml` (params) contains all 32 pipeline behavior keys; YAML auto-discovery (`--config` not passed → `cwd/job.yaml` → packaged example); `.env.example` and `job.example.yaml` are the single sources of truth; no code constants module — inline literals match example files
 
 ### v0.5.x — Ecosystem (Planned)
 
