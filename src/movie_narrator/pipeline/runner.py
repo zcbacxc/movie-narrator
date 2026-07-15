@@ -168,7 +168,11 @@ def build_context(
     if workflow_steps:
         ctx.metadata["workflow_steps"] = dict(workflow_steps)
     if params:
-        for key in ("scene_threshold", "match_min_score", "research_provider"):
+        for key in (
+            "scene_threshold", "match_min_score", "research_provider",
+            "match_speed_clamp_min", "match_speed_clamp_max",
+            "scene_merge_min_duration",
+        ):
             if key in params and params[key] is not None:
                 ctx.metadata[key] = params[key]
     if config_path:
