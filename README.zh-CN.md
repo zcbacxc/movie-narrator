@@ -135,26 +135,12 @@ mn create --movie "飞驰人生" --keep-cache
 
 ### CLI 参数
 
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `--movie, -m` | 电影名称（必填） | - |
-| `--style, -s` | 解说风格 | `热血搞笑` |
-| `--duration, -d` | 目标时长（秒） | `60` |
-| `--voice, -v` | TTS 音色（由 Provider 解释） | `zh-CN-YunxiNeural` |
-| `--format, -f` | 视频比例（`16:9` 或 `9:16`） | `16:9` |
-| `--video, -V` | 源电影文件路径 | - |
-| `--library-dir` | 电影库目录 | - |
-| `--research` | 启用 LLM 剧情调研 | `false` |
-| `--no-research` | 禁用剧情调研 | - |
-| `--bgm` | 背景音乐文件路径 | - |
-| `--no-bgm` | 禁用 BGM | `false` |
-| `--no-clips` | 跳过场景片段导出 | `false` |
-| `--strict` | 软步骤失败时中止 | `false` |
-| `--keep-cache` | 保留 TTS 缓存文件 | `false` |
-| `--retry` | 硬步骤失败时启用交互式重试 | `false` |
-| `--subtitle-lang` | 目标语言标签（`en`、`ja`、`zh-TW`...），留空 = 关闭翻译 | - |
-| `--subtitle-mode` | 渲染叠加模式：`original` / `translated` / `bilingual` | `original` |
-| `--config` | Job YAML 配置文件路径（movie/steps/params）；CLI 参数覆盖 YAML | - |
+```bash
+# 基础用法
+mn create --movie "飞驰人生" --style "热血搞笑" --duration 60
+```
+
+全部 18 个 CLI 参数及各场景用法示例（基础、视频/库、调研/BGM/片段、多语言字幕、YAML 配置）请参考 [`examples/cli-usage.sh`](examples/cli-usage.sh)。主要参数：`--movie/-m`、`--style/-s`、`--duration/-d`、`--voice/-v`、`--format/-f`、`--video/-V`、`--library-dir`、`--research`、`--bgm`、`--no-bgm`、`--no-clips`、`--strict`、`--keep-cache`、`--retry`、`--subtitle-lang`、`--subtitle-mode`、`--config`。
 
 ### Job YAML 配置（v0.3）
 
