@@ -159,7 +159,7 @@ mn create --config examples/job.example.yaml --movie "其他电影" --no-clips
 
 这意味着新用户可以直接 `mn create --movie X` 而无需创建任何配置文件——示例 YAML 会自动提供默认的 steps/params。
 
-详细白名单请参考 [`examples/job.example.yaml`](examples/job.example.yaml)：软步骤开关（`steps:` 下的 `research` / `align` / `scene` / `match` / `bgm` / `export` / `translate`）、全部 30 个 `params:` 键（场景检测、匹配、BGM、TTS 速率、翻译、调研、WhisperX、渲染、异步、视频分辨率），以及多语言字幕顶层键 `subtitle_lang` / `subtitle_mode`。相对路径 `video` / `bgm` / `library_dir` 相对于 YAML 所在目录解析。LLM 凭据请保留在 `.env` / `MN_*` 环境变量中。
+详细白名单请参考 [`examples/job.example.yaml`](examples/job.example.yaml)：软步骤开关（`steps:` 下的 `research` / `align` / `scene` / `match` / `bgm` / `export` / `translate`）、全部 32 个 `params:` 键（场景检测、匹配、BGM、TTS 速率、翻译、调研、WhisperX、渲染、异步、视频分辨率），以及多语言字幕顶层键 `subtitle_lang` / `subtitle_mode`。相对路径 `video` / `bgm` / `library_dir` 相对于 YAML 所在目录解析。LLM 凭据请保留在 `.env` / `MN_*` 环境变量中。
 
 ### 多语言字幕
 
@@ -265,7 +265,7 @@ mn create --movie "飞驰人生" --duration 60
 
 ### 完整配置项
 
-完整环境变量列表（共 21 项，仅 LLM + TTS 基础配置）及默认值和说明，请查看 [`.env.example`](.env.example)。所有流水线行为参数（30 项）通过 [`examples/job.example.yaml`](examples/job.example.yaml) 配置，涵盖场景检测、匹配、渲染、翻译、BGM、WhisperX、异步、视频分辨率等。
+完整环境变量列表（共 21 项，仅 LLM + TTS 基础配置）及默认值和说明，请查看 [`.env.example`](.env.example)。所有流水线行为参数（32 项）通过 [`examples/job.example.yaml`](examples/job.example.yaml) 配置，涵盖场景检测、匹配、渲染、翻译、BGM、WhisperX、异步、视频分辨率等。
 
 ### LLM 服务商导航
 
@@ -477,7 +477,7 @@ movie-narrator/
 - [x] 步骤级重试机制（`--retry` 标志，`StepAction` 枚举）
 - [x] 首次运行自动创建 `~/.movie-narrator/.env`
 - [x] `export_clips` 直调 ffmpeg 子进程（设计选择，非临时方案）
-- [x] 配置系统全面重构：严格 env/yaml 边界 — `.env`（Settings）仅含 21 个 LLM + TTS 基础配置字段；`job.yaml`（params）含全部 30 个流水线行为键；YAML 自动发现（未传 `--config` → `cwd/job.yaml` → 打包示例）；`.env.example` 和 `job.example.yaml` 作为单一真相源；无代码常量模块——内联字面量与示例文件一致
+- [x] 配置系统全面重构：严格 env/yaml 边界 — `.env`（Settings）仅含 21 个 LLM + TTS 基础配置字段；`job.yaml`（params）含全部 32 个流水线行为键；YAML 自动发现（未传 `--config` → `cwd/job.yaml` → 打包示例）；`.env.example` 和 `job.example.yaml` 作为单一真相源；无代码常量模块——内联字面量与示例文件一致
 
 ### v0.5.x — 生态系统（规划中）
 
