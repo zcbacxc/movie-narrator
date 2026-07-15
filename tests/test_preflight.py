@@ -42,7 +42,7 @@ def test_check_llm_raises_on_connection_error(tmp_path, monkeypatch):
     mock_cm.__exit__ = MagicMock(return_value=False)
 
     with patch("movie_narrator.pipeline.preflight.get_llm_client", return_value=mock_cm):
-        with patch("movie_narrator.pipeline.preflight._is_ci", return_value=False):
+        with patch("movie_narrator.pipeline.preflight.is_ci", return_value=False):
             with pytest.raises(PreflightError) as exc_info:
                 _check_llm(ctx)
     assert "LLM not reachable" in str(exc_info.value)
@@ -61,7 +61,7 @@ def test_check_llm_passes_on_success(tmp_path, monkeypatch):
     mock_cm.__exit__ = MagicMock(return_value=False)
 
     with patch("movie_narrator.pipeline.preflight.get_llm_client", return_value=mock_cm):
-        with patch("movie_narrator.pipeline.preflight._is_ci", return_value=False):
+        with patch("movie_narrator.pipeline.preflight.is_ci", return_value=False):
             _check_llm(ctx)  # should not raise
 
 

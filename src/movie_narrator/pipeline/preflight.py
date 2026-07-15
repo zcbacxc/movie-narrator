@@ -18,10 +18,9 @@ Design:
 
 from __future__ import annotations
 
-import os
-
 from ..config import TTSProviderType, get_settings
 from ..models import Context
+from ..tts.base import is_ci
 from ..utils.errors import ConfigError
 from ..utils.llm import get_llm_client
 
@@ -36,16 +35,12 @@ class PreflightError(ConfigError):
     """
 
 
-def _is_ci() -> bool:
-    return bool(os.getenv("CI"))
-
-
 def _check_llm(ctx: Context) -> None:
     """Probe LLM connectivity with a 1-token completion request."""
     console = ctx.services.console
     settings = get_settings()
 
-    if _is_ci():
+    if is_ci():
         console.debug("  preflight: CI mode — skipping LLM probe")
         return
 

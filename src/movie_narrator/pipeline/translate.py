@@ -17,16 +17,15 @@ Per multi-language-subtitle-design.md §6 and §7.1:
 
 from __future__ import annotations
 
-import os
 from typing import List, Optional, Sequence
 
 from tqdm import tqdm
 
-from ..config import get_settings
 from ..models import Context, StepResult
 from ..utils.json_parser import extract_json
 from ..utils.llm import get_llm_client
 from ..utils.prompts import TRANSLATE_PROMPT
+from ..utils.warnings import append_warning
 
 # Default chunking thresholds. Tunable via params / Settings
 # (see multi-language-subtitle-design.md §6.2 — magic numbers explained).
@@ -43,14 +42,6 @@ def _is_disabled(workflow_steps: dict) -> bool:
         workflow_steps.get("translate") is False
         or workflow_steps.get("translate_subtitles") is False
     )
-
-
-def _append_warning(ctx: Context, msg: str) -> None:
-    warnings = ctx.metadata.setdefault("warnings", [])
-    if not isinstance(warnings, list):
-        warnings = list(warnings)
-        ctx.metadata["warnings"] = warnings
-    warnings.append(msg)
 
 
 def _is_blank(s: str) -> bool:
@@ -151,10 +142,7 @@ def _translate_via_llm(
     On chunk failure: that chunk falls back to its original texts (soft
     degrade at chunk granularity). Other successful chunks are kept.
     """
-    settings = get_settings()
-    max_chars = int(
-        (ctx_meta := None) or DEFAULT_CHUNK_CHARS  # placeholder for typing
-    ) if False else DEFAULT_CHUNK_CHARS  # always default unless overridable
+    max_chars = DEFAULT_CHUNK_CHARS
     max_items = DEFAULT_CHUNK_SIZE
 
     chunks = _chunk_texts(texts, max_chars=max_chars, max_items=max_items)
@@ -230,7 +218,7 @@ def translate_subtitles(ctx: Context) -> Context:
         ctx.status.translate = "disabled"
         ctx.step_state.result = StepResult.SKIPPED
         ctx.step_state.message = f"unknown provider: {provider}"
-        _append_warning(ctx, f"translate provider {provider!r} is not supported")
+        append_warning(ctx, f"translate provider {provider!r} is not supported")
         return ctx
 
     source_lang = (ctx.metadata.get("source_lang") or "zh-CN")
@@ -239,7 +227,9 @@ def translate_subtitles(ctx: Context) -> Context:
     texts = [seg.text for seg in ctx.timed_segments]
 
     # CI passthrough: copy originals, mark skipped, no network.
-    if os.environ.get("CI") == "1":
+    from ..tts.base import is_ci
+
+    if is_ci():
         ctx.translated_texts = list(texts)
         ctx.metadata["translate_provider"] = "ci-passthrough"
         ctx.status.translate = "skipped"
@@ -260,7 +250,7 @@ def translate_subtitles(ctx: Context) -> Context:
         # At least one chunk failed after retries. Fill failed slots
         # with originals and continue (soft-degrade).
         ctx.translated_texts = list(texts)  # start as full fallback
-        _append_warning(ctx, f"translate degraded: {cf.reason}")
+        append_warning(ctx, f"translate degraded: {cf.reason}")
         ctx.status.translate = "failed"
         ctx.step_state.result = StepResult.WARNING
         ctx.step_state.message = cf.reason
@@ -269,7 +259,7 @@ def translate_subtitles(ctx: Context) -> Context:
         # Total failure (e.g. no LLM endpoint at all). Soft-degrade
         # with originals, mark failed.
         ctx.translated_texts = list(texts)
-        _append_warning(ctx, f"translate failed: {e}")
+        append_warning(ctx, f"translate failed: {e}")
         ctx.status.translate = "failed"
         ctx.step_state.result = StepResult.WARNING
         ctx.step_state.message = str(e)
@@ -278,7 +268,7 @@ def translate_subtitles(ctx: Context) -> Context:
     # Validate final alignment (defense-in-depth; should always hold).
     if len(ctx.translated_texts) != len(ctx.timed_segments):
         ctx.translated_texts = list(texts)
-        _append_warning(ctx, "translate length mismatch; reverted to originals")
+        append_warning(ctx, "translate length mismatch; reverted to originals")
         ctx.status.translate = "failed"
         ctx.step_state.result = StepResult.WARNING
         ctx.step_state.message = "length mismatch"

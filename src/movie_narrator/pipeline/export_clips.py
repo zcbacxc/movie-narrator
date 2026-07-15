@@ -7,14 +7,7 @@ from tqdm import tqdm
 
 from ..models import Context, StepResult
 from ..utils.optional_deps import probe
-
-
-def _append_export_warning(ctx: Context, msg: str) -> None:
-    warnings = ctx.metadata.setdefault("warnings", [])
-    if not isinstance(warnings, list):
-        warnings = list(warnings)
-        ctx.metadata["warnings"] = warnings
-    warnings.append(f"export_clips: {msg}")
+from ..utils.warnings import append_warning
 
 
 def export_clips(ctx: Context) -> Context:
@@ -87,7 +80,7 @@ def export_clips(ctx: Context) -> Context:
             tqdm.write(f"  ⚠ skip scene {scene.index}: {e}")
 
     if failed:
-        _append_export_warning(ctx, f"{failed} clip(s) failed to export")
+        append_warning(ctx, f"{failed} clip(s) failed to export", prefix="export_clips")
     ctx.clips_dir = str(clips_dir)
     ctx.status.export = "success" if not failed else "partial"
     return ctx
