@@ -6,7 +6,7 @@ from moviepy import AudioFileClip, ColorClip, CompositeVideoClip, ImageClip, Vid
 from proglog import TqdmProgressBarLogger
 
 from ..config import get_settings
-from ..models import Context, TimedSegment
+from ..models import Context, MatchedClip, StepResult, TimedSegment
 from ..utils.metadata_export import build_metadata_json
 from ..utils.text_image import create_text_image as _create_text_image
 
@@ -28,10 +28,20 @@ class _RenderProgressLogger(TqdmProgressBarLogger):
             self.bars[bar]["title"] = self._BAR_LABELS.get(bar, bar)
         super().bars_callback(bar, attr, value, old_value)
 
-VIDEO_SIZES = {
+_DEFAULT_VIDEO_SIZES = {
     "16:9": (1920, 1080),
     "9:16": (1080, 1920),
 }
+
+
+def _get_video_sizes() -> dict:
+    """Parse video_sizes from Settings, falling back to built-in defaults."""
+    raw = get_settings().video_sizes
+    try:
+        parsed = json.loads(raw)
+        return {k: tuple(v) for k, v in parsed.items()}
+    except (json.JSONDecodeError, TypeError):
+        return dict(_DEFAULT_VIDEO_SIZES)
 
 
 def _overlay_text(ctx: Context, idx: int, seg: TimedSegment) -> str:
@@ -56,7 +66,7 @@ def _overlay_text(ctx: Context, idx: int, seg: TimedSegment) -> str:
 def render_video(ctx: Context) -> Context:
     output_dir = Path(ctx.output_dir)
     video_format = ctx.metadata.get("format", "16:9")
-    size = VIDEO_SIZES.get(video_format, (1920, 1080))
+    size = _get_video_sizes().get(video_format, (1920, 1080))
     keep_cache = ctx.metadata.get("keep_cache", False)
 
     audio_path = ctx.final_audio_path or ctx.audio_path

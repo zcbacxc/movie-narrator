@@ -65,9 +65,17 @@ MN_DEFAULT_FORMAT=16:9
 # MN_TRANSLATE_CHUNK_SIZE=20
 
 # ── Match ──
+# MN_TTS_CACHE_MAX_MB=500
+# MN_TTS_PAUSE_MS=300
+
+# ── BGM ──
+# MN_BGM_GAIN_DB=-18
+
+# ── Match ──
 # MN_MATCH_SPEED_CLAMP_MIN=0.5
 # MN_MATCH_SPEED_CLAMP_MAX=3.0
 # MN_SCENE_MERGE_MIN_DURATION=0
+# MN_EMBEDDING_MODEL_NAME=paraphrase-multilingual-MiniLM-L12-v2
 
 # ── Render ──
 # MN_RENDER_FPS=24
@@ -157,11 +165,20 @@ class Settings(BaseSettings):
     mimo_style_prompt: str = ""                # style description for user message (mimo-v2.5-tts only)
     # ── TTS cache management ──
     tts_cache_max_mb: int = 500                 # LRU eviction threshold for TTS cache
+    # ── TTS pacing ──
+    tts_pause_ms: int = 300                     # silence inserted between narration segments
+    # ── BGM mixing ──
+    bgm_gain_db: float = -18.0                  # gain applied to BGM track before mixing with narration
+    # ── Embedding model for match re-rank ──
+    embedding_model_name: str = "paraphrase-multilingual-MiniLM-L12-v2"
     # ── Render ──
     render_fps: int = 24
     render_video_codec: str = "libx264"
     render_audio_codec: str = "aac"
     render_threads: int = 4
+    # ── Video resolution presets ──
+    # JSON string, parsed at render time: {"16:9": [1920, 1080], "9:16": [1080, 1920]}
+    video_sizes: str = '{"16:9": [1920, 1080], "9:16": [1080, 1920]}'
 
     model_config = SettingsConfigDict(
         env_file=(".env", str(_USER_ENV)),
