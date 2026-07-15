@@ -54,9 +54,11 @@ run_pipeline(...) # STEPS order unchanged
 
 - Module: `movie_narrator.workflow` (`load_job_config`, `merge_job`, `JobConfigError`)
 - Soft steps honor `metadata["workflow_steps"][<field>] is False` → `status.<field> = "disabled"`
-- Params whitelist (`scene_threshold`, `match_min_score`, `research_provider`, `translate_provider`, `translate_retries`, `translate_chunk_chars`, `translate_chunk_size`) land in `ctx.metadata`
+- Params whitelist (`scene_threshold`, `scene_frame_skip`, `match_min_score`, `match_speed_clamp_min`, `match_speed_clamp_max`, `scene_merge_min_duration`, `bgm_gain_db`, `tts_pause_ms`, `embedding_model_name`, `research_provider`, `translate_provider`, `translate_retries`, `translate_chunk_chars`, `translate_chunk_size`) land in `ctx.metadata` via `build_context` copy loop
 - Multi-language subtitle top-level keys: `subtitle_lang`, `subtitle_mode` (validated in `JobConfig` — `subtitle_mode ∈ {translated, bilingual}` without `subtitle_lang` raises `JobConfigError` at merge time)
 - `STEPS` remains the single source of step order; no DAG / plugins in v0.3
+- YAML auto-discovery (v0.4.7): `--config` not passed → `cwd/job.yaml` → packaged `examples/job.example.yaml` → none
+- `.env.example` is the single source of truth for first-run config (read by `ensure_user_config()`, not a divergent inline template)
 
 ## Web UI Layer (v0.3.5)
 

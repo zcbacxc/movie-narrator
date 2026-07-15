@@ -166,7 +166,14 @@ mn create --config examples/job.example.yaml
 mn create --config examples/job.example.yaml --movie "其他电影" --no-clips
 ```
 
-详细白名单请参考 [`examples/job.example.yaml`](examples/job.example.yaml)：软步骤开关（`steps:` 下的 `research` / `align` / `scene` / `match` / `bgm` / `export` / `translate`）、参数（`params:` 下的 `scene_threshold` / `match_min_score` / `research_provider` / `translate_provider` / `translate_retries` / `translate_chunk_chars` / `translate_chunk_size`），以及多语言字幕顶层键 `subtitle_lang` / `subtitle_mode`。相对路径 `video` / `bgm` / `library_dir` 相对于 YAML 所在目录解析。LLM 凭据请保留在 `.env` / `MN_*` 环境变量中。
+未传 `--config` 时，CLI 按以下优先级自动发现 YAML 配置：
+1. `cwd/job.yaml`（项目级用户配置）
+2. 打包的 `examples/job.example.yaml`（新用户默认值）
+3. 无（纯 CLI 参数）
+
+这意味着新用户可以直接 `mn create --movie X` 而无需创建任何配置文件——示例 YAML 会自动提供默认的 steps/params。
+
+详细白名单请参考 [`examples/job.example.yaml`](examples/job.example.yaml)：软步骤开关（`steps:` 下的 `research` / `align` / `scene` / `match` / `bgm` / `export` / `translate`）、全部 14 个 `params:` 键（`scene_threshold` / `scene_frame_skip` / `match_min_score` / `match_speed_clamp_min` / `match_speed_clamp_max` / `scene_merge_min_duration` / `bgm_gain_db` / `tts_pause_ms` / `embedding_model_name` / `research_provider` / `translate_provider` / `translate_retries` / `translate_chunk_chars` / `translate_chunk_size`），以及多语言字幕顶层键 `subtitle_lang` / `subtitle_mode`。相对路径 `video` / `bgm` / `library_dir` 相对于 YAML 所在目录解析。LLM 凭据请保留在 `.env` / `MN_*` 环境变量中。
 
 ### 多语言字幕
 
@@ -273,7 +280,7 @@ mn create --movie "飞驰人生" --duration 60
 
 ### 完整配置项
 
-完整环境变量列表（共 27 项）及默认值和说明，请查看 [`.env.example`](.env.example)。
+完整环境变量列表（共 60 项）及默认值和说明，请查看 [`.env.example`](.env.example)。
 
 ### LLM 服务商导航
 
@@ -485,6 +492,7 @@ movie-narrator/
 - [x] 步骤级重试机制（`--retry` 标志，`StepAction` 枚举）
 - [x] 首次运行自动创建 `~/.movie-narrator/.env`
 - [x] `export_clips` 直调 ffmpeg 子进程（设计选择，非临时方案）
+- [x] 配置系统全面重构：33 个硬编码常量提升为 Settings（共 60 个 `MN_*` 环境变量）；YAML 自动发现（未传 `--config` → `cwd/job.yaml` → 打包示例）；`.env.example` 作为首次运行单一真相源；所有 YAML 参数正确连接 `runner.py` → `ctx.metadata` → 流水线步骤
 
 ### v0.5.x — 生态系统（规划中）
 

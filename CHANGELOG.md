@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (v0.4.7 — config system overhaul)
+- 33 hardcoded constants promoted to configurable Settings fields with `MN_*` env var support:
+  - LLM call tuning: `llm_timeout`, `script_temperature`, `script_max_tokens`, `script_retries`, `script_retry_delay`, `research_temperature`, `research_max_tokens`, `translate_max_tokens`
+  - TTS: `tts_max_concurrent`, `tts_audio_format`, `tts_audio_bitrate`
+  - WhisperX: `whisperx_device`, `whisperx_model`, `whisperx_language`
+  - Translate: `translate_source_lang`
+  - Render: `render_bg_color`, `render_font_size`, `render_output_name`, `render_ffmpeg_timeout`
+  - Async: `async_timeout`, `async_max_workers`
+  - Match: `embedding_model_name`, `match_speed_clamp_min`, `match_speed_clamp_max`, `scene_merge_min_duration`
+  - BGM: `bgm_gain_db`
+  - TTS pacing: `tts_pause_ms`
+  - Video: `video_sizes` (JSON string)
+- YAML config auto-discovery: `--config` not passed → `cwd/job.yaml` → packaged `examples/job.example.yaml` → none. New users can run `mn create --movie X` without creating any config file
+- `ensure_user_config()` now reads `.env.example` as single source of truth (was divergent inline template)
+- `examples/job.example.yaml` updated with all 14 whitelisted params + inline comments
+
+### Fixed (v0.4.7)
+- `translate_chunk_chars` / `translate_chunk_size` were in Settings + YAML whitelist but never copied to `ctx.metadata` by `build_context`; `_translate_via_llm` used hardcoded module constants. User YAML config was silently ignored — now properly connected
+- `export_clips.py` hardcoded `libx264` / `aac` codecs instead of using `settings.render_video_codec` / `render_audio_codec`
+- `scene_frame_skip` missing from `runner.py` params copy loop — YAML value silently ignored, always fell back to Settings default
+- `.env.example` missing 5 Settings fields (lost during reorg): `MN_TTS_CACHE_MAX_MB`, `MN_TTS_PAUSE_MS`, `MN_BGM_GAIN_DB`, `MN_EMBEDDING_MODEL_NAME`, `MN_VIDEO_SIZES`
+- `JobParams` model (uses `extra="forbid"`) missing 3 fields added to `load.py` whitelist — would cause `AttributeError` when accessed
+- `_match_clips_impl` referenced undefined `settings` variable — now uses `get_settings()`
+
+### Changed (v0.4.7)
+- `.env.example` verified: 60 Settings fields = 60 `MN_*` env vars (perfect match)
+- `runner.py` params copy loop now includes all 12 parametric fields (2 others handled separately in metadata init)
+- `merge.py` `_STYLE/DURATION/FORMAT_DEFAULT` documented as typer sentinels (not user-configurable Settings)
+
 ## [0.4.6] - 2026-07-15
 
 ### Fixed
