@@ -53,6 +53,7 @@ subtitle_mode: original     # original | translated | bilingual
 # 白名单（其余键会被拒绝）：
 #   scene_threshold / scene_frame_skip / match_min_score
 #   match_speed_clamp_min / match_speed_clamp_max / scene_merge_min_duration
+#   bgm_gain_db / tts_pause_ms / embedding_model_name
 #   research_provider / translate_provider / translate_retries
 #   translate_chunk_chars / translate_chunk_size
 params:
@@ -67,6 +68,11 @@ params:
   match_speed_clamp_min: 0.5    # 最慢速度因子（<1 = 慢放上限）
   match_speed_clamp_max: 3.0    # 最快速度因子（>1 = 快进上限）
   scene_merge_min_duration: 0   # 场景最短时长（秒），0=不合并；设为 3.0 可给 clamp 更大窗口
+  # ---- 音频 ----
+  # bgm_gain_db: -18          # BGM 混音增益（dB），默认 -18
+  # tts_pause_ms: 300         # 解说片段间静音时长（毫秒），默认 300
+  # ---- 匹配模型 ----
+  # embedding_model_name: paraphrase-multilingual-MiniLM-L12-v2
   # ---- 后端选择 ----
   research_provider: llm    # 调研后端（目前仅支持 llm）
   translate_provider: llm   # 翻译后端（目前仅支持 llm）

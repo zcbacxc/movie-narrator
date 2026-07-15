@@ -128,6 +128,9 @@ def test_create_passes_workflow_steps_and_params(tmp_path, monkeypatch):
 
 def test_create_no_config_backward_compatible_kwargs(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
+    # Suppress auto-discovery of the packaged job.example.yaml so this test
+    # verifies the pure-CLI path (no YAML at all).
+    monkeypatch.setattr("movie_narrator.cli._EXAMPLE_YAML", tmp_path / "nonexistent.yaml")
     bc, rp = _patch_pipeline(tmp_path)
     with patch("movie_narrator.cli.build_context", bc), patch("movie_narrator.cli.run_pipeline", rp):
         result = runner.invoke(app, ["create", "--movie", "OnlyCLI", "--duration", "12"])
