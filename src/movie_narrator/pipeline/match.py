@@ -121,17 +121,15 @@ def _clamp_scene_window(
     clamp_min: float = 0.5,
     clamp_max: float = 3.0,
 ) -> Tuple[float, float]:
-    """Expand or shrink the source window so the speed factor stays within [clamp_min, clamp_max].
+    """Adjust the source window so the speed factor stays within [clamp_min, clamp_max].
 
-    Given a narration segment of *narr_duration* seconds and a matched scene
-    [scene_start, scene_end], compute the speed factor:
+    Speed factor = src_duration / narr_duration.
+    When the factor exceeds clamp_max (fast-forward), the window is shrunk.
+    When it falls below clamp_min (slow-motion), the window is expanded.
+    The window is centered on the original scene midpoint and clamped to
+    [video_start, video_end].
 
-        factor = src_duration / narr_duration
-
-    If factor > clamp_max: the scene is too long → expand by neighbouring frames.
-    If factor < clamp_min: the scene is too short → shrink the window.
-
-    Returns adjusted (src_start, src_end) clamped to [video_start, video_end].
+    Returns adjusted (src_start, src_end).
     """
     src_duration = scene_end - scene_start
     if narr_duration <= 0:
@@ -142,16 +140,13 @@ def _clamp_scene_window(
     if clamp_min <= factor <= clamp_max:
         return scene_start, scene_end
 
-    # Target a duration that gives a factor at the clamp boundary
+    # Target a duration that gives a factor at the clamp boundary.
+    # factor = src_duration / narr_duration:
+    #   factor > clamp_max → src too long (fast-forward) → shrink window
+    #   factor < clamp_min → src too short (slow-mo)   → expand window
     if factor > clamp_max:
-        # Scene too long → we need MORE source footage to slow down
-        # Wait, that's wrong. factor = src/narr. If factor > clamp_max,
-        # src is much longer than narr → video plays too fast (fast-forward).
-        # To reduce factor, we need LESS source footage.
         target_src = narr_duration * clamp_max
     else:
-        # factor < clamp_min → src too short → video plays too slow (slow-mo)
-        # To increase factor, we need MORE source footage.
         target_src = narr_duration * clamp_min
 
     # Center the new window on the original scene midpoint
@@ -202,7 +197,7 @@ def match_clips(ctx: Context) -> Context:
     min_score = ctx.metadata.get("match_min_score", settings.match_min_score)
     clamp_min = ctx.metadata.get("match_speed_clamp_min", settings.match_speed_clamp_min)
     clamp_max = ctx.metadata.get("match_speed_clamp_max", settings.match_speed_clamp_max)
-    merge_min = ctx.metadata.get("scene_merge_min_duration", 0.0)  # 0 = no merge
+    merge_min = ctx.metadata.get("scene_merge_min_duration", settings.scene_merge_min_duration)
     output_dir = Path(ctx.output_dir)
 
     try:
