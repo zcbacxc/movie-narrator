@@ -135,26 +135,12 @@ mn create --movie "飞驰人生" --keep-cache
 
 ### CLI 参数
 
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `--movie, -m` | 电影名称（必填） | - |
-| `--style, -s` | 解说风格 | `热血搞笑` |
-| `--duration, -d` | 目标时长（秒） | `60` |
-| `--voice, -v` | TTS 音色（由 Provider 解释） | `zh-CN-YunxiNeural` |
-| `--format, -f` | 视频比例（`16:9` 或 `9:16`） | `16:9` |
-| `--video, -V` | 源电影文件路径 | - |
-| `--library-dir` | 电影库目录 | - |
-| `--research` | 启用 LLM 剧情调研 | `false` |
-| `--no-research` | 禁用剧情调研 | - |
-| `--bgm` | 背景音乐文件路径 | - |
-| `--no-bgm` | 禁用 BGM | `false` |
-| `--no-clips` | 跳过场景片段导出 | `false` |
-| `--strict` | 软步骤失败时中止 | `false` |
-| `--keep-cache` | 保留 TTS 缓存文件 | `false` |
-| `--retry` | 硬步骤失败时启用交互式重试 | `false` |
-| `--subtitle-lang` | 目标语言标签（`en`、`ja`、`zh-TW`...），留空 = 关闭翻译 | - |
-| `--subtitle-mode` | 渲染叠加模式：`original` / `translated` / `bilingual` | `original` |
-| `--config` | Job YAML 配置文件路径（movie/steps/params）；CLI 参数覆盖 YAML | - |
+```bash
+# 基础用法
+mn create --movie "飞驰人生" --style "热血搞笑" --duration 60
+```
+
+全部 18 个 CLI 参数及各场景用法示例（基础、视频/库、调研/BGM/片段、多语言字幕、YAML 配置）请参考 [`examples/cli-usage.sh`](examples/cli-usage.sh)。主要参数：`--movie/-m`、`--style/-s`、`--duration/-d`、`--voice/-v`、`--format/-f`、`--video/-V`、`--library-dir`、`--research`、`--bgm`、`--no-bgm`、`--no-clips`、`--strict`、`--keep-cache`、`--retry`、`--subtitle-lang`、`--subtitle-mode`、`--config`。
 
 ### Job YAML 配置（v0.3）
 
@@ -173,7 +159,7 @@ mn create --config examples/job.example.yaml --movie "其他电影" --no-clips
 
 这意味着新用户可以直接 `mn create --movie X` 而无需创建任何配置文件——示例 YAML 会自动提供默认的 steps/params。
 
-详细白名单请参考 [`examples/job.example.yaml`](examples/job.example.yaml)：软步骤开关（`steps:` 下的 `research` / `align` / `scene` / `match` / `bgm` / `export` / `translate`）、全部 14 个 `params:` 键（`scene_threshold` / `scene_frame_skip` / `match_min_score` / `match_speed_clamp_min` / `match_speed_clamp_max` / `scene_merge_min_duration` / `bgm_gain_db` / `tts_pause_ms` / `embedding_model_name` / `research_provider` / `translate_provider` / `translate_retries` / `translate_chunk_chars` / `translate_chunk_size`），以及多语言字幕顶层键 `subtitle_lang` / `subtitle_mode`。相对路径 `video` / `bgm` / `library_dir` 相对于 YAML 所在目录解析。LLM 凭据请保留在 `.env` / `MN_*` 环境变量中。
+详细白名单请参考 [`examples/job.example.yaml`](examples/job.example.yaml)：软步骤开关（`steps:` 下的 `research` / `align` / `scene` / `match` / `bgm` / `export` / `translate`）、全部 30 个 `params:` 键（场景检测、匹配、BGM、TTS 速率、翻译、调研、WhisperX、渲染、异步、视频分辨率），以及多语言字幕顶层键 `subtitle_lang` / `subtitle_mode`。相对路径 `video` / `bgm` / `library_dir` 相对于 YAML 所在目录解析。LLM 凭据请保留在 `.env` / `MN_*` 环境变量中。
 
 ### 多语言字幕
 
@@ -250,7 +236,6 @@ MN_LLM_BASE_URL=http://localhost:11434/v1
 MN_LLM_API_KEY=ollama
 MN_LLM_MODEL=qwen2.5:7b
 MN_DEFAULT_VOICE=zh-CN-YunxiNeural
-MN_DEFAULT_FORMAT=16:9
 ```
 
 ### 通过环境变量
@@ -280,7 +265,7 @@ mn create --movie "飞驰人生" --duration 60
 
 ### 完整配置项
 
-完整环境变量列表（共 60 项）及默认值和说明，请查看 [`.env.example`](.env.example)。
+完整环境变量列表（共 21 项，仅 LLM + TTS 基础配置）及默认值和说明，请查看 [`.env.example`](.env.example)。所有流水线行为参数（30 项）通过 [`examples/job.example.yaml`](examples/job.example.yaml) 配置，涵盖场景检测、匹配、渲染、翻译、BGM、WhisperX、异步、视频分辨率等。
 
 ### LLM 服务商导航
 
@@ -492,7 +477,7 @@ movie-narrator/
 - [x] 步骤级重试机制（`--retry` 标志，`StepAction` 枚举）
 - [x] 首次运行自动创建 `~/.movie-narrator/.env`
 - [x] `export_clips` 直调 ffmpeg 子进程（设计选择，非临时方案）
-- [x] 配置系统全面重构：33 个硬编码常量提升为 Settings（共 60 个 `MN_*` 环境变量）；YAML 自动发现（未传 `--config` → `cwd/job.yaml` → 打包示例）；`.env.example` 作为首次运行单一真相源；所有 YAML 参数正确连接 `runner.py` → `ctx.metadata` → 流水线步骤
+- [x] 配置系统全面重构：严格 env/yaml 边界 — `.env`（Settings）仅含 21 个 LLM + TTS 基础配置字段；`job.yaml`（params）含全部 30 个流水线行为键；YAML 自动发现（未传 `--config` → `cwd/job.yaml` → 打包示例）；`.env.example` 和 `job.example.yaml` 作为单一真相源；无代码常量模块——内联字面量与示例文件一致
 
 ### v0.5.x — 生态系统（规划中）
 
