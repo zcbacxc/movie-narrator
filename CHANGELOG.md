@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed (post-v0.4.7 — env/yaml boundary refactor)
+- **Breaking**: `.env` (Settings) now contains ONLY 21 LLM + TTS infrastructure fields. All 30 pipeline behavior params moved to `job.yaml` (params). Previously 60 `MN_*` env vars mixed LLM/TTS + pipeline behavior.
+- **Breaking**: `default_format` removed from Settings (was dead code, never read). `library_dir`, `default_bgm`, `research_enabled`, `export_clips_default`, `subtitle_lang`, `subtitle_mode` also removed — these are CLI/YAML fields, not env vars.
+- Deleted `defaults.py` — no code constants module. Pipeline modules use inline literals in `ctx.metadata.get()` calls, matching example files.
+- `.env.example` rewritten: 21 LLM + TTS vars only (was 60).
+- `job.example.yaml` expanded: all 30 params with inline comments.
+- Settings `extra="ignore"` added so old `.env` vars don't break on upgrade.
+
 ## [0.4.7] - 2026-07-15
 
 ### Added (v0.4.7 — config system overhaul)
