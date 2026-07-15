@@ -119,6 +119,8 @@ class Settings(BaseSettings):
     mimo_api_key: Optional[str] = None         # falls back to llm_api_key
     mimo_base_url: str = "https://api.xiaomimimo.com/v1"
     mimo_style_prompt: str = ""                # style description for user message (mimo-v2.5-tts only)
+    # ── TTS cache management ──
+    tts_cache_max_mb: int = 500                 # LRU eviction threshold for TTS cache
 
     model_config = SettingsConfigDict(
         env_file=(".env", str(_USER_ENV)),

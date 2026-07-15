@@ -19,7 +19,7 @@ from movie_narrator.models import (
     Context, StepResult, SubtitlePaths, TimedSegment,
 )
 from movie_narrator.pipeline.translate import (
-    SUPPORTED_PROVIDERS, _chunk_texts, _is_blank, translate_subtitles,
+    SUPPORTED_PROVIDERS, _call_llm_chunk, _chunk_texts, _is_blank, _translate_via_llm, translate_subtitles,
 )
 from movie_narrator.pipeline.subtitle import generate_subtitle
 from movie_narrator.workflow.errors import JobConfigError
@@ -386,3 +386,84 @@ def test_merge_params_translate_keys():
 def test_jobconfig_subtitle_mode_validator_rejects_invalid():
     with pytest.raises(ValueError, match="subtitle_mode"):
         JobConfig(subtitle_mode="garbage")
+
+
+# ── _call_llm_chunk dependency injection (REC-10) ──────────
+
+
+def _mock_llm_cm(translations=None, error=None):
+    """Build a mock llm_factory returning a context-managed mock LLM."""
+    from unittest.mock import MagicMock
+
+    mock_llm = MagicMock()
+    mock_llm.model = "test-model"
+    if error:
+        mock_llm.client.chat.completions.create.side_effect = error
+    else:
+        content = json.dumps({"translations": translations or []}, ensure_ascii=False)
+        mock_llm.client.chat.completions.create.return_value = MagicMock(
+            choices=[MagicMock(message=MagicMock(content=content))]
+        )
+
+    mock_cm = MagicMock()
+    mock_cm.__enter__ = MagicMock(return_value=mock_llm)
+    mock_cm.__exit__ = MagicMock(return_value=False)
+    return MagicMock(return_value=mock_cm)
+
+
+def test_call_llm_chunk_with_injected_factory():
+    """_call_llm_chunk accepts llm_factory and returns translations."""
+    factory = _mock_llm_cm(translations=["hello", "world"])
+    result = _call_llm_chunk(
+        cues=["你好", "世界"],
+        target_lang="en",
+        source_lang="zh-CN",
+        llm_factory=factory,
+    )
+    assert result == ["hello", "world"]
+    factory.assert_called_once()
+
+
+def test_call_llm_chunk_injected_factory_raises_on_mismatch():
+    """_call_llm_chunk raises when translation count doesn't match cues."""
+    factory = _mock_llm_cm(translations=["only-one"])
+    with pytest.raises(ValueError, match="expected 2"):
+        _call_llm_chunk(
+            cues=["你好", "世界"],
+            target_lang="en",
+            source_lang="zh-CN",
+            llm_factory=factory,
+        )
+
+
+def test_translate_via_llm_chunk_failure_degrades():
+    """_translate_via_llm with failing factory raises _ChunkFailure."""
+    from movie_narrator.pipeline.translate import _ChunkFailure
+
+    factory = _mock_llm_cm(error=RuntimeError("LLM timeout"))
+    texts = ["你好", "世界"]
+    with pytest.raises(_ChunkFailure, match="LLM timeout"):
+        _translate_via_llm(
+            texts,
+            target_lang="en",
+            source_lang="zh-CN",
+            retries=2,
+            llm_factory=factory,
+        )
+
+
+def test_translate_via_llm_retries_before_failure():
+    """_translate_via_llm retries the specified number of times before raising."""
+    from movie_narrator.pipeline.translate import _ChunkFailure
+
+    factory = _mock_llm_cm(error=RuntimeError("LLM timeout"))
+    with pytest.raises(_ChunkFailure):
+        _translate_via_llm(
+            ["你好"],
+            target_lang="en",
+            source_lang="zh-CN",
+            retries=2,
+            llm_factory=factory,
+        )
+    # 1 initial attempt + 2 retries = 3 calls
+    assert factory.call_count == 3

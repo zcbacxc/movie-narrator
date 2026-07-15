@@ -76,8 +76,9 @@ def test_generate_script_falls_back_to_mock_on_failure(tmp_path):
             result = generate_script(ctx)
 
     assert len(result.segments) == len(MOCK_SEGMENTS)
-    assert result.segments[0].text == MOCK_SEGMENTS[0]
+    assert result.segments[0].text == MOCK_SEGMENTS[0].format(movie_name=ctx.movie_name)
     assert result.metadata["script_source"] == "mock"
+    assert result.metadata.get("script_degraded") is True
     # Console should have warned about the fallback
     result.services.console.inline_warn.assert_called_once()
 

@@ -95,4 +95,20 @@ def generate_voice(ctx: Context) -> Context:
     ctx.timed_segments = timed_segments
     ctx.metadata["voice_used"] = voice
     ctx.metadata["tts_provider"] = settings.tts_provider.value
+
+    # LRU eviction: remove oldest cache files when total size exceeds threshold.
+    # Scans the parent cache dir (all providers) so switching providers
+    # doesn't leave stale files accumulating forever.
+    _max_bytes = settings.tts_cache_max_mb * 1024 * 1024
+    cache_parent = output_dir / "cache" / "tts"
+    if cache_parent.exists():
+        mp3_files = list(cache_parent.rglob("*.mp3"))
+        total = sum(f.stat().st_size for f in mp3_files)
+        if total > _max_bytes:
+            for oldest in sorted(mp3_files, key=lambda f: f.stat().st_mtime):
+                if total <= _max_bytes:
+                    break
+                total -= oldest.stat().st_size
+                oldest.unlink(missing_ok=True)
+
     return ctx

@@ -5,10 +5,10 @@ from ..utils.json_parser import extract_json
 from time import sleep
 
 MOCK_SEGMENTS = [
-    "一个过气车神突然复出了。",
-    "所有人都觉得他疯了。",
-    "可他只想再赢一次。",
-    "因为热爱，从来不会过期。",
+    "{movie_name}是一部精彩的电影，",
+    "讲述了令人难忘的故事。",
+    "每一个场景都扣人心弦，令人回味无穷。",
+    "不容错过的经典之作。",
 ]
 
 
@@ -50,8 +50,12 @@ def generate_script(ctx: Context) -> Context:
         except Exception as e:
             if attempt == 2:
                 ctx.services.console.inline_warn(f"LLM fallback (3 attempts failed): {e}")
-                ctx.segments = [ScriptSegment(text=s) for s in MOCK_SEGMENTS]
+                ctx.segments = [
+                    ScriptSegment(text=s.format(movie_name=ctx.movie_name))
+                    for s in MOCK_SEGMENTS
+                ]
                 ctx.metadata["script_source"] = "mock"
+                ctx.metadata["script_degraded"] = True
                 return ctx
             sleep(1.5)
     return ctx

@@ -186,6 +186,11 @@ def create(
         # full traceback to the log file.  Suppress Typer's Rich
         # traceback to keep the console output clean.
         raise typer.Exit(code=1)
+    if ctx.metadata.get("script_degraded"):
+        typer.echo(
+            "⚠ 警告：旁白为占位内容——LLM 不可达。请检查 LLM 连接后重试。",
+            err=True,
+        )
     typer.echo(f"{ctx.video_path}")
 
 

@@ -91,12 +91,20 @@ def _call_llm_chunk(
     cues: List[str],
     target_lang: str,
     source_lang: str,
+    llm_factory=None,
 ) -> List[str]:
     """Make a single LLM call for one chunk. Returns translations aligned 1:1.
 
     Raises on parse / shape / content failures so the caller can retry.
+
+    ``llm_factory`` is an optional callable returning a context-managed
+    LLM client (same interface as ``get_llm_client``).  Injected for
+    unit-testing chunk-level retry / degrade paths without a real LLM.
     """
     import json as _json
+
+    if llm_factory is None:
+        llm_factory = get_llm_client
 
     cues_json = _json.dumps(cues, ensure_ascii=False)
     prompt = TRANSLATE_PROMPT.format(
@@ -105,7 +113,7 @@ def _call_llm_chunk(
         target_lang=target_lang,
         cues=cues_json,
     )
-    with get_llm_client() as llm:
+    with llm_factory() as llm:
         resp = llm.client.chat.completions.create(
             model=llm.model,
             messages=[{"role": "user", "content": prompt}],
@@ -136,11 +144,14 @@ def _translate_via_llm(
     target_lang: str,
     source_lang: str,
     retries: int,
+    llm_factory=None,
 ) -> List[str]:
     """Translate via the LLM provider, chunked, with per-chunk retry.
 
     On chunk failure: that chunk falls back to its original texts (soft
     degrade at chunk granularity). Other successful chunks are kept.
+
+    ``llm_factory`` is forwarded to ``_call_llm_chunk`` for test injection.
     """
     max_chars = DEFAULT_CHUNK_CHARS
     max_items = DEFAULT_CHUNK_SIZE
@@ -158,6 +169,7 @@ def _translate_via_llm(
                     cues=chunk_texts,
                     target_lang=target_lang,
                     source_lang=source_lang,
+                    llm_factory=llm_factory,
                 )
                 for idx, tr in zip(chunk_indices, translations):
                     result[idx] = tr
