@@ -10,83 +10,36 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 _USER_DIR = Path.home() / ".movie-narrator"
 _USER_ENV = _USER_DIR / ".env"
 
-# Template written to ~/.movie-narrator/.env on first run.
-# Mirrors .env.example — kept inline so it works regardless of install method.
-_DEFAULT_ENV_TEMPLATE = """\
-# ============================================================
-# Movie Narrator — global configuration
-# ============================================================
-# This file was auto-created on first run.  Edit values as needed.
-# Project-level .env (current directory) and MN_* environment
-# variables override entries here.
-# ============================================================
+# Package-level .env.example — single source of truth for default config.
+# At runtime we resolve it relative to this file so it works in editable
+# installs, wheels, and source checkouts alike.
+_PACKAGE_DIR = Path(__file__).resolve().parent          # src/movie_narrator/
+_SRC_DIR = _PACKAGE_DIR.parent                            # src/
+_PROJECT_ROOT = _SRC_DIR.parent                           # movie-narrator/
+_EXAMPLE_ENV = _PROJECT_ROOT / ".env.example"
 
-# ── LLM ──
-MN_LLM_BASE_URL=http://localhost:11434/v1
-MN_LLM_API_KEY=ollama
-MN_LLM_MODEL=qwen2.5:7b
 
-# ── TTS voice (unified, interpreted per-provider) ──
-MN_DEFAULT_VOICE=zh-CN-YunxiNeural
+def _read_example_env() -> str:
+    """Return the contents of ``.env.example``.
 
-# ── Video output ──
-MN_DEFAULT_FORMAT=16:9
-
-# ── TTS provider: edge | openai | mimo ──
-# MN_TTS_PROVIDER=edge
-
-# ── OpenAI TTS (active when MN_TTS_PROVIDER=openai) ──
-# MN_OPENAI_TTS_MODEL=tts-1
-# MN_OPENAI_TTS_API_KEY=           # falls back to MN_LLM_API_KEY
-# MN_OPENAI_TTS_BASE_URL=          # falls back to MN_LLM_BASE_URL
-
-# ── MiMo TTS (active when MN_TTS_PROVIDER=mimo) ──
-# MN_MIMO_TTS_MODEL=mimo-v2.5-tts
-# MN_MIMO_API_KEY=                 # falls back to MN_LLM_API_KEY
-# MN_MIMO_BASE_URL=https://api.xiaomimimo.com/v1
-# MN_MIMO_STYLE_PROMPT=            # style description, mimo-v2.5-tts only
-
-# ── v0.2 optional ──
-# MN_LIBRARY_DIR=
-# MN_DEFAULT_BGM=
-# MN_RESEARCH_ENABLED=false
-# MN_RESEARCH_PROVIDER=llm
-# MN_SCENE_THRESHOLD=27.0
-# MN_SCENE_FRAME_SKIP=10
-# MN_MATCH_MIN_SCORE=0.25
-# MN_EXPORT_CLIPS_DEFAULT=true
-
-# ── v0.3 multi-language subtitles ──
-# MN_SUBTITLE_LANG=                # empty = feature off
-# MN_SUBTITLE_MODE=original
-# MN_TRANSLATE_PROVIDER=llm
-# MN_TRANSLATE_RETRIES=3
-# MN_TRANSLATE_CHUNK_CHARS=4000
-# MN_TRANSLATE_CHUNK_SIZE=20
-
-# ── Match ──
-# MN_TTS_CACHE_MAX_MB=500
-# MN_TTS_PAUSE_MS=300
-
-# ── BGM ──
-# MN_BGM_GAIN_DB=-18
-
-# ── Match ──
-# MN_MATCH_SPEED_CLAMP_MIN=0.5
-# MN_MATCH_SPEED_CLAMP_MAX=3.0
-# MN_SCENE_MERGE_MIN_DURATION=0
-# MN_EMBEDDING_MODEL_NAME=paraphrase-multilingual-MiniLM-L12-v2
-
-# ── Render ──
-# MN_RENDER_FPS=24
-# MN_RENDER_VIDEO_CODEC=libx264
-# MN_RENDER_AUDIO_CODEC=aac
-# MN_RENDER_THREADS=4
-"""
+    Falls back to a minimal inline template if the file is missing
+    (e.g. some packaging configurations strip it).
+    """
+    if _EXAMPLE_ENV.is_file():
+        return _EXAMPLE_ENV.read_text(encoding="utf-8")
+    # Minimal fallback — kept short to avoid drift with .env.example.
+    return (
+        "# Movie Narrator — auto-generated minimal config\n"
+        "MN_LLM_BASE_URL=http://localhost:11434/v1\n"
+        "MN_LLM_API_KEY=ollama\n"
+        "MN_LLM_MODEL=qwen2.5:7b\n"
+        "MN_DEFAULT_VOICE=zh-CN-YunxiNeural\n"
+        "MN_DEFAULT_FORMAT=16:9\n"
+    )
 
 
 def ensure_user_config() -> Path:
-    """Create ``~/.movie-narrator/.env`` from defaults if it does not exist.
+    """Create ``~/.movie-narrator/.env`` from ``.env.example`` if it does not exist.
 
     Returns the path to the user-level .env (existing or newly created).
     Safe to call multiple times — never overwrites an existing file.
@@ -102,7 +55,7 @@ def ensure_user_config() -> Path:
         fd, tmp_path = tempfile.mkstemp(dir=_USER_DIR, suffix=".env.tmp")
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
-                f.write(_DEFAULT_ENV_TEMPLATE)
+                f.write(_read_example_env())
             os.replace(tmp_path, _USER_ENV)  # atomic on same filesystem
         except BaseException:
             try:

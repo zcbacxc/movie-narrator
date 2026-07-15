@@ -13,6 +13,9 @@ from .pipeline.runner import build_context, run_pipeline
 
 app = typer.Typer(help="Generate narrated movie recap videos from a single prompt.")
 
+# Packaged example YAML — used as fallback when no --config and no cwd/job.yaml.
+_EXAMPLE_YAML = Path(__file__).resolve().parent.parent.parent / "examples" / "job.example.yaml"
+
 
 class InteractiveCLIController:
     """RunController with interactive retry/skip/abort on hard step failure.
@@ -101,6 +104,8 @@ def create(
             param_hint="--movie",
         )
 
+    # Auto-discover YAML config: explicit --config > job.yaml (cwd) >
+    # job.example.yaml (package examples dir) > none.
     job = None
     config_path = None
     if config is not None:
@@ -110,6 +115,18 @@ def create(
                 f"config not found: {config_path}",
                 param_hint="--config",
             )
+    else:
+        # Try cwd/job.yaml first (user's project-level config).
+        cwd_yaml = Path.cwd() / "job.yaml"
+        if cwd_yaml.is_file():
+            config_path = str(cwd_yaml)
+        else:
+            # Fall back to the packaged example so new users get sensible
+            # defaults without needing to create a YAML manually.
+            if _EXAMPLE_YAML.is_file():
+                config_path = str(_EXAMPLE_YAML)
+
+    if config_path is not None:
         try:
             job = load_job_config(config_path)
         except JobConfigError as e:
