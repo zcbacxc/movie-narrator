@@ -7,7 +7,7 @@ name = "movie-narrator"
 version = "0.4.5"
 description = "Generate narrated movie recap videos from a single prompt."
 readme = "README.md"
-license = "AGPL-3.0"
+license = {text = "AGPL-3.0"}
 authors = [
     {name = "zcbacxc", email = "zcbacxc@users.noreply.github.com"}
 ]
