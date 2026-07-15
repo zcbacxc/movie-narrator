@@ -126,6 +126,8 @@ def test_match_min_score_from_metadata(tmp_path, monkeypatch):
     def fake_settings():
         s = MagicMock()
         s.match_min_score = 0.01
+        s.match_speed_clamp_min = 0.5
+        s.match_speed_clamp_max = 3.0
         return s
 
     monkeypatch.setattr(match_mod, "get_settings", fake_settings)

@@ -64,6 +64,10 @@ MN_DEFAULT_FORMAT=16:9
 # MN_TRANSLATE_CHUNK_CHARS=4000
 # MN_TRANSLATE_CHUNK_SIZE=20
 
+# ── Match ──
+# MN_MATCH_SPEED_CLAMP_MIN=0.5
+# MN_MATCH_SPEED_CLAMP_MAX=3.0
+
 # ── Render ──
 # MN_RENDER_FPS=24
 # MN_RENDER_VIDEO_CODEC=libx264
@@ -120,6 +124,12 @@ class Settings(BaseSettings):
     scene_threshold: float = 27.0
     scene_frame_skip: int = 10
     match_min_score: float = 0.25
+    # ── Match speed clamp (v0.4.6) ──
+    # Limits the speed scaling factor applied during render to prevent
+    # extreme fast-forward (>3x) or slow-motion (<0.5x) that causes
+    # visual jarring between adjacent narration segments.
+    match_speed_clamp_min: float = 0.5
+    match_speed_clamp_max: float = 3.0
     export_clips_default: bool = True
     # v0.3 multi-language subtitle defaults.
     # Empty/None subtitle_lang = feature off (status.translate=skipped).
