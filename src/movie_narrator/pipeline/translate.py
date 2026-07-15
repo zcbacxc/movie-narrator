@@ -218,8 +218,8 @@ def translate_subtitles(ctx: Context) -> Context:
         append_warning(ctx, f"translate provider {provider!r} is not supported")
         return ctx
 
-    source_lang = (ctx.metadata.get("source_lang") or get_settings().translate_source_lang)
-    ctx.metadata.setdefault("source_lang", source_lang)
+    source_lang = (ctx.metadata.get("translate_source_lang") or "zh-CN")
+    ctx.metadata.setdefault("translate_source_lang", source_lang)
 
     texts = [seg.text for seg in ctx.timed_segments]
 
@@ -234,10 +234,9 @@ def translate_subtitles(ctx: Context) -> Context:
         ctx.step_state.message = "ci-passthrough"
         return ctx
 
-    retries = int(ctx.metadata.get("translate_retries", get_settings().translate_retries))
-    settings = get_settings()
-    max_chars = int(ctx.metadata.get("translate_chunk_chars", settings.translate_chunk_chars))
-    max_items = int(ctx.metadata.get("translate_chunk_size", settings.translate_chunk_size))
+    retries = int(ctx.metadata.get("translate_retries", 3))
+    max_chars = int(ctx.metadata.get("translate_chunk_chars", 4000))
+    max_items = int(ctx.metadata.get("translate_chunk_size", 20))
 
     try:
         ctx.translated_texts = _translate_via_llm(

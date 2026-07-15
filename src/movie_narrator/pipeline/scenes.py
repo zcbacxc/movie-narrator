@@ -2,7 +2,6 @@ import json
 from pathlib import Path
 from typing import Optional
 
-from ..config import get_settings
 from ..models import Context, Scene, StepResult
 from ..utils.optional_deps import probe
 
@@ -23,10 +22,10 @@ def detect_scenes(ctx: Context) -> Context:
         from scenedetect import open_video, SceneManager
         from scenedetect.detectors import ContentDetector
 
-        # Spec §3/§4: use Settings.scene_threshold; allow metadata override (e.g. mn scenes --threshold).
-        settings = get_settings()
-        threshold = ctx.metadata.get("scene_threshold", settings.scene_threshold)
-        frame_skip = ctx.metadata.get("scene_frame_skip", settings.scene_frame_skip)
+        # Spec §3/§4: read scene_threshold / scene_frame_skip from job params
+        # (ctx.metadata) with defaults fallback (e.g. mn scenes --threshold).
+        threshold = ctx.metadata.get("scene_threshold", 27.0)
+        frame_skip = ctx.metadata.get("scene_frame_skip", 10)
 
         video = open_video(ctx.source_video_path)
         scene_manager = SceneManager()

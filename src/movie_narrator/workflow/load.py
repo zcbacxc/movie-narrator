@@ -69,7 +69,31 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
     if "params" in data and data["params"] is not None:
         if not isinstance(data["params"], dict):
             raise JobConfigError("params must be a mapping")
-        allowed_params = {"scene_threshold", "scene_frame_skip", "match_min_score", "research_provider", "translate_provider", "translate_retries", "translate_chunk_chars", "translate_chunk_size", "match_speed_clamp_min", "match_speed_clamp_max", "scene_merge_min_duration", "bgm_gain_db", "tts_pause_ms", "embedding_model_name"}
+        allowed_params = {
+            # Scene detection
+            "scene_threshold", "scene_frame_skip",
+            # Match
+            "match_min_score", "match_speed_clamp_min", "match_speed_clamp_max",
+            "scene_merge_min_duration", "embedding_model_name",
+            # BGM
+            "bgm_gain_db",
+            # TTS pacing
+            "tts_pause_ms", "tts_max_concurrent", "tts_audio_format", "tts_audio_bitrate",
+            # Translate
+            "translate_source_lang", "translate_provider", "translate_retries",
+            "translate_chunk_chars", "translate_chunk_size",
+            # Research
+            "research_provider",
+            # WhisperX
+            "whisperx_device", "whisperx_model", "whisperx_language",
+            # Render
+            "render_fps", "render_video_codec", "render_audio_codec", "render_threads",
+            "render_bg_color", "render_font_size", "render_output_name", "render_ffmpeg_timeout",
+            # Async
+            "async_timeout", "async_max_workers",
+            # Video sizes
+            "video_sizes",
+        }
         for k in data["params"].keys():
             if k not in allowed_params:
                 raise JobConfigError(

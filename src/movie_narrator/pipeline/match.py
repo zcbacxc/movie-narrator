@@ -193,11 +193,10 @@ def match_clips(ctx: Context) -> Context:
         ctx.step_state.message = "no timed segments"
         return ctx
 
-    settings = get_settings()
-    min_score = ctx.metadata.get("match_min_score", settings.match_min_score)
-    clamp_min = ctx.metadata.get("match_speed_clamp_min", settings.match_speed_clamp_min)
-    clamp_max = ctx.metadata.get("match_speed_clamp_max", settings.match_speed_clamp_max)
-    merge_min = ctx.metadata.get("scene_merge_min_duration", settings.scene_merge_min_duration)
+    min_score = ctx.metadata.get("match_min_score", 0.25)
+    clamp_min = ctx.metadata.get("match_speed_clamp_min", 0.5)
+    clamp_max = ctx.metadata.get("match_speed_clamp_max", 3.0)
+    merge_min = ctx.metadata.get("scene_merge_min_duration", 0.0)
     output_dir = Path(ctx.output_dir)
 
     try:
@@ -277,7 +276,7 @@ def _match_clips_impl(
             scene_labels = [
                 _build_scene_label(s.index, s.start, s.end) for s in scenes
             ]
-            emb_model = ctx.metadata.get("embedding_model_name", get_settings().embedding_model_name)
+            emb_model = ctx.metadata.get("embedding_model_name", "paraphrase-multilingual-MiniLM-L12-v2")
             scene_vecs = _embed_texts(scene_labels, emb_model)
             narration_vecs = _embed_texts([seg.text for seg in ctx.timed_segments], emb_model)
             for i, seg in enumerate(ctx.timed_segments):
