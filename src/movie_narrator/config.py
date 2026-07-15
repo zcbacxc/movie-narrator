@@ -67,6 +67,7 @@ MN_DEFAULT_FORMAT=16:9
 # ── Match ──
 # MN_MATCH_SPEED_CLAMP_MIN=0.5
 # MN_MATCH_SPEED_CLAMP_MAX=3.0
+# MN_SCENE_MERGE_MIN_DURATION=0
 
 # ── Render ──
 # MN_RENDER_FPS=24
@@ -130,6 +131,9 @@ class Settings(BaseSettings):
     # visual jarring between adjacent narration segments.
     match_speed_clamp_min: float = 0.5
     match_speed_clamp_max: float = 3.0
+    # Merge consecutive scenes shorter than this (0 = disabled).
+    # Reduces extreme speed factors by giving match_clips wider windows.
+    scene_merge_min_duration: float = 0.0
     export_clips_default: bool = True
     # v0.3 multi-language subtitle defaults.
     # Empty/None subtitle_lang = feature off (status.translate=skipped).
