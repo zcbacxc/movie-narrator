@@ -63,6 +63,12 @@ MN_DEFAULT_FORMAT=16:9
 # MN_TRANSLATE_RETRIES=3
 # MN_TRANSLATE_CHUNK_CHARS=4000
 # MN_TRANSLATE_CHUNK_SIZE=20
+
+# ── Render ──
+# MN_RENDER_FPS=24
+# MN_RENDER_VIDEO_CODEC=libx264
+# MN_RENDER_AUDIO_CODEC=aac
+# MN_RENDER_THREADS=4
 """
 
 
@@ -71,10 +77,26 @@ def ensure_user_config() -> Path:
 
     Returns the path to the user-level .env (existing or newly created).
     Safe to call multiple times — never overwrites an existing file.
+
+    Write is atomic (temp file + ``os.replace``) to prevent partial writes
+    if the process is interrupted mid-write (TOCTOU safe).
     """
     if not _USER_ENV.exists():
+        import os
+        import tempfile
+
         _USER_DIR.mkdir(parents=True, exist_ok=True)
-        _USER_ENV.write_text(_DEFAULT_ENV_TEMPLATE, encoding="utf-8")
+        fd, tmp_path = tempfile.mkstemp(dir=_USER_DIR, suffix=".env.tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(_DEFAULT_ENV_TEMPLATE)
+            os.replace(tmp_path, _USER_ENV)  # atomic on same filesystem
+        except BaseException:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
     return _USER_ENV
 
 
@@ -121,6 +143,11 @@ class Settings(BaseSettings):
     mimo_style_prompt: str = ""                # style description for user message (mimo-v2.5-tts only)
     # ── TTS cache management ──
     tts_cache_max_mb: int = 500                 # LRU eviction threshold for TTS cache
+    # ── Render ──
+    render_fps: int = 24
+    render_video_codec: str = "libx264"
+    render_audio_codec: str = "aac"
+    render_threads: int = 4
 
     model_config = SettingsConfigDict(
         env_file=(".env", str(_USER_ENV)),

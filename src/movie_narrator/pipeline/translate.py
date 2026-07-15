@@ -36,14 +36,6 @@ DEFAULT_CHUNK_SIZE = 20
 SUPPORTED_PROVIDERS = frozenset({"llm"})
 
 
-def _is_disabled(workflow_steps: dict) -> bool:
-    """Accept both short and function-name keys for back-compat (spec §9)."""
-    return (
-        workflow_steps.get("translate") is False
-        or workflow_steps.get("translate_subtitles") is False
-    )
-
-
 def _is_blank(s: str) -> bool:
     """True for empty / ASCII whitespace / full-width whitespace strings."""
     return not (s and s.strip() and s.replace("\u3000", "").strip())
@@ -204,13 +196,6 @@ def translate_subtitles(ctx: Context) -> Context:
     matrix. Step returns ctx; the runner picks up `ctx.step_state` and
     `ctx.status.translate` to render the outcome.
     """
-    workflow_steps = ctx.metadata.get("workflow_steps") or {}
-    if _is_disabled(workflow_steps):
-        ctx.status.translate = "disabled"
-        ctx.step_state.result = StepResult.SKIPPED
-        ctx.step_state.message = "disabled by workflow config"
-        return ctx
-
     target_lang = ctx.metadata.get("subtitle_lang")
     if not target_lang:
         ctx.status.translate = "skipped"

@@ -22,11 +22,6 @@ def align_audio(ctx: Context) -> Context:
         The same (mutated) context with ``ctx.status.align`` set to one
         of ``disabled`` / ``skipped`` / ``success`` / ``failed``.
     """
-    if ctx.metadata.get("workflow_steps", {}).get("align_audio") is False:
-        ctx.status.align = "disabled"
-        ctx.step_state.result = StepResult.SKIPPED
-        ctx.step_state.message = "disabled by workflow config"
-        return ctx
     ok, hint = probe("whisperx")
     if not ok:
         ctx.status.align = "disabled"

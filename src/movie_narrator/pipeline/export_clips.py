@@ -11,11 +11,6 @@ from ..utils.warnings import append_warning
 
 
 def export_clips(ctx: Context) -> Context:
-    if ctx.metadata.get("workflow_steps", {}).get("export_clips") is False:
-        ctx.status.export = "disabled"
-        ctx.step_state.result = StepResult.SKIPPED
-        ctx.step_state.message = "disabled by workflow config"
-        return ctx
     if not ctx.metadata.get("export_clips", True):
         ctx.status.export = "skipped"
         ctx.step_state.result = StepResult.SKIPPED

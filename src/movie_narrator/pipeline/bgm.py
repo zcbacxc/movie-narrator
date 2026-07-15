@@ -8,12 +8,6 @@ BGM_GAIN_DB = -18
 
 
 def mix_bgm(ctx: Context) -> Context:
-    if ctx.metadata.get("workflow_steps", {}).get("mix_bgm") is False:
-        ctx.status.bgm = "disabled"
-        ctx.final_audio_path = ctx.audio_path
-        ctx.step_state.result = StepResult.SKIPPED
-        ctx.step_state.message = "disabled by workflow config"
-        return ctx
     if not ctx.audio_path:
         ctx.status.bgm = "skipped"
         ctx.final_audio_path = ctx.audio_path

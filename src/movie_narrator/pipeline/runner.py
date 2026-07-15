@@ -50,6 +50,13 @@ STATUS_FIELD_FOR_STEP: Dict[str, str] = {
     "translate_subtitles": "translate",
 }
 
+# Short alias mapping for workflow_steps keys (spec §9 back-compat).
+# Allows users to write `{"translate": False}` in addition to the
+# function-name key `{"translate_subtitles": False}`.
+_STEP_ALIASES: Dict[str, str] = {
+    "translate_subtitles": "translate",
+}
+
 STEPS = [
     resolve_video,
     prepare_assets,
@@ -208,7 +215,12 @@ def run_pipeline(
 
         # ── Pre-check: workflow_steps disabled? ──────────────
         # Authoritative path: runner short-circuits before step runs.
-        if workflow_steps and not workflow_steps.get(name, True):
+        # Checks both the function-name key and any short alias (spec §9).
+        alias = _STEP_ALIASES.get(name)
+        if workflow_steps and (
+            not workflow_steps.get(name, True)
+            or (alias and not workflow_steps.get(alias, True))
+        ):
             ctx.step_state = StepState(
                 result=StepResult.SKIPPED, message="disabled by workflow config"
             )

@@ -35,11 +35,6 @@ def _write_envelope(output_dir: Path, status: str, error: str | None, research: 
 
 
 def research_plot(ctx: Context) -> Context:
-    if ctx.metadata.get("workflow_steps", {}).get("research_plot") is False:
-        ctx.status.research = "disabled"
-        ctx.step_state.result = StepResult.SKIPPED
-        ctx.step_state.message = "disabled by workflow config"
-        return ctx
     if not ctx.metadata.get("research_enabled"):
         ctx.status.research = "skipped"
         ctx.step_state.result = StepResult.SKIPPED

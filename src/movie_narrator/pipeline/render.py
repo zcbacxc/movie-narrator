@@ -5,6 +5,7 @@ from pathlib import Path
 from moviepy import AudioFileClip, ColorClip, CompositeVideoClip, ImageClip, VideoFileClip
 from proglog import TqdmProgressBarLogger
 
+from ..config import get_settings
 from ..models import Context, TimedSegment
 from ..utils.metadata_export import build_metadata_json
 from ..utils.text_image import create_text_image as _create_text_image
@@ -116,11 +117,12 @@ def render_video(ctx: Context) -> Context:
     tmp_dir = output_dir / ".tmp"
     tmp_dir.mkdir(exist_ok=True)
 
+    settings = get_settings()
     write_kwargs = dict(
-        fps=24,
-        codec="libx264",
-        audio_codec="aac",
-        threads=4,
+        fps=settings.render_fps,
+        codec=settings.render_video_codec,
+        audio_codec=settings.render_audio_codec,
+        threads=settings.render_threads,
         logger=_RenderProgressLogger(),
         temp_audiofile=str(tmp_dir / "temp_audio.wav"),
     )

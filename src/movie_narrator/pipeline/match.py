@@ -50,11 +50,6 @@ def _cosine_top1(target_vec, candidate_matrix):
 
 
 def match_clips(ctx: Context) -> Context:
-    if ctx.metadata.get("workflow_steps", {}).get("match_clips") is False:
-        ctx.status.match = "disabled"
-        ctx.step_state.result = StepResult.SKIPPED
-        ctx.step_state.message = "disabled by workflow config"
-        return ctx
     if not ctx.source_video_path:
         ctx.status.match = "skipped"
         ctx.step_state.result = StepResult.SKIPPED
