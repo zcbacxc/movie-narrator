@@ -144,7 +144,7 @@ mn create --movie "飞驰人生" --style "热血搞笑" --duration 60
 
 All 18 CLI flags are documented in [`examples/cli-usage.sh`](examples/cli-usage.sh) with usage examples for every scenario: basic, video/library, research/BGM/clips, multi-language subtitles, and YAML config. Key flags: `--movie/-m`, `--style/-s`, `--duration/-d`, `--voice/-v`, `--format/-f`, `--video/-V`, `--library-dir`, `--research`, `--bgm`, `--no-bgm`, `--no-clips`, `--strict`, `--keep-cache`, `--retry`, `--subtitle-lang`, `--subtitle-mode`, `--config`.
 
-### Job YAML config (v0.3)
+### Job YAML config
 
 ```bash
 # Drive a job from YAML (movie may live only in the file)
@@ -189,7 +189,7 @@ When `--subtitle-lang` is set, `generate_subtitle` always writes three SRT files
 
 Setting `subtitle_mode=translated|bilingual` without `subtitle_lang` raises `JobConfigError` at merge time. Failure policy: LLM retries `MN_TRANSLATE_RETRIES` times, then soft-degrades to filling the translation track with the original text and surfacing a warning.
 
-### Web UI (v0.3.5)
+### Web UI
 
 ```bash
 # Install with web extra
@@ -368,7 +368,7 @@ movie-narrator/
 │   │   ├── load.py          # YAML loader + validation
 │   │   ├── merge.py         # CLI > YAML > Settings merge
 │   │   └── errors.py        # JobConfigError
-│   ├── tts/                     # TTS abstraction layer (v0.4)
+│   ├── tts/                     # TTS abstraction layer
 │   │   ├── __init__.py          # re-exports public API
 │   │   ├── protocol.py          # TTSProvider ABC
 │   │   ├── base.py              # BaseTTSProvider (CI silent fallback), is_ci()
@@ -390,7 +390,7 @@ movie-narrator/
 │   │   ├── optional_deps.py # Optional dependency probing
 │   │   ├── prompts.py       # Prompt templates
 │   │   └── retention.py     # Log file retention
-│   └── web/                     # Gradio browser UI (v0.3.5; requires [web] extra)
+│   └── web/                     # Gradio browser UI (requires [web] extra)
 │       ├── __init__.py          # lazy launch_web export
 │       ├── __main__.py          # python -m movie_narrator.web
 │       ├── app.py               # Gradio Blocks layout + event handlers

@@ -38,7 +38,7 @@ class PipelineStatus(BaseModel):
 via `steps.translate=false` or unknown provider" (see
 `docs/superpowers/specs/2026-07-13-multi-language-subtitle-design.md` §4.1).
 
-## Job config merge layer (v0.3)
+## Job config merge layer
 
 Optional declarative job YAML sits **in front of** `run_pipeline`:
 
@@ -57,11 +57,11 @@ run_pipeline(...) # STEPS order unchanged
 - Params whitelist (30 keys: scene_threshold, scene_frame_skip, match_min_score, match_speed_clamp_min/max, scene_merge_min_duration, embedding_model_name, bgm_gain_db, tts_pause_ms, tts_max_concurrent, tts_audio_format, tts_audio_bitrate, translate_source_lang, translate_provider, translate_retries, translate_chunk_chars, translate_chunk_size, research_provider, whisperx_device/model/language, render_fps/video_codec/audio_codec/threads/bg_color/font_size/output_name/ffmpeg_timeout, async_timeout, async_max_workers, video_sizes) land in `ctx.metadata` via `build_context` copy loop
 - Multi-language subtitle top-level keys: `subtitle_lang`, `subtitle_mode` (validated in `JobConfig` — `subtitle_mode ∈ {translated, bilingual}` without `subtitle_lang` raises `JobConfigError` at merge time)
 - `STEPS` remains the single source of step order; no DAG / plugins in v0.3
-- YAML auto-discovery (v0.4.7): `--config` not passed → `cwd/job.yaml` → packaged `examples/job.example.yaml` → none
+- YAML auto-discovery: `--config` not passed → `cwd/job.yaml` → packaged `examples/job.example.yaml` → none
 - `.env.example` is the single source of truth for first-run config (read by `ensure_user_config()`, not a divergent inline template)
 - Strict env/yaml boundary: `.env` (Settings) = 21 LLM + TTS infrastructure fields only; `job.yaml` (params) = 30 pipeline behavior keys; no code constants module — inline literals match example files
 
-## Web UI Layer (v0.3.5)
+## Web UI Layer
 
 The Gradio-based Web UI is a thin shell over the same pipeline entry points:
 
@@ -97,7 +97,7 @@ bridge polls GradioConsole.snapshot() every 200ms → yields to Gradio
 | `web/models.py` | `RunStatus` enum, `WebRun` per-session state |
 | `web/utils.py` | Upload handling, `collect_artifacts()`, filename sanitization |
 
-## TTS Abstraction Layer (v0.4)
+## TTS Abstraction Layer
 
 The `tts/` package decouples TTS backend selection from pipeline orchestration:
 
