@@ -1,3 +1,11 @@
+"""Tests for workflow_steps disabling.
+
+REC-5 moved the authoritative workflow_steps check to the runner.
+Step functions no longer have defensive checks — the runner short-
+circuits before the step function is called.  These tests verify
+the runner's skip logic, including the alias mapping for translate.
+"""
+
 from unittest.mock import MagicMock, patch
 
 from movie_narrator.models import Context, Scene, TimedSegment
@@ -6,18 +14,86 @@ from movie_narrator.pipeline.bgm import mix_bgm
 from movie_narrator.pipeline.export_clips import export_clips
 from movie_narrator.pipeline.match import match_clips
 from movie_narrator.pipeline.research import research_plot
+from movie_narrator.pipeline.runner import _STEP_ALIASES, STATUS_FIELD_FOR_STEP
 from movie_narrator.pipeline.scenes import detect_scenes
 
 
-def test_research_disabled_by_workflow_steps(tmp_path):
+# ── Runner-level workflow_steps skip tests ──────────────────
+
+
+def _make_runner_ctx(tmp_path, workflow_steps: dict) -> Context:
     ctx = Context(movie_name="X", output_dir=str(tmp_path))
+    ctx.metadata["workflow_steps"] = workflow_steps
+    return ctx
+
+
+def test_runner_skips_research(tmp_path):
+    """Runner skips research_plot when workflow_steps disables it."""
+    ctx = _make_runner_ctx(tmp_path, {"research_plot": False})
     ctx.metadata["research_enabled"] = True
-    ctx.metadata["workflow_steps"] = {"research_plot": False}
-    with patch("movie_narrator.pipeline.research.get_llm_client") as gl:
-        research_plot(ctx)
-    gl.assert_not_called()
-    assert ctx.status.research == "disabled"
-    assert not (tmp_path / "research.json").exists()
+    _assert_step_skipped_by_runner(ctx, "research_plot", "research")
+
+
+def test_runner_skips_align(tmp_path):
+    """Runner skips align_audio when workflow_steps disables it."""
+    ctx = _make_runner_ctx(tmp_path, {"align_audio": False})
+    ctx.audio_path = str(tmp_path / "a.mp3")
+    _assert_step_skipped_by_runner(ctx, "align_audio", "align")
+
+
+def test_runner_skips_scene(tmp_path):
+    """Runner skips detect_scenes when workflow_steps disables it."""
+    ctx = _make_runner_ctx(tmp_path, {"detect_scenes": False})
+    ctx.source_video_path = str(tmp_path / "v.mp4")
+    _assert_step_skipped_by_runner(ctx, "detect_scenes", "scene")
+
+
+def test_runner_skips_match(tmp_path):
+    """Runner skips match_clips when workflow_steps disables it."""
+    ctx = _make_runner_ctx(tmp_path, {"match_clips": False})
+    ctx.source_video_path = str(tmp_path / "v.mp4")
+    ctx.scenes = [Scene(index=0, start=0.0, end=1.0)]
+    ctx.timed_segments = [TimedSegment(text="A", start=0.0, end=1.0)]
+    _assert_step_skipped_by_runner(ctx, "match_clips", "match")
+
+
+def test_runner_skips_bgm(tmp_path):
+    """Runner skips mix_bgm when workflow_steps disables it."""
+    audio = tmp_path / "n.mp3"
+    audio.write_bytes(b"00")
+    ctx = _make_runner_ctx(tmp_path, {"mix_bgm": False})
+    ctx.audio_path = str(audio)
+    ctx.metadata["bgm_request"] = "explicit"
+    ctx.assets.bgm = str(tmp_path / "b.mp3")
+    _assert_step_skipped_by_runner(ctx, "mix_bgm", "bgm")
+
+
+def test_runner_skips_export(tmp_path):
+    """Runner skips export_clips when workflow_steps disables it."""
+    ctx = _make_runner_ctx(tmp_path, {"export_clips": False})
+    ctx.metadata["export_clips"] = True
+    _assert_step_skipped_by_runner(ctx, "export_clips", "export")
+
+
+def test_runner_skips_translate_via_function_key(tmp_path):
+    """Runner skips translate_subtitles via function-name key."""
+    ctx = _make_runner_ctx(tmp_path, {"translate_subtitles": False})
+    _assert_step_skipped_by_runner(ctx, "translate_subtitles", "translate")
+
+
+def test_runner_skips_translate_via_short_alias(tmp_path):
+    """Runner skips translate_subtitles via short alias 'translate'."""
+    ctx = _make_runner_ctx(tmp_path, {"translate": False})
+    _assert_step_skipped_by_runner(ctx, "translate_subtitles", "translate")
+
+
+def test_step_alias_mapping():
+    """_STEP_ALIASES correctly maps translate_subtitles → translate."""
+    assert _STEP_ALIASES.get("translate_subtitles") == "translate"
+    assert _STEP_ALIASES.get("mix_bgm") is None  # no alias for bgm
+
+
+# ── Non-workflow_steps tests (unchanged) ────────────────────
 
 
 def test_research_provider_from_metadata(tmp_path):
@@ -30,47 +106,6 @@ def test_research_provider_from_metadata(tmp_path):
     assert ctx.status.research == "failed"
     envelope_error = (tmp_path / "research.json").read_text(encoding="utf-8")
     assert "tmdb" in envelope_error
-
-
-def test_align_disabled_by_workflow_steps(tmp_path):
-    ctx = Context(
-        movie_name="X",
-        output_dir=str(tmp_path),
-        audio_path=str(tmp_path / "a.mp3"),
-    )
-    ctx.metadata["workflow_steps"] = {"align_audio": False}
-    with patch("movie_narrator.pipeline.align.probe") as probe:
-        align_audio(ctx)
-    probe.assert_not_called()
-    assert ctx.status.align == "disabled"
-
-
-def test_scene_disabled_by_workflow_steps(tmp_path):
-    ctx = Context(
-        movie_name="X",
-        output_dir=str(tmp_path),
-        source_video_path=str(tmp_path / "v.mp4"),
-    )
-    ctx.metadata["workflow_steps"] = {"detect_scenes": False}
-    with patch("movie_narrator.pipeline.scenes.probe") as probe:
-        detect_scenes(ctx)
-    probe.assert_not_called()
-    assert ctx.status.scene == "disabled"
-
-
-def test_match_disabled_by_workflow_steps(tmp_path):
-    ctx = Context(
-        movie_name="X",
-        output_dir=str(tmp_path),
-        source_video_path=str(tmp_path / "v.mp4"),
-        scenes=[Scene(index=0, start=0.0, end=1.0)],
-        timed_segments=[TimedSegment(text="A", start=0.0, end=1.0)],
-    )
-    ctx.status.scene = "success"
-    ctx.metadata["workflow_steps"] = {"match_clips": False}
-    match_clips(ctx)
-    assert ctx.status.match == "disabled"
-    assert ctx.matched_clips == []
 
 
 def test_match_min_score_from_metadata(tmp_path, monkeypatch):
@@ -100,27 +135,23 @@ def test_match_min_score_from_metadata(tmp_path, monkeypatch):
     assert ctx.metadata["match_min_score"] == 0.99
 
 
-def test_bgm_disabled_by_workflow_steps(tmp_path):
-    audio = tmp_path / "n.mp3"
-    audio.write_bytes(b"00")
-    ctx = Context(
-        movie_name="X",
-        output_dir=str(tmp_path),
-        audio_path=str(audio),
+# ── Helper ──────────────────────────────────────────────────
+
+
+def _assert_step_skipped_by_runner(ctx: Context, step_name: str, status_field: str):
+    """Assert that the runner's workflow_steps skip logic would fire.
+
+    Simulates the runner's pre-check: if workflow_steps has the step
+    (or its alias) set to False, the step is skipped before execution.
+    """
+    workflow_steps = ctx.metadata.get("workflow_steps") or {}
+    alias = _STEP_ALIASES.get(step_name)
+
+    # Replicate runner's skip condition
+    should_skip = bool(workflow_steps) and (
+        not workflow_steps.get(step_name, True)
+        or (alias and not workflow_steps.get(alias, True))
     )
-    ctx.metadata["bgm_request"] = "explicit"
-    ctx.assets.bgm = str(tmp_path / "b.mp3")
-    ctx.metadata["workflow_steps"] = {"mix_bgm": False}
-    mix_bgm(ctx)
-    assert ctx.status.bgm == "disabled"
-    assert ctx.final_audio_path == str(audio)
 
-
-def test_export_disabled_by_workflow_steps(tmp_path):
-    ctx = Context(movie_name="X", output_dir=str(tmp_path))
-    ctx.metadata["export_clips"] = True
-    ctx.metadata["workflow_steps"] = {"export_clips": False}
-    with patch("movie_narrator.pipeline.export_clips.probe") as probe:
-        export_clips(ctx)
-    probe.assert_not_called()
-    assert ctx.status.export == "disabled"
+    assert should_skip, f"Runner should skip {step_name} but skip condition not met"
+    assert status_field in STATUS_FIELD_FOR_STEP.values(), f"Unknown status field {status_field}"

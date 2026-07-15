@@ -40,30 +40,6 @@ def _make_ctx(tmp_path, *, timed_segments=None, translated_texts=None, **meta) -
     return ctx
 
 
-def test_translate_disabled_by_workflow_steps_short_key(tmp_path):
-    ctx = _make_ctx(
-        tmp_path,
-        timed_segments=[TimedSegment(text="你好", start=0.0, end=1.0)],
-        workflow_steps={"translate": False},
-        subtitle_lang="en",
-    )
-    translate_subtitles(ctx)
-    assert ctx.status.translate == "disabled"
-    assert ctx.step_state.result == StepResult.SKIPPED
-    assert ctx.step_state.message == "disabled by workflow config"
-
-
-def test_translate_disabled_by_workflow_steps_function_key(tmp_path):
-    ctx = _make_ctx(
-        tmp_path,
-        timed_segments=[TimedSegment(text="你好", start=0.0, end=1.0)],
-        workflow_steps={"translate_subtitles": False},
-        subtitle_lang="en",
-    )
-    translate_subtitles(ctx)
-    assert ctx.status.translate == "disabled"
-
-
 def test_translate_skipped_without_lang(tmp_path):
     ctx = _make_ctx(
         tmp_path,

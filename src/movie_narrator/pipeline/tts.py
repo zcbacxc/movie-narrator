@@ -90,7 +90,10 @@ def generate_voice(ctx: Context) -> Context:
         current_time += duration + pause
 
     audio_path = output_dir / "narration.mp3"
-    combined.export(audio_path, format="mp3")
+    # Explicit bitrate prevents pydub's default 32 kbps export, which
+    # produces MPEG v2.5 audio that ffmpeg (used by MoviePy) can fail
+    # to decode — resulting in a silent final video.
+    combined.export(audio_path, format="mp3", bitrate="128k")
     ctx.audio_path = str(audio_path)
     ctx.timed_segments = timed_segments
     ctx.metadata["voice_used"] = voice
