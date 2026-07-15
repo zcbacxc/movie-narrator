@@ -1,7 +1,7 @@
 from pathlib import Path
 from unittest.mock import patch
 
-from movie_narrator.config import Settings, ensure_user_config, _DEFAULT_ENV_TEMPLATE
+from movie_narrator.config import Settings, ensure_user_config, _read_example_env
 from movie_narrator.utils.environment import collect_environment
 
 
