@@ -168,7 +168,14 @@ mn create --config examples/job.example.yaml
 mn create --config examples/job.example.yaml --movie "OtherTitle" --no-clips
 ```
 
-See [`examples/job.example.yaml`](examples/job.example.yaml) for the full whitelist: soft-step toggles under `steps:` (`research`, `align`, `scene`, `match`, `bgm`, `export`, `translate`), `params:` (`scene_threshold`, `match_min_score`, `research_provider`, `translate_provider`, `translate_retries`, `translate_chunk_chars`, `translate_chunk_size`), and the multi-language subtitle top-level keys `subtitle_lang` / `subtitle_mode`. Relative `video` / `bgm` / `library_dir` paths resolve against the YAML file's directory. LLM credentials stay in `.env` / `MN_*` only.
+When `--config` is not passed, the CLI auto-discovers a YAML config in priority order:
+1. `cwd/job.yaml` (project-level user config)
+2. Packaged `examples/job.example.yaml` (sensible defaults for new users)
+3. None (pure CLI args)
+
+This means new users can run `mn create --movie X` without creating any config file — the example YAML provides default steps/params automatically.
+
+See [`examples/job.example.yaml`](examples/job.example.yaml) for the full whitelist: soft-step toggles under `steps:` (`research`, `align`, `scene`, `match`, `bgm`, `export`, `translate`), all 14 `params:` keys (`scene_threshold`, `scene_frame_skip`, `match_min_score`, `match_speed_clamp_min`, `match_speed_clamp_max`, `scene_merge_min_duration`, `bgm_gain_db`, `tts_pause_ms`, `embedding_model_name`, `research_provider`, `translate_provider`, `translate_retries`, `translate_chunk_chars`, `translate_chunk_size`), and the multi-language subtitle top-level keys `subtitle_lang` / `subtitle_mode`. Relative `video` / `bgm` / `library_dir` paths resolve against the YAML file's directory. LLM credentials stay in `.env` / `MN_*` only.
 
 ### Multi-language subtitles
 
@@ -275,7 +282,7 @@ mn create --movie "飞驰人生" --duration 60
 
 ### Full reference
 
-See [`.env.example`](.env.example) for the complete list of all 27 environment variables with defaults and inline comments.
+See [`.env.example`](.env.example) for the complete list of all 60 environment variables with defaults and inline comments.
 
 ### LLM Provider Guides
 
@@ -487,6 +494,7 @@ movie-narrator/
 - [x] Step-level retry mechanism (`--retry` flag, `StepAction` enum)
 - [x] Auto-create `~/.movie-narrator/.env` on first run
 - [x] `export_clips` direct ffmpeg subprocess (design choice, not workaround)
+- [x] Config system overhaul: 33 hardcoded constants promoted to Settings (60 total `MN_*` env vars); YAML auto-discovery (`--config` not passed → `cwd/job.yaml` → packaged example); `.env.example` as single source of truth for first-run; all YAML params properly connected through `runner.py` → `ctx.metadata` → pipeline steps
 
 ### v0.5.x — Ecosystem (Planned)
 
