@@ -31,6 +31,10 @@ class JobParams(BaseModel):
     translate_retries: Optional[int] = None
     translate_chunk_chars: Optional[int] = None
     translate_chunk_size: Optional[int] = None
+    # Match speed clamp + scene merge (v0.4.6).
+    match_speed_clamp_min: Optional[float] = None
+    match_speed_clamp_max: Optional[float] = None
+    scene_merge_min_duration: Optional[float] = None
 
 
 VALID_SUBTITLE_MODES = frozenset({"original", "translated", "bilingual"})
