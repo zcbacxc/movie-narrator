@@ -66,7 +66,7 @@ def export_clips(ctx: Context) -> Context:
             result = subprocess.run(
                 cmd,
                 capture_output=True,
-                timeout=300,
+                timeout=settings.render_ffmpeg_timeout,
             )
             if result.returncode != 0:
                 stderr_tail = result.stderr.decode(errors="replace")[-300:]
