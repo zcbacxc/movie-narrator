@@ -118,13 +118,29 @@ def render_video(ctx: Context) -> Context:
     tmp_dir.mkdir(exist_ok=True)
 
     settings = get_settings()
+    # temp_audiofile extension MUST match the audio_codec so the final
+    # mux step ("-acodec copy") reads a correctly-typed bitstream.
+    # With audio_codec="aac", a ".wav" extension causes a RIFF/WAV
+    # header wrapping AAC data — ffmpeg then decodes only ~6 ms.
+    temp_ext = settings.render_audio_codec
+    # "copy" is a passthrough pseudo-codec; "aac" works for both AAC-LC
+    # and the HE-AAC variants.  Map libmp3lame → mp3 so the temp file
+    # always carries a real container extension.
+    if temp_ext == "copy":
+        temp_ext = "aac"
+    elif temp_ext.startswith("lib"):
+        temp_ext = temp_ext[3:]  # libmp3lame → mp3lame
+    # Normalise a few known aliases to a short file extension.
+    _EXT_NORM = {"mp3lame": "mp3", "libfdk_aac": "aac", "pcm_s16le": "wav"}
+    temp_ext = _EXT_NORM.get(temp_ext, temp_ext)
+
     write_kwargs = dict(
         fps=settings.render_fps,
         codec=settings.render_video_codec,
         audio_codec=settings.render_audio_codec,
         threads=settings.render_threads,
         logger=_RenderProgressLogger(),
-        temp_audiofile=str(tmp_dir / "temp_audio.wav"),
+        temp_audiofile=str(tmp_dir / f"temp_audio.{temp_ext}"),
     )
     try:
         final_video.write_videofile(str(video_path), **write_kwargs)
