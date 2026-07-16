@@ -10,7 +10,15 @@ from fastapi.responses import FileResponse
 
 from .models import CancelResponse, TaskCreateRequest, TaskCreateResponse, TaskStatusResponse
 from .tasks import TaskManager
-from .utils import save_upload, zip_artifacts
+from .utils import (
+    BGM_EXTENSIONS,
+    MAX_BGM_SIZE,
+    MAX_VIDEO_SIZE,
+    VIDEO_EXTENSIONS,
+    UploadError,
+    save_upload,
+    zip_artifacts,
+)
 
 
 def create_router(manager: TaskManager, upload_dir: Path) -> APIRouter:
@@ -38,13 +46,24 @@ def create_router(manager: TaskManager, upload_dir: Path) -> APIRouter:
         video: Optional[UploadFile] = File(None),
         bgm: Optional[UploadFile] = File(None),
     ):
-        # Save uploaded files
+        # Save uploaded files with size + extension validation
         video_path = None
         bgm_path = None
-        if video and video.filename:
-            video_path = save_upload(video, upload_dir, prefix="video_")
-        if bgm and bgm.filename:
-            bgm_path = save_upload(bgm, upload_dir, prefix="bgm_")
+        try:
+            if video and video.filename:
+                video_path = save_upload(
+                    video, upload_dir, prefix="video_",
+                    max_size=MAX_VIDEO_SIZE,
+                    allowed_extensions=VIDEO_EXTENSIONS,
+                )
+            if bgm and bgm.filename:
+                bgm_path = save_upload(
+                    bgm, upload_dir, prefix="bgm_",
+                    max_size=MAX_BGM_SIZE,
+                    allowed_extensions=BGM_EXTENSIONS,
+                )
+        except UploadError as e:
+            raise HTTPException(status_code=e.status_code, detail=e.message)
 
         request = TaskCreateRequest(
             movie=movie, style=style, duration=duration, voice=voice,
