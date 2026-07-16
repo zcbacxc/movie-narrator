@@ -40,7 +40,11 @@ ml = [
     'whisperx>=3.0; python_version < "3.14"',
     'sentence-transformers>=3.0; python_version < "3.14"',
 ]
-web = ["gradio>=4.44,<7"]
+web = [
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "python-multipart>=0.0.6",
+]
 full = [
     "scenedetect>=0.6",
     'whisperx>=3.0; python_version < "3.14"',

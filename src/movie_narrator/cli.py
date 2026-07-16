@@ -347,18 +347,10 @@ def version():
 
 @app.command()
 def web(
-    host: str = typer.Option("127.0.0.1", "--host", help="Bind host"),
-    port: int = typer.Option(7860, "--port", help="Bind port"),
-    share: bool = typer.Option(False, "--share", help="Create public Gradio link"),
+    host: str = typer.Option("127.0.0.1", "--host", "-h", help="Bind host"),
+    port: int = typer.Option(8760, "--port", "-p", help="Bind port"),
+    reload: bool = typer.Option(False, "--reload", help="Auto-reload on file changes"),
 ):
-    """Launch the browser UI (local Gradio app)."""
-    try:
-        from .web import launch_web
-    except ImportError:
-        typer.echo(
-            "Web UI requires the 'web' extra. Install with:\n"
-            "  pip install \"movie-narrator[web]\"",
-            err=True,
-        )
-        raise typer.Exit(code=1)
-    launch_web(host=host, port=port, share=share)
+    """Launch the Web UI (FastAPI + React)."""
+    from .web_api import launch_web_api
+    launch_web_api(host=host, port=port, reload=reload)
