@@ -68,14 +68,15 @@ def test_generate_script_llm_success(tmp_path):
 
 def test_generate_script_hard_fails_on_all_retries(tmp_path, monkeypatch):
     """3 consecutive LLM failures → RuntimeError (no fake mock fallback)."""
-    monkeypatch.delenv("CI", raising=False)  # ensure not in CI mode
+    monkeypatch.delenv("CI", raising=False)
     ctx = _make_ctx(tmp_path)
     mock_cm = _mock_llm_cm(side_effect=ConnectionError("unreachable"))
 
-    with patch("movie_narrator.pipeline.script.get_llm_client", return_value=mock_cm):
-        with patch("movie_narrator.pipeline.script.sleep", return_value=None):
-            with pytest.raises(RuntimeError, match="LLM script generation failed"):
-                generate_script(ctx)
+    with patch("movie_narrator.pipeline.script.is_ci", return_value=False):
+        with patch("movie_narrator.pipeline.script.get_llm_client", return_value=mock_cm):
+            with patch("movie_narrator.pipeline.script.sleep", return_value=None):
+                with pytest.raises(RuntimeError, match="LLM script generation failed"):
+                    generate_script(ctx)
 
 
 # ── 3. Research context injection ───────────────────────────
@@ -132,10 +133,11 @@ def test_generate_script_empty_segments_triggers_retry(tmp_path, monkeypatch):
         empty_resp,
     ])
 
-    with patch("movie_narrator.pipeline.script.get_llm_client", return_value=mock_cm):
-        with patch("movie_narrator.pipeline.script.sleep", return_value=None):
-            with pytest.raises(RuntimeError, match="LLM script generation failed"):
-                generate_script(ctx)
+    with patch("movie_narrator.pipeline.script.is_ci", return_value=False):
+        with patch("movie_narrator.pipeline.script.get_llm_client", return_value=mock_cm):
+            with patch("movie_narrator.pipeline.script.sleep", return_value=None):
+                with pytest.raises(RuntimeError, match="LLM script generation failed"):
+                    generate_script(ctx)
 
 
 # ── 5. Retry succeeds on second attempt ─────────────────────
@@ -156,3 +158,38 @@ def test_generate_script_retry_succeeds(tmp_path):
 
     assert result.metadata["script_source"] == "llm"
     assert result.segments[0].text == "成功的旁白"
+
+
+# ── 6. CI mode mock fallback ────────────────────────────────
+
+
+def test_generate_script_ci_mock_fallback(tmp_path, monkeypatch):
+    """CI=1 + LLM failure → mock script with inline_warn."""
+    ctx = _make_ctx(tmp_path)
+    mock_cm = _mock_llm_cm(side_effect=ConnectionError("unreachable"))
+
+    with patch("movie_narrator.pipeline.script.is_ci", return_value=True):
+        with patch("movie_narrator.pipeline.script.get_llm_client", return_value=mock_cm):
+            with patch("movie_narrator.pipeline.script.sleep", return_value=None):
+                result = generate_script(ctx)
+
+    assert result.metadata["script_source"] == "ci_mock"
+    assert result.metadata["script_degraded"] is True
+    assert len(result.segments) == 4
+    # Mock text should contain movie name
+    assert "test_movie" in result.segments[0].text
+    # inline_warn should have been called
+    ctx.services.console.inline_warn.assert_called()
+
+
+def test_generate_script_ci_mock_not_used_in_production(tmp_path, monkeypatch):
+    """Non-CI + LLM failure → RuntimeError (no mock fallback)."""
+    monkeypatch.delenv("CI", raising=False)
+    ctx = _make_ctx(tmp_path)
+    mock_cm = _mock_llm_cm(side_effect=ConnectionError("unreachable"))
+
+    with patch("movie_narrator.pipeline.script.is_ci", return_value=False):
+        with patch("movie_narrator.pipeline.script.get_llm_client", return_value=mock_cm):
+            with patch("movie_narrator.pipeline.script.sleep", return_value=None):
+                with pytest.raises(RuntimeError, match="LLM script generation failed"):
+                    generate_script(ctx)
