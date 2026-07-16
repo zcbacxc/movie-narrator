@@ -5,7 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.5.0] - 2026-07-16
+
+### Added (WebUI rewrite — React + FastAPI)
+- **New Web UI** replacing Gradio: React 18 + Vite + TypeScript + shadcn/ui frontend, FastAPI + WebSocket backend
+- React SPA with dark OLED theme (slate-900 bg, pink-500 primary, blue-600 accent), Inter font, Lucide icons
+- Form sections: Movie info, Voice, Assets (video/BGM upload), Subtitles, Advanced (research/strict/scene-threshold/etc.)
+- Real-time pipeline progress via WebSocket: 14-step timeline with active/done/failed/skipped states, auto-scrolling log stream
+- Video player with inline playback (new `/api/video/{id}` endpoint), artifact zip download
+- Cooperative task cancellation via DELETE `/api/tasks/{id}` or WS cancel message
+- Task state preserved across "New Run" — form values survive reset
+- 22 backend unit tests (WebSocketConsole, TaskController, TaskManager, Pydantic models, form validation, utils)
+
+### Fixed (security + robustness)
+- **ws.py**: `json.JSONDecodeError` from malformed client messages no longer kills the WebSocket connection
+- **utils.py**: `save_upload()` strips directory components from uploaded filenames to prevent path traversal (e.g. `../../etc/passwd`)
+- **tasks.py**: Dead code `TaskInfo.update_step()` and `TaskManager.update_step()` removed; `to_status_dict()` now reads `current_step` from `console.snapshot()`
 
 ## [0.4.9] - 2026-07-16
 
