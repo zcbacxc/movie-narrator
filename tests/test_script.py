@@ -66,8 +66,9 @@ def test_generate_script_llm_success(tmp_path):
 # ── 2. LLM failure → hard fail ─────────────────────────────
 
 
-def test_generate_script_hard_fails_on_all_retries(tmp_path):
+def test_generate_script_hard_fails_on_all_retries(tmp_path, monkeypatch):
     """3 consecutive LLM failures → RuntimeError (no fake mock fallback)."""
+    monkeypatch.delenv("CI", raising=False)  # ensure not in CI mode
     ctx = _make_ctx(tmp_path)
     mock_cm = _mock_llm_cm(side_effect=ConnectionError("unreachable"))
 
@@ -120,8 +121,9 @@ def test_generate_script_without_research_context(tmp_path):
 # ── 4. Empty segments triggers retry → hard fail ───────────
 
 
-def test_generate_script_empty_segments_triggers_retry(tmp_path):
+def test_generate_script_empty_segments_triggers_retry(tmp_path, monkeypatch):
     """LLM returns empty segments → ValueError → retry → eventually hard fail."""
+    monkeypatch.delenv("CI", raising=False)  # ensure not in CI mode
     ctx = _make_ctx(tmp_path)
     empty_resp = _mock_llm_response('{"segments": []}')
     mock_cm = _mock_llm_cm(side_effect=[
