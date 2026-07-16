@@ -27,9 +27,12 @@ async def task_ws_endpoint(websocket: WebSocket, task_id: str, manager: TaskMana
             # Check for client messages (subscribe/cancel)
             try:
                 msg = await asyncio.wait_for(websocket.receive_text(), timeout=0.2)
-                data = json.loads(msg)
-                if data.get("action") == "cancel":
-                    manager.cancel_task(task_id)
+                try:
+                    data = json.loads(msg)
+                    if data.get("action") == "cancel":
+                        manager.cancel_task(task_id)
+                except (json.JSONDecodeError, TypeError):
+                    pass  # ignore malformed client messages
             except asyncio.TimeoutError:
                 pass
 

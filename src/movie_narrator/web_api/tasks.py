@@ -31,7 +31,6 @@ class TaskInfo:
         self.console = WebSocketConsole()
         self.controller = TaskController()
         self.status: str = "running"  # running | done | failed | cancelled
-        self.current_step: str = ""
         self.error: Optional[str] = None
         self.artifacts: list[str] = []
         self.video_path: Optional[str] = None
@@ -134,10 +133,3 @@ class TaskManager:
             info.controller.cancel()
             return True
         return False
-
-    def update_step(self, task_id: str, step: str) -> None:
-        """Called by pipeline runner to update current step."""
-        info = self.get_task(task_id)
-        if info:
-            with info._lock:
-                info.current_step = step
