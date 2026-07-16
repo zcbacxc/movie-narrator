@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed (quality audit — fake data / silent failures)
 - **match.py**: `score < min_score` no longer drops the segment — falls back to heuristic instead of silently losing video footage for that narration segment (30~70% random clip loss).
+- **match.py**: WhisperX scene captioning fallback unified — both "not installed" and "transcription failed" now produce `inline_warn` (was silent / debug-level).
 - **script.py**: Removed `MOCK_SEGMENTS` fake movie fallback. LLM failure after all retries now raises `RuntimeError` with diagnostic message instead of silently generating a fake "movie" script the user can't distinguish from real content.
 - **align.py**: WhisperX alignment switched from index-based (1:1) to time-overlap matching. Index-based caused drift on long videos when WhisperX produced a different number of segments than the script (silence/music sections).
 - **render.py**: `VideoFileClip` open failure upgraded from `debug` to `inline_warn` with clear message: "Falling back to text-only video — no footage will be shown."
