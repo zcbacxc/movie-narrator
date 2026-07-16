@@ -63,7 +63,7 @@ run_pipeline(...) # STEPS order unchanged
 
 ## Web UI Layer
 
-> Since v0.4.10 the Web UI is a **FastAPI + React SPA** architecture (served on port 8760 via `mn web`). The legacy Gradio UI under `web/` remains in-tree for reference but is no longer the default.
+> Since v0.4.10 the Web UI is a **FastAPI + React SPA** architecture (served on port 8760 via `mn web`). The legacy Gradio UI (`src/movie_narrator/web/`) was removed in v0.4.12.
 
 ```text
 React SPA (webui/) — form / progress / artifacts view
@@ -103,20 +103,6 @@ The React SPA is built by Vite into static assets that FastAPI serves directly, 
 | `web_api/models.py` | Pydantic request/response schemas, run status enums |
 | `web_api/utils.py` | Upload handling (`output/_uploads`), `collect_artifacts()`, filename sanitization |
 | `web_api/__init__.py` | Package init |
-
-### Modules — `web/` (Legacy Gradio UI)
-
-> The modules below are the **legacy Gradio UI**, retained for reference. They are not wired into `mn web` by default; install the old `[web]`-equivalent path only if you need to run the Gradio surface explicitly.
-
-| Module | Responsibility |
-|--------|---------------|
-| `web/app.py` | Gradio Blocks layout, event handlers, `launch_web()` |
-| `web/bridge.py` | Generator: form → background thread → yield UI updates |
-| `web/form.py` | `FormData` dataclass, `validate_form()`, `form_to_context_args()` |
-| `web/console.py` | `GradioConsole` — thread-safe buffered console (`threading.Lock`) |
-| `web/controller.py` | `GradioController` — cooperative cancel flag (`threading.Event`) |
-| `web/models.py` | `RunStatus` enum, `WebRun` per-session state |
-| `web/utils.py` | Upload handling, `collect_artifacts()`, filename sanitization |
 
 ## TTS Abstraction Layer
 
