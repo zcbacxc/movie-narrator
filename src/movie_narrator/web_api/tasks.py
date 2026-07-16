@@ -34,6 +34,7 @@ class TaskInfo:
         self.error: Optional[str] = None
         self.artifacts: list[str] = []
         self.video_path: Optional[str] = None
+        self.upload_paths: list[str] = []  # files to clean up after completion
         self._lock = threading.Lock()
 
     def set_terminal(self, status: str, error: Optional[str] = None) -> None:
@@ -83,6 +84,11 @@ class TaskManager:
         output_dir.mkdir(parents=True, exist_ok=True)
 
         info = TaskInfo(task_id, output_dir)
+        # Track upload paths for best-effort cleanup after task completion
+        if video_path:
+            info.upload_paths.append(video_path)
+        if bgm_path:
+            info.upload_paths.append(bgm_path)
         with self._lock:
             self._tasks[task_id] = info
 
@@ -122,6 +128,14 @@ class TaskManager:
         except Exception as e:
             import traceback
             info.set_terminal("failed", f"{e}\n{traceback.format_exc()}")
+
+        finally:
+            # Best-effort cleanup of uploaded source files
+            for p in info.upload_paths:
+                try:
+                    Path(p).unlink(missing_ok=True)
+                except Exception:
+                    pass
 
     def get_task(self, task_id: str) -> Optional[TaskInfo]:
         with self._lock:
