@@ -115,6 +115,13 @@ The Web UI is rebuilt from a Gradio single-file app into a decoupled **FastAPI +
 
 > See `docs/ARCHITECTURE.md` → *Web UI Layer* for the request/WebSocket flow and the `web_api/` module table.
 
+### v0.4.12 Remove Legacy Gradio
+
+- [x] Deleted `src/movie_narrator/web/` (9 files)
+- [x] Removed `gradio` from `[full]` extra
+- [x] Migrated tests: `test_web_form.py` → `web_api.form`, `test_pipeline_cancel.py` → `TaskController`
+- [x] Deleted `test_web_console.py`, `test_web_controller.py` (covered by `test_web_api.py`)
+
 ### v0.4 Environment variables
 
 - `MN_TTS_PROVIDER` — `edge` (default), `openai`, or `mimo`

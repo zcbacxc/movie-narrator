@@ -17,7 +17,7 @@ from movie_narrator.pipeline.errors import (
     RunController,
     check_cancelled,
 )
-from movie_narrator.web.controller import GradioController
+from movie_narrator.web_api.controller import TaskController
 
 
 class _StubController:
@@ -42,9 +42,9 @@ class TestCheckCancelled:
         with pytest.raises(PipelineCancelled):
             check_cancelled(_StubController(cancelled=True))
 
-    def test_gradio_controller_cancel(self):
-        """GradioController: cancel() → is_cancelled() True → raises."""
-        ctrl = GradioController()
+    def test_task_controller_cancel(self):
+        """TaskController: cancel() → is_cancelled() True → raises."""
+        ctrl = TaskController()
         assert not ctrl.is_cancelled()
         check_cancelled(ctrl)  # should not raise
         ctrl.cancel()
@@ -52,17 +52,17 @@ class TestCheckCancelled:
         with pytest.raises(PipelineCancelled):
             check_cancelled(ctrl)
 
-    def test_gradio_controller_reset(self):
+    def test_task_controller_reset(self):
         """reset() clears the cancel flag."""
-        ctrl = GradioController()
+        ctrl = TaskController()
         ctrl.cancel()
         assert ctrl.is_cancelled()
         ctrl.reset()
         assert not ctrl.is_cancelled()
 
-    def test_gradio_controller_thread_safety(self):
+    def test_task_controller_thread_safety(self):
         """cancel() from one thread is visible to is_cancelled() in another."""
-        ctrl = GradioController()
+        ctrl = TaskController()
         results: list[bool] = []
 
         def _poll():

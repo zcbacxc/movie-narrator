@@ -393,26 +393,16 @@ movie-narrator/
 │   │   ├── optional_deps.py # 可选依赖探测
 │   │   ├── prompts.py       # 提示词模板
 │   │   └── retention.py     # 日志文件保留策略
-│   ├── web_api/                 # FastAPI + WebSocket 后端（默认 Web UI；需安装 [web] extra）
-│   │   ├── __init__.py          # 延迟导出 launch_web_api
-│   │   ├── __main__.py          # python -m movie_narrator.web_api
-│   │   ├── server.py            # FastAPI 应用工厂（CORS、静态挂载、ws 路由）
-│   │   ├── routes.py            # REST API 端点（create / status / cancel / artifacts）
-│   │   ├── ws.py                # WebSocket 端点（实时进度 + 日志）
-│   │   ├── tasks.py             # TaskManager（后台任务生命周期）
-│   │   ├── form.py              # FormData + validate_form + form_to_context_args
-│   │   ├── console.py           # WebSocketConsole（线程安全广播）
-│   │   ├── controller.py        # RunController（协作式取消标志）
-│   │   ├── models.py            # RunStatus 枚举 + WebRun 会话状态
-│   │   └── utils.py             # 上传处理 + collect_artifacts + 文件名清洗
-│   └── web/                     # 旧版 Gradio 浏览器 UI（需安装 [web] extra）
-│       ├── __init__.py          # 延迟导出 launch_web
-│       ├── __main__.py          # python -m movie_narrator.web
-│       ├── app.py               # Gradio Blocks 布局 + 事件处理
-│       ├── bridge.py            # 表单 → 后台线程 → yield UI 更新
+│   └── web_api/                 # FastAPI + WebSocket 后端（默认 Web UI；需安装 [web] extra）
+│       ├── __init__.py          # 延迟导出 launch_web_api
+│       ├── __main__.py          # python -m movie_narrator.web_api
+│       ├── server.py            # FastAPI 应用工厂（CORS、静态挂载、ws 路由）
+│       ├── routes.py            # REST API 端点（create / status / cancel / artifacts）
+│       ├── ws.py                # WebSocket 端点（实时进度 + 日志）
+│       ├── tasks.py             # TaskManager（后台任务生命周期）
 │       ├── form.py              # FormData + validate_form + form_to_context_args
-│       ├── console.py           # GradioConsole（threading.Lock 线程安全）
-│       ├── controller.py        # GradioController（协作式取消标志）
+│       ├── console.py           # WebSocketConsole（线程安全广播）
+│       ├── controller.py        # RunController（协作式取消标志）
 │       ├── models.py            # RunStatus 枚举 + WebRun 会话状态
 │       └── utils.py             # 上传处理 + collect_artifacts + 文件名清洗
 ├── webui/                       # React 18 + Vite + TypeScript 前端（默认 Web UI）

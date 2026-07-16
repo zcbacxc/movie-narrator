@@ -395,26 +395,16 @@ movie-narrator/
 │   │   ├── optional_deps.py # Optional dependency probing
 │   │   ├── prompts.py       # Prompt templates
 │   │   └── retention.py     # Log file retention
-│   ├── web_api/                 # FastAPI + WebSocket backend (default Web UI; requires [web] extra)
-│   │   ├── __init__.py          # lazy launch_web_api export
-│   │   ├── __main__.py          # python -m movie_narrator.web_api
-│   │   ├── server.py            # FastAPI app factory (CORS, static mount, ws route)
-│   │   ├── routes.py            # REST API endpoints (create / status / cancel / artifacts)
-│   │   ├── ws.py                # WebSocket endpoint (real-time progress + logs)
-│   │   ├── tasks.py             # TaskManager (background task lifecycle)
-│   │   ├── form.py              # FormData + validate_form + form_to_context_args
-│   │   ├── console.py           # WebSocketConsole (thread-safe broadcast)
-│   │   ├── controller.py        # RunController (cooperative cancel flag)
-│   │   ├── models.py            # RunStatus enum + WebRun per-session state
-│   │   └── utils.py             # upload handling + collect_artifacts + sanitize_filename
-│   └── web/                     # Legacy Gradio browser UI (requires [web] extra)
-│       ├── __init__.py          # lazy launch_web export
-│       ├── __main__.py          # python -m movie_narrator.web
-│       ├── app.py               # Gradio Blocks layout + event handlers
-│       ├── bridge.py            # form → background thread → yield UI updates
+│   └── web_api/                 # FastAPI + WebSocket backend (default Web UI; requires [web] extra)
+│       ├── __init__.py          # lazy launch_web_api export
+│       ├── __main__.py          # python -m movie_narrator.web_api
+│       ├── server.py            # FastAPI app factory (CORS, static mount, ws route)
+│       ├── routes.py            # REST API endpoints (create / status / cancel / artifacts)
+│       ├── ws.py                # WebSocket endpoint (real-time progress + logs)
+│       ├── tasks.py             # TaskManager (background task lifecycle)
 │       ├── form.py              # FormData + validate_form + form_to_context_args
-│       ├── console.py           # GradioConsole (thread-safe via threading.Lock)
-│       ├── controller.py        # GradioController (cooperative cancel flag)
+│       ├── console.py           # WebSocketConsole (thread-safe broadcast)
+│       ├── controller.py        # RunController (cooperative cancel flag)
 │       ├── models.py            # RunStatus enum + WebRun per-session state
 │       └── utils.py             # upload handling + collect_artifacts + sanitize_filename
 ├── webui/                       # React 18 + Vite + TypeScript frontend (default Web UI)
