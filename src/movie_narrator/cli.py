@@ -53,21 +53,7 @@ class InteractiveCLIController:
             return StepAction.SKIP
         return StepAction.ABORT
 
-_RESERVED_NAMES = {
-    "CON", "PRN", "AUX", "NUL",
-    *(f"COM{i}" for i in range(1, 10)),
-    *(f"LPT{i}" for i in range(1, 10)),
-}
-
-
-def _sanitize_filename(name: str) -> str:
-    name = re.sub(r'[<>:"/\\|?*]', "_", name)
-    name = name.strip().rstrip(".")
-    if not name:
-        name = "movie"
-    if name.upper() in _RESERVED_NAMES:
-        name = f"_{name}"
-    return name
+from .utils.sanitize import sanitize_filename as _sanitize_filename
 
 
 @app.command()
