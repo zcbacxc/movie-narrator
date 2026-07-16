@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
+  test-matrix:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -57,6 +57,23 @@ jobs:
           test -f output/CI-YAML-Test/metadata.json
           test -f output/CI-YAML-Test/subtitle.srt
           echo "YAML config smoke test passed"
+
+  # Summary job — name "test" matches branch protection required check.
+  # Matrix jobs generate "test-matrix (3.10)" etc. which don't match.
+  # This job depends on all matrix jobs and is a no-op gate.
+  test:
+    needs: [test-matrix]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check matrix results
+        run: |
+          if [[ "${{ needs.test-matrix.result }}" == "success" ]]; then
+            echo "All matrix jobs passed"
+          else
+            echo "Matrix jobs failed: ${{ needs.test-matrix.result }}"
+            exit 1
+          fi
 
   media:
     runs-on: ubuntu-latest
