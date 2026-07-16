@@ -99,5 +99,6 @@ jobs:
       - name: Verify build output
         run: |
           test -f src/movie_narrator/web_api/static/index.html
-          test -f src/movie_narrator/web_api/static/assets/index.js
+          test -n "$(ls src/movie_narrator/web_api/static/assets/*.js)"
+          test -n "$(ls src/movie_narrator/web_api/static/assets/*.css)"
           echo "Frontend build verified"

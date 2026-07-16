@@ -48,6 +48,7 @@ jobs:
       - name: Verify frontend build output
         run: |
           test -f src/movie_narrator/web_api/static/index.html
+          test -n "$(ls src/movie_narrator/web_api/static/assets/*.js)"
           echo "Frontend built successfully"
 
       - name: Install build tools
