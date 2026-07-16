@@ -8,6 +8,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from movie_narrator import __version__
+
 from .routes import create_router
 from .tasks import TaskManager
 from .ws import task_ws_endpoint
@@ -15,7 +17,7 @@ from .ws import task_ws_endpoint
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
-    app = FastAPI(title="Movie Narrator Web API", version="0.1.0")
+    app = FastAPI(title="Movie Narrator Web API", version=__version__)
 
     # CORS — dev only
     app.add_middleware(
