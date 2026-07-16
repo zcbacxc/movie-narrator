@@ -118,15 +118,29 @@ def _build_scene_label(scene_index: int, start: float, end: float) -> str:
     return f"scene {scene_index} from {start:.1f}s to {end:.1f}s"
 
 
+import functools
+
+
+@functools.lru_cache(maxsize=2)
+def _load_embedding_model(model_name: str):
+    """Load and cache a SentenceTransformer model.
+
+    Loading takes 1-3 seconds and ~200MB; caching avoids re-loading
+    when _embed_texts is called twice per match_clips run (scene labels
+    + narration texts).
+    """
+    from sentence_transformers import SentenceTransformer
+
+    return SentenceTransformer(model_name)
+
+
 def _embed_texts(texts: List[str], model_name: str = _EMBEDDING_MODEL_NAME):
     """Encode a list of strings to L2-normalized vectors.
 
     Returns ``None`` when sentence-transformers is unavailable or fails at
     runtime, so the caller can fall back to the heuristic shape.
     """
-    from sentence_transformers import SentenceTransformer
-
-    model = SentenceTransformer(model_name)
+    model = _load_embedding_model(model_name)
     vectors = model.encode(texts)
     import numpy as np
 

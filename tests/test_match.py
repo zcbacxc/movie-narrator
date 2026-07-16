@@ -12,6 +12,14 @@ from movie_narrator.pipeline import match as match_module
 from movie_narrator.pipeline.match import match_clips
 
 
+@pytest.fixture(autouse=True)
+def _clear_embedding_cache():
+    """Clear lru_cache between tests so mock SentenceTransformer doesn't leak."""
+    match_module._load_embedding_model.cache_clear()
+    yield
+    match_module._load_embedding_model.cache_clear()
+
+
 def _make_ctx(tmp_path, source_video="video.mp4"):
     ctx = Context(
         movie_name="m",
