@@ -21,7 +21,7 @@ Movie Narrator is an open-source toolkit that automatically generates movie reca
 - 🔊 Text-to-Speech narration (Edge-TTS by default)
 - 💬 Automatic SRT subtitle generation
 - 🌐 Multi-language subtitles (`--subtitle-lang en` translates narration cues via LLM and writes `subtitle.<lang>.srt` + `subtitle.bilingual.srt`)
-- 🖥️ Web UI (`mn web` — local Gradio browser app with form inputs, cooperative cancel, and artifact download)
+- 🖥️ Web UI (`mn web` — local FastAPI + React browser app with form inputs, cooperative cancel, artifact download, and real-time progress via WebSocket)
 - 🎞️ Video rendering with MoviePy and FFmpeg
 - 📝 Script markdown export (`script.md`)
 - 🎵 Background music integration (BGM)
@@ -98,7 +98,7 @@ pip install "movie-narrator[media]"
 # WhisperX + semantic search (requires PyTorch; Python < 3.14)
 pip install "movie-narrator[ml]"
 
-# Web UI (Gradio)
+# Web UI (FastAPI + React)
 pip install "movie-narrator[web]"
 
 # Everything
@@ -195,14 +195,19 @@ Setting `subtitle_mode=translated|bilingual` without `subtitle_lang` raises `Job
 # Install with web extra
 pip install "movie-narrator[web]"
 
-# Launch local browser app
+# Launch local browser app (default: http://127.0.0.1:8760)
 mn web
 
 # Or with custom host/port
 mn web --host 0.0.0.0 --port 8080
 
-# Create a public Gradio share link (temporary)
-mn web --share
+# Production: build frontend, then mn web serves it
+cd webui && npm install && npm run build
+mn web  # serves webui/dist/ + API on http://127.0.0.1:8760
+
+# Development: two terminals
+mn web --reload                    # FastAPI on :8760
+cd webui && npm run dev            # Vite dev server on :5173 (proxies API)
 ```
 
 The Web UI provides a form-based interface to all CLI options: movie name, style, duration, voice, format, video/BGM upload, subtitle settings, and advanced params. A Cancel button allows cooperative cancellation at step boundaries. Artifacts (video, subtitles, script, metadata) are available for download at all terminal states — including after cancellation.
@@ -390,7 +395,19 @@ movie-narrator/
 │   │   ├── optional_deps.py # Optional dependency probing
 │   │   ├── prompts.py       # Prompt templates
 │   │   └── retention.py     # Log file retention
-│   └── web/                     # Gradio browser UI (requires [web] extra)
+│   ├── web_api/                 # FastAPI + WebSocket backend (default Web UI; requires [web] extra)
+│   │   ├── __init__.py          # lazy launch_web_api export
+│   │   ├── __main__.py          # python -m movie_narrator.web_api
+│   │   ├── server.py            # FastAPI app factory (CORS, static mount, ws route)
+│   │   ├── routes.py            # REST API endpoints (create / status / cancel / artifacts)
+│   │   ├── ws.py                # WebSocket endpoint (real-time progress + logs)
+│   │   ├── tasks.py             # TaskManager (background task lifecycle)
+│   │   ├── form.py              # FormData + validate_form + form_to_context_args
+│   │   ├── console.py           # WebSocketConsole (thread-safe broadcast)
+│   │   ├── controller.py        # RunController (cooperative cancel flag)
+│   │   ├── models.py            # RunStatus enum + WebRun per-session state
+│   │   └── utils.py             # upload handling + collect_artifacts + sanitize_filename
+│   └── web/                     # Legacy Gradio browser UI (requires [web] extra)
 │       ├── __init__.py          # lazy launch_web export
 │       ├── __main__.py          # python -m movie_narrator.web
 │       ├── app.py               # Gradio Blocks layout + event handlers
@@ -400,6 +417,12 @@ movie-narrator/
 │       ├── controller.py        # GradioController (cooperative cancel flag)
 │       ├── models.py            # RunStatus enum + WebRun per-session state
 │       └── utils.py             # upload handling + collect_artifacts + sanitize_filename
+├── webui/                       # React 18 + Vite + TypeScript frontend (default Web UI)
+│   ├── package.json             # React 18 + Vite + TypeScript + Tailwind
+│   ├── vite.config.ts           # dev proxy → :8760, build → dist/
+│   ├── index.html               # Vite entry
+│   ├── src/                     # React app (App.tsx, components/, hooks/, lib/, types/, styles/)
+│   └── dist/                    # production build output (served by mn web)
 ├── tests/
 │   ├── test_context.py
 │   ├── test_settings.py
@@ -462,10 +485,11 @@ movie-narrator/
 - [x] YAML-based job configuration (`mn create --config`)
 - [x] Console / structured-step-state logging refactor (`ctx.services.console`, `StepState`)
 - [x] Multi-language subtitle support (`--subtitle-lang` / `--subtitle-mode`; LLM translation with retry-then-soft-degrade; `subtitle.<lang>.srt` + `subtitle.bilingual.srt` outputs)
-- [x] Web UI (Gradio local browser app via `mn web`; cooperative cancel; requires `[web]` extra)
+- [x] Web UI (Gradio local browser app via `mn web`; cooperative cancel; requires `[web]` extra) (v0.4.10: refactored to FastAPI + React)
 
 ### v0.4.x — TTS Abstraction & Infrastructure ✅
 
+- [x] Web UI rewrite: Gradio → FastAPI + React 18 + WebSocket (v0.4.10)
 - [x] TTS provider abstraction (`TTSProvider` protocol, Edge + OpenAI + MiMo backends)
 - [x] Provider selection via `MN_TTS_PROVIDER` (`edge` / `openai` / `mimo`)
 - [x] OpenAI TTS support (voice whitelist, credential fallback, lazy SDK import)

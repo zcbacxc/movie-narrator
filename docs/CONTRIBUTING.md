@@ -8,6 +8,9 @@ cd movie-narrator
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -e ".[dev]"
+
+# Frontend (for WebUI development)
+cd webui && npm install && cd ..
 ```
 
 ## Running Tests
@@ -15,6 +18,63 @@ pip install -e ".[dev]"
 ```bash
 pytest -v
 ```
+
+### Frontend verification
+
+When touching anything under `webui/`, verify the SPA still type-checks and builds:
+
+```bash
+cd webui && npm run build
+```
+
+This runs `tsc` (TypeScript type check) followed by the Vite production build. A clean build is required before the bundle is served by FastAPI.
+
+## Project Structure
+
+```
+movie-narrator/
+├── src/movie_narrator/
+│   ├── pipeline/        # 14-step runner, preflight, tts/render/match/... step modules
+│   ├── tts/             # TTS provider abstraction (edge, openai, mimo, factory, cache)
+│   ├── web_api/         # FastAPI + WebSocket backend (default WebUI, port 8760)
+│   ├── web/             # Legacy Gradio UI (retained for reference, not default)
+│   ├── utils/           # llm.py, errors.py, shared helpers
+│   ├── models.py        # Context, PipelineStatus, StepState, ...
+│   ├── cli.py           # `mn` Typer entry points (create, web, version, ...)
+│   └── workflow.py      # job.yaml load/merge (JobConfig, merge_job)
+├── webui/               # React 18 SPA — Vite + TypeScript + shadcn/ui + Tailwind
+├── tests/               # pytest suite (unit + smoke)
+├── docs/                # ARCHITECTURE, ROADMAP, CONTRIBUTING, specs/
+└── examples/            # job.example.yaml
+```
+
+The WebUI is split across two trees: `src/movie_narrator/web_api/` (Python backend) and `webui/` (React frontend). In production FastAPI serves the Vite-built bundle, so there is no separate frontend server.
+
+## Frontend Development
+
+### Dev mode (two terminals)
+
+During development run the API and the Vite dev server side by side so you get hot-module reloading:
+
+```bash
+# Terminal 1 — FastAPI backend (serves API on :8760)
+mn web
+
+# Terminal 2 — Vite dev server (HMR; proxies /api and /ws to :8760)
+cd webui && npm run dev
+```
+
+Open the Vite URL printed in Terminal 2. The Vite dev server proxies REST and WebSocket calls to the FastAPI backend, so the SPA talks to the live API without a manual bundle rebuild on every change.
+
+### Production build
+
+Before shipping frontend changes, rebuild the bundle so FastAPI serves the updated static assets:
+
+```bash
+cd webui && npm run build
+```
+
+After a successful build, `mn web` alone serves both the API and the freshly built SPA — no second process is needed.
 
 ## Code Style
 
