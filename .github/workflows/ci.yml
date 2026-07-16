@@ -78,3 +78,26 @@ jobs:
 
       - name: Run scene / match unit tests
         run: pytest tests/test_scenes.py tests/test_match.py tests/test_optional_deps.py -v
+
+  webui:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install frontend dependencies
+        working-directory: webui
+        run: npm install
+
+      - name: Type-check and build frontend
+        working-directory: webui
+        run: npm run build
+
+      - name: Verify build output
+        run: |
+          test -f src/movie_narrator/web_api/static/index.html
+          test -f src/movie_narrator/web_api/static/assets/index.js
+          echo "Frontend build verified"

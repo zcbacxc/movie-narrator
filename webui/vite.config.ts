@@ -7,6 +7,12 @@ export default defineConfig({
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
   },
+  build: {
+    // Output to package static directory so FastAPI serves it in production
+    // and pip install includes it as package data.
+    outDir: path.resolve(__dirname, "../src/movie_narrator/web_api/static"),
+    emptyOutDir: true,
+  },
   server: {
     proxy: {
       "/api": "http://127.0.0.1:8760",

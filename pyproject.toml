@@ -65,3 +65,6 @@ mn = "movie_narrator.cli:app"
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["movie_narrator*"]
+
+[tool.setuptools.package-data]
+"movie_narrator.web_api" = ["static/**"]

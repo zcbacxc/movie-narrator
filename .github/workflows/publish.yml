@@ -35,6 +35,21 @@ jobs:
         with:
           python-version: "3.11"
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build frontend
+        working-directory: webui
+        run: |
+          npm install
+          npm run build
+
+      - name: Verify frontend build output
+        run: |
+          test -f src/movie_narrator/web_api/static/index.html
+          echo "Frontend built successfully"
+
       - name: Install build tools
         run: pip install build twine
 
