@@ -26,6 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **subtitle.py**: SRT files now written with UTF-8 BOM (`utf-8-sig`) — prevents CJK mojibake on older players that default to system ANSI.
 - **resolve.py**: Added `elif` + comments to make `--video` vs `--library-dir` fallthrough explicit.
 
+### Fixed (QA audit — cache correctness + test coverage)
+- **match.py**: Transcript cache key now includes `model_name` and `language` (was file-hash only; switching model/language silently reused wrong transcript).
+- **align.py**: Empty WhisperX segments now produces `inline_warn` instead of silently returning success with no alignment done.
+- **script.py**: Unified CI detection via `is_ci()` from `tts/base.py` (was duplicating `os.environ.get("CI")` logic).
+- Added 10 new tests covering: score < min_score heuristic fallback, cache write/hit/corrupt recovery, cache key model+language isolation, align midpoint distance, align unequal segment counts, align empty segments warning, render VideoFileClip failure inline_warn, CI mock fallback path, CI mock not used in production.
+
 ## [0.4.8] - 2026-07-16
 
 ### Fixed
