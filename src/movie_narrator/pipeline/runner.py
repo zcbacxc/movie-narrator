@@ -50,6 +50,12 @@ STATUS_FIELD_FOR_STEP: Dict[str, str] = {
     "translate_subtitles": "translate",
 }
 
+# Safety: every soft step must have a status field mapping.
+# A typo in either dict would silently break status tracking.
+assert SOFT_STATUS_STEPS == set(STATUS_FIELD_FOR_STEP), (
+    "SOFT_STATUS_STEPS and STATUS_FIELD_FOR_STEP keys must match"
+)
+
 # Short alias mapping for workflow_steps keys (spec §9 back-compat).
 # Allows users to write `{"translate": False}` in addition to the
 # function-name key `{"translate_subtitles": False}`.

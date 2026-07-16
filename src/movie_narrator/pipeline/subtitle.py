@@ -20,7 +20,7 @@ def _write_srt(path: Path, cues: list[tuple[int, str, str, str]]) -> None:
     File is opened with `newline=""` so Python does not translate the
     LF bytes we wrote on Windows.
     """
-    with open(path, "w", encoding="utf-8", newline="") as f:
+    with open(path, "w", encoding="utf-8-sig", newline="") as f:
         for idx, start, end, body in cues:
             f.write(f"{idx}\n")
             f.write(f"{start} --> {end}\n")

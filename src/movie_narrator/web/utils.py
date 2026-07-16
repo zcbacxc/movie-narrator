@@ -8,27 +8,11 @@ import tempfile
 from pathlib import Path
 from typing import List, Optional
 
+from ..utils.sanitize import sanitize_filename
 from ..models import Context
 
 # Temp dirs created by save_upload — tracked for cleanup
 _tempdirs: List[Path] = []
-
-_RESERVED_NAMES = {
-    "CON", "PRN", "AUX", "NUL",
-    *(f"COM{i}" for i in range(1, 10)),
-    *(f"LPT{i}" for i in range(1, 10)),
-}
-
-
-def sanitize_filename(name: str) -> str:
-    """Make a string safe for use as a directory name."""
-    name = re.sub(r'[<>:"/\\|?*]', "_", name)
-    name = name.strip().rstrip(".")
-    if not name:
-        name = "movie"
-    if name.upper() in _RESERVED_NAMES:
-        name = f"_{name}"
-    return name
 
 
 def save_upload(gradio_file) -> Optional[str]:
