@@ -3,8 +3,8 @@ from ..models import Context, ScriptSegment
 from ..utils.prompts import SCRIPT_PROMPT
 from ..utils.llm import get_llm_client
 from ..utils.json_parser import extract_json
+from ..tts.base import is_ci
 from time import sleep
-import os
 
 # CI-only fallback: used when LLM is unreachable in CI environment
 # to allow full pipeline testing. Never used for real users.
@@ -59,7 +59,7 @@ def generate_script(ctx: Context) -> Context:
                 # full pipeline can be exercised without an LLM.
                 # In production: hard fail — user must know the script
                 # is not real, no silent fake content.
-                if os.environ.get("CI"):
+                if is_ci():
                     ctx.services.console.inline_warn(
                         f"LLM unreachable (CI mode): using mock script. {e}"
                     )

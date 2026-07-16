@@ -16,12 +16,27 @@ logger = logging.getLogger(__name__)
 
 
 def _video_audio_hash(video_path: str) -> str:
-    """Stable hash of the video file for cache key."""
+    """Stable hash of the video file for cache key.
+
+    Reads the full file to compute SHA256. Callers should check if a
+    cache file exists *before* calling this when possible, to avoid
+    hashing large files unnecessarily.
+    """
     h = hashlib.sha256()
     with open(video_path, "rb") as f:
         for chunk in iter(lambda: f.read(8192), b""):
             h.update(chunk)
     return h.hexdigest()[:16]
+
+
+def _cache_key(video_path: str, model_name: str, language: str) -> str:
+    """Build a cache key that includes model and language.
+
+    Without model/language in the key, switching from small/zh to
+    medium/en would silently reuse the wrong transcript.
+    """
+    file_hash = _video_audio_hash(video_path)
+    return f"transcript_{file_hash}_{model_name}_{language}.json"
 
 
 def _transcribe_video_audio(
@@ -35,10 +50,9 @@ def _transcribe_video_audio(
 
     Returns a list of ``{"start", "end", "text"}`` dicts, or ``None``
     when WhisperX is unavailable or transcription fails.
-    Results are cached as ``video_transcript.json`` keyed by file hash.
+    Results are cached per video file hash + model + language.
     """
-    cache_key = _video_audio_hash(video_path)
-    cache_path = output_dir / f"transcript_{cache_key}.json"
+    cache_path = output_dir / _cache_key(video_path, model_name, language)
 
     # Cache hit
     if cache_path.exists():

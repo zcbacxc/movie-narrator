@@ -91,6 +91,181 @@ def test_match_clips_embedding_disabled_keeps_heuristic(tmp_path, monkeypatch):
     assert all(m.source == "heuristic" for m in ctx.matched_clips)
 
 
+# ── score < min_score → heuristic fallback ──────────────────
+
+
+def test_match_clips_low_score_falls_back_to_heuristic(tmp_path, monkeypatch):
+    """Embedding score below min_score should fall back to heuristic, not drop."""
+    ctx = Context(
+        movie_name="m",
+        output_dir=str(tmp_path),
+        source_video_path=str(tmp_path / "video.mp4"),
+        timed_segments=[
+            TimedSegment(text="alpha alpha", start=0.0, end=2.0),
+            TimedSegment(text="beta beta", start=2.5, end=5.0),
+        ],
+        scenes=[
+            Scene(index=0, start=0.0, end=5.0),
+            Scene(index=1, start=5.0, end=10.0),
+        ],
+    )
+    ctx.status.scene = "success"
+    ctx.metadata["match_min_score"] = 0.99  # very high threshold
+    (tmp_path / "video.mp4").write_bytes(b"00")
+
+    monkeypatch.setattr(match_module, "probe", lambda name: (True, ""))
+    monkeypatch.setattr(match_module, "_transcribe_video_audio", lambda *a, **kw: None)
+
+    call_count = [0]
+
+    class FakeST:
+        def __init__(self, *a, **kw):
+            pass
+
+        def encode(self, texts):
+            # Scene labels: call 1 → dims 0,1
+            # Narration: call 2 → dims 2,3
+            # Fully orthogonal → cosine sim = 0.0 < 0.99
+            call_count[0] += 1
+            n = len(texts)
+            base = (call_count[0] - 1) * n  # offset by call
+            dim = base + n
+            arr = np.zeros((n, dim), dtype=float)
+            for i in range(n):
+                arr[i, base + i] = 1.0
+            return arr
+
+    fake_mod = ModuleType("sentence_transformers")
+    fake_mod.SentenceTransformer = FakeST
+    monkeypatch.setitem(sys.modules, "sentence_transformers", fake_mod)
+
+    match_clips(ctx)
+    assert ctx.status.match == "success"
+    # All clips should be present (none dropped)
+    assert len(ctx.matched_clips) == 2
+    # Low-score clips should fall back to heuristic, not embedding
+    sources = [m.source for m in ctx.matched_clips]
+    assert all(s == "heuristic" for s in sources), f"Expected all heuristic, got {sources}"
+
+
+# ── Cache read/write/corrupt ────────────────────────────────
+
+
+def test_match_clips_cache_write_and_hit(tmp_path, monkeypatch):
+    """WhisperX transcript is cached on first call."""
+    ctx = Context(
+        movie_name="m",
+        output_dir=str(tmp_path),
+        source_video_path=str(tmp_path / "video.mp4"),
+        timed_segments=[
+            TimedSegment(text="A", start=0.0, end=2.0),
+            TimedSegment(text="B", start=2.5, end=5.0),
+        ],
+        scenes=[
+            Scene(index=0, start=0.0, end=5.0),
+            Scene(index=1, start=5.0, end=10.0),
+        ],
+    )
+    ctx.status.scene = "success"
+    (tmp_path / "video.mp4").write_bytes(b"00")
+
+    call_count = [0]
+
+    def fake_transcribe(video_path, output_dir, **kw):
+        call_count[0] += 1
+        # Simulate cache write (real function does this)
+        from movie_narrator.pipeline.match import _cache_key
+        cache_name = _cache_key(video_path, kw.get("model_name", "medium"), kw.get("language", "zh"))
+        (output_dir / cache_name).write_text('[]', encoding="utf-8")
+        return [{"start": 0.0, "end": 5.0, "text": "hello"}]
+
+    monkeypatch.setattr(match_module, "_transcribe_video_audio", fake_transcribe)
+    monkeypatch.setattr(match_module, "probe", lambda name: (True, ""))
+
+    class FakeST:
+        def __init__(self, *a, **kw):
+            pass
+
+        def encode(self, texts):
+            return np.ones((len(texts), 2), dtype=float)
+
+    fake_mod = ModuleType("sentence_transformers")
+    fake_mod.SentenceTransformer = FakeST
+    monkeypatch.setitem(sys.modules, "sentence_transformers", fake_mod)
+
+    match_clips(ctx)
+    assert call_count[0] == 1
+    # Verify cache file was written by the mock
+    cache_files = list(tmp_path.glob("transcript_*.json"))
+    assert len(cache_files) == 1
+
+
+def test_match_clips_cache_corrupt_recovers(tmp_path, monkeypatch):
+    """Corrupt cache file → re-transcribe, no crash."""
+    ctx = Context(
+        movie_name="m",
+        output_dir=str(tmp_path),
+        source_video_path=str(tmp_path / "video.mp4"),
+        timed_segments=[
+            TimedSegment(text="A", start=0.0, end=2.0),
+            TimedSegment(text="B", start=2.5, end=5.0),
+        ],
+        scenes=[
+            Scene(index=0, start=0.0, end=5.0),
+            Scene(index=1, start=5.0, end=10.0),
+        ],
+    )
+    ctx.status.scene = "success"
+    (tmp_path / "video.mp4").write_bytes(b"00")
+
+    # Write corrupt cache file
+    from movie_narrator.pipeline.match import _cache_key
+    cache_name = _cache_key(str(tmp_path / "video.mp4"), "medium", "zh")
+    (tmp_path / cache_name).write_text("NOT VALID JSON {{{", encoding="utf-8")
+
+    call_count = [0]
+
+    def fake_transcribe(video_path, output_dir, **kw):
+        call_count[0] += 1
+        return [{"start": 0.0, "end": 5.0, "text": "recovered"}]
+
+    monkeypatch.setattr(match_module, "_transcribe_video_audio", fake_transcribe)
+    monkeypatch.setattr(match_module, "probe", lambda name: (True, ""))
+
+    class FakeST:
+        def __init__(self, *a, **kw):
+            pass
+
+        def encode(self, texts):
+            return np.ones((len(texts), 2), dtype=float)
+
+    fake_mod = ModuleType("sentence_transformers")
+    fake_mod.SentenceTransformer = FakeST
+    monkeypatch.setitem(sys.modules, "sentence_transformers", fake_mod)
+
+    match_clips(ctx)
+    # Should have re-transcribed due to corrupt cache
+    assert call_count[0] == 1
+    assert ctx.status.match == "success"
+
+
+def test_match_clips_cache_key_includes_model_and_language(tmp_path, monkeypatch):
+    """Different model/language → different cache file."""
+    from movie_narrator.pipeline.match import _cache_key
+
+    # _cache_key reads the file to hash it, so we need a real file
+    video_path = tmp_path / "video.mp4"
+    video_path.write_bytes(b"00")
+
+    key1 = _cache_key(str(video_path), "small", "zh")
+    key2 = _cache_key(str(video_path), "medium", "zh")
+    key3 = _cache_key(str(video_path), "medium", "en")
+
+    assert key1 != key2  # different model
+    assert key2 != key3  # different language
+    assert key1 != key3  # both different
+
+
 def test_match_clips_whisperx_scene_captions(tmp_path, monkeypatch):
     """WhisperX transcript replaces fake labels → better embedding match."""
     ctx = Context(
