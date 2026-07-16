@@ -2,20 +2,20 @@
 
 ## Pipeline Overview
 
-14-step sequential pipeline orchestrated by `pipeline/runner.py`. Before any step executes, `preflight.py` probes LLM connectivity and TTS provider configuration — failing fast with `PreflightError` instead of silently degrading to mock content.
+15-step sequential pipeline orchestrated by `pipeline/runner.py`. Before any step executes, `preflight.py` probes LLM connectivity and TTS provider configuration — failing fast with `PreflightError` instead of silently degrading to mock content.
 
 ```text
 resolve_video → prepare_assets → research_plot → generate_script →
 export_script_md → generate_voice → align_audio → detect_scenes →
 match_clips → mix_bgm → translate_subtitles → generate_subtitle →
-render_video → export_clips
+render_video → validate_deliverable → export_clips
 ```
 
 ### Step Categories
 
 | Category | Steps | Status |
 |----------|-------|--------|
-| **Hard** (always run) | resolve_video, prepare_assets, generate_script, export_script_md, generate_voice, render_video | Must succeed |
+| **Hard** (always run) | resolve_video, prepare_assets, generate_script, export_script_md, generate_voice, render_video, validate_deliverable | Must succeed |
 | **Soft** (skip on missing deps) | research_plot, align_audio, detect_scenes, match_clips, mix_bgm, translate_subtitles, export_clips | Skip gracefully / soft-degrade; `--strict` to abort |
 
 ### Pipeline Status Model
@@ -154,8 +154,9 @@ pipeline probes duration via AudioSegment.from_mp3
 11. **mix_bgm** — (optional) mixes background music under narration → `final_audio.mp3`
 12. **translate_subtitles** — (optional, v0.3) when `subtitle_lang` is set, calls the configured translation provider (default `llm`) per chunk; failure policy is retry-then-soft-degrade (fill with originals, surface a `metadata.warnings` entry). CI passthrough (`CI=1`) copies originals without network. The step produces `ctx.translated_texts` only — no files written. `subtitle_path` invariant is preserved.
 13. **generate_subtitle** — pure formatter. Always writes `subtitle.srt` from `timed_segments`. When `translated_texts` is non-empty and length-aligned, additionally writes `subtitle.<lang>.srt` (translated) and `subtitle.bilingual.srt` (cue body `f"{src}\n{dst}"` with explicit LF). Bundles paths into `ctx.subtitle_paths: SubtitlePaths` and resolves `ctx.render_subtitle_path` per `subtitle_mode` (original | translated | bilingual).
-14. **render_video** — MoviePy composites: solid background + text overlays (or real footage for matched segments) + audio → `final.mp4` + `metadata.json`. Overlay text comes from `ctx.render_subtitle_path`; multi-line cues auto-scale the font (`scale = 1.0 - 0.1 * (line_count - 1)`, clamped to `[0.6, 1.0]`).
-15. **export_clips** — (optional) extracts per-segment clips to `clips/` directory
+14. **render_video** — MoviePy composites: solid background + text overlays (or real footage for matched segments) + audio → `final.mp4` + `metadata.json`. Source footage is fitted to the canvas (cover by default; contain letterboxes). Subtitle overlays are always drawn (bottom position by default) including over footage segments. Encode uses CRF 18 / preset `slow` / `+faststart` by default. Overlay text comes from `ctx.render_subtitle_path`; multi-line cues auto-scale the font (`scale = 1.0 - 0.1 * (line_count - 1)`, clamped to `[0.6, 1.0]`).
+15. **validate_deliverable** — (hard) probes `final.mp4` with ffprobe (falls back to `ffmpeg -i` when ffprobe is absent). Fails the pipeline on missing video/audio stream, silent audio (mean volume below `qa_max_silence_db`), duration outside `[qa_min_duration_ratio, qa_max_duration_ratio]`, or tiny output file. CI skips by default; local runs enable QA unless `qa_enabled: false`. Stores `ctx.metadata["qa_report"]`.
+16. **export_clips** — (optional) extracts per-segment clips to `clips/` directory
 
 ## Output Structure
 

@@ -122,6 +122,18 @@ The Web UI is rebuilt from a Gradio single-file app into a decoupled **FastAPI +
 - [x] Migrated tests: `test_web_form.py` → `web_api.form`, `test_pipeline_cancel.py` → `TaskController`
 - [x] Deleted `test_web_console.py`, `test_web_controller.py` (covered by `test_web_api.py`)
 
+### v0.4.13 Core Engine Production Quality
+
+- [x] Post-render deliverable QA step (`validate_deliverable`) — hard step after `render_video`; ffprobe + ffmpeg fallback; CI skips by default, local runs enable
+- [x] Audio normalize + BGM ducking (`utils/audio_mix.py`) — windowed envelope with attack/release smoothing; skip path normalizes narration
+- [x] Video cover/contain layout (`utils/video_layout.py`) — source footage fitted to canvas; render defaults to `cover`
+- [x] Bottom-safe subtitle layout — `text_image.create_text_image` with CJK wrapping + ellipsis; render always draws overlays (bottom by default)
+- [x] Deliverable QA probes (`utils/deliverable_qa.py`) — structured `QAReport` / `QAIssue`
+- [x] Match defaults tightened — clamp 0.85–1.25, merge 2.0s, drop tiny scenes <0.4s
+- [x] Render encode quality — CRF 18, preset `slow`, `+faststart`
+- [x] 15 new `JobParams` fields plumbed (render fit/encode/subtitle, BGM duck/normalize, QA, match drop)
+- [x] Pipeline 14 → 15 steps; frontend `PIPELINE_STEPS` / `STEP_LABELS` synced
+
 ### v0.4 Environment variables
 
 - `MN_TTS_PROVIDER` — `edge` (default), `openai`, or `mimo`
@@ -142,15 +154,16 @@ Strict separation: `.env` contains ONLY LLM + TTS infrastructure (21 fields); `j
 - LLM (11): `MN_LLM_BASE_URL`, `MN_LLM_API_KEY`, `MN_LLM_MODEL`, `MN_LLM_TIMEOUT`, `MN_SCRIPT_TEMPERATURE`, `MN_SCRIPT_MAX_TOKENS`, `MN_SCRIPT_RETRIES`, `MN_SCRIPT_RETRY_DELAY`, `MN_RESEARCH_TEMPERATURE`, `MN_RESEARCH_MAX_TOKENS`, `MN_TRANSLATE_MAX_TOKENS`
 - TTS (10): `MN_DEFAULT_VOICE`, `MN_TTS_PROVIDER`, `MN_TTS_CACHE_MAX_MB`, `MN_OPENAI_TTS_*`(3), `MN_MIMO_*`(4)
 
-**`job.yaml` (params) — 32 keys:** See [`job.example.yaml`](../examples/job.example.yaml)
+**`job.yaml` (params) — 47 keys:** See [`job.example.yaml`](../examples/job.example.yaml)
 - Scene: `scene_threshold`, `scene_frame_skip`
-- Match: `match_min_score`, `match_speed_clamp_min/max`, `scene_merge_min_duration`, `embedding_model_name`
-- BGM: `bgm_gain_db`
+- Match: `match_min_score`, `match_speed_clamp_min/max`, `scene_merge_min_duration`, `match_drop_scene_min_duration`, `embedding_model_name`
+- BGM: `bgm_gain_db`, `bgm_duck_db`, `bgm_normalize`, `audio_target_dbfs`
 - TTS pacing: `tts_pause_ms`, `tts_max_concurrent`, `tts_audio_format`, `tts_audio_bitrate`
 - Translate: `translate_source_lang`, `translate_provider`, `translate_retries`, `translate_chunk_chars`, `translate_chunk_size`
 - Research: `research_provider`
 - WhisperX: `whisperx_device/model/language`
-- Render: `render_fps/video_codec/audio_codec/threads/bg_color/font_size/output_name/ffmpeg_timeout`
+- Render: `render_fps/video_codec/audio_codec/threads/bg_color/font_size/output_name/ffmpeg_timeout`, `render_fit_mode/crf/preset/faststart`, `render_subtitle_position/max_width_ratio/bottom_margin_ratio`
+- QA: `qa_enabled`, `qa_max_silence_db`, `qa_min_duration_ratio`, `qa_max_duration_ratio`
 - Async: `async_timeout`, `async_max_workers`
 - Video: `video_sizes`
 

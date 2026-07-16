@@ -34,7 +34,7 @@ This runs `tsc` (TypeScript type check) followed by the Vite production build. A
 ```
 movie-narrator/
 ├── src/movie_narrator/
-│   ├── pipeline/        # 14-step runner, preflight, tts/render/match/... step modules
+│   ├── pipeline/        # 15-step runner, preflight, tts/render/match/... step modules
 │   ├── tts/             # TTS provider abstraction (edge, openai, mimo, factory, cache)
 │   ├── web_api/         # FastAPI + WebSocket backend (default WebUI, port 8760)
 │   ├── web/             # Legacy Gradio UI (retained for reference, not default)

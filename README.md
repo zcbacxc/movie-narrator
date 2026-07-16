@@ -328,13 +328,13 @@ output/
 
 ## Pipeline
 
-14-step sequential pipeline (see [Architecture](docs/ARCHITECTURE.md)):
+15-step sequential pipeline (see [Architecture](docs/ARCHITECTURE.md)):
 
 ```text
 resolve_video → prepare_assets → research_plot → generate_script →
 export_script_md → generate_voice → align_audio → detect_scenes →
 match_clips → mix_bgm → translate_subtitles → generate_subtitle →
-render_video → export_clips
+render_video → validate_deliverable → export_clips
 ```
 
 **Soft steps** (research, align, scene detect, scene match, BGM, translate, clip export) gracefully skip or soft-degrade when optional dependencies are missing or upstream data is unavailable. Use `--strict` to abort instead.
@@ -351,7 +351,7 @@ movie-narrator/
 │   ├── config.py            # Pydantic settings
 │   ├── models.py            # Data models (Context, Status, etc.)
 │   ├── pipeline/
-│   │   ├── runner.py        # 14-step pipeline orchestrator
+│   │   ├── runner.py        # 15-step pipeline orchestrator
 │   │   ├── resolve.py       # Source video resolution
 │   │   ├── assets.py        # Asset validation
 │   │   ├── research.py      # LLM movie research
@@ -365,6 +365,7 @@ movie-narrator/
 │   │   ├── translate.py     # Multi-language subtitle translation (LLM)
 │   │   ├── subtitle.py      # SRT generation (single / translated / bilingual)
 │   │   ├── render.py        # MoviePy 2.x video rendering
+│   │   ├── qa.py            # Post-render deliverable QA (hard step)
 │   │   ├── export_clips.py  # Per-segment clip export (direct ffmpeg)
 │   │   ├── preflight.py     # Pre-run LLM/TTS validation (fail-fast)
 │   │   └── errors.py        # PipelineStrictError, PipelineCancelled, RunController, StepAction
@@ -394,7 +395,10 @@ movie-narrator/
 │   │   ├── metadata_export.py # metadata.json builder
 │   │   ├── optional_deps.py # Optional dependency probing
 │   │   ├── prompts.py       # Prompt templates
-│   │   └── retention.py     # Log file retention
+│   │   ├── retention.py     # Log file retention
+│   │   ├── audio_mix.py     # Audio normalize + BGM ducking (pydub)
+│   │   ├── deliverable_qa.py # ffprobe/ffmpeg media probing + QA rules
+│   │   └── video_layout.py  # Cover/contain crop+resize geometry
 │   └── web_api/                 # FastAPI + WebSocket backend (default Web UI; requires [web] extra)
 │       ├── __init__.py          # lazy launch_web_api export
 │       ├── __main__.py          # python -m movie_narrator.web_api
@@ -437,7 +441,12 @@ movie-narrator/
 │   ├── test_web_console.py
 │   ├── test_web_controller.py
 │   ├── test_web_form.py
-│   └── test_workflow_steps.py
+│   ├── test_workflow_steps.py
+│   ├── test_audio_mix.py
+│   ├── test_deliverable_qa.py
+│   ├── test_qa.py
+│   ├── test_text_image.py
+│   └── test_video_layout.py
 ├── docs/
 ├── assets/
 └── .github/workflows/
