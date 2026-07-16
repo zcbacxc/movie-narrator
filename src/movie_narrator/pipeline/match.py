@@ -1,15 +1,111 @@
 import json
 import logging
+import hashlib
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
-from ..config import get_settings
 from ..models import Context, MatchedClip, Scene, StepResult, TimedSegment
 from ..utils.optional_deps import probe
 
-_EMBEDDING_MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"  # default, overridden by Settings.embedding_model_name
+_EMBEDDING_MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"  # default, overridden by ctx.metadata
 
 logger = logging.getLogger(__name__)
+
+
+# ── Scene captioning via WhisperX ──────────────────────────
+
+
+def _video_audio_hash(video_path: str) -> str:
+    """Stable hash of the video file for cache key."""
+    h = hashlib.sha256()
+    with open(video_path, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()[:16]
+
+
+def _transcribe_video_audio(
+    video_path: str,
+    output_dir: Path,
+    device: str = "cpu",
+    model_name: str = "medium",
+    language: str = "zh",
+) -> Optional[List[dict]]:
+    """Transcribe the video's audio track with WhisperX.
+
+    Returns a list of ``{"start", "end", "text"}`` dicts, or ``None``
+    when WhisperX is unavailable or transcription fails.
+    Results are cached as ``video_transcript.json`` keyed by file hash.
+    """
+    cache_key = _video_audio_hash(video_path)
+    cache_path = output_dir / f"transcript_{cache_key}.json"
+
+    # Cache hit
+    if cache_path.exists():
+        try:
+            return json.loads(cache_path.read_text(encoding="utf-8"))
+        except Exception:
+            pass  # corrupt cache, re-transcribe
+
+    try:
+        import whisperx
+
+        audio = whisperx.load_audio(video_path)
+        model = whisperx.load_model(model_name, device=device)
+        result = model.transcribe(audio, language=language)
+
+        segments = []
+        if result and "segments" in result:
+            for wseg in result["segments"]:
+                start = wseg.get("start", 0.0)
+                end = wseg.get("end", 0.0)
+                text = wseg.get("text", "").strip()
+                if text:
+                    segments.append({"start": start, "end": end, "text": text})
+
+        if segments:
+            cache_path.write_text(
+                json.dumps(segments, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        return segments if segments else None
+    except Exception as e:
+        logger.warning("WhisperX video transcription failed: %s", e)
+        return None
+
+
+def _build_scene_captions(
+    scenes: List[Scene],
+    transcript: Optional[List[dict]],
+) -> List[str]:
+    """Build semantic scene labels from WhisperX transcript.
+
+    Each scene gets the concatenated text of all transcript segments
+    that overlap with the scene's time range. Falls back to a
+    deterministic placeholder when no transcript is available or a
+    scene has no overlapping speech.
+    """
+    if not transcript:
+        return [_build_scene_label(s.index, s.start, s.end) for s in scenes]
+
+    labels: List[str] = []
+    for scene in scenes:
+        # Collect transcript segments overlapping this scene
+        overlapping_texts = []
+        for seg in transcript:
+            # Overlap test: seg.start < scene.end AND seg.end > scene.start
+            if seg["start"] < scene.end and seg["end"] > scene.start:
+                overlapping_texts.append(seg["text"])
+
+        if overlapping_texts:
+            # Join with space, truncate to keep embedding quality high
+            caption = " ".join(overlapping_texts)[:200]
+            labels.append(caption)
+        else:
+            # No speech in this scene — use placeholder
+            labels.append(_build_scene_label(scene.index, scene.start, scene.end))
+
+    return labels
 
 
 def _build_scene_label(scene_index: int, start: float, end: float) -> str:
@@ -273,10 +369,33 @@ def _match_clips_impl(
     st_ok, st_hint = probe("sentence_transformers")
     if st_ok and len(scenes) > 1:
         try:
-            scene_labels = [
-                _build_scene_label(s.index, s.start, s.end) for s in scenes
-            ]
-            emb_model = ctx.metadata.get("embedding_model_name", "paraphrase-multilingual-MiniLM-L12-v2")
+            # Try WhisperX scene captioning first
+            transcript = None
+            wx_ok, _ = probe("whisperx")
+            if wx_ok and ctx.source_video_path:
+                wx_device = ctx.metadata.get("whisperx_device", "cpu")
+                wx_model = ctx.metadata.get("whisperx_model", "medium")
+                wx_lang = ctx.metadata.get("whisperx_language", "zh")
+                ctx.services.console.debug(
+                    f"  WhisperX scene captioning: device={wx_device} model={wx_model} lang={wx_lang}"
+                )
+                transcript = _transcribe_video_audio(
+                    ctx.source_video_path,
+                    output_dir,
+                    device=wx_device,
+                    model_name=wx_model,
+                    language=wx_lang,
+                )
+                if transcript:
+                    ctx.services.console.debug(
+                        f"  scene captions: {len(transcript)} transcript segments "
+                        f"-> {len(scenes)} scenes"
+                    )
+                else:
+                    ctx.services.console.debug("  WhisperX returned no transcript; using fallback labels")
+
+            scene_labels = _build_scene_captions(scenes, transcript)
+            emb_model = ctx.metadata.get("embedding_model_name", _EMBEDDING_MODEL_NAME)
             scene_vecs = _embed_texts(scene_labels, emb_model)
             narration_vecs = _embed_texts([seg.text for seg in ctx.timed_segments], emb_model)
             for i, seg in enumerate(ctx.timed_segments):
