@@ -201,7 +201,7 @@ mn web --host 0.0.0.0 --port 8080
 
 # 生产模式：先构建前端，再由 mn web 提供服务
 cd webui && npm install && npm run build
-mn web  # 提供 webui/dist/ + API，地址 http://127.0.0.1:8760
+mn web  # 提供 web_api/static/ + API，地址 http://127.0.0.1:8760
 
 # 开发模式：两个终端
 mn web --reload                    # FastAPI 运行在 :8760

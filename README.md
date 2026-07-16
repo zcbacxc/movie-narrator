@@ -203,7 +203,7 @@ mn web --host 0.0.0.0 --port 8080
 
 # Production: build frontend, then mn web serves it
 cd webui && npm install && npm run build
-mn web  # serves webui/dist/ + API on http://127.0.0.1:8760
+mn web  # serves web_api/static/ + API on http://127.0.0.1:8760
 
 # Development: two terminals
 mn web --reload                    # FastAPI on :8760

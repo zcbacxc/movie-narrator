@@ -64,7 +64,7 @@ Soft pipeline steps (research, align, scene detect, scene match, BGM, clip expor
 - Form fields mirror CLI options; advanced params follow "empty = no override" rule (Settings defaults apply)
 - Uploads go to `mn_web_*` temp dirs, never pollute `output/`
 
-> **Note**: This Gradio-based Web UI is **legacy** and has been superseded by the FastAPI + React refactor shipped in **v0.4.10** (see *v0.4.10 WebUI Refactor* below). The `web/` package remains in-tree for reference but `mn web` now launches the new stack.
+> **Note**: This Gradio-based Web UI is **legacy** and was superseded by the FastAPI + React refactor shipped in **v0.4.10** (see *v0.4.10 WebUI Refactor* below). The `web/` package was removed from the tree in **v0.4.12**.
 
 ## v0.4.x — TTS Abstraction & Infrastructure
 
@@ -94,7 +94,7 @@ Soft pipeline steps (research, align, scene detect, scene match, BGM, clip expor
 
 ### v0.4.10 WebUI Refactor
 
-The Web UI is rebuilt from a Gradio single-file app into a decoupled **FastAPI + React SPA** stack. The legacy `web/` (Gradio) package stays in-tree for reference but is no longer the default.
+The Web UI is rebuilt from a Gradio single-file app into a decoupled **FastAPI + React SPA** stack. The legacy `web/` (Gradio) package was removed from the tree in v0.4.12.
 
 - [x] **FastAPI backend** — new `src/movie_narrator/web_api/` package (11 modules: `server.py`, `routes.py`, `ws.py`, `tasks.py`, `console.py`, `controller.py`, `form.py`, `models.py`, `utils.py`, `__init__.py`)
 - [x] **React 18 SPA** — new `webui/` project (Vite + TypeScript); FastAPI serves the built bundle as static assets, so `mn web` is a single process
