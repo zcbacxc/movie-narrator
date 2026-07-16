@@ -1,6 +1,6 @@
-"""Tests for the generate_script pipeline step (REC-1).
+"""Tests for the generate_script pipeline step.
 
-Covers: LLM success path, retry-then-mock fallback, research context
+Covers: LLM success path, retry-then-hard-fail, research context
 injection, empty-response handling, and script_source metadata.
 """
 
@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from movie_narrator.models import Context, ResearchInfo, Services, ScriptSegment
-from movie_narrator.pipeline.script import MOCK_SEGMENTS, generate_script
+from movie_narrator.pipeline.script import generate_script
 
 
 def _make_ctx(tmp_path, **kw):
@@ -63,24 +63,19 @@ def test_generate_script_llm_success(tmp_path):
     assert result.metadata["script_source"] == "llm"
 
 
-# ── 2. LLM failure → mock fallback ──────────────────────────
+# ── 2. LLM failure → hard fail ─────────────────────────────
 
 
-def test_generate_script_falls_back_to_mock_on_failure(tmp_path):
-    """3 consecutive LLM failures → MOCK_SEGMENTS, script_source = 'mock'."""
+def test_generate_script_hard_fails_on_all_retries(tmp_path, monkeypatch):
+    """3 consecutive LLM failures → RuntimeError (no fake mock fallback)."""
+    monkeypatch.delenv("CI", raising=False)  # ensure not in CI mode
     ctx = _make_ctx(tmp_path)
     mock_cm = _mock_llm_cm(side_effect=ConnectionError("unreachable"))
 
     with patch("movie_narrator.pipeline.script.get_llm_client", return_value=mock_cm):
         with patch("movie_narrator.pipeline.script.sleep", return_value=None):
-            result = generate_script(ctx)
-
-    assert len(result.segments) == len(MOCK_SEGMENTS)
-    assert result.segments[0].text == MOCK_SEGMENTS[0].format(movie_name=ctx.movie_name)
-    assert result.metadata["script_source"] == "mock"
-    assert result.metadata.get("script_degraded") is True
-    # Console should have warned about the fallback
-    result.services.console.inline_warn.assert_called_once()
+            with pytest.raises(RuntimeError, match="LLM script generation failed"):
+                generate_script(ctx)
 
 
 # ── 3. Research context injection ───────────────────────────
@@ -123,13 +118,13 @@ def test_generate_script_without_research_context(tmp_path):
         assert "Research context" not in prompt_content
 
 
-# ── 4. Empty segments triggers retry → mock ─────────────────
+# ── 4. Empty segments triggers retry → hard fail ───────────
 
 
-def test_generate_script_empty_segments_triggers_retry(tmp_path):
-    """LLM returns empty segments → ValueError → retry → eventually mock."""
+def test_generate_script_empty_segments_triggers_retry(tmp_path, monkeypatch):
+    """LLM returns empty segments → ValueError → retry → eventually hard fail."""
+    monkeypatch.delenv("CI", raising=False)  # ensure not in CI mode
     ctx = _make_ctx(tmp_path)
-    # First two attempts: empty segments; third: also fails
     empty_resp = _mock_llm_response('{"segments": []}')
     mock_cm = _mock_llm_cm(side_effect=[
         empty_resp,
@@ -139,11 +134,8 @@ def test_generate_script_empty_segments_triggers_retry(tmp_path):
 
     with patch("movie_narrator.pipeline.script.get_llm_client", return_value=mock_cm):
         with patch("movie_narrator.pipeline.script.sleep", return_value=None):
-            result = generate_script(ctx)
-
-    # After 3 failed attempts (all returning empty), should fall back to mock
-    assert result.metadata["script_source"] == "mock"
-    assert len(result.segments) == len(MOCK_SEGMENTS)
+            with pytest.raises(RuntimeError, match="LLM script generation failed"):
+                generate_script(ctx)
 
 
 # ── 5. Retry succeeds on second attempt ─────────────────────
