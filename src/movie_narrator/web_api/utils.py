@@ -9,9 +9,15 @@ from typing import List, Optional
 
 
 def save_upload(upload_file, destination_dir: Path, prefix: str = "") -> str:
-    """Save an uploaded file to destination_dir. Returns the path string."""
+    """Save an uploaded file to destination_dir. Returns the path string.
+
+    Strips any directory components from the filename to prevent
+    path traversal (e.g. ``../../etc/passwd``).
+    """
     destination_dir.mkdir(parents=True, exist_ok=True)
-    filename = f"{prefix}{upload_file.filename}" if prefix else upload_file.filename
+    # Strip directory components — only keep the basename
+    raw_name = Path(upload_file.filename).name if upload_file.filename else "upload"
+    filename = f"{prefix}{raw_name}" if prefix else raw_name
     dest = destination_dir / filename
     with dest.open("wb") as f:
         shutil.copyfileobj(upload_file.file, f)

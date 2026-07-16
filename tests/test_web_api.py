@@ -365,3 +365,66 @@ def test_zip_artifacts(tmp_path):
         assert "b.txt" in names
         assert zf.read("a.txt").decode() == "hello"
         assert zf.read("b.txt").decode() == "world"
+
+
+# ── 7. Utils — path traversal protection ──────────────────
+
+
+def test_save_upload_strips_path_traversal(tmp_path):
+    """save_upload must strip directory components from filename."""
+    from movie_narrator.web_api.utils import save_upload
+    from io import BytesIO
+
+    class FakeUpload:
+        filename = "../../../etc/passwd"
+        file = BytesIO(b"malicious")
+
+    dest_dir = tmp_path / "uploads"
+    result = save_upload(FakeUpload(), dest_dir)
+
+    # File should be in dest_dir, not in /etc/passwd
+    assert str(dest_dir) in result
+    assert ".." not in result
+    assert (dest_dir / "passwd").exists()
+    # Ensure no directory traversal occurred
+    assert not (tmp_path.parent.parent.parent / "etc" / "passwd").exists()
+
+
+def test_save_upload_normal_filename(tmp_path):
+    """save_upload works correctly with a normal filename."""
+    from movie_narrator.web_api.utils import save_upload
+    from io import BytesIO
+
+    class FakeUpload:
+        filename = "video.mp4"
+        file = BytesIO(b"video data")
+
+    dest_dir = tmp_path / "uploads"
+    result = save_upload(FakeUpload(), dest_dir, prefix="prefix_")
+
+    assert (dest_dir / "prefix_video.mp4").exists()
+    assert "prefix_video.mp4" in result
+
+
+# ── 8. TaskInfo — no dead code ─────────────────────────────
+
+
+def test_task_info_no_current_step_field():
+    """TaskInfo should not have a current_step field (dead code removed).
+
+    current_step is now extracted from console.snapshot() in
+    to_status_dict(), so the field is unnecessary.
+    """
+    import inspect
+    from movie_narrator.web_api.tasks import TaskInfo
+
+    src = inspect.getsource(TaskInfo.__init__)
+    assert "current_step" not in src, "TaskInfo.__init__ should not set current_step"
+
+
+def test_task_manager_no_update_step():
+    """TaskManager should not have update_step method (dead code removed)."""
+    from movie_narrator.web_api.tasks import TaskManager
+
+    assert not hasattr(TaskManager, "update_step"), \
+        "TaskManager.update_step was dead code and should be removed"
