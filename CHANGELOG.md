@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.12] - 2026-07-16
+
+### Changed
+- Removed legacy Gradio UI (`src/movie_narrator/web/`, 9 files)
+- Removed `gradio>=4.44,<7` from `[full]` extra
+- Migrated `test_web_form.py` to `web_api.form`
+- Migrated `test_pipeline_cancel.py` from `GradioController` to `TaskController`
+- Deleted `test_web_console.py` and `test_web_controller.py` (covered by `test_web_api.py`)
+
 ## [0.4.11] - 2026-07-16
 
 ### Fixed (WebUI deliverable for pip users)
@@ -249,7 +258,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - workflow_steps 和 params 元数据注入
 - 控制台日志重构设计
 
-[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.10...HEAD
+[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.11...HEAD
+[0.4.12]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.11...v0.4.12
+[0.4.11]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.10...v0.4.11
 [0.4.10]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.9...v0.4.10
 [0.4.9]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.8...v0.4.9
 [0.4.8]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.7...v0.4.8
