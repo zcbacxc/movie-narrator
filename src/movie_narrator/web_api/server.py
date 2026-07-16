@@ -45,8 +45,10 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     # Serve built frontend (production)
-    dist_dir = Path(__file__).parent.parent.parent.parent / "webui" / "dist"
-    if dist_dir.exists():
-        app.mount("/", StaticFiles(directory=str(dist_dir), html=True), name="static")
+    # Vite builds to this directory (see webui/vite.config.ts build.outDir).
+    # When installed via pip, this is included as package data.
+    static_dir = Path(__file__).parent / "static"
+    if static_dir.exists():
+        app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="static")
 
     return app
