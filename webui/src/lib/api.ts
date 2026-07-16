@@ -47,6 +47,10 @@ export function getArtifactUrl(taskId: string): string {
   return `${API_BASE}/api/artifacts/${taskId}`
 }
 
+export function getVideoUrl(taskId: string): string {
+  return `${API_BASE}/api/video/${taskId}`
+}
+
 export function getWsUrl(taskId: string): string {
   const proto = location.protocol === "https:" ? "wss:" : "ws:"
   return `${proto}//${location.host}/ws/task/${taskId}`

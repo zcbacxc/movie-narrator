@@ -11,25 +11,8 @@ import { AdvancedSection } from "@/components/AdvancedSection"
 import { useTask } from "@/hooks/useTask"
 import type { FormSubmitData } from "@/types"
 
-const DEFAULT_FORM: FormSubmitData = {
-  movie: "",
-  style: "热血搞笑",
-  duration: 60,
-  voice: "",
-  format: "16:9",
-  library_dir: "",
-  research: false,
-  no_bgm: false,
-  no_clips: false,
-  strict: false,
-  subtitle_lang: "",
-  subtitle_mode: "original",
-  translate_provider: "",
-}
-
 export function CreatePanel() {
-  const { startTask } = useTask()
-  const [formData, setFormData] = useState<FormSubmitData>(DEFAULT_FORM)
+  const { startTask, formData, setFormData } = useTask()
   const [videoFile, setVideoFile] = useState<File | null>(null)
   const [bgmFile, setBgmFile] = useState<File | null>(null)
   const [submitting, setSubmitting] = useState(false)

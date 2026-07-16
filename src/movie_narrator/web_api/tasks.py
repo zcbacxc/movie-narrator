@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Dict, Optional
 
 from ..utils.sanitize import sanitize_filename
+from ..pipeline.errors import PipelineCancelled
 from .console import WebSocketConsole
 from .controller import TaskController
 from .form import form_to_context_args, validate_form
@@ -43,10 +44,13 @@ class TaskInfo:
 
     def to_status_dict(self) -> dict:
         with self._lock:
+            # Extract current_step from console snapshot (the pipeline
+            # runner updates it via console.step(), not via update_step()).
+            _, _, step = self.console.snapshot()
             return {
                 "task_id": self.task_id,
                 "status": self.status,
-                "current_step": self.current_step,
+                "current_step": step,
                 "error": self.error,
                 "artifacts": self.artifacts,
                 "video_path": self.video_path,
@@ -112,6 +116,9 @@ class TaskManager:
             info.artifacts = collect_artifacts(ctx, output_dir)
             info.video_path = str(ctx.video_path) if ctx.video_path else None
             info.set_terminal("done")
+
+        except PipelineCancelled:
+            info.set_terminal("cancelled")
 
         except Exception as e:
             import traceback
