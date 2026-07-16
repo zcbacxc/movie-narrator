@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.9] - 2026-07-16
+
 ### Added
 - **WhisperX scene captioning**: `match_clips` now transcribes the video's audio track with WhisperX (when `[ml]` extra is installed) and uses the real dialogue text as scene labels for embedding matching. Previously, scenes used fake labels like `"scene 0 from 0.0s to 5.2s"` — essentially random for semantic matching. Transcript results are cached per video file hash (`transcript_<hash>.json`) to avoid re-transcription on re-runs. Falls back to fake labels when WhisperX is unavailable or transcription fails.
 
@@ -212,7 +214,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - workflow_steps 和 params 元数据注入
 - 控制台日志重构设计
 
-[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.8...HEAD
+[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.9...HEAD
+[0.4.9]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.8...v0.4.9
 [0.4.8]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.7...v0.4.8
 [0.4.7]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.5...v0.4.6
