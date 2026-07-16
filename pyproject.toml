@@ -49,6 +49,7 @@ full = [
     "scenedetect>=0.6",
     'whisperx>=3.0; python_version < "3.14"',
     'sentence-transformers>=3.0; python_version < "3.14"',
+    "movie-narrator[web]",
     "gradio>=4.44,<7",
 ]
 dev = ["pytest>=8.0"]

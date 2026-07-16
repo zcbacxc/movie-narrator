@@ -50,19 +50,21 @@ Soft pipeline steps (research, align, scene detect, scene match, BGM, clip expor
 - [x] YAML-based job configuration (`mn create --config`)
 - [x] Console / structured-step-state logging refactor (`ctx.services.console`, `StepState`)
 - [x] Multi-language subtitle support (`--subtitle-lang` / `--subtitle-mode`; LLM translation with retry-then-soft-degrade; three-file SRT output)
-- [x] Web UI (Gradio local browser app via `mn web`; requires `[web]` extra)
+- [x] Web UI (Gradio local browser app via `mn web`; requires `[web]` extra) — *superseded by the FastAPI + React refactor in v0.4.10, see below*
 
 ### v0.3 New CLI flags
 
 - `--subtitle-lang` — Target language tag (`en`, `ja`, `zh-TW`, ...); empty = feature off
 - `--subtitle-mode` — Overlay mode: `original` / `translated` / `bilingual` (default `original`)
 
-### v0.3.5 Web UI
+### v0.3.5 Web UI (Gradio — legacy)
 
 - `mn web` — Launch local Gradio browser app (requires `pip install "movie-narrator[web]"`)
 - Cooperative cancel at step boundaries (Cancel button in UI)
 - Form fields mirror CLI options; advanced params follow "empty = no override" rule (Settings defaults apply)
 - Uploads go to `mn_web_*` temp dirs, never pollute `output/`
+
+> **Note**: This Gradio-based Web UI is **legacy** and has been superseded by the FastAPI + React refactor shipped in **v0.4.10** (see *v0.4.10 WebUI Refactor* below). The `web/` package remains in-tree for reference but `mn web` now launches the new stack.
 
 ## v0.4.x — TTS Abstraction & Infrastructure
 
@@ -89,6 +91,19 @@ Soft pipeline steps (research, align, scene detect, scene match, BGM, clip expor
 - [x] Fixed `translate_chunk_chars/size` silently ignored (never copied to `ctx.metadata`)
 - [x] Fixed `export_clips` codecs hardcoded (now uses `ctx.metadata` → inline literal)
 - [x] Fixed `scene_frame_skip` missing from runner copy loop
+
+### v0.4.10 WebUI Refactor
+
+The Web UI is rebuilt from a Gradio single-file app into a decoupled **FastAPI + React SPA** stack. The legacy `web/` (Gradio) package stays in-tree for reference but is no longer the default.
+
+- [x] **FastAPI backend** — new `src/movie_narrator/web_api/` package (11 modules: `server.py`, `routes.py`, `ws.py`, `tasks.py`, `console.py`, `controller.py`, `form.py`, `models.py`, `utils.py`, `__init__.py`)
+- [x] **React 18 SPA** — new `webui/` project (Vite + TypeScript); FastAPI serves the built bundle as static assets, so `mn web` is a single process
+- [x] **WebSocket real-time progress** — `/ws/jobs/{id}` streams `Console.snapshot()` + status deltas; replaces the old 200ms Gradio polling generator
+- [x] **`[web]` extra changed** — dropped `gradio`; now `fastapi` + `uvicorn` + `python-multipart`
+- [x] **`mn web` port** — moved from `7860` (Gradio default) → `8760`
+- [x] **Frontend stack** — Vite + TypeScript + shadcn/ui + Tailwind CSS
+
+> See `docs/ARCHITECTURE.md` → *Web UI Layer* for the request/WebSocket flow and the `web_api/` module table.
 
 ### v0.4 Environment variables
 

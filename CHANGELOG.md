@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **utils.py**: `save_upload()` strips directory components from uploaded filenames to prevent path traversal (e.g. `../../etc/passwd`)
 - **tasks.py**: Dead code `TaskInfo.update_step()` and `TaskManager.update_step()` removed; `to_status_dict()` now reads `current_step` from `console.snapshot()`
 
+### Changed
+- CLI port changed: 7860 (Gradio) → 8760 (FastAPI)
+- `[web]` extra: `gradio` → `fastapi` + `uvicorn[standard]` + `python-multipart` (Gradio retained in `[full]` for legacy `web/` module)
+
 ## [0.4.9] - 2026-07-16
 
 ### Added
@@ -235,7 +239,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - workflow_steps 和 params 元数据注入
 - 控制台日志重构设计
 
-[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.9...HEAD
+[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.10...HEAD
+[0.4.10]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.9...v0.4.10
 [0.4.9]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.8...v0.4.9
 [0.4.8]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.7...v0.4.8
 [0.4.7]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.6...v0.4.7

@@ -63,29 +63,50 @@ run_pipeline(...) # STEPS order unchanged
 
 ## Web UI Layer
 
-The Gradio-based Web UI is a thin shell over the same pipeline entry points:
+> Since v0.4.10 the Web UI is a **FastAPI + React SPA** architecture (served on port 8760 via `mn web`). The legacy Gradio UI under `web/` remains in-tree for reference but is no longer the default.
 
 ```text
-Browser form
+React SPA (webui/) — form / progress / artifacts view
+    ▼   REST (POST /api/jobs)  +  WebSocket (/ws/jobs/{id})
+FastAPI app (web_api/server.py) — uvicorn on :8760
     ▼
-bridge.py (form → build_context kwargs)
+routes.py (form → build_context kwargs)   ws.py (stream console snapshots)
     ▼
-build_context(..., services=Services(console=GradioConsole))
+build_context(..., services=Services(console=BufferedConsole))
     ▼
-run_pipeline(ctx, controller=GradioController)  ← background thread
+run_pipeline(ctx, controller=RunController)   ← background task (tasks.py)
     ▼
-bridge polls GradioConsole.snapshot() every 200ms → yields to Gradio
+TaskManager streams console snapshots over WebSocket → React renders live progress
 ```
+
+The React SPA is built by Vite into static assets that FastAPI serves directly, so the single `mn web` process owns both the API and the frontend bundle — no separate frontend server is required in production.
 
 ### Key design rules
 
 - **No second implementation**: Web calls `build_context` + `run_pipeline` — the same functions CLI uses
 - **Cancel is runtime-only**: `RunController` / `PipelineCancelled` never enter `Context`, `PipelineStatus`, or `metadata.json`. Cancel is a distinct terminal path (not warn, not error, does not trip `--strict`)
 - **empty = no override**: form fields left blank do NOT inject into `params` — Settings (`.env` / `MN_*`) defaults apply
-- **Uploads to temp dirs**: uploaded files go to `mn_web_*` temp dirs, never to `output/`
-- **Single-job per session**: re-entrancy guard via `WebRun.status` in `gr.State`
+- **Uploads to a stable dir**: uploaded files go to `output/_uploads` (FastAPI), never to ad-hoc `mn_web_*` temp dirs or the `output/` movie folder
+- **Single-job per task**: re-entrancy guard via `TaskManager` (FastAPI) per task id, replacing the old `gr.State`-based `WebRun` session state
 
-### Modules
+### Modules — `web_api/` (FastAPI backend, default)
+
+| Module | Responsibility |
+|--------|---------------|
+| `web_api/server.py` | FastAPI app factory, static SPA mounting, `launch_web()` uvicorn entry |
+| `web_api/routes.py` | REST endpoints — job submit/cancel, artifact listing, form validation |
+| `web_api/ws.py` | WebSocket handler — streams `Console.snapshot()` + status deltas to the SPA |
+| `web_api/tasks.py` | `TaskManager` — per-task run state, background pipeline execution, cancellation |
+| `web_api/console.py` | Thread-safe buffered console (`threading.Lock`) consumed by the WebSocket loop |
+| `web_api/controller.py` | `RunController` — cooperative cancel flag (`threading.Event`) |
+| `web_api/form.py` | `FormData` model, `validate_form()`, `form_to_context_args()` |
+| `web_api/models.py` | Pydantic request/response schemas, run status enums |
+| `web_api/utils.py` | Upload handling (`output/_uploads`), `collect_artifacts()`, filename sanitization |
+| `web_api/__init__.py` | Package init |
+
+### Modules — `web/` (Legacy Gradio UI)
+
+> The modules below are the **legacy Gradio UI**, retained for reference. They are not wired into `mn web` by default; install the old `[web]`-equivalent path only if you need to run the Gradio surface explicitly.
 
 | Module | Responsibility |
 |--------|---------------|
@@ -173,6 +194,7 @@ output/<movie>/
 - **New pipeline step**: append to `STEPS` in `pipeline/runner.py`. Signature must be `(ctx: Context) -> Context`.
 - **Swap TTS/renderer/LLM**: replace `pipeline/tts.py`, `pipeline/render.py`, or `utils/llm.py` while keeping the step function signature.
 - **New CLI command**: add `@app.command()` in `cli.py`.
+- **Frontend / WebUI**: the React SPA lives in `webui/` (Vite + TypeScript + shadcn/ui + Tailwind CSS). Add a route/component under `webui/src/`, talk to the backend through the REST endpoints in `web_api/routes.py` and the WebSocket in `web_api/ws.py`. During development run `cd webui && npm run dev` (Vite dev server proxies API calls to FastAPI on :8760); ship changes by rebuilding the bundle (`npm run build`) so FastAPI serves the updated static assets. See `docs/CONTRIBUTING.md` → *Frontend Development*.
 
 ## Key Design Decisions
 
