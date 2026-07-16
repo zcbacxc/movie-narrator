@@ -47,18 +47,36 @@ def align_audio(ctx: Context) -> Context:
         )
 
         if result and "segments" in result:
-            aligned = []
+            wx_segments = []
             for wseg in result["segments"]:
                 start = wseg.get("start", 0.0)
                 end = wseg.get("end", 0.0)
                 text = wseg.get("text", "").strip()
                 if text:
-                    aligned.append({"start": start, "end": end, "text": text})
+                    wx_segments.append({"start": start, "end": end, "text": text})
 
+            # Match by time overlap instead of index.
+            # Index-based alignment causes drift when WhisperX produces
+            # a different number of segments than the script (common for
+            # long videos with silence or music-only sections).
             for i, ts in enumerate(ctx.timed_segments):
-                if i < len(aligned):
-                    ts.start = aligned[i]["start"]
-                    ts.end = aligned[i]["end"]
+                ts_mid = (ts.start + ts.end) / 2.0
+                best = None
+                best_dist = float("inf")
+                for wseg in wx_segments:
+                    # Prefer segments that contain the midpoint
+                    if wseg["start"] <= ts_mid <= wseg["end"]:
+                        best = wseg
+                        break
+                    # Otherwise pick the closest by midpoint distance
+                    wseg_mid = (wseg["start"] + wseg["end"]) / 2.0
+                    dist = abs(wseg_mid - ts_mid)
+                    if dist < best_dist:
+                        best_dist = dist
+                        best = wseg
+                if best:
+                    ts.start = best["start"]
+                    ts.end = best["end"]
 
         ctx.status.align = "success"
         return ctx

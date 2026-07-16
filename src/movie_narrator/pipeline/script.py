@@ -5,13 +5,6 @@ from ..utils.llm import get_llm_client
 from ..utils.json_parser import extract_json
 from time import sleep
 
-MOCK_SEGMENTS = [
-    "{movie_name}是一部精彩的电影，",
-    "讲述了令人难忘的故事。",
-    "每一个场景都扣人心弦，令人回味无穷。",
-    "不容错过的经典之作。",
-]
-
 
 def generate_script(ctx: Context) -> Context:
     settings = get_settings()
@@ -51,13 +44,14 @@ def generate_script(ctx: Context) -> Context:
                 return ctx
         except Exception as e:
             if attempt == settings.script_retries - 1:
-                ctx.services.console.inline_warn(f"LLM fallback ({settings.script_retries} attempts failed): {e}")
-                ctx.segments = [
-                    ScriptSegment(text=s.format(movie_name=ctx.movie_name))
-                    for s in MOCK_SEGMENTS
-                ]
-                ctx.metadata["script_source"] = "mock"
-                ctx.metadata["script_degraded"] = True
-                return ctx
+                # LLM failed after all retries — hard fail instead of
+                # silently generating a fake "movie" script. The user
+                # would get a video with meaningless placeholder text
+                # and no way to tell it's not a real script.
+                raise RuntimeError(
+                    f"LLM script generation failed after {settings.script_retries} attempts: {e}. "
+                    f"Check your LLM configuration (MN_LLM_BASE_URL, MN_LLM_API_KEY, MN_LLM_MODEL) "
+                    f"and network connectivity."
+                ) from e
             sleep(settings.script_retry_delay)
     return ctx

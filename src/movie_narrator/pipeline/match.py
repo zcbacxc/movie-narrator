@@ -420,7 +420,16 @@ def _match_clips_impl(
             s for s in scenes if s.index == h["scene_index"]
         )
         if score < min_score:
-            continue
+            # Embedding score too low — fall back to heuristic for this segment
+            # instead of dropping it entirely. Dropping causes missing video
+            # footage for that narration segment.
+            ctx.services.console.debug(
+                f"  segment {h['segment_index']}: embedding score {score:.3f} < "
+                f"min_score {min_score:.3f}; falling back to heuristic"
+            )
+            scene_obj = next(s for s in scenes if s.index == h["scene_index"])
+            source = "heuristic"
+            score = 1.0
 
         narr_duration = h["narr_end"] - h["narr_start"]
         # Apply speed clamp: adjust src_start/src_end so factor stays in [clamp_min, clamp_max]
