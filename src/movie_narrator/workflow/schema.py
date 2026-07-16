@@ -30,9 +30,13 @@ class JobParams(BaseModel):
     match_speed_clamp_min: Optional[float] = None
     match_speed_clamp_max: Optional[float] = None
     scene_merge_min_duration: Optional[float] = None
+    match_drop_scene_min_duration: Optional[float] = None
     embedding_model_name: Optional[str] = None
     # ── BGM ──
     bgm_gain_db: Optional[float] = None
+    bgm_duck_db: Optional[float] = None
+    bgm_normalize: Optional[bool] = None
+    audio_target_dbfs: Optional[float] = None
     # ── TTS pacing ──
     tts_pause_ms: Optional[int] = None
     tts_max_concurrent: Optional[int] = None
@@ -59,6 +63,19 @@ class JobParams(BaseModel):
     render_font_size: Optional[int] = None
     render_output_name: Optional[str] = None
     render_ffmpeg_timeout: Optional[int] = None
+    # ── Render: production quality ──
+    render_fit_mode: Optional[str] = None
+    render_crf: Optional[int] = None
+    render_preset: Optional[str] = None
+    render_faststart: Optional[bool] = None
+    render_subtitle_position: Optional[str] = None
+    render_subtitle_max_width_ratio: Optional[float] = None
+    render_subtitle_bottom_margin_ratio: Optional[float] = None
+    # ── QA ──
+    qa_enabled: Optional[bool] = None
+    qa_max_silence_db: Optional[float] = None
+    qa_min_duration_ratio: Optional[float] = None
+    qa_max_duration_ratio: Optional[float] = None
     # ── Async ──
     async_timeout: Optional[int] = None
     async_max_workers: Optional[int] = None

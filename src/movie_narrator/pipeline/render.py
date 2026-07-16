@@ -8,6 +8,7 @@ from proglog import TqdmProgressBarLogger
 from ..models import Context, MatchedClip, StepResult, TimedSegment
 from ..utils.metadata_export import build_metadata_json
 from ..utils.text_image import create_text_image as _create_text_image
+from ..utils.video_layout import compute_fit_box
 
 
 class _RenderProgressLogger(TqdmProgressBarLogger):
@@ -68,6 +69,12 @@ def render_video(ctx: Context) -> Context:
     audio_clip = AudioFileClip(audio_path)
     total_duration = audio_clip.duration
 
+    # Production-quality render knobs (spec §7.2).
+    fit_mode = ctx.metadata.get("render_fit_mode", "cover")
+    subtitle_position = ctx.metadata.get("render_subtitle_position", "bottom")
+    max_width_ratio = ctx.metadata.get("render_subtitle_max_width_ratio", 0.9)
+    bottom_margin_ratio = ctx.metadata.get("render_subtitle_bottom_margin_ratio", 0.08)
+
     # Parse background color "R,G,B" → tuple
     bg_color_str = ctx.metadata.get("render_bg_color", "20,20,30")
     bg_parts = [int(x.strip()) for x in bg_color_str.split(",")]
@@ -96,28 +103,55 @@ def render_video(ctx: Context) -> Context:
                     subclip = source.subclipped(mc.src_start, mc.src_end)
                     if src_duration > 0:
                         subclip = subclip.with_speed_scaled(factor=src_duration / max(seg_duration, 0.1))
-                    subclip = subclip.with_start(mc.narr_start)
-                    clips.append(subclip)
+
+                    # Fit source frame onto the canvas (cover=crop+fill,
+                    # contain=letterbox+center). Keeps footage from overflowing
+                    # or distorting the output resolution.
+                    box = compute_fit_box(
+                        (subclip.w, subclip.h), size, mode=fit_mode,
+                    )
+                    if fit_mode == "cover":
+                        fitted = subclip.cropped(
+                            x1=box.crop_x, y1=box.crop_y,
+                            x2=box.crop_x + box.crop_w, y2=box.crop_y + box.crop_h,
+                        ).resized((box.out_w, box.out_h))
+                        fitted = fitted.with_position((0, 0))
+                    else:  # contain
+                        fitted = subclip.resized((box.out_w, box.out_h))
+                        pos_x = (size[0] - box.out_w) // 2
+                        pos_y = (size[1] - box.out_h) // 2
+                        fitted = fitted.with_position((pos_x, pos_y))
+
+                    clips.append(fitted.with_start(mc.narr_start))
                 except Exception as ie:
                     ctx.services.console.debug(f"  fallback for segment {mc.segment_index}: {ie}")
                     img_array = _create_text_image(
                         _overlay_text(ctx, mc.segment_index, ctx.timed_segments[mc.segment_index]),
-                        size, fontsize=font_size,
+                        size, fontsize=font_size, position=subtitle_position,
+                        max_width_ratio=max_width_ratio,
+                        bottom_margin_ratio=bottom_margin_ratio,
                     )
                     img_clip = ImageClip(img_array, is_mask=False)
                     img_clip = img_clip.with_duration(seg_duration).with_start(mc.narr_start)
                     clips.append(img_clip)
             # NOTE: source must NOT be closed here — subclips still need its reader during write_videofile.
 
-    # Always add text overlays for any segment not covered by footage
+    # Always draw subtitle overlays for ALL narration segments — including
+    # footage-covered ones. Publishable recaps need visible subtitles even
+    # over footage; footage segments use the "bottom" position so the text
+    # sits under the action instead of obscuring it.
     footage_segments = set()
     for mc in usable_clips:
         footage_segments.add(mc.segment_index)
 
     for i, seg in enumerate(ctx.timed_segments):
-        if i in footage_segments:
-            continue
-        img_array = _create_text_image(_overlay_text(ctx, i, seg), size, fontsize=font_size)
+        pos = "bottom" if i in footage_segments else subtitle_position
+        img_array = _create_text_image(
+            _overlay_text(ctx, i, seg), size, fontsize=font_size,
+            position=pos,
+            max_width_ratio=max_width_ratio,
+            bottom_margin_ratio=bottom_margin_ratio,
+        )
         img_clip = ImageClip(img_array, is_mask=False)
         img_clip = img_clip.with_duration(seg.end - seg.start).with_start(seg.start)
         clips.append(img_clip)
@@ -146,6 +180,16 @@ def render_video(ctx: Context) -> Context:
     _EXT_NORM = {"mp3lame": "mp3", "libfdk_aac": "aac", "pcm_s16le": "wav"}
     temp_ext = _EXT_NORM.get(temp_ext, temp_ext)
 
+    # Production-quality encode: CRF + preset + faststart (spec §7.2).
+    # faststart moves the moov atom to the front so the video can begin
+    # playback before the full file downloads (required for web preview).
+    crf = ctx.metadata.get("render_crf", 18)
+    preset = ctx.metadata.get("render_preset", "slow")
+    faststart = ctx.metadata.get("render_faststart", True)
+    ffmpeg_params = ["-crf", str(crf), "-preset", str(preset)]
+    if faststart:
+        ffmpeg_params += ["-movflags", "+faststart"]
+
     write_kwargs = dict(
         fps=ctx.metadata.get("render_fps", 24),
         codec=ctx.metadata.get("render_video_codec", "libx264"),
@@ -153,6 +197,7 @@ def render_video(ctx: Context) -> Context:
         threads=ctx.metadata.get("render_threads", 4),
         logger=_RenderProgressLogger(),
         temp_audiofile=str(tmp_dir / f"temp_audio.{temp_ext}"),
+        ffmpeg_params=ffmpeg_params,
     )
     try:
         final_video.write_videofile(str(video_path), **write_kwargs)

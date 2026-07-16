@@ -59,6 +59,7 @@ export const PIPELINE_STEPS = [
   "translate_subtitles",
   "generate_subtitle",
   "render_video",
+  "validate_deliverable",
   "export_clips",
 ] as const;
 
