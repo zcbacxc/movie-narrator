@@ -371,8 +371,13 @@ def _match_clips_impl(
         try:
             # Try WhisperX scene captioning first
             transcript = None
-            wx_ok, _ = probe("whisperx")
-            if wx_ok and ctx.source_video_path:
+            wx_ok, wx_hint = probe("whisperx")
+            if not wx_ok:
+                ctx.services.console.inline_warn(
+                    f"WhisperX not available ({wx_hint}); using fallback scene labels. "
+                    f"Install with: pip install 'movie-narrator[ml]'"
+                )
+            elif ctx.source_video_path:
                 wx_device = ctx.metadata.get("whisperx_device", "cpu")
                 wx_model = ctx.metadata.get("whisperx_model", "medium")
                 wx_lang = ctx.metadata.get("whisperx_language", "zh")
@@ -392,7 +397,9 @@ def _match_clips_impl(
                         f"-> {len(scenes)} scenes"
                     )
                 else:
-                    ctx.services.console.debug("  WhisperX returned no transcript; using fallback labels")
+                    ctx.services.console.inline_warn(
+                        "WhisperX transcription returned no results; using fallback scene labels"
+                    )
 
             scene_labels = _build_scene_captions(scenes, transcript)
             emb_model = ctx.metadata.get("embedding_model_name", _EMBEDDING_MODEL_NAME)
@@ -420,7 +427,16 @@ def _match_clips_impl(
             s for s in scenes if s.index == h["scene_index"]
         )
         if score < min_score:
-            continue
+            # Embedding score too low — fall back to heuristic for this segment
+            # instead of dropping it entirely. Dropping causes missing video
+            # footage for that narration segment.
+            ctx.services.console.debug(
+                f"  segment {h['segment_index']}: embedding score {score:.3f} < "
+                f"min_score {min_score:.3f}; falling back to heuristic"
+            )
+            scene_obj = next(s for s in scenes if s.index == h["scene_index"])
+            source = "heuristic"
+            score = 1.0
 
         narr_duration = h["narr_end"] - h["narr_start"]
         # Apply speed clamp: adjust src_start/src_end so factor stays in [clamp_min, clamp_max]

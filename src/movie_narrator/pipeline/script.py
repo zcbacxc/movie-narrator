@@ -4,8 +4,11 @@ from ..utils.prompts import SCRIPT_PROMPT
 from ..utils.llm import get_llm_client
 from ..utils.json_parser import extract_json
 from time import sleep
+import os
 
-MOCK_SEGMENTS = [
+# CI-only fallback: used when LLM is unreachable in CI environment
+# to allow full pipeline testing. Never used for real users.
+_CI_MOCK_SEGMENTS = [
     "{movie_name}是一部精彩的电影，",
     "讲述了令人难忘的故事。",
     "每一个场景都扣人心弦，令人回味无穷。",
@@ -51,13 +54,26 @@ def generate_script(ctx: Context) -> Context:
                 return ctx
         except Exception as e:
             if attempt == settings.script_retries - 1:
-                ctx.services.console.inline_warn(f"LLM fallback ({settings.script_retries} attempts failed): {e}")
-                ctx.segments = [
-                    ScriptSegment(text=s.format(movie_name=ctx.movie_name))
-                    for s in MOCK_SEGMENTS
-                ]
-                ctx.metadata["script_source"] = "mock"
-                ctx.metadata["script_degraded"] = True
-                return ctx
+                # LLM failed after all retries.
+                # In CI: fall back to mock content (with warning) so the
+                # full pipeline can be exercised without an LLM.
+                # In production: hard fail — user must know the script
+                # is not real, no silent fake content.
+                if os.environ.get("CI"):
+                    ctx.services.console.inline_warn(
+                        f"LLM unreachable (CI mode): using mock script. {e}"
+                    )
+                    ctx.segments = [
+                        ScriptSegment(text=s.format(movie_name=ctx.movie_name))
+                        for s in _CI_MOCK_SEGMENTS
+                    ]
+                    ctx.metadata["script_source"] = "ci_mock"
+                    ctx.metadata["script_degraded"] = True
+                    return ctx
+                raise RuntimeError(
+                    f"LLM script generation failed after {settings.script_retries} attempts: {e}. "
+                    f"Check your LLM configuration (MN_LLM_BASE_URL, MN_LLM_API_KEY, MN_LLM_MODEL) "
+                    f"and network connectivity."
+                ) from e
             sleep(settings.script_retry_delay)
     return ctx

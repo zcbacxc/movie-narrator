@@ -83,7 +83,10 @@ def render_video(ctx: Context) -> Context:
         try:
             source = VideoFileClip(ctx.source_video_path)
         except Exception as e:
-            ctx.services.console.debug(f"  fallback to text: cannot open source video: {e}")
+            ctx.services.console.inline_warn(
+                f"Cannot open source video ({ctx.source_video_path}): {e}. "
+                f"Falling back to text-only video — no footage will be shown."
+            )
             usable_clips = []
         else:
             for mc in usable_clips:
