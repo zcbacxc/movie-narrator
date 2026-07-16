@@ -103,6 +103,16 @@ The Web UI is rebuilt from a Gradio single-file app into a decoupled **FastAPI +
 - [x] **`mn web` port** — moved from `7860` (Gradio default) → `8760`
 - [x] **Frontend stack** — Vite + TypeScript + shadcn/ui + Tailwind CSS
 
+### v0.4.11 WebUI packaging (pip-installable)
+
+> `v0.4.10` shipped the rewrite in git but the SPA was missing from the PyPI wheel. **0.4.11** closes that gap.
+
+- [x] Vite `outDir` → `src/movie_narrator/web_api/static/`; package-data `static/**`
+- [x] `server.py` serves package-relative `static/` (works after `pip install`)
+- [x] Track `webui/package.json` + `package-lock.json` + `tsconfig.json` (root `*.json` gitignore exceptions)
+- [x] CI `webui` job + Publish `npm ci && npm run build` before `python -m build`
+- [x] Publish asserts wheel contains `static/index.html` + hashed JS/CSS
+
 > See `docs/ARCHITECTURE.md` → *Web UI Layer* for the request/WebSocket flow and the `web_api/` module table.
 
 ### v0.4 Environment variables
