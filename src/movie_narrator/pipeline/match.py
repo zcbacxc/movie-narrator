@@ -1,6 +1,7 @@
 import json
 import logging
 import hashlib
+import os
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -16,17 +17,15 @@ logger = logging.getLogger(__name__)
 
 
 def _video_audio_hash(video_path: str) -> str:
-    """Stable hash of the video file for cache key.
+    """Lightweight cache key from file stat — avoids reading the full
+    video file so cache hits incur zero I/O overhead.
 
-    Reads the full file to compute SHA256. Callers should check if a
-    cache file exists *before* calling this when possible, to avoid
-    hashing large files unnecessarily.
+    Uses ``mtime`` + ``size``: collisions are practically impossible
+    for this use-case (same values = file wasn't re-encoded).
     """
-    h = hashlib.sha256()
-    with open(video_path, "rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            h.update(chunk)
-    return h.hexdigest()[:16]
+    s = os.stat(video_path)
+    raw = f"{s.st_mtime}_{s.st_size}".encode()
+    return hashlib.sha256(raw).hexdigest()[:16]
 
 
 def _cache_key(video_path: str, model_name: str, language: str) -> str:
