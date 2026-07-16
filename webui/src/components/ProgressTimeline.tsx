@@ -6,15 +6,19 @@ import { cn } from "@/lib/utils"
 
 const STEP_LABELS: Record<string, string> = {
   resolve_video: "解析视频",
+  prepare_assets: "准备素材",
+  research_plot: "剧情研究",
   generate_script: "生成文案",
-  synthesize_tts: "语音合成",
+  export_script_md: "导出文案",
+  generate_voice: "语音合成",
+  align_audio: "音频对齐",
   detect_scenes: "场景检测",
   match_clips: "片段匹配",
-  align_audio: "音频对齐",
-  generate_subtitle: "生成字幕",
+  mix_bgm: "混音配乐",
   translate_subtitles: "翻译字幕",
-  export_clips: "导出片段",
+  generate_subtitle: "生成字幕",
   render_video: "渲染输出",
+  export_clips: "导出片段",
 }
 
 type StepState = "pending" | "active" | "done" | "failed" | "skipped"

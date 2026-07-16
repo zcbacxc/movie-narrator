@@ -88,7 +88,7 @@ def create_router(manager: TaskManager, upload_dir: Path) -> APIRouter:
         if not artifacts:
             raise HTTPException(status_code=404, detail="No artifacts available")
 
-        # If single artifact (video), return directly
+        # If single artifact, return directly
         if len(artifacts) == 1:
             return FileResponse(artifacts[0], filename=Path(artifacts[0]).name)
 
@@ -96,5 +96,18 @@ def create_router(manager: TaskManager, upload_dir: Path) -> APIRouter:
         zip_path = info.output_dir / "artifacts.zip"
         zip_artifacts(artifacts, zip_path)
         return FileResponse(str(zip_path), filename="artifacts.zip")
+
+    @router.get("/video/{task_id}")
+    async def download_video(task_id: str):
+        """Stream the output video for inline playback."""
+        info = manager.get_task(task_id)
+        if not info:
+            raise HTTPException(status_code=404, detail="Task not found")
+        if not info.video_path:
+            raise HTTPException(status_code=404, detail="No video available")
+        p = Path(info.video_path)
+        if not p.exists():
+            raise HTTPException(status_code=404, detail="Video file not found")
+        return FileResponse(str(p), media_type="video/mp4", filename=p.name)
 
     return router

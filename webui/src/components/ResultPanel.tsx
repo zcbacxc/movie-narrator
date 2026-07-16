@@ -9,7 +9,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTask } from "@/hooks/useTask"
-import { getArtifactUrl } from "@/lib/api"
+import { getArtifactUrl, getVideoUrl } from "@/lib/api"
 
 export function ResultPanel() {
   const { taskId, status, artifacts, error, resetTask } = useTask()
@@ -17,6 +17,7 @@ export function ResultPanel() {
   if (!taskId) return null
 
   const artifactUrl = getArtifactUrl(taskId)
+  const videoUrl = getVideoUrl(taskId)
   const hasArtifacts = artifacts && artifacts.length > 0
 
   // Done
@@ -33,7 +34,7 @@ export function ResultPanel() {
           <video
             controls
             className="mx-auto max-h-[480px] w-full"
-            src={artifactUrl}
+            src={videoUrl}
           >
             您的浏览器不支持视频播放。
           </video>

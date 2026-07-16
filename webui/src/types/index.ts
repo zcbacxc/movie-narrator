@@ -44,18 +44,22 @@ export interface WsMessage {
   video_path?: string;
 }
 
-// Pipeline steps for progress timeline
+// Pipeline steps for progress timeline — must match runner.py STEPS list
 export const PIPELINE_STEPS = [
   "resolve_video",
+  "prepare_assets",
+  "research_plot",
   "generate_script",
-  "synthesize_tts",
+  "export_script_md",
+  "generate_voice",
+  "align_audio",
   "detect_scenes",
   "match_clips",
-  "align_audio",
-  "generate_subtitle",
+  "mix_bgm",
   "translate_subtitles",
-  "export_clips",
+  "generate_subtitle",
   "render_video",
+  "export_clips",
 ] as const;
 
 export type PipelineStep = typeof PIPELINE_STEPS[number];

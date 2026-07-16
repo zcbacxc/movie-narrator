@@ -2,6 +2,8 @@ import {
   createContext,
   useState,
   useCallback,
+  type Dispatch,
+  type SetStateAction,
 } from "react"
 import { Header } from "@/components/Header"
 import { Footer } from "@/components/Footer"
@@ -13,6 +15,22 @@ import type { FormSubmitData, TaskStatus, WsMessage } from "@/types"
 
 type AppStatus = "idle" | TaskStatus
 
+const DEFAULT_FORM: FormSubmitData = {
+  movie: "",
+  style: "热血搞笑",
+  duration: 60,
+  voice: "",
+  format: "16:9",
+  library_dir: "",
+  research: false,
+  no_bgm: false,
+  no_clips: false,
+  strict: false,
+  subtitle_lang: "",
+  subtitle_mode: "original",
+  translate_provider: "",
+}
+
 export interface TaskContextValue {
   status: AppStatus
   taskId: string | null
@@ -22,6 +40,8 @@ export interface TaskContextValue {
   error: string | null
   videoPath: string | null
   connected: boolean
+  formData: FormSubmitData
+  setFormData: Dispatch<SetStateAction<FormSubmitData>>
   startTask: (data: FormSubmitData, video?: File, bgm?: File) => Promise<void>
   resetTask: () => void
   cancelTask: () => void
@@ -37,6 +57,7 @@ export function App() {
   const [artifacts, setArtifacts] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [videoPath, setVideoPath] = useState<string | null>(null)
+  const [formData, setFormData] = useState<FormSubmitData>(DEFAULT_FORM)
 
   // Stable onMessage callback — only depends on stable setState functions
   const onMessage = useCallback((msg: WsMessage) => {
@@ -63,6 +84,8 @@ export function App() {
 
   const startTask = useCallback(
     async (data: FormSubmitData, video?: File, bgm?: File) => {
+      // Persist form data so "New Run" preserves user input
+      setFormData(data)
       const res = await createTask(data, video, bgm)
       setTaskId(res.task_id)
       setStatus("running")
@@ -101,6 +124,8 @@ export function App() {
     error,
     videoPath,
     connected: displayConnected,
+    formData,
+    setFormData,
     startTask,
     resetTask,
     cancelTask: handleCancelTask,
