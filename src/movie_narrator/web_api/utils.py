@@ -7,21 +7,94 @@ import zipfile
 from pathlib import Path
 from typing import List, Optional
 
+# Upload limits
+MAX_VIDEO_SIZE = 2 * 1024 * 1024 * 1024  # 2 GB
+MAX_BGM_SIZE = 50 * 1024 * 1024  # 50 MB
+CHUNK_SIZE = 1024 * 1024  # 1 MB streaming chunks
 
-def save_upload(upload_file, destination_dir: Path, prefix: str = "") -> str:
+# Extension whitelists (lowercase, no dot)
+VIDEO_EXTENSIONS = {"mp4", "mkv", "mov", "webm", "avi"}
+BGM_EXTENSIONS = {"mp3", "wav", "m4a", "flac", "ogg"}
+
+
+class UploadError(Exception):
+    """Raised when an upload fails validation (size, extension)."""
+
+    def __init__(self, message: str, status_code: int = 422) -> None:
+        self.message = message
+        self.status_code = status_code
+        super().__init__(message)
+
+
+def save_upload(
+    upload_file,
+    destination_dir: Path,
+    prefix: str = "",
+    max_size: int = MAX_VIDEO_SIZE,
+    allowed_extensions: Optional[set[str]] = None,
+) -> str:
     """Save an uploaded file to destination_dir. Returns the path string.
 
-    Strips any directory components from the filename to prevent
-    path traversal (e.g. ``../../etc/passwd``).
+    - Strips directory components from filename (path traversal protection)
+    - Validates file extension against whitelist
+    - Streams file in chunks, rejects if size exceeds max_size
+    - Deletes partial file on size violation
     """
     destination_dir.mkdir(parents=True, exist_ok=True)
+
     # Strip directory components — only keep the basename
     raw_name = Path(upload_file.filename).name if upload_file.filename else "upload"
     filename = f"{prefix}{raw_name}" if prefix else raw_name
+
+    # Extension whitelist check
+    if allowed_extensions is not None:
+        ext = Path(raw_name).suffix.lower().lstrip(".")
+        if ext not in allowed_extensions:
+            raise UploadError(
+                f"File extension '.{ext}' not allowed. Allowed: {sorted(allowed_extensions)}",
+                status_code=415,
+            )
+
     dest = destination_dir / filename
-    with dest.open("wb") as f:
-        shutil.copyfileobj(upload_file.file, f)
+
+    # Stream-read in chunks, enforce size limit
+    total = 0
+    try:
+        with dest.open("wb") as f:
+            while True:
+                chunk = upload_file.file.read(CHUNK_SIZE)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > max_size:
+                    f.close()
+                    dest.unlink(missing_ok=True)
+                    raise UploadError(
+                        f"File too large: {total} bytes exceeds limit {max_size} bytes",
+                        status_code=413,
+                    )
+                f.write(chunk)
+    except UploadError:
+        raise
+    except Exception:
+        dest.unlink(missing_ok=True)
+        raise
+
     return str(dest)
+
+
+def cleanup_uploads(upload_dir: Path, task_id: str) -> None:
+    """Best-effort cleanup of uploaded files for a completed task.
+
+    Removes files prefixed with 'video_' or 'bgm_' that were saved
+    for this task. Non-fatal if files are missing or deletion fails.
+    """
+    try:
+        for p in upload_dir.glob("*"):
+            if p.is_file() and task_id in p.name:
+                p.unlink(missing_ok=True)
+    except Exception:
+        pass  # best-effort, never fail the task
 
 
 def collect_artifacts(ctx, output_dir: Path) -> List[str]:
