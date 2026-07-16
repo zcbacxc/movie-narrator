@@ -14,6 +14,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Migrated `test_pipeline_cancel.py` from `GradioController` to `TaskController`
 - Deleted `test_web_console.py` and `test_web_controller.py` (covered by `test_web_api.py`)
 
+### Added (Web upload hardening)
+- Upload size limits: video 2 GB, BGM 50 MB — streaming chunk read enforces limit and deletes partial file on violation (HTTP 413)
+- Extension whitelist: video (mp4/mkv/mov/webm/avi), BGM (mp3/wav/m4a/flac/ogg) — rejects unknown extensions (HTTP 415)
+- Best-effort cleanup of uploaded source files after task completion (success/failure/cancel)
+- 9 new tests covering extension rejection/acceptance, size enforcement, streaming, case-insensitive extensions, cleanup utility, and UploadError status codes
+
+### Fixed (CI)
+- Branch protection required check `test` now matches an actual CI job: matrix job renamed to `test-matrix`, new `test` summary job (`needs: [test-matrix]`, `if: always()`) gates on all matrix results — future PRs merge without admin override
+
 ## [0.4.11] - 2026-07-16
 
 ### Fixed (WebUI deliverable for pip users)
