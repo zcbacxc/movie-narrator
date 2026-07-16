@@ -46,12 +46,14 @@ def resolve_video(ctx: Context) -> Context:
             raise FileNotFoundError(f"video not found: {video_arg}")
         ctx.source_video_path = str(p.resolve())
         return ctx
-    if ctx.library_dir:
+    elif ctx.library_dir:
+        # No --video flag; try fuzzy match in library
         hit = find_in_library(ctx.movie_name, ctx.library_dir)
         if hit:
             if ctx.services:
                 ctx.services.console.debug(f"library match: {hit}")
             ctx.source_video_path = hit
             return ctx
+    # No video source found — pipeline continues without footage
     ctx.source_video_path = None
     return ctx
