@@ -428,3 +428,126 @@ def test_task_manager_no_update_step():
 
     assert not hasattr(TaskManager, "update_step"), \
         "TaskManager.update_step was dead code and should be removed"
+
+
+# ── 9. Upload hardening — size limits + extension whitelist ──
+
+
+def test_save_upload_rejects_bad_extension(tmp_path):
+    """save_upload rejects files with non-whitelisted extensions."""
+    from movie_narrator.web_api.utils import save_upload, UploadError, VIDEO_EXTENSIONS
+    from io import BytesIO
+
+    class FakeUpload:
+        filename = "malware.exe"
+        file = BytesIO(b"payload")
+
+    with pytest.raises(UploadError, match="not allowed"):
+        save_upload(FakeUpload(), tmp_path, allowed_extensions=VIDEO_EXTENSIONS)
+
+    # File should not exist on disk
+    assert not (tmp_path / "malware.exe").exists()
+
+
+def test_save_upload_accepts_whitelisted_extension(tmp_path):
+    """save_upload accepts files with whitelisted extensions."""
+    from movie_narrator.web_api.utils import save_upload, VIDEO_EXTENSIONS
+    from io import BytesIO
+
+    class FakeUpload:
+        filename = "clip.mkv"
+        file = BytesIO(b"video")
+
+    result = save_upload(FakeUpload(), tmp_path, allowed_extensions=VIDEO_EXTENSIONS)
+    assert (tmp_path / "clip.mkv").exists()
+    assert "clip.mkv" in result
+
+
+def test_save_upload_rejects_oversized_file(tmp_path):
+    """save_upload rejects files exceeding max_size and deletes partial."""
+    from movie_narrator.web_api.utils import save_upload, UploadError
+    from io import BytesIO
+
+    # Create 5MB of data, limit to 1MB
+    data = b"x" * (5 * 1024 * 1024)
+
+    class FakeUpload:
+        filename = "big.mp4"
+        file = BytesIO(data)
+
+    with pytest.raises(UploadError, match="too large"):
+        save_upload(FakeUpload(), tmp_path, max_size=1024 * 1024)
+
+    # Partial file must be deleted
+    assert not (tmp_path / "big.mp4").exists()
+
+
+def test_save_upload_streaming_under_limit(tmp_path):
+    """save_upload succeeds when file is under the size limit."""
+    from movie_narrator.web_api.utils import save_upload
+    from io import BytesIO
+
+    # 512KB data, 1MB limit
+    data = b"y" * (512 * 1024)
+
+    class FakeUpload:
+        filename = "ok.webm"
+        file = BytesIO(data)
+
+    result = save_upload(
+        FakeUpload(), tmp_path,
+        max_size=1024 * 1024,
+        allowed_extensions={"webm"},
+    )
+    assert (tmp_path / "ok.webm").exists()
+    assert (tmp_path / "ok.webm").stat().st_size == 512 * 1024
+
+
+def test_save_upload_extension_case_insensitive(tmp_path):
+    """Extension check is case-insensitive."""
+    from movie_narrator.web_api.utils import save_upload, VIDEO_EXTENSIONS
+    from io import BytesIO
+
+    class FakeUpload:
+        filename = "clip.MP4"
+        file = BytesIO(b"data")
+
+    result = save_upload(FakeUpload(), tmp_path, allowed_extensions=VIDEO_EXTENSIONS)
+    assert (tmp_path / "clip.MP4").exists()
+
+
+def test_cleanup_uploads_best_effort(tmp_path):
+    """cleanup_uploads removes matching files, ignores missing."""
+    from movie_narrator.web_api.utils import cleanup_uploads
+
+    # Create some files
+    (tmp_path / "video_test123.mp4").write_bytes(b"v")
+    (tmp_path / "bgm_test123.mp3").write_bytes(b"b")
+    (tmp_path / "video_other.mp4").write_bytes(b"other")
+    (tmp_path / "not_related.txt").write_bytes(b"x")
+
+    cleanup_uploads(tmp_path, "test123")
+
+    # Files with task_id should be deleted
+    assert not (tmp_path / "video_test123.mp4").exists()
+    assert not (tmp_path / "bgm_test123.mp3").exists()
+    # Other files remain
+    assert (tmp_path / "video_other.mp4").exists()
+    assert (tmp_path / "not_related.txt").exists()
+
+
+def test_cleanup_uploads_empty_dir(tmp_path):
+    """cleanup_uploads on empty directory doesn't raise."""
+    from movie_narrator.web_api.utils import cleanup_uploads
+    cleanup_uploads(tmp_path, "nonexistent")  # should not raise
+
+
+def test_upload_error_status_codes():
+    """UploadError carries correct HTTP status codes."""
+    from movie_narrator.web_api.utils import UploadError
+
+    size_err = UploadError("too large", status_code=413)
+    assert size_err.status_code == 413
+
+    ext_err = UploadError("bad ext", status_code=415)
+    assert ext_err.status_code == 415
