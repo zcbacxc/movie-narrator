@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.11] - 2026-07-16
+
+### Fixed (WebUI deliverable for pip users)
+- **Ship React SPA in the wheel**: Vite now builds into `src/movie_narrator/web_api/static/`; `[tool.setuptools.package-data]` includes `static/**`; `server.py` serves package-relative `static/` (works after `pip install`, not only from a git checkout).
+- **Track frontend config in git**: root `.gitignore` `*.json` was excluding `webui/package.json` / `tsconfig.json` / `package-lock.json`. Added `!webui/...` exceptions and committed lockfile for reproducible installs.
+- **CI / Publish build the frontend**: new `webui` CI job; Publish runs `npm ci && npm run build` before `python -m build`, then asserts the wheel contains `movie_narrator/web_api/static/index.html` + hashed JS/CSS (guards against silent package-data omission).
+- **`create_app` version** now uses `movie_narrator.__version__` (was hardcoded `"0.1.0"`).
+
+> `v0.4.10` on PyPI predated the packaging fix — upgrade to **0.4.11** for a usable `mn web` after `pip install "movie-narrator[web]"`.
+
 ## [0.4.10] - 2026-07-16
 
 ### Added (WebUI rewrite — React + FastAPI)
