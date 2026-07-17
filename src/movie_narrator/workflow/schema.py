@@ -108,6 +108,7 @@ class JobConfig(BaseModel):
     # Multi-language subtitle (v0.3).
     subtitle_lang: Optional[str] = None
     subtitle_mode: Optional[str] = None
+    narration_preset: Optional[str] = None
     steps: Optional[JobSteps] = None
     params: Optional[JobParams] = None
 
@@ -155,3 +156,4 @@ class ResolvedJob(BaseModel):
     # Multi-language subtitle (v0.3).
     subtitle_lang: Optional[str] = None
     subtitle_mode: str = "original"
+    narration_preset: Optional[str] = None

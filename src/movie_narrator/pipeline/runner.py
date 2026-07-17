@@ -28,6 +28,31 @@ from .qa import validate_deliverable
 # ── Step metadata (module-level constants) ──────────────────
 # Single source of truth: a soft step whose exception is caught by the runner
 # (rendered as ⚠ + continue) instead of being re-raised as a hard failure.
+
+# Complete whitelist of param keys that build_context accepts from
+# JobParams / preset params.  This is the SINGLE SOURCE OF TRUTH —
+# presets/base.py:ALLOWED_PARAM_KEYS is a validated subset of this.
+PARAM_WHITELIST: frozenset[str] = frozenset({
+    "scene_threshold", "scene_frame_skip", "match_min_score",
+    "match_speed_clamp_min", "match_speed_clamp_max",
+    "scene_merge_min_duration", "match_drop_scene_min_duration",
+    "embedding_model_name",
+    "bgm_gain_db", "bgm_duck_db", "bgm_normalize", "audio_target_dbfs",
+    "tts_pause_ms",
+    "tts_max_concurrent", "tts_audio_format", "tts_audio_bitrate",
+    "translate_source_lang", "translate_chunk_chars", "translate_chunk_size",
+    "whisperx_device", "whisperx_model", "whisperx_language",
+    "render_fps", "render_video_codec", "render_audio_codec", "render_threads",
+    "render_bg_color", "render_font_size", "render_output_name", "render_ffmpeg_timeout",
+    "render_fit_mode", "render_crf", "render_preset", "render_faststart",
+    "render_subtitle_position", "render_subtitle_max_width_ratio",
+    "render_subtitle_bottom_margin_ratio",
+    "qa_enabled", "qa_max_silence_db", "qa_min_duration_ratio", "qa_max_duration_ratio",
+    "prompt_target_sentences", "prompt_max_chars_per_sentence", "prompt_hook_seconds",
+    "async_timeout", "async_max_workers",
+    "video_sizes",
+})
+
 SOFT_STATUS_STEPS = {
     "research_plot",
     "align_audio",
@@ -191,26 +216,7 @@ def build_context(
         effective_params.update(params)
 
     if effective_params:
-        for key in (
-            "scene_threshold", "scene_frame_skip", "match_min_score",
-            "match_speed_clamp_min", "match_speed_clamp_max",
-            "scene_merge_min_duration", "match_drop_scene_min_duration",
-            "embedding_model_name",
-            "bgm_gain_db", "bgm_duck_db", "bgm_normalize", "audio_target_dbfs",
-            "tts_pause_ms",
-            "tts_max_concurrent", "tts_audio_format", "tts_audio_bitrate",
-            "translate_source_lang", "translate_chunk_chars", "translate_chunk_size",
-            "whisperx_device", "whisperx_model", "whisperx_language",
-            "render_fps", "render_video_codec", "render_audio_codec", "render_threads",
-            "render_bg_color", "render_font_size", "render_output_name", "render_ffmpeg_timeout",
-            "render_fit_mode", "render_crf", "render_preset", "render_faststart",
-            "render_subtitle_position", "render_subtitle_max_width_ratio",
-            "render_subtitle_bottom_margin_ratio",
-            "qa_enabled", "qa_max_silence_db", "qa_min_duration_ratio", "qa_max_duration_ratio",
-            "prompt_target_sentences", "prompt_max_chars_per_sentence", "prompt_hook_seconds",
-            "async_timeout", "async_max_workers",
-            "video_sizes",
-        ):
+        for key in PARAM_WHITELIST:
             if key in effective_params and effective_params[key] is not None:
                 ctx.metadata[key] = effective_params[key]
     if config_path:

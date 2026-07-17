@@ -179,7 +179,7 @@ def create(
         config_path=resolved.config_path,
         subtitle_lang=resolved.subtitle_lang,
         subtitle_mode=resolved.subtitle_mode,
-        narration_preset=narration_preset,
+        narration_preset=resolved.narration_preset or narration_preset,
     )
     controller = InteractiveCLIController() if retry else None
     try:
@@ -348,6 +348,54 @@ def clips(
 def version():
     """Show version."""
     typer.echo(f"movie-narrator v{__version__}")
+
+
+@app.command()
+def preset(
+    name: Optional[str] = typer.Argument(
+        None, help="Preset name to show details for (omitted = list all)"
+    ),
+):
+    """List narration presets or show details for a specific preset.
+
+    \b
+    Examples:
+        mn preset                  # list all available presets
+        mn preset mainstream-dry   # show params + tags for mainstream-dry
+    """
+    from .presets import get_preset, list_presets
+
+    if name is None:
+        # List mode
+        presets = list_presets()
+        if not presets:
+            typer.echo("No narration presets available.")
+            return
+        typer.echo("Available narration presets:")
+        typer.echo("")
+        for pname, pdesc in presets.items():
+            typer.echo(f"  {pname:<20} {pdesc}")
+        typer.echo("")
+        typer.echo("Use 'mn preset <name>' to see full details.")
+        typer.echo("Use '--narration-preset <name>' with 'mn create' to apply.")
+    else:
+        # Show mode
+        try:
+            p = get_preset(name)
+        except KeyError as e:
+            typer.echo(f"Error: {e}", err=True)
+            raise typer.Exit(1)
+
+        typer.echo(f"Preset: {p.name}")
+        typer.echo(f"Description: {p.desc}")
+        typer.echo("")
+        typer.echo("Parameters:")
+        for key in sorted(p.param_dict):
+            typer.echo(f"  {key:<40} {p.param_dict[key]}")
+        typer.echo("")
+        typer.echo("Prompt tags:")
+        for key in sorted(p.tag_dict):
+            typer.echo(f"  {key:<40} {p.tag_dict[key]}")
 
 
 @app.command()

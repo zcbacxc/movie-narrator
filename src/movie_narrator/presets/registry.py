@@ -28,6 +28,17 @@ def _validate(preset: Preset) -> PresetParam:
     Raises :class:`ValueError` with a descriptive message if any key or
     value is out of bounds.
     """
+    # Lazy import to avoid circular dependency (runner.py → presets → runner)
+    from ..pipeline.runner import PARAM_WHITELIST
+
+    # Safety: ALLOWED_PARAM_KEYS (in base.py) must be a subset of
+    # PARAM_WHITELIST (in runner.py).  Checked here so a mismatch
+    # between the two frozensets fails fast at registry build time.
+    assert ALLOWED_PARAM_KEYS <= PARAM_WHITELIST, (
+        f"ALLOWED_PARAM_KEYS has keys not in PARAM_WHITELIST: "
+        f"{ALLOWED_PARAM_KEYS - PARAM_WHITELIST}"
+    )
+
     raw_params = preset.params()
     raw_tags = preset.prompt_tags()
 

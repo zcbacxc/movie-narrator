@@ -40,8 +40,14 @@ _CONNECTOR_HINTS = {
     "none": "",
 }
 
+_REGISTER_HINTS = {
+    "spoken": "8. Register: spoken language — write as if talking to a friend, casual and direct.",
+    "written": "8. Register: written language — use polished, literary phrasing suitable for reading.",
+    "mixed": "8. Register: mixed — combine spoken directness with occasional literary flourishes.",
+}
 
-def build_cadence_hint(cadence: str = "", connectors: str = "") -> str:
+
+def build_cadence_hint(cadence: str = "", connectors: str = "", register: str = "") -> str:
     """Build the {cadence_hint} block from preset tags.
 
     Empty/unknown tags produce an empty string (backward-compatible with
@@ -54,6 +60,8 @@ def build_cadence_hint(cadence: str = "", connectors: str = "") -> str:
         hint = _CONNECTOR_HINTS[connectors]
         if hint:
             parts.append(hint)
+    if register and register in _REGISTER_HINTS:
+        parts.append(_REGISTER_HINTS[register])
     return "\n".join(parts)
 
 # Translation prompt — multi-language subtitle (v0.3).
