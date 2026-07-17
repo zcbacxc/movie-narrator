@@ -24,6 +24,56 @@ Output in JSON format:
 Output ONLY the JSON, no extra text or markdown markers.
 """
 
+# ── Two-phase script generation (v0.4.16+) ─────────────────
+# Phase 1: extract exactly N plot beats (low temperature, structured task)
+# Phase 2: expand each beat into one narration line (style tags applied)
+# This decouples count control from style expression, making
+# prompt_target_sentences actually enforceable.
+
+BEATS_PROMPT = """\
+You are a film story analyst. Extract EXACTLY {target_count} key plot points from the movie "{movie}".
+
+Style: {style}.
+{research}
+Requirements:
+- Each point MUST be one concise sentence summarising a pivotal story moment.
+- Total MUST be exactly {target_count} points — no more, no less.
+- Points should span the full movie arc: opening hook -> rising tension -> climax -> resolution.
+- Arrange in chronological order of the film's plot.
+
+Output ONLY a JSON object:
+{{
+  "beats": ["Point 1", "Point 2", ..., "Point {target_count}"]
+}}
+
+The "beats" array MUST contain exactly {target_count} items.
+"""
+
+EXPAND_PROMPT = """\
+You are a million-follower movie narration blogger. Write a narration script from these plot points for "{movie}" ({duration}s).
+
+Style: {style}.
+{cadence_hint}
+
+Given plot points (one sentence -> exactly one narration line):
+{beats}
+
+Requirements:
+1. Turn EACH plot point into ONE narration sentence — exactly {target_count} segments.
+2. Each sentence <= {max_chars} characters. Keep it punchy and visual.
+3. First {hook_seconds}s worth of sentences MUST hook hard (suspense, surprise, conflict).
+4. Last sentence needs emotional elevation or a thought-provoking punch.
+5. Maintain the given plot order. One input point -> one output segment.
+
+Output ONLY JSON:
+{{
+  "segments": [
+    {{"text": "segment 1"}},
+    ...
+  ]
+}}
+"""
+
 # ── Cadence/register/connector hints for preset-driven prompt shaping ──
 # These are injected into SCRIPT_PROMPT via {cadence_hint}.  Each preset
 # selects one hint per dimension; the combination produces a distinctive

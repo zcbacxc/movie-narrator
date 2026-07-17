@@ -84,6 +84,7 @@ class Settings(BaseSettings):
     llm_model: str = "qwen2.5:7b"
     llm_timeout: int = 60
     script_temperature: float = 0.7
+    script_expand_temperature: float = 0.5
     script_max_tokens: int = 2048
     script_retries: int = 3
     script_retry_delay: float = 1.5
