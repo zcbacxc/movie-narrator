@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.14] - 2026-07-17
+
+### Added (Publishable bottom subtitle)
+- **Backdrop bar + thicker stroke**: bottom-subtitle layout (`_render_bottom` in `text_image.py`) now draws a semi-transparent black backdrop bar (65% alpha, 16px horizontal / 12px vertical padding, clamped inside frame) behind the text block, plus a 4px black stroke (was 2px) around white fill — matches the standardized recap style consumed by short-video platforms and stays legible on bright footage.
+- Two new unit tests: `test_bottom_layout_has_semi_transparent_backdrop_bar` (verifies dark pixel band spans ≥50% width in bottom ~22% of canvas) and `test_bottom_layout_full_canvas_outside_textband_is_transparent` (verifies alpha=0 outside subtitle band so source footage is preserved).
+
+### Fixed
+- **Empty wrapped list edge case**: `_render_bottom` now returns early when wrapping produces zero lines, instead of computing `line_spacing * (0-1)`.
+- **Line height measurement**: each line's height is re-measured via `textbbox` instead of reusing the first line's metric — more accurate for mixed CJK/Latin text.
+- **Cross-platform test threshold**: backdrop bar width assertion lowered from 60% to 50% to accommodate Linux CI's narrower font metrics (PIL renders text narrower on Linux than Windows).
+
 ## [0.4.13] - 2026-07-17
 
 ### Added (Core engine production quality)

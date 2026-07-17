@@ -134,6 +134,13 @@ The Web UI is rebuilt from a Gradio single-file app into a decoupled **FastAPI +
 - [x] 15 new `JobParams` fields plumbed (render fit/encode/subtitle, BGM duck/normalize, QA, match drop)
 - [x] Pipeline 14 → 15 steps; frontend `PIPELINE_STEPS` / `STEP_LABELS` synced
 
+### v0.4.14 Publishable Bottom Subtitle
+
+- [x] Semi-transparent black backdrop bar (65% alpha, 16px/12px padding) behind bottom subtitle text — matches short-video recap style
+- [x] Thicker stroke (2px → 4px) for legibility on bright footage
+- [x] Bug fix: empty wrapped list early return; per-line height re-measurement via `textbbox`
+- [x] Cross-platform test threshold (60% → 50%) for Linux CI font metrics
+
 ### v0.4 Environment variables
 
 - `MN_TTS_PROVIDER` — `edge` (default), `openai`, or `mimo`
