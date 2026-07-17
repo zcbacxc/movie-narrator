@@ -120,14 +120,31 @@ def _render_bottom(
     bottom_margin_ratio: float,
     max_lines: int,
 ):
-    """Render text block anchored to the bottom of the canvas."""
+    """Render a publishable-quality bottom subtitle.
+
+    Layout (spec §7.3, refined):
+    - Wrap text to ``max_width_ratio * width`` using font metrics.
+    - Cap at ``max_lines`` (overflow truncates with an ellipsis).
+    - Anchor text block to the bottom with ``bottom_margin_ratio * height``.
+    - Render each line with **white fill + 4 px black stroke** so it stays
+      legible on bright footage.
+    - Draw a **semi-transparent black backdrop bar** behind the entire text
+      block (matches mainstream recap style: 65% alpha, 12 px vertical
+      padding) so the text reads cleanly on any frame.
+
+    Returns a full-canvas ``numpy.ndarray`` (RGBA) suitable for ``ImageClip``.
+    The non-text region is fully transparent (alpha=0), so MoviePy's
+    position math (``with_position((center, bottom))``) places only the
+    text band at the bottom — the source footage above remains visible.
+    """
     import numpy as np
 
+    width, height = size
     img = Image.new("RGBA", size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
     font = get_font(fontsize)
 
-    max_width = int(size[0] * max_width_ratio)
+    max_width = int(width * max_width_ratio)
 
     # Pre-split on explicit newlines (bilingual), then wrap each piece.
     raw_pieces = text.split("\n")
@@ -135,14 +152,19 @@ def _render_bottom(
     for piece in raw_pieces:
         wrapped.extend(_wrap_line(piece, draw, font, max_width))
 
-    # Cap total lines: keep the last max_lines, ellipsis on the cut line.
+    # Cap total lines: keep the first ``max_lines``, ellipsis on the cut line.
     if len(wrapped) > max_lines:
         kept = wrapped[:max_lines]
-        kept[-1] = kept[-1][: max(0, len(kept[-1]) - 1)] + "…"
+        last = kept[-1]
+        if last:
+            kept[-1] = last[: max(0, len(last) - 1)] + "…"
         wrapped = kept
 
+    if not wrapped:
+        return np.array(img)
+
     line_spacing = max(2, int(round(fontsize * 0.15)))
-    line_metrics = []
+    line_metrics: list[tuple[int, int]] = []
     total_h = 0
     for line in wrapped:
         bbox = draw.textbbox((0, 0), line, font=font)
@@ -150,16 +172,38 @@ def _render_bottom(
         h = bbox[3] - bbox[1]
         line_metrics.append((w, h))
         total_h += h
-    total_h += line_spacing * (len(wrapped) - 1) if wrapped else 0
+    total_h += line_spacing * (len(wrapped) - 1)
 
-    bottom_margin = int(size[1] * bottom_margin_ratio)
-    # Stack from bottom up: last line sits at (height - bottom_margin - h).
-    y = size[1] - bottom_margin - total_h
-    for line, (w, h) in zip(wrapped, line_metrics):
-        x = (size[0] - w) // 2
+    bottom_margin = int(height * bottom_margin_ratio)
+    # Stack the block so the last line's bottom edge sits at
+    # ``height - bottom_margin``.
+    block_top = height - bottom_margin - total_h
+
+    # Compute bounding box enclosing all line metrics for the backdrop bar.
+    widest = max(m[0] for m in line_metrics)
+    bar_left = (width - widest) // 2 - 16   # 16 px horizontal padding
+    bar_right = bar_left + widest + 32
+    bar_top = max(0, block_top - 12)        # 12 px vertical padding above first line
+    bar_bottom = height - bottom_margin + 12
+    # Clamp bar inside frame, then draw semi-transparent black backdrop.
+    bar_left = max(0, bar_left)
+    bar_right = min(width, bar_right)
+    draw.rectangle(
+        [(bar_left, bar_top), (bar_right, bar_bottom)],
+        fill=(0, 0, 0, 165),  # ~65% black
+    )
+
+    # Draw each line white with a 4 px black stroke for readability on bright
+    # footage. Stroke sits behind fill in PIL's ordering.
+    y = block_top
+    for line, (w, _h) in zip(wrapped, line_metrics):
+        x = (width - w) // 2
         draw.text(
             (x, y), line, fill=(255, 255, 255, 255), font=font,
-            stroke_width=2, stroke_fill=(0, 0, 0, 255),
+            stroke_width=4, stroke_fill=(0, 0, 0, 255),
         )
-        y += h + line_spacing
+        # advance by font height + spacing (use bbox ascent reliably)
+        bbox = draw.textbbox((0, 0), line, font=font)
+        y += (bbox[3] - bbox[1]) + line_spacing
+
     return np.array(img)
