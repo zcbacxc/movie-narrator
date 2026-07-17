@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.13] - 2026-07-17
+
+### Added (Core engine production quality)
+- **Post-render deliverable QA step** (`validate_deliverable`): new hard pipeline step inserted after `render_video`. Probes the final `final.mp4` with ffprobe (falling back to `ffmpeg -i` when ffprobe is absent) and fails the pipeline on missing/silent audio, missing video stream, duration mismatch, or tiny output. CI runs skip QA by default (fast smoke); local runs enable it by default. Configurable via `qa_enabled` / `qa_max_silence_db` / `qa_min_duration_ratio` / `qa_max_duration_ratio`.
+- **Audio normalize + BGM ducking** (`utils/audio_mix.py`): `normalize_peak()` targets a loudness floor; `duck_bgm()` attenuates BGM under narration with windowed envelope + linear attack/release smoothing. The `mix_bgm` skip path now normalizes narration for loudness consistency; the success path ducks then normalizes. MP3 export falls back to WAV when the bundled ffmpeg lacks libmp3lame.
+- **Video cover/contain layout** (`utils/video_layout.py`): `compute_fit_box()` returns crop+resize geometry so source footage fills the canvas (cover) or letterboxes (contain). Render applies `cover` by default.
+- **Bottom-safe subtitle layout**: `text_image.create_text_image` gains `position="bottom"`, `max_width_ratio`, `bottom_margin_ratio`, `max_lines` with CJK-aware wrapping and ellipsis truncation. Render now always draws subtitle overlays for all segments (including footage-covered ones) using the bottom position by default.
+- **Deliverable QA probes** (`utils/deliverable_qa.py`): `probe_media()` + `evaluate_deliverable()` with structured `QAReport` / `QAIssue` output.
+- 15 new `JobParams` fields plumbed through schema → merge → runner metadata for render fit/encode/subtitle, BGM duck/normalize, QA, and match drop.
+- 44 new unit tests across `test_video_layout`, `test_text_image`, `test_audio_mix`, `test_deliverable_qa`, `test_qa`, extended `test_match` (tiny-scene drop + merge defaults) and `test_bgm` (ducking/normalize + WAV fallback).
+
+### Changed (Production defaults tightened without config)
+- **Match defaults**: `match_speed_clamp_min` 0.5 → 0.85, `match_speed_clamp_max` 3.0 → 1.25, `scene_merge_min_duration` 0.0 → 2.0 — keeps pacing publishable. Scenes shorter than `match_drop_scene_min_duration` (default 0.4s) are dropped after merge with re-indexing (last-resort keeps all if every scene would be dropped).
+- **Render encode**: CRF 18, preset `slow`, `+faststart` movflag by default for VOD-friendly output.
+- **QA duration tolerance**: `qa_max_duration_ratio` default 1.15 → 1.25 — TTS natural output routinely exceeds the target duration by 10-20%; the tighter 1.15 threshold falsely rejected valid renders in hand-testing.
+- Pipeline is now **15 steps** (was 14): `validate_deliverable` inserted between `render_video` and `export_clips`. Frontend `PIPELINE_STEPS` and `STEP_LABELS` synced (`成片质检`).
+
+### Fixed (Hand-test P0 bugs on Windows + Python 3.14)
+- **Two-stage render** (`render.py`): MoviePy 2.x `write_videofile` on Windows + Python 3.14 raises `OSError [Errno 22] Invalid argument` partway through the rawvideo stdin pipe when encoding video+audio together, leaving `final.mp4` with a corrupted ftyp/mdat layout (no moov atom — ffprobe returns empty, file unplayable). Split into stage 1 (MoviePy writes video-only mp4, stable in isolation) + stage 2 (ffmpeg muxes audio with `-c:v copy` + applies `+faststart` atomically). Eliminates the stdin pipe failure mode entirely.
+- **UTF-8 subprocess decoding** (`deliverable_qa.py`): `subprocess.run` with `text=True` alone uses the system locale (GBK on Chinese Windows), which crashed when ffprobe/ffmpeg emitted non-GBK bytes and left stdout/stderr empty — causing `validate_deliverable` to fail every render with false `silent_audio` / `no_audio_stream`. Added `_run()` helper forcing `encoding="utf-8", errors="replace"` so probe parsing always sees real text.
+- **`load.py` param whitelist**: 12 production-quality knobs (`render_fit_mode`, `render_crf`, `render_preset`, `render_faststart`, `render_subtitle_position`, `render_subtitle_max_width_ratio`, `render_subtitle_bottom_margin_ratio`, `qa_enabled`, `qa_max_silence_db`, `qa_min_duration_ratio`, `qa_max_duration_ratio`, `match_drop_scene_min_duration`, `bgm_duck_db`, `bgm_normalize`, `audio_target_dbfs`) were missing from `_ALLOWED_PARAMS` — job configs setting these were silently rejected at load time.
+
 ## [0.4.12] - 2026-07-16
 
 ### Changed

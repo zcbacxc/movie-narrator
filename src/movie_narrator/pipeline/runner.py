@@ -23,6 +23,7 @@ from .subtitle import generate_subtitle
 from .translate import translate_subtitles
 from .tts import generate_voice
 from .render import render_video
+from .qa import validate_deliverable
 
 # ── Step metadata (module-level constants) ──────────────────
 # Single source of truth: a soft step whose exception is caught by the runner
@@ -79,6 +80,7 @@ STEPS = [
     translate_subtitles,
     generate_subtitle,
     render_video,
+    validate_deliverable,
     export_clips,
 ]
 
@@ -175,13 +177,19 @@ def build_context(
         for key in (
             "scene_threshold", "scene_frame_skip", "match_min_score",
             "match_speed_clamp_min", "match_speed_clamp_max",
-            "scene_merge_min_duration", "embedding_model_name",
-            "bgm_gain_db", "tts_pause_ms",
+            "scene_merge_min_duration", "match_drop_scene_min_duration",
+            "embedding_model_name",
+            "bgm_gain_db", "bgm_duck_db", "bgm_normalize", "audio_target_dbfs",
+            "tts_pause_ms",
             "tts_max_concurrent", "tts_audio_format", "tts_audio_bitrate",
             "translate_source_lang", "translate_chunk_chars", "translate_chunk_size",
             "whisperx_device", "whisperx_model", "whisperx_language",
             "render_fps", "render_video_codec", "render_audio_codec", "render_threads",
             "render_bg_color", "render_font_size", "render_output_name", "render_ffmpeg_timeout",
+            "render_fit_mode", "render_crf", "render_preset", "render_faststart",
+            "render_subtitle_position", "render_subtitle_max_width_ratio",
+            "render_subtitle_bottom_margin_ratio",
+            "qa_enabled", "qa_max_silence_db", "qa_min_duration_ratio", "qa_max_duration_ratio",
             "async_timeout", "async_max_workers",
             "video_sizes",
         ):
@@ -201,7 +209,7 @@ def run_pipeline(
     *,
     controller: Optional[RunController] = None,
 ) -> Context:
-    """Execute the 14-step pipeline against *ctx*.
+    """Execute the 15-step pipeline against *ctx*.
 
     ``controller=None`` means CLI mode — no cancel checks fire. Web
     passes a ``GradioController`` so the user can request a cooperative

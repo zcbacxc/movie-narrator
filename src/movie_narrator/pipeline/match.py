@@ -317,14 +317,15 @@ def match_clips(ctx: Context) -> Context:
         return ctx
 
     min_score = ctx.metadata.get("match_min_score", 0.25)
-    clamp_min = ctx.metadata.get("match_speed_clamp_min", 0.5)
-    clamp_max = ctx.metadata.get("match_speed_clamp_max", 3.0)
-    merge_min = ctx.metadata.get("scene_merge_min_duration", 0.0)
+    clamp_min = ctx.metadata.get("match_speed_clamp_min", 0.85)
+    clamp_max = ctx.metadata.get("match_speed_clamp_max", 1.25)
+    merge_min = ctx.metadata.get("scene_merge_min_duration", 2.0)
+    drop_min = ctx.metadata.get("match_drop_scene_min_duration", 0.4)
     output_dir = Path(ctx.output_dir)
 
     try:
         return _match_clips_impl(
-            ctx, min_score, clamp_min, clamp_max, merge_min, output_dir
+            ctx, min_score, clamp_min, clamp_max, merge_min, drop_min, output_dir
         )
     except Exception as e:
         ctx.status.match = "failed"
@@ -339,6 +340,7 @@ def _match_clips_impl(
     clamp_min: float,
     clamp_max: float,
     merge_min: float,
+    drop_min: float,
     output_dir: Path,
 ) -> Context:
     # Optionally merge short scenes to reduce extreme speed factors
@@ -348,6 +350,17 @@ def _match_clips_impl(
         ctx.services.console.debug(
             f"  scene merge: {len(ctx.scenes)} -> {len(scenes)} scenes (min={merge_min}s)"
         )
+
+    # Drop tiny scenes (e.g. <0.4s) that produce jarring sub-frame cuts.
+    # If filtering would remove *all* scenes, keep the merged list as a
+    # last-resort so matching still produces output.
+    if drop_min > 0 and scenes:
+        filtered = [s for s in scenes if (s.end - s.start) >= drop_min]
+        if filtered:
+            scenes = filtered
+            # Re-index after drop so scene indices are sequential.
+            for i, s in enumerate(scenes):
+                s.index = i
 
     # Compute total scene span
     scene_start = min(s.start for s in scenes)

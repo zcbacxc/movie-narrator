@@ -91,6 +91,75 @@ def test_match_clips_embedding_disabled_keeps_heuristic(tmp_path, monkeypatch):
     assert all(m.source == "heuristic" for m in ctx.matched_clips)
 
 
+# ── tiny-scene drop + merge defaults ───────────────────────
+
+
+def test_match_drops_tiny_scenes(tmp_path):
+    """Scenes shorter than match_drop_scene_min_duration are dropped.
+
+    Merge is disabled (scene_merge_min_duration=0) so the tiny scene is
+    not absorbed first, isolating the drop behaviour. After dropping the
+    0.2s scene, the remaining scene is re-indexed from 0; no matched clip
+    should use source content from the dropped scene's time range.
+    """
+    ctx = Context(
+        movie_name="m",
+        output_dir=str(tmp_path),
+        source_video_path=str(tmp_path / "video.mp4"),
+        timed_segments=[
+            TimedSegment(text="A", start=0.0, end=2.0),
+            TimedSegment(text="B", start=2.5, end=5.0),
+        ],
+        scenes=[
+            Scene(index=0, start=0.0, end=0.2),   # tiny (< 0.4s)
+            Scene(index=1, start=0.2, end=8.0),   # long
+        ],
+    )
+    ctx.status.scene = "success"
+    ctx.metadata["scene_merge_min_duration"] = 0.0  # disable merge to isolate drop
+    (tmp_path / "video.mp4").write_bytes(b"00")
+    match_clips(ctx)
+    assert ctx.status.match == "success"
+    # No clip should use source content from the dropped scene (0.0-0.2).
+    assert all(m.src_start >= 0.2 for m in ctx.matched_clips)
+
+
+def test_match_tiny_scene_filter_keeps_all_if_all_tiny(tmp_path):
+    """If dropping would remove every scene, keep them all (last-resort)."""
+    ctx = Context(
+        movie_name="m",
+        output_dir=str(tmp_path),
+        source_video_path=str(tmp_path / "video.mp4"),
+        timed_segments=[TimedSegment(text="A", start=0.0, end=1.0)],
+        scenes=[Scene(index=0, start=0.0, end=0.1)],  # only scene, tiny
+    )
+    ctx.status.scene = "success"
+    ctx.metadata["scene_merge_min_duration"] = 0.0
+    (tmp_path / "video.mp4").write_bytes(b"00")
+    match_clips(ctx)
+    # Should still produce a match (didn't drop the only scene).
+    assert ctx.status.match == "success"
+    assert len(ctx.matched_clips) >= 1
+
+
+def test_match_default_merge_merges_short_scenes(tmp_path):
+    """Default scene_merge_min_duration=2.0 merges scenes shorter than 2s."""
+    ctx = Context(
+        movie_name="m",
+        output_dir=str(tmp_path),
+        source_video_path=str(tmp_path / "video.mp4"),
+        timed_segments=[TimedSegment(text="A", start=0.0, end=5.0)],
+        scenes=[
+            Scene(index=0, start=0.0, end=1.0),   # short (< 2.0 default)
+            Scene(index=1, start=1.0, end=8.0),   # long
+        ],
+    )
+    ctx.status.scene = "success"
+    (tmp_path / "video.mp4").write_bytes(b"00")
+    match_clips(ctx)
+    assert ctx.status.match == "success"
+
+
 # ── score < min_score → heuristic fallback ──────────────────
 
 

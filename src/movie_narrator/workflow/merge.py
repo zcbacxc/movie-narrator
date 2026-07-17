@@ -79,9 +79,10 @@ def merge_job(
             "scene_threshold", "scene_frame_skip",
             # Match
             "match_min_score", "match_speed_clamp_min", "match_speed_clamp_max",
-            "scene_merge_min_duration", "embedding_model_name",
+            "scene_merge_min_duration", "match_drop_scene_min_duration",
+            "embedding_model_name",
             # BGM
-            "bgm_gain_db",
+            "bgm_gain_db", "bgm_duck_db", "bgm_normalize", "audio_target_dbfs",
             # TTS pacing
             "tts_pause_ms", "tts_max_concurrent", "tts_audio_format", "tts_audio_bitrate",
             # Translate
@@ -94,6 +95,11 @@ def merge_job(
             # Render
             "render_fps", "render_video_codec", "render_audio_codec", "render_threads",
             "render_bg_color", "render_font_size", "render_output_name", "render_ffmpeg_timeout",
+            "render_fit_mode", "render_crf", "render_preset", "render_faststart",
+            "render_subtitle_position", "render_subtitle_max_width_ratio",
+            "render_subtitle_bottom_margin_ratio",
+            # QA
+            "qa_enabled", "qa_max_silence_db", "qa_min_duration_ratio", "qa_max_duration_ratio",
             # Async
             "async_timeout", "async_max_workers",
             # Video sizes

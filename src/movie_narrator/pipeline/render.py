@@ -1,5 +1,6 @@
 import json
 import shutil
+import subprocess
 from pathlib import Path
 
 from moviepy import AudioFileClip, ColorClip, CompositeVideoClip, ImageClip, VideoFileClip
@@ -8,6 +9,7 @@ from proglog import TqdmProgressBarLogger
 from ..models import Context, MatchedClip, StepResult, TimedSegment
 from ..utils.metadata_export import build_metadata_json
 from ..utils.text_image import create_text_image as _create_text_image
+from ..utils.video_layout import compute_fit_box
 
 
 class _RenderProgressLogger(TqdmProgressBarLogger):
@@ -68,6 +70,12 @@ def render_video(ctx: Context) -> Context:
     audio_clip = AudioFileClip(audio_path)
     total_duration = audio_clip.duration
 
+    # Production-quality render knobs (spec §7.2).
+    fit_mode = ctx.metadata.get("render_fit_mode", "cover")
+    subtitle_position = ctx.metadata.get("render_subtitle_position", "bottom")
+    max_width_ratio = ctx.metadata.get("render_subtitle_max_width_ratio", 0.9)
+    bottom_margin_ratio = ctx.metadata.get("render_subtitle_bottom_margin_ratio", 0.08)
+
     # Parse background color "R,G,B" → tuple
     bg_color_str = ctx.metadata.get("render_bg_color", "20,20,30")
     bg_parts = [int(x.strip()) for x in bg_color_str.split(",")]
@@ -96,28 +104,55 @@ def render_video(ctx: Context) -> Context:
                     subclip = source.subclipped(mc.src_start, mc.src_end)
                     if src_duration > 0:
                         subclip = subclip.with_speed_scaled(factor=src_duration / max(seg_duration, 0.1))
-                    subclip = subclip.with_start(mc.narr_start)
-                    clips.append(subclip)
+
+                    # Fit source frame onto the canvas (cover=crop+fill,
+                    # contain=letterbox+center). Keeps footage from overflowing
+                    # or distorting the output resolution.
+                    box = compute_fit_box(
+                        (subclip.w, subclip.h), size, mode=fit_mode,
+                    )
+                    if fit_mode == "cover":
+                        fitted = subclip.cropped(
+                            x1=box.crop_x, y1=box.crop_y,
+                            x2=box.crop_x + box.crop_w, y2=box.crop_y + box.crop_h,
+                        ).resized((box.out_w, box.out_h))
+                        fitted = fitted.with_position((0, 0))
+                    else:  # contain
+                        fitted = subclip.resized((box.out_w, box.out_h))
+                        pos_x = (size[0] - box.out_w) // 2
+                        pos_y = (size[1] - box.out_h) // 2
+                        fitted = fitted.with_position((pos_x, pos_y))
+
+                    clips.append(fitted.with_start(mc.narr_start))
                 except Exception as ie:
                     ctx.services.console.debug(f"  fallback for segment {mc.segment_index}: {ie}")
                     img_array = _create_text_image(
                         _overlay_text(ctx, mc.segment_index, ctx.timed_segments[mc.segment_index]),
-                        size, fontsize=font_size,
+                        size, fontsize=font_size, position=subtitle_position,
+                        max_width_ratio=max_width_ratio,
+                        bottom_margin_ratio=bottom_margin_ratio,
                     )
                     img_clip = ImageClip(img_array, is_mask=False)
                     img_clip = img_clip.with_duration(seg_duration).with_start(mc.narr_start)
                     clips.append(img_clip)
             # NOTE: source must NOT be closed here — subclips still need its reader during write_videofile.
 
-    # Always add text overlays for any segment not covered by footage
+    # Always draw subtitle overlays for ALL narration segments — including
+    # footage-covered ones. Publishable recaps need visible subtitles even
+    # over footage; footage segments use the "bottom" position so the text
+    # sits under the action instead of obscuring it.
     footage_segments = set()
     for mc in usable_clips:
         footage_segments.add(mc.segment_index)
 
     for i, seg in enumerate(ctx.timed_segments):
-        if i in footage_segments:
-            continue
-        img_array = _create_text_image(_overlay_text(ctx, i, seg), size, fontsize=font_size)
+        pos = "bottom" if i in footage_segments else subtitle_position
+        img_array = _create_text_image(
+            _overlay_text(ctx, i, seg), size, fontsize=font_size,
+            position=pos,
+            max_width_ratio=max_width_ratio,
+            bottom_margin_ratio=bottom_margin_ratio,
+        )
         img_clip = ImageClip(img_array, is_mask=False)
         img_clip = img_clip.with_duration(seg.end - seg.start).with_start(seg.start)
         clips.append(img_clip)
@@ -129,33 +164,43 @@ def render_video(ctx: Context) -> Context:
     tmp_dir = output_dir / ".tmp"
     tmp_dir.mkdir(exist_ok=True)
 
-    # temp_audiofile extension MUST match the audio_codec so the final
-    # mux step ("-acodec copy") reads a correctly-typed bitstream.
-    # With audio_codec="aac", a ".wav" extension causes a RIFF/WAV
-    # header wrapping AAC data — ffmpeg then decodes only ~6 ms.
     audio_codec = ctx.metadata.get("render_audio_codec", "aac")
-    temp_ext = audio_codec
-    # "copy" is a passthrough pseudo-codec; "aac" works for both AAC-LC
-    # and the HE-AAC variants.  Map libmp3lame → mp3 so the temp file
-    # always carries a real container extension.
-    if temp_ext == "copy":
-        temp_ext = "aac"
-    elif temp_ext.startswith("lib"):
-        temp_ext = temp_ext[3:]  # libmp3lame → mp3lame
-    # Normalise a few known aliases to a short file extension.
-    _EXT_NORM = {"mp3lame": "mp3", "libfdk_aac": "aac", "pcm_s16le": "wav"}
-    temp_ext = _EXT_NORM.get(temp_ext, temp_ext)
+    # The mux passes ``audio_codec`` (or its lib-prefix-stripped form)
+    # directly to ``ffmpeg -c:a`` later in this function, so no temp
+    # file extension translation is needed here.
 
-    write_kwargs = dict(
+    # Production-quality encode: CRF + preset + faststart (spec §7.2).
+    # faststart moves the moov atom to the front so the video can begin
+    # playback before the full file downloads (required for web preview).
+    crf = ctx.metadata.get("render_crf", 18)
+    preset = ctx.metadata.get("render_preset", "slow")
+    faststart = ctx.metadata.get("render_faststart", True)
+
+    # TWO-STAGE ENCODE: write a video-only mp4 via MoviePy (which is
+    # stable in isolation), then mux audio with ffmpeg in a second pass.
+    #
+    # This avoids a recurring failure mode on Windows + Python 3.14 +
+    # MoviePy 2.x where ``write_videofile`` writes audio + video through
+    # a single Popen pipe and the rawvideo stdin write raises
+    # ``OSError [Errno 22] Invalid argument`` partway through — leaving
+    # the final file with a corrupted ftyp/mdat layout (no moov atom).
+    # See commit notes on PR #37 for the empirical reproduction.
+    video_only_path = tmp_dir / "video_only.mp4"
+
+    video_ffmpeg_params = ["-crf", str(crf), "-preset", str(preset)]
+    # NOTE: do NOT include +faststart here — we apply it deterministically
+    # during the second-pass ffmpeg mux below, which is more reliable than
+    # bundling it into MoviePy's subprocess invocation.
+    video_write_kwargs = dict(
         fps=ctx.metadata.get("render_fps", 24),
         codec=ctx.metadata.get("render_video_codec", "libx264"),
-        audio_codec=audio_codec,
+        audio=False,  # ← key: defer audio mux to step 2
         threads=ctx.metadata.get("render_threads", 4),
         logger=_RenderProgressLogger(),
-        temp_audiofile=str(tmp_dir / f"temp_audio.{temp_ext}"),
+        ffmpeg_params=video_ffmpeg_params,
     )
     try:
-        final_video.write_videofile(str(video_path), **write_kwargs)
+        final_video.write_videofile(str(video_only_path), **video_write_kwargs)
     finally:
         # Exception-safe cleanup: each close is guarded so one failure
         # doesn't prevent the remaining resources from being released.
@@ -168,6 +213,54 @@ def render_video(ctx: Context) -> Context:
                     obj.close()
                 except Exception:  # noqa: BLE001
                     pass
+        # `final_video` already closed above; slice the audio so we can
+        # write the final mux without keeping the original AudioFileClip alive.
+        del audio_clip
+
+    # STAGE 2: deterministic audio mux via ffmpeg. ffmpeg is significantly
+    # more robust than MoviePy for muxing (it's what MoviePy ultimately
+    # shells out to internally) and lets us apply +faststart atomically
+    # alongside the mux.
+    if shutil.which("ffmpeg") is None:  # pragma: no cover - ffmpeg is required
+        raise RuntimeError(
+            "ffmpeg binary not found on PATH — required for production-quality "
+            "mux. Install ffmpeg (https://ffmpeg.org/download.html) and retry."
+        )
+
+    mux_cmd = [
+        shutil.which("ffmpeg"),
+        "-y",
+        "-loglevel", "error",
+        "-i", str(video_only_path),
+        "-i", str(audio_path),
+        "-map", "0:v:0",
+        "-map", "1:a:0",
+        "-c:v", "copy",
+        "-c:a", audio_codec if not audio_codec.startswith("lib") else audio_codec[3:],
+    ]
+    if faststart:
+        mux_cmd += ["-movflags", "+faststart"]
+    mux_cmd.append(str(video_path))
+
+    try:
+        proc = subprocess.run(
+            mux_cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=600,  # 10 min — generous for slow ffmpeg mux
+        )
+        if proc.returncode != 0:
+            raise RuntimeError(
+                f"ffmpeg mux failed (exit={proc.returncode}): {proc.stderr}"
+            )
+    finally:
+        # Clean up the video-only intermediate to keep the output dir tidy.
+        try:
+            video_only_path.unlink(missing_ok=True)
+        except OSError:
+            pass
 
     metadata = build_metadata_json(ctx)
     with open(output_dir / "metadata.json", "w", encoding="utf-8") as f:

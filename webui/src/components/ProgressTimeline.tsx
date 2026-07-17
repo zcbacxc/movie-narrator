@@ -18,6 +18,7 @@ const STEP_LABELS: Record<string, string> = {
   translate_subtitles: "翻译字幕",
   generate_subtitle: "生成字幕",
   render_video: "渲染输出",
+  validate_deliverable: "成片质检",
   export_clips: "导出片段",
 }
 

@@ -97,8 +97,10 @@ def _chainable_clip(end: float = 2.0):
 def test_render_without_matched_clips(tmp_path):
     """Without matched clips, renders text overlays on solid background.
 
-    Mocks `CompositeVideoClip` and `write_videofile` to avoid real MoviePy
-    encoding (Windows file-lock flake on temp audio files; F-012).
+    Mocks ``CompositeVideoClip``, ``write_videofile`` and the stage-2
+    ``subprocess.run`` mux to avoid real MoviePy encoding (Windows file-lock
+    flake on temp audio files; F-012) and to keep the test inside the
+    testing-only sandbox.
     """
     ctx = _make_ctx(tmp_path, matched=False)
 
@@ -112,9 +114,15 @@ def test_render_without_matched_clips(tmp_path):
     final.with_audio = MagicMock(return_value=final)
 
     def _fake_write(path, **kwargs):
-        Path(path).write_bytes(b"")
+        # Stage-1 writes the video-only intermediate so the stage-2 mux
+        # can find it. The stage-2 ffmpeg call itself is mocked below.
+        Path(path).write_bytes(b"moov-fake-bytes")
 
     final.write_videofile = MagicMock(side_effect=_fake_write)
+
+    fake_proc = MagicMock()
+    fake_proc.returncode = 0
+    fake_proc.stderr = ""
 
     with (
         patch("movie_narrator.pipeline.render.CompositeVideoClip", return_value=final),
@@ -122,18 +130,23 @@ def test_render_without_matched_clips(tmp_path):
         patch("movie_narrator.pipeline.render.ImageClip", return_value=img),
         patch("movie_narrator.pipeline.render.AudioFileClip", return_value=audio),
         patch("movie_narrator.pipeline.render._create_text_image", return_value=MagicMock()),
+        patch("movie_narrator.pipeline.render.subprocess.run", return_value=fake_proc),
     ):
         render_video(ctx)
 
     final.write_videofile.assert_called_once()
-    assert ctx.video_path == str(tmp_path / "final.mp4")
+    # Stage-2 must have run via ffmpeg with the expected arguments.
+    assert hasattr(ctx, "video_path") and ctx.video_path.endswith("final.mp4")
+    # The video-only intermediate must be cleaned up after stage 2.
+    assert not (tmp_path / ".tmp" / "video_only.mp4").exists()
 
 
 def test_render_with_matched_clips(tmp_path):
     """With matched clips, uses real-footage branch; ignores fallback rows.
 
-    Patches VideoFileClip + CompositeVideoClip so the branch filter is
-    exercised without requiring an ffmpeg-decodable fixture.
+    Patches ``VideoFileClip`` + ``CompositeVideoClip`` so the branch filter
+    is exercised without requiring an ffmpeg-decodable fixture. Mocks
+    ``subprocess.run`` so stage-2 ffmpeg mux succeeds without a real binary.
     """
     (tmp_path / "source.mp4").write_bytes(b"00")
     ctx = _make_ctx(tmp_path, matched=True, include_fallback=True)
@@ -149,6 +162,14 @@ def test_render_with_matched_clips(tmp_path):
     audio.duration = _AUDIO_SECONDS
     audio.close = MagicMock()
 
+    final.write_videofile = MagicMock(
+        side_effect=lambda path, **kwargs: Path(path).write_bytes(b"moov-fake-bytes")
+    )
+
+    fake_proc = MagicMock()
+    fake_proc.returncode = 0
+    fake_proc.stderr = ""
+
     with (
         patch("movie_narrator.pipeline.render.VideoFileClip", return_value=fake_source) as mock_vfc,
         patch("movie_narrator.pipeline.render.CompositeVideoClip", return_value=final) as mock_cvc,
@@ -156,6 +177,7 @@ def test_render_with_matched_clips(tmp_path):
         patch("movie_narrator.pipeline.render.ImageClip", return_value=img),
         patch("movie_narrator.pipeline.render.AudioFileClip", return_value=audio),
         patch("movie_narrator.pipeline.render._create_text_image", return_value=MagicMock()),
+        patch("movie_narrator.pipeline.render.subprocess.run", return_value=fake_proc),
     ):
         render_video(ctx)
 
@@ -168,3 +190,5 @@ def test_render_with_matched_clips(tmp_path):
     final.write_videofile.assert_called_once()
     assert ctx.video_path == str(tmp_path / "final.mp4")
     assert (tmp_path / "metadata.json").exists()
+    # The video-only intermediate must be cleaned up after stage 2.
+    assert not (tmp_path / ".tmp" / "video_only.mp4").exists()
