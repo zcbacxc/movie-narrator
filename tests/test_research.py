@@ -21,6 +21,8 @@ def test_research_unknown_provider_failed(tmp_path):
     ctx.metadata["research_enabled"] = True
     with patch("movie_narrator.pipeline.research.get_settings") as gs:
         gs.return_value.research_provider = "tmdb"
+        gs.return_value.research_retries = 3
+        gs.return_value.research_retry_delay = 0
         research_plot(ctx)
     assert ctx.status.research == "failed"
     assert (tmp_path / "research.json").exists()
@@ -43,6 +45,10 @@ def test_research_llm_success(tmp_path):
     with patch("movie_narrator.pipeline.research.get_settings") as gs, \
          patch("movie_narrator.pipeline.research.get_llm_client") as gl:
         gs.return_value.research_provider = "llm"
+        gs.return_value.research_retries = 3
+        gs.return_value.research_retry_delay = 0
+        gs.return_value.research_temperature = 0.3
+        gs.return_value.research_max_tokens = 1024
         gl.return_value.__enter__.return_value = gl.return_value
         gl.return_value.client.chat.completions.create.return_value = mock_response
         research_plot(ctx)

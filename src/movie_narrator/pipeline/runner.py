@@ -63,6 +63,19 @@ SOFT_STATUS_STEPS = {
     "translate_subtitles",
 }
 
+# Human-readable consequence messages for soft-step degradation.
+# When a soft step fails or is skipped, this map provides a concise
+# explanation of what the user should expect in the final output.
+SOFT_STEP_CONSEQUENCES: Dict[str, str] = {
+    "research_plot": "research unavailable — script will use generic plot description",
+    "align_audio": "audio alignment skipped — subtitle timestamps may drift from actual speech",
+    "detect_scenes": "scene detection skipped — clips will use fixed-duration segments",
+    "match_clips": "clip matching skipped — segments mapped to sequential clips without embedding search",
+    "mix_bgm": "BGM mixing failed — final video will have narration audio only, no background music",
+    "export_clips": "clip export skipped — no standalone clip files will be produced",
+    "translate_subtitles": "translation failed — only original-language subtitles will be available",
+}
+
 # Map soft step name → PipelineStatus field name. Steps not in this map
 # (e.g. resolve_video, generate_script, render_video) do not write to
 # PipelineStatus because a hard failure there aborts the pipeline anyway.
@@ -300,10 +313,15 @@ def run_pipeline(
                 elapsed = time.time() - step_start
                 if name in SOFT_STATUS_STEPS:
                     _set_pipeline_status_failed(ctx, name)
+                    consequence = SOFT_STEP_CONSEQUENCES.get(name, "")
+                    msg = str(e)
+                    if consequence:
+                        msg = f"{msg} — {consequence}"
                     ctx.step_state = StepState(
-                        result=StepResult.WARNING, message=str(e)
+                        result=StepResult.WARNING, message=msg
                     )
                     console.step_warn(name, ctx.step_state.message)
+                    ctx.metadata.setdefault("_degraded_steps", []).append(name)
                     _check_strict(ctx, name)
                     break  # exit retry loop, continue to next step
 
@@ -334,6 +352,16 @@ def run_pipeline(
 
     total_elapsed = time.time() - total_start
     console.done(total_elapsed)
+
+    # ── Degradation summary ─────────────────────────────
+    # If any soft steps degraded during this run, warn the user about
+    # the quality impact on the final output.
+    degraded = ctx.metadata.get("_degraded_steps", [])
+    if degraded:
+        console.inline_warn(
+            f"Pipeline completed with {len(degraded)} degraded step(s): "
+            f"{', '.join(degraded)}. The final output may have reduced quality."
+        )
 
     return ctx
 
