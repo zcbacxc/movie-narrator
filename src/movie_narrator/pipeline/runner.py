@@ -110,6 +110,7 @@ def build_context(
     subtitle_lang: Optional[str] = None,
     subtitle_mode: Optional[str] = None,
     services: Optional[Services] = None,
+    narration_preset: Optional[str] = None,
 ) -> Context:
     """Assemble a :class:`Context` ready for :func:`run_pipeline`.
 
@@ -173,7 +174,23 @@ def build_context(
 
     if workflow_steps:
         ctx.metadata["workflow_steps"] = dict(workflow_steps)
+
+    # ── Preset merge: preset params are the BASELINE; user params override ──
+    # The preset provides style defaults (match cadence, BGM ducking, subtitle
+    # layout, prompt shaping).  User-supplied params always win, so users can
+    # do e.g. --narration-preset mainstream-dry while still overriding a
+    # single knob via job.yaml params.
+    effective_params: Dict[str, Any] = {}
+    if narration_preset:
+        from ..presets import get_preset
+        preset = get_preset(narration_preset)
+        effective_params.update(preset.param_dict)
+        ctx.metadata["narration_preset"] = narration_preset
+        ctx.metadata["narration_preset_tags"] = dict(preset.tag_dict)
     if params:
+        effective_params.update(params)
+
+    if effective_params:
         for key in (
             "scene_threshold", "scene_frame_skip", "match_min_score",
             "match_speed_clamp_min", "match_speed_clamp_max",
@@ -190,11 +207,12 @@ def build_context(
             "render_subtitle_position", "render_subtitle_max_width_ratio",
             "render_subtitle_bottom_margin_ratio",
             "qa_enabled", "qa_max_silence_db", "qa_min_duration_ratio", "qa_max_duration_ratio",
+            "prompt_target_sentences", "prompt_max_chars_per_sentence", "prompt_hook_seconds",
             "async_timeout", "async_max_workers",
             "video_sizes",
         ):
-            if key in params and params[key] is not None:
-                ctx.metadata[key] = params[key]
+            if key in effective_params and effective_params[key] is not None:
+                ctx.metadata[key] = effective_params[key]
     if config_path:
         ctx.metadata["config_path"] = config_path
 

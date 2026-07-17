@@ -1,6 +1,6 @@
 from ..config import get_settings
 from ..models import Context, ScriptSegment
-from ..utils.prompts import SCRIPT_PROMPT
+from ..utils.prompts import SCRIPT_PROMPT, build_cadence_hint
 from ..utils.llm import get_llm_client
 from ..utils.json_parser import extract_json
 from ..tts.base import is_ci
@@ -26,11 +26,21 @@ def generate_script(ctx: Context) -> Context:
                 if ctx.research and ctx.research.summary:
                     research_block = f"\nResearch context: {ctx.research.summary}\nGenres: {', '.join(ctx.research.genres)}\n"
 
+                # Preset-driven prompt shaping (v0.4.15+).
+                # Falls back to v0.4.14 defaults when no preset is active.
+                tags = ctx.metadata.get("narration_preset_tags", {})
                 prompt = SCRIPT_PROMPT.format(
                     movie=ctx.movie_name,
                     style=ctx.style,
                     duration=ctx.duration,
                     research=research_block,
+                    max_chars=ctx.metadata.get("prompt_max_chars_per_sentence", 15),
+                    target_sentences=ctx.metadata.get("prompt_target_sentences", "15-20"),
+                    hook_seconds=ctx.metadata.get("prompt_hook_seconds", 3),
+                    cadence_hint=build_cadence_hint(
+                        cadence=tags.get("prompt_cadence", ""),
+                        connectors=tags.get("prompt_connectors", ""),
+                    ),
                 )
                 response = llm.client.chat.completions.create(
                     model=llm.model,

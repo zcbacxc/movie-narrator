@@ -35,6 +35,7 @@ class FormData:
     match_min_score: Optional[float]
     translate_provider: str
     translate_retries: Optional[int]
+    narration_preset: str = ""
 
 
 def validate_form(data: FormData) -> List[str]:
@@ -94,4 +95,5 @@ def form_to_context_args(data: FormData) -> Dict[str, Any]:
         config_path=None,
         subtitle_lang=data.subtitle_lang.strip() or None,
         subtitle_mode=data.subtitle_mode,
+        narration_preset=data.narration_preset.strip() or None,
     )
