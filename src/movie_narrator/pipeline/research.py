@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from time import sleep
 
 from ..config import get_settings
 from ..models import Context, ResearchInfo, StepResult
@@ -52,34 +53,50 @@ def research_plot(ctx: Context) -> Context:
         ctx.status.research = "failed"
         return ctx
 
-    try:
-        settings = get_settings()
-        with get_llm_client() as llm:
-            prompt = RESEARCH_PROMPT.format(movie=ctx.movie_name)
-            response = llm.client.chat.completions.create(
-                model=llm.model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=settings.research_temperature,
-                max_tokens=settings.research_max_tokens,
-            )
-            raw = response.choices[0].message.content or ""
-            data = extract_json(raw)
+    settings = get_settings()
+    console = ctx.services.console
+    last_err = None
 
-            ctx.research = ResearchInfo(
-                title=data.get("title", ctx.movie_name),
-                year=data.get("year"),
-                summary=data.get("summary", ""),
-                genres=data.get("genres", []),
-                cast=data.get("cast", []),
-                keywords=data.get("keywords", []),
-            )
-            _write_envelope(output_dir, "success", None, ctx.research.model_dump())
-            ctx.status.research = "success"
-            return ctx
-    except Exception as e:
-        err = str(e)
-        ctx.step_state.result = StepResult.WARNING
-        ctx.step_state.message = err
-        _write_envelope(output_dir, "failed", err, None)
-        ctx.status.research = "failed"
-        return ctx
+    for attempt in range(settings.research_retries):
+        try:
+            with get_llm_client() as llm:
+                prompt = RESEARCH_PROMPT.format(movie=ctx.movie_name)
+                response = llm.client.chat.completions.create(
+                    model=llm.model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=settings.research_temperature,
+                    max_tokens=settings.research_max_tokens,
+                )
+                raw = response.choices[0].message.content or ""
+                data = extract_json(raw)
+
+                ctx.research = ResearchInfo(
+                    title=data.get("title", ctx.movie_name),
+                    year=data.get("year"),
+                    summary=data.get("summary", ""),
+                    genres=data.get("genres", []),
+                    cast=data.get("cast", []),
+                    keywords=data.get("keywords", []),
+                )
+                _write_envelope(output_dir, "success", None, ctx.research.model_dump())
+                ctx.status.research = "success"
+                return ctx
+        except Exception as e:
+            last_err = e
+            if attempt < settings.research_retries - 1:
+                console.debug(
+                    f"  research_plot: attempt {attempt + 1}/{settings.research_retries} failed: {e}"
+                )
+                sleep(settings.research_retry_delay)
+            else:
+                console.debug(
+                    f"  research_plot: all {settings.research_retries} attempts failed: {e}"
+                )
+
+    # All retries exhausted — soft-degrade (research is a soft step)
+    err = str(last_err) if last_err else "unknown error"
+    ctx.step_state.result = StepResult.WARNING
+    ctx.step_state.message = f"research failed after {settings.research_retries} attempts: {err}"
+    _write_envelope(output_dir, "failed", err, None)
+    ctx.status.research = "failed"
+    return ctx

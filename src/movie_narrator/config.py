@@ -89,6 +89,8 @@ class Settings(BaseSettings):
     script_retry_delay: float = 1.5
     research_temperature: float = 0.3
     research_max_tokens: int = 1024
+    research_retries: int = 3
+    research_retry_delay: float = 1.5
     translate_max_tokens: int = 4096
     # ── TTS ──
     default_voice: str = "zh-CN-YunxiNeural"

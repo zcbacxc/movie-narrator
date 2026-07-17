@@ -16,6 +16,10 @@ from ..tts.cache import (
 
 __all__ = ["generate_voice"]
 
+# Per-segment TTS retry: network hiccups shouldn't kill the entire batch.
+_TTS_SEGMENT_RETRIES = 3
+_TTS_RETRY_DELAY = 1.0  # seconds
+
 
 def generate_voice(ctx: Context) -> Context:
     settings = get_settings()
@@ -29,6 +33,7 @@ def generate_voice(ctx: Context) -> Context:
     max_concurrent = ctx.metadata.get("tts_max_concurrent", 3)
     audio_fmt = ctx.metadata.get("tts_audio_format", "mp3")
     audio_bitrate = ctx.metadata.get("tts_audio_bitrate", "128k")
+    console = ctx.services.console
 
     def _key(seg_text: str) -> TTSCacheKey:
         return TTSCacheKey(
@@ -65,7 +70,25 @@ def generate_voice(ctx: Context) -> Context:
                     tmp.unlink(missing_ok=True)
                 else:
                     if not cached.exists():
-                        await provider.synthesize(seg.text, voice, cached)
+                        # Per-segment retry: a single network hiccup shouldn't
+                        # kill the entire batch.  Retry up to _TTS_SEGMENT_RETRIES
+                        # times with a short delay before giving up.
+                        last_err = None
+                        for attempt in range(_TTS_SEGMENT_RETRIES):
+                            try:
+                                await provider.synthesize(seg.text, voice, cached)
+                                last_err = None
+                                break
+                            except Exception as e:
+                                last_err = e
+                                if attempt < _TTS_SEGMENT_RETRIES - 1:
+                                    await asyncio.sleep(_TTS_RETRY_DELAY)
+                                else:
+                                    console.inline_warn(
+                                        f"TTS failed for segment after {_TTS_SEGMENT_RETRIES} attempts: {e}"
+                                    )
+                        if last_err is not None:
+                            raise last_err
                     audio = AudioSegment.from_mp3(cached)
                 return audio, round(len(audio) / 1000.0, 3)
 
