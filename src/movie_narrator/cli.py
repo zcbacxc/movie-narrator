@@ -11,7 +11,11 @@ from .pipeline.resolve import resolve_video
 from .pipeline.research import research_plot
 from .pipeline.runner import build_context, run_pipeline
 
-app = typer.Typer(help="Generate narrated movie recap videos from a single prompt.")
+app = typer.Typer(
+    help="Movie Narrator — 从一个提示词生成解说短视频 / Generate narrated movie recap videos from a single prompt.",
+    no_args_is_help=True,
+    rich_markup_mode="rich",
+)
 
 # Packaged example YAML — used as fallback when no --config and no cwd/job.yaml.
 _EXAMPLE_YAML = Path(__file__).resolve().parent.parent.parent / "examples" / "job.example.yaml"
@@ -58,33 +62,45 @@ from .utils.sanitize import sanitize_filename as _sanitize_filename
 
 @app.command()
 def create(
-    movie: Optional[str] = typer.Option(None, "--movie", "-m", help="Movie name"),
-    style: str = typer.Option("热血搞笑", "--style", "-s", help="Narration style"),
-    duration: int = typer.Option(60, "--duration", "-d", help="Target duration (seconds)"),
-    voice: Optional[str] = typer.Option(None, "--voice", "-v", help="TTS voice (Edge TTS)"),
-    format: str = typer.Option("16:9", "--format", "-f", help="Video format: 16:9 or 9:16"),
-    keep_cache: bool = typer.Option(False, "--keep-cache", help="Keep TTS cache files"),
-    video: Optional[str] = typer.Option(None, "--video", help="Source movie file path"),
-    library_dir: Optional[str] = typer.Option(None, "--library-dir", help="Movie library directory"),
-    research: Optional[bool] = typer.Option(None, "--research/--no-research", help="Enable plot research"),
-    bgm: Optional[str] = typer.Option(None, "--bgm", help="Background music file"),
-    no_bgm: bool = typer.Option(False, "--no-bgm", help="Disable BGM even if default set"),
-    no_clips: bool = typer.Option(False, "--no-clips", help="Skip clips/export"),
-    strict: bool = typer.Option(False, "--strict", help="Abort on soft step failure"),
-    retry: bool = typer.Option(False, "--retry", help="Enable interactive retry on hard step failure"),
-    config: Optional[str] = typer.Option(None, "--config", help="Path to job YAML config"),
+    movie: Optional[str] = typer.Option(None, "--movie", "-m", help="电影名称 / Movie name"),
+    style: str = typer.Option("热血搞笑", "--style", "-s", help="解说风格 / Narration style"),
+    duration: int = typer.Option(60, "--duration", "-d", help="目标时长(秒) / Target duration (seconds)"),
+    voice: Optional[str] = typer.Option(None, "--voice", "-v", help="TTS 语音 / TTS voice (Edge TTS)"),
+    format: str = typer.Option("16:9", "--format", "-f", help="视频格式 16:9 或 9:16 / Video format: 16:9 or 9:16"),
+    keep_cache: bool = typer.Option(False, "--keep-cache", help="保留 TTS 缓存 / Keep TTS cache files"),
+    video: Optional[str] = typer.Option(None, "--video", help="源视频文件路径 / Source movie file path"),
+    library_dir: Optional[str] = typer.Option(None, "--library-dir", help="影视库目录 / Movie library directory"),
+    research: Optional[bool] = typer.Option(None, "--research/--no-research", help="启用剧情研究 / Enable plot research"),
+    bgm: Optional[str] = typer.Option(None, "--bgm", help="背景音乐文件 / Background music file"),
+    no_bgm: bool = typer.Option(False, "--no-bgm", help="禁用 BGM / Disable BGM even if default set"),
+    no_clips: bool = typer.Option(False, "--no-clips", help="跳过片段导出 / Skip clips/export"),
+    strict: bool = typer.Option(False, "--strict", help="软步骤失败即中止 / Abort on soft step failure"),
+    retry: bool = typer.Option(False, "--retry", help="硬步骤失败时交互重试 / Enable interactive retry on hard step failure"),
+    config: Optional[str] = typer.Option(None, "--config", help="job YAML 配置路径 / Path to job YAML config"),
     # Multi-language subtitle (v0.3).
     subtitle_lang: Optional[str] = typer.Option(
-        None, "--subtitle-lang", help="Target language tag (e.g. en, ja, zh-TW); empty = feature off",
+        None, "--subtitle-lang", help="目标语言标签(如 en, ja, zh-TW) / Target language tag; empty = off",
     ),
     subtitle_mode: Optional[str] = typer.Option(
-        None, "--subtitle-mode", help="Overlay mode: original|translated|bilingual",
+        None, "--subtitle-mode", help="字幕模式 original|translated|bilingual / Overlay mode",
     ),
     narration_preset: Optional[str] = typer.Option(
         None, "--narration-preset", "-p",
-        help="Narration style preset: douyin-fast (default) | mainstream-dry | bilibili-long",
+        help="解说风格预设 douyin-fast | mainstream-dry | bilibili-long / Narration style preset",
     ),
 ):
+    """生成解说短视频 — 从电影名到成片一站式产出.
+
+    \b
+    快速开始 / Quick start:
+        mn create -m 满江红 -p douyin-fast
+        mn create -m 满江红 -p mainstream-dry --bgm music.mp3
+        mn create --config job.yaml
+
+    \b
+    查看可用预设 / List available presets:
+        mn preset
+    """
     from .config import get_settings
     from .workflow import JobConfigError, load_job_config, merge_job
 
@@ -204,11 +220,11 @@ def create(
 
 @app.command()
 def resolve(
-    movie: str = typer.Option(..., "--movie", "-m", help="Movie name to resolve"),
-    library_dir: Optional[str] = typer.Option(None, "--library-dir", help="Movie library directory"),
-    json_output: bool = typer.Option(False, "--json", help="Output result as JSON"),
+    movie: str = typer.Option(..., "--movie", "-m", help="电影名称 / Movie name to resolve"),
+    library_dir: Optional[str] = typer.Option(None, "--library-dir", help="影视库目录 / Movie library directory"),
+    json_output: bool = typer.Option(False, "--json", help="JSON 格式输出 / Output result as JSON"),
 ):
-    """Resolve a movie from library directory."""
+    """从影视库中查找电影 / Resolve a movie from library directory."""
     output_dir = Path("output") / _sanitize_filename(movie)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -230,9 +246,9 @@ def resolve(
 
 @app.command()
 def research(
-    movie: str = typer.Option(..., "--movie", "-m", help="Movie name to research"),
+    movie: str = typer.Option(..., "--movie", "-m", help="电影名称 / Movie name to research"),
 ):
-    """Run plot research and write research.json to output/<movie>/."""
+    """运行剧情研究并输出 research.json / Run plot research."""
     output_dir = Path("output") / _sanitize_filename(movie)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -252,11 +268,11 @@ def research(
 
 @app.command()
 def scenes(
-    video: str = typer.Option(..., "--video", help="Video file path"),
-    threshold: float = typer.Option(27.0, "--threshold", help="Scene detection threshold"),
-    output: Optional[str] = typer.Option(None, "--output", help="Output directory"),
+    video: str = typer.Option(..., "--video", help="视频文件路径 / Video file path"),
+    threshold: float = typer.Option(27.0, "--threshold", help="场景检测阈值 / Scene detection threshold"),
+    output: Optional[str] = typer.Option(None, "--output", help="输出目录 / Output directory"),
 ):
-    """Detect scenes in a video file."""
+    """检测视频中的场景 / Detect scenes in a video file."""
     from movie_narrator.pipeline.scenes import detect_scenes
     from movie_narrator.models import Context
     out = Path(output) if output else Path("output") / "scenes_debug"
@@ -280,11 +296,11 @@ def scenes(
 
 @app.command()
 def align(
-    audio: str = typer.Option(..., "--audio", help="Audio file path"),
-    script: Optional[str] = typer.Option(None, "--script", help="Script text file (one per line)"),
-    output: Optional[str] = typer.Option(None, "--output", help="Output directory"),
+    audio: str = typer.Option(..., "--audio", help="音频文件路径 / Audio file path"),
+    script: Optional[str] = typer.Option(None, "--script", help="脚本文本文件(每行一句) / Script text file"),
+    output: Optional[str] = typer.Option(None, "--output", help="输出目录 / Output directory"),
 ):
-    """Align audio with script using WhisperX."""
+    """使用 WhisperX 对齐音频与脚本 / Align audio with script using WhisperX."""
     from movie_narrator.pipeline.align import align_audio
     from movie_narrator.models import Context, TimedSegment
     out = Path(output) if output else Path("output") / "align_debug"
@@ -314,11 +330,11 @@ def align(
 
 @app.command()
 def clips(
-    video: str = typer.Option(..., "--video", help="Source video path"),
-    scenes_path: str = typer.Option(..., "--scenes", help="scenes.json path"),
-    output: Optional[str] = typer.Option(None, "--output", help="Output directory"),
+    video: str = typer.Option(..., "--video", help="源视频路径 / Source video path"),
+    scenes_path: str = typer.Option(..., "--scenes", help="scenes.json 路径 / scenes.json path"),
+    output: Optional[str] = typer.Option(None, "--output", help="输出目录 / Output directory"),
 ):
-    """Export clips from scenes.json."""
+    """从 scenes.json 导出片段 / Export clips from scenes.json."""
     from movie_narrator.pipeline.export_clips import export_clips
     from movie_narrator.models import Context, Scene
     import json
@@ -346,22 +362,22 @@ def clips(
 
 @app.command()
 def version():
-    """Show version."""
+    """显示版本号 / Show version."""
     typer.echo(f"movie-narrator v{__version__}")
 
 
 @app.command()
 def preset(
     name: Optional[str] = typer.Argument(
-        None, help="Preset name to show details for (omitted = list all)"
+        None, help="预设名称(省略则列出全部) / Preset name (omitted = list all)"
     ),
 ):
-    """List narration presets or show details for a specific preset.
+    """列出解说预设或查看指定预设详情 / List presets or show details.
 
     \b
-    Examples:
-        mn preset                  # list all available presets
-        mn preset mainstream-dry   # show params + tags for mainstream-dry
+    示例 / Examples:
+        mn preset                  # 列出所有可用预设
+        mn preset mainstream-dry   # 查看 mainstream-dry 的参数和标签
     """
     from .presets import get_preset, list_presets
 
@@ -400,10 +416,10 @@ def preset(
 
 @app.command()
 def web(
-    host: str = typer.Option("127.0.0.1", "--host", "-h", help="Bind host"),
-    port: int = typer.Option(8760, "--port", "-p", help="Bind port"),
-    reload: bool = typer.Option(False, "--reload", help="Auto-reload on file changes"),
+    host: str = typer.Option("127.0.0.1", "--host", help="绑定地址 / Bind host"),
+    port: int = typer.Option(8760, "--port", help="绑定端口 / Bind port"),
+    reload: bool = typer.Option(False, "--reload", help="文件变更时自动重载 / Auto-reload on file changes"),
 ):
-    """Launch the Web UI (FastAPI + React)."""
+    """启动 Web UI (FastAPI + React) / Launch the Web UI."""
     from .web_api import launch_web_api
     launch_web_api(host=host, port=port, reload=reload)

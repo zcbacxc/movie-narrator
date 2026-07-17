@@ -43,12 +43,17 @@ def ensure_user_config() -> Path:
     Returns the path to the user-level .env (existing or newly created).
     Safe to call multiple times — never overwrites an existing file.
 
+    On first creation, prints a one-time informational message to stderr
+    telling the user where the config was created and which fields to edit.
+    This is non-interactive (no prompt) so the CLI remains scriptable.
+
     Write is atomic (temp file + ``os.replace``) to prevent partial writes
     if the process is interrupted mid-write (TOCTOU safe).
     """
     if not _USER_ENV.exists():
         import os
         import tempfile
+        import sys
 
         _USER_DIR.mkdir(parents=True, exist_ok=True)
         fd, tmp_path = tempfile.mkstemp(dir=_USER_DIR, suffix=".env.tmp")
@@ -62,7 +67,29 @@ def ensure_user_config() -> Path:
             except OSError:
                 pass
             raise
+
+        # One-time first-run notice (non-interactive, goes to stderr
+        # so it doesn't pollute stdout in piped workflows).
+        _print_first_run_notice(_USER_ENV)
     return _USER_ENV
+
+
+def _print_first_run_notice(env_path: Path) -> None:
+    """Print a one-time message when the config file is first created."""
+    # CI mode: skip the notice entirely (CI runs don't need it).
+    if os.getenv("CI"):
+        return
+    print(
+        f"\n[movie-narrator] 首次运行：已创建配置文件\n"
+        f"  路径: {env_path}\n"
+        f"  请编辑此文件，填入你的 LLM 和 TTS 配置：\n"
+        f"    MN_LLM_BASE_URL  — LLM API 地址 (如 http://localhost:11434/v1)\n"
+        f"    MN_LLM_API_KEY   — LLM API 密钥\n"
+        f"    MN_LLM_MODEL     — LLM 模型名称\n"
+        f"    MN_DEFAULT_VOICE — TTS 语音 (如 zh-CN-YunxiNeural)\n"
+        f"  配置完成后重新运行即可。\n",
+        file=sys.stderr,
+    )
 
 
 class TTSProviderType(str, Enum):
