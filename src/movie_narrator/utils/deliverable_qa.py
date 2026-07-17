@@ -53,22 +53,40 @@ def _ffmpeg_bin() -> str:
         return "ffmpeg"  # last resort — let subprocess raise
 
 
+def _run(cmd: list[str], *, timeout: int = 30) -> subprocess.CompletedProcess:
+    """Run a subprocess with UTF-8 decoding (Windows-safe).
+
+    ``text=True`` alone uses the system locale (GBK on Chinese Windows),
+    which crashes when ffprobe/ffmpeg emit non-GBK bytes and leaves
+    stdout/stderr empty — causing false QA failures. Force UTF-8 with
+    replacement so probe parsing always sees *some* text.
+    """
+    return subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=timeout,
+    )
+
+
 def _probe_with_ffprobe(path: str) -> Optional[dict]:
     """Probe via ffprobe JSON output. Returns None if ffprobe unavailable."""
     ffprobe = shutil.which("ffprobe")
     if not ffprobe:
         return None
     try:
-        proc = subprocess.run(
+        proc = _run(
             [
                 ffprobe, "-v", "quiet",
                 "-print_format", "json",
                 "-show_format", "-show_streams",
                 path,
             ],
-            capture_output=True, text=True, timeout=30,
+            timeout=30,
         )
-        if proc.returncode != 0:
+        if proc.returncode != 0 or not (proc.stdout or "").strip():
             return None
         data = json.loads(proc.stdout)
     except Exception:
@@ -103,9 +121,9 @@ def _probe_with_ffmpeg(path: str) -> dict:
     """Fallback probe using ``ffmpeg -i`` stderr parsing."""
     bin_path = _ffmpeg_bin()
     try:
-        proc = subprocess.run(
+        proc = _run(
             [bin_path, "-i", path, "-hide_banner"],
-            capture_output=True, text=True, timeout=30,
+            timeout=30,
         )
         # ffmpeg -i exits non-zero when there's no output, but stderr still
         # contains the stream info we need.
@@ -155,17 +173,20 @@ def _detect_volume(path: str) -> Optional[float]:
     """
     bin_path = _ffmpeg_bin()
     try:
-        proc = subprocess.run(
+        proc = _run(
             [bin_path, "-i", path, "-af", "volumedetect", "-f", "null", "-"],
-            capture_output=True, text=True, timeout=60,
+            timeout=60,
         )
         stderr = proc.stderr or ""
     except Exception:
         return None
 
-    m = re.search(r"mean_volume:\s*(-?[\d.]+)\s*dB", stderr)
+    m = re.search(r"mean_volume:\s*([-\d.]+)\s*dB", stderr)
     if m:
-        return float(m.group(1))
+        try:
+            return float(m.group(1))
+        except ValueError:
+            return None
     return None
 
 
