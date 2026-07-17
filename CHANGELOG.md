@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.16] - 2026-07-17
+
+### Added (Two-phase script generation + CLI/Config improvements)
+- **Two-phase script generation**: `generate_script()` now splits into Phase 1 (plot beat extraction at low temperature) + Phase 2 (beat expansion at moderate temperature) + fallback trim. Decouples count control from style expression, making `prompt_target_sentences` actually enforceable.
+- **First-run config notice**: `ensure_user_config()` now prints a one-time informational message to stderr when creating `~/.movie-narrator/.env`, telling the user which fields to edit. Non-interactive (no prompt), CI mode skips the notice.
+- **CLI help improvements**: `no_args_is_help=True` (bare `mn` now shows help instead of "Missing command"), `rich_markup_mode="rich"` for colored output, all 9 commands now have bilingual (中文/English) help text and docstrings.
+- **`-h` conflict resolved**: `web` command's `--host` no longer binds `-h` short option, freeing `-h` for `--help` across all commands.
+- New config field: `script_expand_temperature=0.5` (Phase 2 temperature, separate from `script_temperature=0.7`).
+
+### Fixed
+- **Phase 1 None silent conversion**: `str(None)="None"` was truthy and passed filtering, producing meaningless "None" beats. Now explicitly filters None/empty/"None" strings.
+- **Phase 2 empty text segments**: Whitespace-only segments were accepted, would produce silent TTS audio. Now strips and filters.
+- **Retry failure debug logging**: Last error now logged via `console.debug()` before raising RuntimeError.
+
+### Changed
+- `prompts.py`: Added `BEATS_PROMPT` (Phase 1) and `EXPAND_PROMPT` (Phase 2). `SCRIPT_PROMPT` retained for backward reference.
+- `config.py`: `research_retries=3` + `research_retry_delay=1.5` (Research step now retries, matching script.py pattern).
+- `pipeline/runner.py`: `SOFT_STEP_CONSEQUENCES` map — soft-step failures now append human-readable consequence messages. Pipeline-end degradation summary warns about reduced quality.
+- `pipeline/tts.py`: Per-segment TTS retry (3 attempts, 1s delay) — single network hiccup no longer kills entire batch.
+
 ## [0.4.15] - 2026-07-17
 
 ### Added (Narration preset system — Stage 0.5)

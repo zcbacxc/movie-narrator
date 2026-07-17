@@ -150,8 +150,21 @@ The Web UI is rebuilt from a Gradio single-file app into a decoupled **FastAPI +
 - [x] Prompt shaping via closed-vocabulary tags (cadence / register / connectors)
 - [x] Single-source `PARAM_WHITELIST` frozenset (runner.py) — eliminates dual-maintained whitelist
 - [x] Hand-test verified: prompt tags produce perceptible style differences
-- [ ] Known limitation: `prompt_target_sentences` constraint weak (LLM ignores 12/8 targets) — planned fix: stronger prompt + post-processing truncation
+- [x] Known limitation fixed in v0.4.16: two-phase generation enforces `prompt_target_sentences`
 - [ ] Stage 2 (future): SPI discover via `entry_points` + opt-in local folder scan
+
+### v0.4.16 Two-Phase Script Generation + CLI/Config Improvements
+
+- [x] Two-phase script generation: Phase 1 (plot beats, low temp) → Phase 2 (expansion, moderate temp) → fallback trim
+- [x] `prompt_target_sentences` now enforceable (was ignored by LLM in v0.4.15)
+- [x] First-run config notice: `ensure_user_config()` prints one-time message to stderr
+- [x] CLI help: `no_args_is_help=True`, `rich_markup_mode="rich"`, bilingual (中文/English) help
+- [x] `-h` conflict resolved (web command `--host` no longer binds `-h`)
+- [x] Phase 1 None/empty beat filtering + Phase 2 empty text filtering
+- [x] TTS per-segment retry (3 attempts) — single failure no longer kills batch
+- [x] Research step retry (was zero retry, now matches script.py pattern)
+- [x] Degradation warnings: `SOFT_STEP_CONSEQUENCES` + pipeline-end summary
+- [x] Retry failure debug logging
 
 ### v0.4 Environment variables
 

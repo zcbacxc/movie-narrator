@@ -59,6 +59,7 @@ subtitle_mode: original     # original | translated | bilingual
 #   mainstream-dry   12句×5s, 慢切镜, 轻音乐 (-15dB), 从容叙事 (谷阿莫节奏)
 #   bilibili-long    8句×7.5s, 大场景合并, 极轻BGM (-18dB), 书面长解说
 # 留空 = douyin-fast（向后兼容 v0.4.14 行为）
+# v0.4.16+: 两阶段生成确保 prompt_target_sentences 被严格遵守
 narration_preset: ""        # douyin-fast | mainstream-dry | bilibili-long
 
 # ============================================================
