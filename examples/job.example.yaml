@@ -138,7 +138,7 @@ params:
   # qa_enabled: true              # false=显式关闭；CI 默认跳过，本地默认开启
   # qa_max_silence_db: -50.0      # 平均音量低于此值判定为静音失败
   # qa_min_duration_ratio: 0.85   # 成片时长 < 预期*0.85 判定失败
-  # qa_max_duration_ratio: 1.15   # 成片时长 > 预期*1.15 判定失败
+  # qa_max_duration_ratio: 1.25   # 成片时长 > 预期*1.25 判定失败(TTS 自然产出可能超 10-20%)
 
   # ---- 异步 ----
   # async_timeout: 300        # 异步任务超时（秒）

@@ -19,7 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed (Production defaults tightened without config)
 - **Match defaults**: `match_speed_clamp_min` 0.5 → 0.85, `match_speed_clamp_max` 3.0 → 1.25, `scene_merge_min_duration` 0.0 → 2.0 — keeps pacing publishable. Scenes shorter than `match_drop_scene_min_duration` (default 0.4s) are dropped after merge with re-indexing (last-resort keeps all if every scene would be dropped).
 - **Render encode**: CRF 18, preset `slow`, `+faststart` movflag by default for VOD-friendly output.
+- **QA duration tolerance**: `qa_max_duration_ratio` default 1.15 → 1.25 — TTS natural output routinely exceeds the target duration by 10-20%; the tighter 1.15 threshold falsely rejected valid renders in hand-testing.
 - Pipeline is now **15 steps** (was 14): `validate_deliverable` inserted between `render_video` and `export_clips`. Frontend `PIPELINE_STEPS` and `STEP_LABELS` synced (`成片质检`).
+
+### Fixed (Hand-test P0 bugs on Windows + Python 3.14)
+- **Two-stage render** (`render.py`): MoviePy 2.x `write_videofile` on Windows + Python 3.14 raises `OSError [Errno 22] Invalid argument` partway through the rawvideo stdin pipe when encoding video+audio together, leaving `final.mp4` with a corrupted ftyp/mdat layout (no moov atom — ffprobe returns empty, file unplayable). Split into stage 1 (MoviePy writes video-only mp4, stable in isolation) + stage 2 (ffmpeg muxes audio with `-c:v copy` + applies `+faststart` atomically). Eliminates the stdin pipe failure mode entirely.
+- **UTF-8 subprocess decoding** (`deliverable_qa.py`): `subprocess.run` with `text=True` alone uses the system locale (GBK on Chinese Windows), which crashed when ffprobe/ffmpeg emitted non-GBK bytes and left stdout/stderr empty — causing `validate_deliverable` to fail every render with false `silent_audio` / `no_audio_stream`. Added `_run()` helper forcing `encoding="utf-8", errors="replace"` so probe parsing always sees real text.
+- **`load.py` param whitelist**: 12 production-quality knobs (`render_fit_mode`, `render_crf`, `render_preset`, `render_faststart`, `render_subtitle_position`, `render_subtitle_max_width_ratio`, `render_subtitle_bottom_margin_ratio`, `qa_enabled`, `qa_max_silence_db`, `qa_min_duration_ratio`, `qa_max_duration_ratio`, `match_drop_scene_min_duration`, `bgm_duck_db`, `bgm_normalize`, `audio_target_dbfs`) were missing from `_ALLOWED_PARAMS` — job configs setting these were silently rejected at load time.
 
 ## [0.4.12] - 2026-07-16
 

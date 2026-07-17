@@ -55,7 +55,7 @@ def validate_deliverable(ctx: Context) -> Context:
         expected_duration=expected,
         max_silence_db=ctx.metadata.get("qa_max_silence_db", -50.0),
         min_duration_ratio=ctx.metadata.get("qa_min_duration_ratio", 0.85),
-        max_duration_ratio=ctx.metadata.get("qa_max_duration_ratio", 1.15),
+        max_duration_ratio=ctx.metadata.get("qa_max_duration_ratio", 1.25),
     )
 
     # Stash the report so downstream steps / metadata can surface it.
