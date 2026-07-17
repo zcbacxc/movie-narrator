@@ -42,6 +42,11 @@ def test_bottom_layout_has_semi_transparent_backdrop_bar():
     just above the bottom edge — covers backdrop + stroke + anti-aliased
     text interior. A bare text-on-transparent render has near-zero such
     pixels in arbitrary positions; the backdrop bar concentrates them.
+
+    NOTE: font metrics differ across platforms (Linux CI renders narrower
+    than Windows), so width thresholds are conservative (>= 50% canvas
+    width) to avoid false failures while still proving the backdrop bar
+    exists and spans a wide horizontal stretch.
     """
     arr = create_text_image("long bottom subtitle text for backdrop", (1280, 720),
                             fontsize=40, position="bottom",
@@ -56,9 +61,10 @@ def test_bottom_layout_has_semi_transparent_backdrop_bar():
     band_rows = np.where((dark_mask.sum(axis=1) > 200))[0]
     assert band_rows.size > 0
     assert band_rows.max() > h * 0.78   # below 78% of canvas height
-    # Backdrop spans a wide horizontal stretch (>= 60% of canvas width).
+    # Backdrop spans a wide horizontal stretch (>= 50% of canvas width).
+    # 50% (not 60%) because Linux font metrics render text narrower than Windows.
     band_cols = np.where(dark_mask[band_rows.min():band_rows.max()+1].sum(axis=0) > 5)[0]
-    assert band_cols.max() - band_cols.min() > w * 0.6
+    assert band_cols.max() - band_cols.min() > w * 0.5
 
 
 def test_bottom_layout_full_canvas_outside_textband_is_transparent():
