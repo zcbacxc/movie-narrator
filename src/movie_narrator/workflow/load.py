@@ -26,6 +26,7 @@ _ALLOWED_TOP = (
     "params",
     "subtitle_lang",
     "subtitle_mode",
+    "narration_preset",
 )
 
 

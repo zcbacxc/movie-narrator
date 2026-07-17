@@ -40,6 +40,7 @@ def generate_script(ctx: Context) -> Context:
                     cadence_hint=build_cadence_hint(
                         cadence=tags.get("prompt_cadence", ""),
                         connectors=tags.get("prompt_connectors", ""),
+                        register=tags.get("prompt_register", ""),
                     ),
                 )
                 response = llm.client.chat.completions.create(

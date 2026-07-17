@@ -126,6 +126,10 @@ def merge_job(
             f"subtitle_mode={subtitle_mode!r} requires --subtitle-lang / subtitle_lang"
         )
 
+    narration_preset = pick_optional(
+        cli.get("narration_preset"), yaml_get("narration_preset"), None
+    )
+
     config_path = cli.get("config_path")
     if config_path is not None:
         config_path = str(config_path)
@@ -149,4 +153,5 @@ def merge_job(
         config_path=config_path,
         subtitle_lang=subtitle_lang,
         subtitle_mode=subtitle_mode,
+        narration_preset=narration_preset,
     )

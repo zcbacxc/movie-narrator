@@ -27,9 +27,10 @@ ALLOWED_PROMPT_TAGS: Dict[str, frozenset[str]] = {
 }
 
 # ── Param keys that presets are allowed to set ──────────────
-# Must be a subset of JobParams fields (schema.py) / _ALLOWED_PARAMS
-# (load.py) / build_context key tuple (runner.py).  Validated at
-# registration time.
+# Must be a subset of PARAM_WHITELIST (runner.py).  Validated at
+# registration time.  Single source of truth lives in runner.py;
+# this frozenset is intentionally a subset so presets can't set
+# infrastructure keys (whisperx_*, translate_*, async_*, video_sizes).
 ALLOWED_PARAM_KEYS: frozenset[str] = frozenset({
     # Match / scene
     "match_speed_clamp_min",
@@ -63,6 +64,10 @@ ALLOWED_PARAM_KEYS: frozenset[str] = frozenset({
     "prompt_max_chars_per_sentence",
     "prompt_hook_seconds",
 })
+
+# Safety: ALLOWED_PARAM_KEYS must be a subset of PARAM_WHITELIST.
+# This check is performed in registry._validate() at registration time
+# to avoid a circular import (runner.py imports presets indirectly).
 
 
 @runtime_checkable

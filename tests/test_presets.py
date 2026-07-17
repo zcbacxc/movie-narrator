@@ -96,6 +96,12 @@ def test_build_cadence_hint_languid():
     assert "话说" in hint or "narrative" in hint
 
 
+def test_build_cadence_hint_with_register():
+    """Register tag (spoken/written/mixed) is consumed and appears in hint."""
+    hint = build_cadence_hint(cadence="measured", connectors="narrative", register="written")
+    assert "written" in hint.lower() or "literary" in hint.lower()
+
+
 def test_build_cadence_hint_empty_tags():
     """Empty/unknown tags produce empty string (backward compat)."""
     assert build_cadence_hint() == ""
@@ -163,3 +169,38 @@ def test_builtin_presets_proxy_is_iterable():
     assert "douyin-fast" in names
     assert "mainstream-dry" in names
     assert "bilibili-long" in names
+
+
+# ── PARAM_WHITELIST single-source-of-truth ─────────────────
+
+
+def test_allowed_param_keys_subset_of_param_whitelist():
+    """ALLOWED_PARAM_KEYS must be a subset of PARAM_WHITELIST."""
+    from movie_narrator.pipeline.runner import PARAM_WHITELIST
+    assert ALLOWED_PARAM_KEYS <= PARAM_WHITELIST, (
+        f"Keys in ALLOWED_PARAM_KEYS but not PARAM_WHITELIST: "
+        f"{ALLOWED_PARAM_KEYS - PARAM_WHITELIST}"
+    )
+
+
+# ── YAML config narration_preset ────────────────────────────
+
+
+def test_yaml_narration_preset_field_accepted(tmp_path):
+    """JobConfig accepts narration_preset as a top-level field."""
+    from movie_narrator.workflow.schema import JobConfig
+    import yaml
+
+    job_yaml = {
+        "movie": "test",
+        "narration_preset": "mainstream-dry",
+    }
+    config = JobConfig(**job_yaml)
+    assert config.narration_preset == "mainstream-dry"
+
+
+def test_yaml_narration_preset_defaults_none():
+    """JobConfig.narration_preset defaults to None when not specified."""
+    from movie_narrator.workflow.schema import JobConfig
+    config = JobConfig(movie="test")
+    assert config.narration_preset is None
