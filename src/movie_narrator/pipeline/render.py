@@ -1,5 +1,6 @@
 import json
 import shutil
+import subprocess
 from pathlib import Path
 
 from moviepy import AudioFileClip, ColorClip, CompositeVideoClip, ImageClip, VideoFileClip
@@ -163,22 +164,10 @@ def render_video(ctx: Context) -> Context:
     tmp_dir = output_dir / ".tmp"
     tmp_dir.mkdir(exist_ok=True)
 
-    # temp_audiofile extension MUST match the audio_codec so the final
-    # mux step ("-acodec copy") reads a correctly-typed bitstream.
-    # With audio_codec="aac", a ".wav" extension causes a RIFF/WAV
-    # header wrapping AAC data — ffmpeg then decodes only ~6 ms.
     audio_codec = ctx.metadata.get("render_audio_codec", "aac")
-    temp_ext = audio_codec
-    # "copy" is a passthrough pseudo-codec; "aac" works for both AAC-LC
-    # and the HE-AAC variants.  Map libmp3lame → mp3 so the temp file
-    # always carries a real container extension.
-    if temp_ext == "copy":
-        temp_ext = "aac"
-    elif temp_ext.startswith("lib"):
-        temp_ext = temp_ext[3:]  # libmp3lame → mp3lame
-    # Normalise a few known aliases to a short file extension.
-    _EXT_NORM = {"mp3lame": "mp3", "libfdk_aac": "aac", "pcm_s16le": "wav"}
-    temp_ext = _EXT_NORM.get(temp_ext, temp_ext)
+    # The mux passes ``audio_codec`` (or its lib-prefix-stripped form)
+    # directly to ``ffmpeg -c:a`` later in this function, so no temp
+    # file extension translation is needed here.
 
     # Production-quality encode: CRF + preset + faststart (spec §7.2).
     # faststart moves the moov atom to the front so the video can begin
@@ -186,21 +175,32 @@ def render_video(ctx: Context) -> Context:
     crf = ctx.metadata.get("render_crf", 18)
     preset = ctx.metadata.get("render_preset", "slow")
     faststart = ctx.metadata.get("render_faststart", True)
-    ffmpeg_params = ["-crf", str(crf), "-preset", str(preset)]
-    if faststart:
-        ffmpeg_params += ["-movflags", "+faststart"]
 
-    write_kwargs = dict(
+    # TWO-STAGE ENCODE: write a video-only mp4 via MoviePy (which is
+    # stable in isolation), then mux audio with ffmpeg in a second pass.
+    #
+    # This avoids a recurring failure mode on Windows + Python 3.14 +
+    # MoviePy 2.x where ``write_videofile`` writes audio + video through
+    # a single Popen pipe and the rawvideo stdin write raises
+    # ``OSError [Errno 22] Invalid argument`` partway through — leaving
+    # the final file with a corrupted ftyp/mdat layout (no moov atom).
+    # See commit notes on PR #37 for the empirical reproduction.
+    video_only_path = tmp_dir / "video_only.mp4"
+
+    video_ffmpeg_params = ["-crf", str(crf), "-preset", str(preset)]
+    # NOTE: do NOT include +faststart here — we apply it deterministically
+    # during the second-pass ffmpeg mux below, which is more reliable than
+    # bundling it into MoviePy's subprocess invocation.
+    video_write_kwargs = dict(
         fps=ctx.metadata.get("render_fps", 24),
         codec=ctx.metadata.get("render_video_codec", "libx264"),
-        audio_codec=audio_codec,
+        audio=False,  # ← key: defer audio mux to step 2
         threads=ctx.metadata.get("render_threads", 4),
         logger=_RenderProgressLogger(),
-        temp_audiofile=str(tmp_dir / f"temp_audio.{temp_ext}"),
-        ffmpeg_params=ffmpeg_params,
+        ffmpeg_params=video_ffmpeg_params,
     )
     try:
-        final_video.write_videofile(str(video_path), **write_kwargs)
+        final_video.write_videofile(str(video_only_path), **video_write_kwargs)
     finally:
         # Exception-safe cleanup: each close is guarded so one failure
         # doesn't prevent the remaining resources from being released.
@@ -213,6 +213,54 @@ def render_video(ctx: Context) -> Context:
                     obj.close()
                 except Exception:  # noqa: BLE001
                     pass
+        # `final_video` already closed above; slice the audio so we can
+        # write the final mux without keeping the original AudioFileClip alive.
+        del audio_clip
+
+    # STAGE 2: deterministic audio mux via ffmpeg. ffmpeg is significantly
+    # more robust than MoviePy for muxing (it's what MoviePy ultimately
+    # shells out to internally) and lets us apply +faststart atomically
+    # alongside the mux.
+    if shutil.which("ffmpeg") is None:  # pragma: no cover - ffmpeg is required
+        raise RuntimeError(
+            "ffmpeg binary not found on PATH — required for production-quality "
+            "mux. Install ffmpeg (https://ffmpeg.org/download.html) and retry."
+        )
+
+    mux_cmd = [
+        shutil.which("ffmpeg"),
+        "-y",
+        "-loglevel", "error",
+        "-i", str(video_only_path),
+        "-i", str(audio_path),
+        "-map", "0:v:0",
+        "-map", "1:a:0",
+        "-c:v", "copy",
+        "-c:a", audio_codec if not audio_codec.startswith("lib") else audio_codec[3:],
+    ]
+    if faststart:
+        mux_cmd += ["-movflags", "+faststart"]
+    mux_cmd.append(str(video_path))
+
+    try:
+        proc = subprocess.run(
+            mux_cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=600,  # 10 min — generous for slow ffmpeg mux
+        )
+        if proc.returncode != 0:
+            raise RuntimeError(
+                f"ffmpeg mux failed (exit={proc.returncode}): {proc.stderr}"
+            )
+    finally:
+        # Clean up the video-only intermediate to keep the output dir tidy.
+        try:
+            video_only_path.unlink(missing_ok=True)
+        except OSError:
+            pass
 
     metadata = build_metadata_json(ctx)
     with open(output_dir / "metadata.json", "w", encoding="utf-8") as f:
