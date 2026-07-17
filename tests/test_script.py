@@ -591,3 +591,142 @@ def test_phase2_all_empty_raises(tmp_path):
     with patch("movie_narrator.pipeline.script.get_settings", return_value=_mock_settings()):
         with pytest.raises(ValueError, match="zero segments"):
             _expand_beats_to_script(ctx, _mock_settings(), mock_llm, beats, 2)
+
+
+# ── 12. Preset end-to-end sentence count (R4 regression guard) ──
+#
+# These tests固化 R4 的核心发现: 三个 preset 的 prompt_target_sentences
+# 必须被两阶段生成严格遵守.  R1-R3 中 LLM 系统性忽略 12/8 目标(总是产出
+# 18 句)的回归必须被 CI 永久拦截.
+#
+# 测试策略: mock LLM 返回恰好目标数量的 beats + segments, 验证
+# generate_script 产出的 segment 数量严格等于 preset 目标.
+
+
+import json
+
+
+_PRESET_TARGETS = [
+    ("douyin-fast", 18),
+    ("mainstream-dry", 12),
+    ("bilibili-long", 8),
+]
+
+
+@pytest.mark.parametrize("preset_name,expected_count", _PRESET_TARGETS)
+def test_preset_sentence_count_enforced(preset_name, expected_count, tmp_path):
+    """Each preset's prompt_target_sentences must be strictly enforced.
+
+    This is the CI smoke test for the R4 finding: two-phase generation
+    makes sentence count deterministic.  If this test fails, it means
+    the prompt_target_sentences contract is broken — the LLM is no
+    longer respecting the count constraint.
+    """
+    from movie_narrator.presets import get_preset
+
+    preset = get_preset(preset_name)
+    target = preset.param_dict.get("prompt_target_sentences")
+    assert target == expected_count, (
+        f"{preset_name} preset has prompt_target_sentences={target}, "
+        f"expected {expected_count}"
+    )
+
+    # Build context with preset params applied
+    ctx = _make_ctx(tmp_path)
+    ctx.metadata["prompt_target_sentences"] = target
+
+    # Mock LLM: Phase 1 returns exactly target beats, Phase 2 returns
+    # exactly target segments.  This is the "happy path" — if the
+    # two-phase pipeline is working correctly, output count == target.
+    beats_resp = _mock_llm_response(_beats_json(target))
+    seg_resp = _mock_llm_response(_segments_json([f"s{i}" for i in range(target)]))
+    mock_cm = _mock_llm_cm(side_effect=[beats_resp, seg_resp])
+
+    with patch("movie_narrator.pipeline.script.get_settings", return_value=_mock_settings()):
+        with patch("movie_narrator.pipeline.script.get_llm_client", return_value=mock_cm):
+            result = generate_script(ctx)
+
+    assert len(result.segments) == target, (
+        f"{preset_name}: expected {target} segments, got {len(result.segments)}. "
+        f"prompt_target_sentences contract is broken — R1-R3 style regression."
+    )
+    assert result.metadata["script_source"] == "llm"
+    assert result.metadata["script_beat_count"] == target
+
+
+def test_preset_sentence_count_with_overshoot_trim(tmp_path):
+    """Even if Phase 2 overshoots, trim must enforce the target count.
+
+    This tests the fallback trim path: Phase 2 returns more segments
+    than target, but _trim_segments brings it back to exact target.
+    Uses bilibili-long (target=8) as the test case.
+    """
+    from movie_narrator.presets import get_preset
+
+    preset_name = "bilibili-long"
+    expected_count = 8
+    preset = get_preset(preset_name)
+    target = preset.param_dict.get("prompt_target_sentences")
+    assert target == expected_count
+
+    ctx = _make_ctx(tmp_path)
+    ctx.metadata["prompt_target_sentences"] = target
+
+    # Phase 1 returns target beats, Phase 2 returns target+5 segments
+    beats_resp = _mock_llm_response(_beats_json(target))
+    overshoot = target + 5
+    seg_resp = _mock_llm_response(_segments_json([f"s{i}" for i in range(overshoot)]))
+    mock_cm = _mock_llm_cm(side_effect=[beats_resp, seg_resp])
+
+    with patch("movie_narrator.pipeline.script.get_settings", return_value=_mock_settings()):
+        with patch("movie_narrator.pipeline.script.get_llm_client", return_value=mock_cm):
+            result = generate_script(ctx)
+
+    assert len(result.segments) == target, (
+        f"{preset_name}: overshoot not trimmed — expected {target}, got {len(result.segments)}"
+    )
+
+
+def test_preset_sentence_count_with_undershoot_fails(tmp_path, monkeypatch):
+    """If Phase 1 returns fewer beats than target, it must fail (not silently produce fewer).
+
+    This guards against the opposite regression: silently producing
+    fewer segments than the target.  Phase 1's count validation should
+    raise ValueError, triggering retry.
+    """
+    monkeypatch.delenv("CI", raising=False)
+    target = 12  # mainstream-dry
+    ctx = _make_ctx(tmp_path)
+    ctx.metadata["prompt_target_sentences"] = target
+
+    # Phase 1 returns only 5 beats (less than target 12)
+    beats_resp = _mock_llm_response(_beats_json(5))
+    mock_cm = _mock_llm_cm(side_effect=[beats_resp, beats_resp, beats_resp])
+
+    with patch("movie_narrator.pipeline.script.is_ci", return_value=False):
+        with patch("movie_narrator.pipeline.script.get_settings", return_value=_mock_settings()):
+            with patch("movie_narrator.pipeline.script.get_llm_client", return_value=mock_cm):
+                with patch("movie_narrator.pipeline.script.sleep", return_value=None):
+                    with pytest.raises(RuntimeError, match="LLM script generation failed"):
+                        generate_script(ctx)
+
+
+def test_no_preset_defaults_to_18_sentences(tmp_path):
+    """Without prompt_target_sentences, default target is 18 (douyin-fast equivalent).
+
+    This guards backward compatibility: users without a preset still
+    get a reasonable default, not zero or an error.
+    """
+    ctx = _make_ctx(tmp_path)
+    # No prompt_target_sentences in metadata — simulates no preset
+
+    beats_resp = _mock_llm_response(_beats_json(18))
+    seg_resp = _mock_llm_response(_segments_json([f"s{i}" for i in range(18)]))
+    mock_cm = _mock_llm_cm(side_effect=[beats_resp, seg_resp])
+
+    with patch("movie_narrator.pipeline.script.get_settings", return_value=_mock_settings()):
+        with patch("movie_narrator.pipeline.script.get_llm_client", return_value=mock_cm):
+            result = generate_script(ctx)
+
+    assert len(result.segments) == 18
+    assert result.metadata["script_segment_count"] == 18
