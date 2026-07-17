@@ -101,7 +101,21 @@ def _generate_plot_beats(
             f"Phase 1: expected {target_count} beats, got {len(beats)}"
         )
 
-    return [str(b).strip() for b in beats if str(b).strip()]
+    # Filter out None / non-string / empty beats.
+    # str(None) = "None" is truthy and would silently pass the old
+    # `if str(b).strip()` check, producing a meaningless "None" beat.
+    cleaned = []
+    for b in beats:
+        if b is None:
+            continue
+        text = str(b).strip()
+        if text and text.lower() != "none":
+            cleaned.append(text)
+    if len(cleaned) != target_count:
+        raise ValueError(
+            f"Phase 1: after filtering None/empty beats, expected {target_count}, got {len(cleaned)}"
+        )
+    return cleaned
 
 
 # ── Phase 2: beat expansion ────────────────────────────────
@@ -150,9 +164,15 @@ def _expand_beats_to_script(
     segments = []
     for item in raw_segments:
         if isinstance(item, str):
-            segments.append(ScriptSegment(text=item))
+            text = item.strip()
         elif isinstance(item, dict) and "text" in item:
-            segments.append(ScriptSegment(text=item["text"]))
+            text = str(item["text"]).strip()
+        else:
+            continue
+        # Skip empty / whitespace-only segments — they'd produce
+        # silent TTS audio and break the count contract.
+        if text:
+            segments.append(ScriptSegment(text=text))
 
     if not segments:
         raise ValueError("Phase 2: LLM returned zero segments")
@@ -203,7 +223,13 @@ def generate_script(ctx: Context) -> Context:
                 return ctx
         except Exception as e:
             if attempt == settings.script_retries - 1:
-                # All retries exhausted.
+                # All retries exhausted — log diagnostic info before failing.
+                # The raw LLM output is critical for debugging prompt/count
+                # issues that don't show up in the exception message alone.
+                ctx.services.console.debug(
+                    f"  generate_script: all {settings.script_retries} attempts failed. "
+                    f"Last error: {e}"
+                )
                 # In CI: fall back to mock content (with warning) so the
                 # full pipeline can be exercised without an LLM.
                 # In production: hard fail — user must know the script

@@ -459,3 +459,135 @@ def test_generate_script_research_in_phase1(tmp_path):
     phase2_prompt = calls[1].kwargs["messages"][0]["content"]
     assert "一部关于勇气的电影" in phase1_prompt
     assert "一部关于勇气的电影" not in phase2_prompt
+
+
+# ── 9. Cross-phase retry ────────────────────────────────────
+
+
+def test_generate_script_phase1_ok_phase2_fail_then_retry(tmp_path):
+    """Phase 1 succeeds but Phase 2 fails → retry both → success.
+
+    This verifies the retry loop wraps both phases together: a Phase 2
+    failure triggers a full retry (Phase 1 + Phase 2), not just Phase 2.
+    """
+    ctx = _make_ctx(tmp_path)
+    ctx.metadata["prompt_target_sentences"] = 3
+
+    beats_resp = _mock_llm_response(_beats_json(3))
+    seg_resp = _mock_llm_response(_segments_json(["s1", "s2", "s3"]))
+    # Attempt 1: Phase 1 OK, Phase 2 fails
+    # Attempt 2: Phase 1 OK, Phase 2 OK
+    mock_cm = _mock_llm_cm(side_effect=[
+        beats_resp,               # attempt 1 Phase 1
+        ConnectionError("phase2 fail"),  # attempt 1 Phase 2
+        beats_resp,               # attempt 2 Phase 1
+        seg_resp,                 # attempt 2 Phase 2
+    ])
+
+    with patch("movie_narrator.pipeline.script.get_settings", return_value=_mock_settings()):
+        with patch("movie_narrator.pipeline.script.get_llm_client", return_value=mock_cm):
+            result = generate_script(ctx)
+
+    assert result.metadata["script_source"] == "llm"
+    assert len(result.segments) == 3
+    # Verify 4 LLM calls: 2 Phase 1 + 2 Phase 2
+    mock_llm = mock_cm.__enter__.return_value
+    assert mock_llm.client.chat.completions.create.call_count == 4
+
+
+def test_generate_script_phase1_ok_phase2_fail_all_retries(tmp_path, monkeypatch):
+    """Phase 1 always OK, Phase 2 always fails → hard fail after 3 attempts."""
+    monkeypatch.delenv("CI", raising=False)
+    ctx = _make_ctx(tmp_path)
+    ctx.metadata["prompt_target_sentences"] = 3
+
+    beats_resp = _mock_llm_response(_beats_json(3))
+    # 3 attempts: each Phase 1 OK, Phase 2 fails
+    mock_cm = _mock_llm_cm(side_effect=[
+        beats_resp, ConnectionError("p2 fail"),
+        beats_resp, ConnectionError("p2 fail"),
+        beats_resp, ConnectionError("p2 fail"),
+    ])
+
+    with patch("movie_narrator.pipeline.script.is_ci", return_value=False):
+        with patch("movie_narrator.pipeline.script.get_settings", return_value=_mock_settings()):
+            with patch("movie_narrator.pipeline.script.get_llm_client", return_value=mock_cm):
+                with pytest.raises(RuntimeError, match="LLM script generation failed"):
+                    generate_script(ctx)
+
+
+# ── 10. None / empty beat filtering ─────────────────────────
+
+
+def test_phase1_filters_none_beats(tmp_path):
+    """None entries in beats list should be filtered, not converted to "None"."""
+    ctx = _make_ctx(tmp_path)
+    # LLM returns [None, "point1", "point2"] — None should be dropped
+    import json
+    bad_resp = _mock_llm_response(json.dumps({"beats": [None, "point1", "point2"]}))
+    mock_cm = _mock_llm_cm(response=bad_resp)
+    mock_llm = mock_cm.__enter__.return_value
+
+    with patch("movie_narrator.pipeline.script.get_settings", return_value=_mock_settings()):
+        with pytest.raises(ValueError, match="after filtering"):
+            _generate_plot_beats(ctx, _mock_settings(), mock_llm, 3)
+
+
+def test_phase1_filters_string_none_beats(tmp_path):
+    """The string "None" should also be filtered (case-insensitive)."""
+    ctx = _make_ctx(tmp_path)
+    import json
+    bad_resp = _mock_llm_response(json.dumps({"beats": ["none", "point1", "point2"]}))
+    mock_cm = _mock_llm_cm(response=bad_resp)
+    mock_llm = mock_cm.__enter__.return_value
+
+    with patch("movie_narrator.pipeline.script.get_settings", return_value=_mock_settings()):
+        with pytest.raises(ValueError, match="after filtering"):
+            _generate_plot_beats(ctx, _mock_settings(), mock_llm, 3)
+
+
+def test_phase1_accepts_integer_beats(tmp_path):
+    """Integer beats should be converted to strings (not dropped)."""
+    ctx = _make_ctx(tmp_path)
+    import json
+    resp = _mock_llm_response(json.dumps({"beats": [1, 2, 3]}))
+    mock_cm = _mock_llm_cm(response=resp)
+    mock_llm = mock_cm.__enter__.return_value
+
+    with patch("movie_narrator.pipeline.script.get_settings", return_value=_mock_settings()):
+        beats = _generate_plot_beats(ctx, _mock_settings(), mock_llm, 3)
+    assert beats == ["1", "2", "3"]
+
+
+# ── 11. Phase 2 empty text filtering ─────────────────────────
+
+
+def test_phase2_filters_empty_text_segments(tmp_path):
+    """Empty / whitespace-only segments should be dropped."""
+    ctx = _make_ctx(tmp_path)
+    beats = ["b1", "b2", "b3"]
+    # Mix of valid, empty string, whitespace-only, and None text
+    seg_resp = _mock_llm_response(
+        _segments_json(["valid", "", "   "])
+    )
+    mock_cm = _mock_llm_cm(response=seg_resp)
+    mock_llm = mock_cm.__enter__.return_value
+
+    with patch("movie_narrator.pipeline.script.get_settings", return_value=_mock_settings()):
+        segments = _expand_beats_to_script(ctx, _mock_settings(), mock_llm, beats, 3)
+    # Only "valid" survives
+    assert len(segments) == 1
+    assert segments[0].text == "valid"
+
+
+def test_phase2_all_empty_raises(tmp_path):
+    """If all segments are empty → ValueError."""
+    ctx = _make_ctx(tmp_path)
+    beats = ["b1", "b2"]
+    seg_resp = _mock_llm_response(_segments_json(["", "  "]))
+    mock_cm = _mock_llm_cm(response=seg_resp)
+    mock_llm = mock_cm.__enter__.return_value
+
+    with patch("movie_narrator.pipeline.script.get_settings", return_value=_mock_settings()):
+        with pytest.raises(ValueError, match="zero segments"):
+            _expand_beats_to_script(ctx, _mock_settings(), mock_llm, beats, 2)
