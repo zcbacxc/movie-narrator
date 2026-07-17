@@ -97,6 +97,9 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
             # Deliverable QA
             "qa_enabled", "qa_max_silence_db",
             "qa_min_duration_ratio", "qa_max_duration_ratio",
+            # Prompt shaping (preset-driven)
+            "prompt_target_sentences", "prompt_max_chars_per_sentence",
+            "prompt_hook_seconds",
             # Async
             "async_timeout", "async_max_workers",
             # Video sizes

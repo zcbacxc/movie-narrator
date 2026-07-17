@@ -80,6 +80,10 @@ def create(
     subtitle_mode: Optional[str] = typer.Option(
         None, "--subtitle-mode", help="Overlay mode: original|translated|bilingual",
     ),
+    narration_preset: Optional[str] = typer.Option(
+        None, "--narration-preset", "-p",
+        help="Narration style preset: douyin-fast (default) | mainstream-dry | bilibili-long",
+    ),
 ):
     from .config import get_settings
     from .workflow import JobConfigError, load_job_config, merge_job
@@ -175,6 +179,7 @@ def create(
         config_path=resolved.config_path,
         subtitle_lang=resolved.subtitle_lang,
         subtitle_mode=resolved.subtitle_mode,
+        narration_preset=narration_preset,
     )
     controller = InteractiveCLIController() if retry else None
     try:

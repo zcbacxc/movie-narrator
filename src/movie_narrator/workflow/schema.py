@@ -76,6 +76,10 @@ class JobParams(BaseModel):
     qa_max_silence_db: Optional[float] = None
     qa_min_duration_ratio: Optional[float] = None
     qa_max_duration_ratio: Optional[float] = None
+    # ── Prompt shaping (preset-driven) ──
+    prompt_target_sentences: Optional[int] = None
+    prompt_max_chars_per_sentence: Optional[int] = None
+    prompt_hook_seconds: Optional[int] = None
     # ── Async ──
     async_timeout: Optional[int] = None
     async_max_workers: Optional[int] = None
