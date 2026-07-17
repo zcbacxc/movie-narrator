@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.15] - 2026-07-17
+
+### Added (Narration preset system — Stage 0.5)
+- **Pluggable preset framework**: new `src/movie_narrator/presets/` package with `Preset` Protocol, closed-vocabulary validation (`ALLOWED_PARAM_KEYS` + `ALLOWED_PROMPT_TAGS`), and registry. Preset params are the BASELINE; user params (CLI / YAML) always override.
+- **Three built-in presets** covering the most popular recap styles:
+  - `douyin-fast` (default, backward-compatible): 18 sentences × 3.3s, fast cuts, deep BGM ducking (-10dB), brisk cadence
+  - `mainstream-dry`: 12 sentences × 5s, slow cuts (speed_clamp 0.90–1.05), light BGM (-15dB), measured cadence (谷阿莫/影视飓风 rhythm)
+  - `bilibili-long`: 8 sentences × 7.5s, large scene merge (5s), very light BGM (-18dB), languid cadence (粉丝留存型长解说)
+- **CLI**: `--narration-preset` / `-p` flag on `mn create`; new `mn preset` command to list presets or show full params/tags (`mn preset mainstream-dry`).
+- **YAML config**: `narration_preset` top-level field in `job.yaml` (CLI flag overrides YAML).
+- **Web API**: `FormData.narration_preset` field.
+- **Prompt shaping**: closed-vocabulary tags (`prompt_cadence` / `prompt_register` / `prompt_connectors`) injected into `SCRIPT_PROMPT` as conditional hints via `build_cadence_hint()`. Three new `JobParams` keys: `prompt_target_sentences`, `prompt_max_chars_per_sentence`, `prompt_hook_seconds`.
+
+### Changed
+- **Single-source whitelist**: `PARAM_WHITELIST` frozenset in `runner.py` is now the authoritative param whitelist. `build_context` iterates it instead of a hardcoded tuple. `ALLOWED_PARAM_KEYS` in `presets/base.py` is validated as a subset at registry build time.
+- `prompts.py` `SCRIPT_PROMPT` now uses `{target_sentences}`, `{max_chars}`, `{hook_seconds}`, `{cadence_hint}` placeholders instead of hardcoded "15-20 sentences" / "15 characters" / "3 seconds".
+
+### Hand-test findings (2026-07-17 满江红对比实验)
+- **Preset prompt tags verified effective**: cadence/register/connectors all produced perceptible style differences (brisk → 61% exclamation sentences; written → literary vocabulary; interjection → interactive calls).
+- **Known limitation**: `prompt_target_sentences` constraint is weak — LLM output 18 sentences for all three presets regardless of the 12/8 targets. Style differences were carried by sentence length and rhetoric instead of sentence count. Planned fix: stronger prompt wording + post-processing truncation.
+
 ## [0.4.14] - 2026-07-17
 
 ### Added (Publishable bottom subtitle)

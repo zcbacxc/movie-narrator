@@ -141,6 +141,18 @@ The Web UI is rebuilt from a Gradio single-file app into a decoupled **FastAPI +
 - [x] Bug fix: empty wrapped list early return; per-line height re-measurement via `textbbox`
 - [x] Cross-platform test threshold (60% → 50%) for Linux CI font metrics
 
+### v0.4.15 Narration Preset System (Stage 0.5)
+
+- [x] Pluggable `Preset` Protocol with closed-vocabulary validation (`ALLOWED_PARAM_KEYS` + `ALLOWED_PROMPT_TAGS`)
+- [x] Three built-in presets: `douyin-fast` (default), `mainstream-dry`, `bilibili-long`
+- [x] CLI `--narration-preset` / `-p` flag + `mn preset` list/show command
+- [x] YAML `narration_preset` top-level field + Web API `FormData.narration_preset`
+- [x] Prompt shaping via closed-vocabulary tags (cadence / register / connectors)
+- [x] Single-source `PARAM_WHITELIST` frozenset (runner.py) — eliminates dual-maintained whitelist
+- [x] Hand-test verified: prompt tags produce perceptible style differences
+- [ ] Known limitation: `prompt_target_sentences` constraint weak (LLM ignores 12/8 targets) — planned fix: stronger prompt + post-processing truncation
+- [ ] Stage 2 (future): SPI discover via `entry_points` + opt-in local folder scan
+
 ### v0.4 Environment variables
 
 - `MN_TTS_PROVIDER` — `edge` (default), `openai`, or `mimo`
