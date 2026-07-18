@@ -359,7 +359,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - workflow_steps 和 params 元数据注入
 - 控制台日志重构设计
 
-[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.11...HEAD
+[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.17...HEAD
+[0.4.17]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.16...v0.4.17
+[0.4.16]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.15...v0.4.16
+[0.4.15]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.14...v0.4.15
+[0.4.14]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.13...v0.4.14
+[0.4.13]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.12...v0.4.13
 [0.4.12]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.11...v0.4.12
 [0.4.11]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.10...v0.4.11
 [0.4.10]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.9...v0.4.10
@@ -367,7 +372,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 [0.4.8]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.7...v0.4.8
 [0.4.7]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.5...v0.4.6
-[0.4.5]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.3...v0.4.5
+[0.4.5]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.2...v0.4.5
 [0.4.3]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.0...v0.4.1

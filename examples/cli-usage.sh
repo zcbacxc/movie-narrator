@@ -59,6 +59,35 @@ mn create --movie "Inception" --subtitle-lang en --subtitle-mode bilingual
 mn create --movie "Inception" --subtitle-lang en
 
 # ============================================================
+# 解说风格预设
+# ============================================================
+
+# 使用预设（douyin-fast / mainstream-dry / bilibili-long）
+mn create --movie "飞驰人生" --narration-preset mainstream-dry
+
+# 短选项 -p
+mn create --movie "飞驰人生" -p bilibili-long
+
+# 查看所有可用预设
+mn preset
+
+# 查看指定预设详情
+mn preset mainstream-dry
+
+# ============================================================
+# Web UI
+# ============================================================
+
+# 启动本地 Web UI（默认 http://127.0.0.1:8760）
+mn web
+
+# 自定义主机和端口
+mn web --host 0.0.0.0 --port 8080
+
+# 开发模式（文件变更自动重载）
+mn web --reload
+
+# ============================================================
 # YAML 配置
 # ============================================================
 
@@ -78,7 +107,7 @@ mn create --config examples/job.example.yaml --movie "其他电影" --no-clips
 # | --duration, -d     | 目标时长（秒） | 60 |
 # | --voice, -v        | TTS 音色（按 provider 解释） | zh-CN-YunxiNeural |
 # | --format, -f       | 视频比例 (16:9 / 9:16) | 16:9 |
-# | --video, -V        | 源电影文件路径 | - |
+# | --video            | 源电影文件路径 | - |
 # | --library-dir      | 电影库目录 | - |
 # | --research         | 启用 LLM 剧情调研 | false |
 # | --no-research      | 禁用剧情调研 | - |
@@ -90,4 +119,5 @@ mn create --config examples/job.example.yaml --movie "其他电影" --no-clips
 # | --retry            | 硬步骤失败时交互重试 | false |
 # | --subtitle-lang    | 目标语言标签 (en/ja/zh-TW...)；空=关闭 | - |
 # | --subtitle-mode    | 字幕模式 (original/translated/bilingual) | original |
+# | --narration-preset, -p | 解说风格预设 (douyin-fast/mainstream-dry/bilibili-long) | douyin-fast |
 # | --config           | YAML 配置文件路径 | 自动发现 |

@@ -140,7 +140,7 @@ mn create --movie "飞驰人生" --keep-cache
 mn create --movie "飞驰人生" --style "热血搞笑" --duration 60
 ```
 
-全部 18 个 CLI 参数及各场景用法示例（基础、视频/库、调研/BGM/片段、多语言字幕、YAML 配置）请参考 [`examples/cli-usage.sh`](examples/cli-usage.sh)。主要参数：`--movie/-m`、`--style/-s`、`--duration/-d`、`--voice/-v`、`--format/-f`、`--video/-V`、`--library-dir`、`--research`、`--bgm`、`--no-bgm`、`--no-clips`、`--strict`、`--keep-cache`、`--retry`、`--subtitle-lang`、`--subtitle-mode`、`--config`。
+全部 18 个 CLI 参数及各场景用法示例（基础、视频/库、调研/BGM/片段、多语言字幕、解说预设、YAML 配置）请参考 [`examples/cli-usage.sh`](examples/cli-usage.sh)。主要参数：`--movie/-m`、`--style/-s`、`--duration/-d`、`--voice/-v`、`--format/-f`、`--video`、`--library-dir`、`--research`、`--bgm`、`--no-bgm`、`--no-clips`、`--strict`、`--keep-cache`、`--retry`、`--subtitle-lang`、`--subtitle-mode`、`--narration-preset/-p`、`--config`。
 
 ### Job YAML 配置
 
@@ -159,7 +159,7 @@ mn create --config examples/job.example.yaml --movie "其他电影" --no-clips
 
 这意味着新用户可以直接 `mn create --movie X` 而无需创建任何配置文件——示例 YAML 会自动提供默认的 steps/params。
 
-详细白名单请参考 [`examples/job.example.yaml`](examples/job.example.yaml)：软步骤开关（`steps:` 下的 `research` / `align` / `scene` / `match` / `bgm` / `export` / `translate`）、全部 32 个 `params:` 键（场景检测、匹配、BGM、TTS 速率、翻译、调研、WhisperX、渲染、异步、视频分辨率），以及多语言字幕顶层键 `subtitle_lang` / `subtitle_mode`。相对路径 `video` / `bgm` / `library_dir` 相对于 YAML 所在目录解析。LLM 凭据请保留在 `.env` / `MN_*` 环境变量中。
+详细白名单请参考 [`examples/job.example.yaml`](examples/job.example.yaml)：软步骤开关（`steps:` 下的 `research` / `align` / `scene` / `match` / `bgm` / `export` / `translate`）、全部 52 个 `params:` 键（场景检测、匹配、BGM、TTS 速率、翻译、调研、WhisperX、渲染、异步、视频分辨率），以及多语言字幕顶层键 `subtitle_lang` / `subtitle_mode`。相对路径 `video` / `bgm` / `library_dir` 相对于 YAML 所在目录解析。LLM 凭据请保留在 `.env` / `MN_*` 环境变量中。
 
 ### 多语言字幕
 
@@ -270,7 +270,7 @@ mn create --movie "飞驰人生" --duration 60
 
 ### 完整配置项
 
-完整环境变量列表（共 21 项，仅 LLM + TTS 基础配置）及默认值和说明，请查看 [`.env.example`](.env.example)。所有流水线行为参数（32 项）通过 [`examples/job.example.yaml`](examples/job.example.yaml) 配置，涵盖场景检测、匹配、渲染、翻译、BGM、WhisperX、异步、视频分辨率等。
+完整环境变量列表（共 24 项，仅 LLM + TTS 基础配置）及默认值和说明，请查看 [`.env.example`](.env.example)。所有流水线行为参数（52 项）通过 [`examples/job.example.yaml`](examples/job.example.yaml) 配置，涵盖场景检测、匹配、渲染、翻译、BGM、WhisperX、异步、视频分辨率等。
 
 ### LLM 服务商导航
 
@@ -297,9 +297,7 @@ output/
     ├── subtitle.<lang>.srt    # 设置 --subtitle-lang 时输出（如 subtitle.en.srt）
     ├── subtitle.bilingual.srt # 设置 --subtitle-lang 时输出（原文 + LF + 译文，每行 cue）
     ├── script.md
-    ├── script.json
     ├── research.json        # （使用 --research 时）
-    ├── scenes.json          # （提供视频时）
     ├── matches.json         # （提供视频时）
     ├── metadata.json
     ├── final.mp4
@@ -314,9 +312,7 @@ output/
 | `subtitle.<lang>.srt` | 翻译字幕（设置 `--subtitle-lang` 时输出） |
 | `subtitle.bilingual.srt` | 双语字幕（设置 `--subtitle-lang` 时输出；cue 主体 `f"{原文}\n{译文}"`） |
 | `script.md` | 人类可读的脚本 |
-| `script.json` | 机器可读的脚本分段 |
 | `research.json` | 电影调研数据（使用 `--research` 时） |
-| `scenes.json` | 检测到的场景边界（提供视频时） |
 | `metadata.json` | 片段时间戳、流水线状态、配置 |
 | `final.mp4` | 渲染的视频（16:9 或 9:16） |
 | `matches.json` | 场景-片段匹配结果（提供视频时） |
@@ -326,13 +322,13 @@ output/
 
 ## 流水线
 
-14 步顺序流水线（详见[架构设计](docs/ARCHITECTURE.md)）：
+15 步顺序流水线（详见[架构设计](docs/ARCHITECTURE.md)）：
 
 ```text
 resolve_video → prepare_assets → research_plot → generate_script →
 export_script_md → generate_voice → align_audio → detect_scenes →
 match_clips → mix_bgm → translate_subtitles → generate_subtitle →
-render_video → export_clips
+render_video → validate_deliverable → export_clips
 ```
 
 **软步骤**（research、align、scene detect、scene match、BGM、translate、clip export）在缺少可选依赖或上游数据缺失时**优雅跳过**或**软降级**。使用 `--strict` 改为直接中断。
@@ -349,7 +345,7 @@ movie-narrator/
 │   ├── config.py            # Pydantic 配置
 │   ├── models.py            # 数据模型（Context、Status 等）
 │   ├── pipeline/
-│   │   ├── runner.py        # 14 步流水线协调器
+│   │   ├── runner.py        # 15 步流水线协调器
 │   │   ├── resolve.py       # 源视频解析
 │   │   ├── assets.py        # 素材验证
 │   │   ├── research.py      # LLM 电影调研
@@ -363,6 +359,7 @@ movie-narrator/
 │   │   ├── translate.py     # 多语言字幕翻译（LLM）
 │   │   ├── subtitle.py      # SRT 生成（原版 / 翻译 / 双语）
 │   │   ├── render.py        # MoviePy 2.x 视频渲染
+│   │   ├── qa.py            # 成片质检（硬步骤）
 │   │   ├── export_clips.py  # 场景片段导出（直调 ffmpeg）
 │   │   ├── preflight.py     # 运行前 LLM/TTS 校验（快速失败）
 │   │   └── errors.py        # PipelineStrictError, PipelineCancelled, RunController, StepAction
@@ -520,6 +517,7 @@ movie-narrator/
 - [架构设计](docs/ARCHITECTURE.md)
 - [LLM 服务商导航](docs/LLM_PROVIDERS.md)
 - [贡献指南](docs/CONTRIBUTING.md)
+- [AI 编程工具指南](docs/AI_GUIDE.md)
 
 ---
 
