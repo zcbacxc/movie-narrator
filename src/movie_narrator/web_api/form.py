@@ -38,7 +38,14 @@ class FormData:
     narration_preset: str = ""
 
 
-_VALID_PRESETS = {"", "douyin-fast", "mainstream-dry", "bilibili-long"}
+def _valid_presets() -> set:
+    """Return valid preset names (empty string = no preset / default).
+
+    Dynamically fetched from the preset registry so new presets are
+    automatically recognized without updating this validation.
+    """
+    from movie_narrator.presets import list_presets
+    return {""} | set(list_presets().keys())
 
 
 def validate_form(data: FormData) -> List[str]:
@@ -54,8 +61,10 @@ def validate_form(data: FormData) -> List[str]:
         errors.append("Subtitle mode must be original, translated, or bilingual")
     if data.subtitle_mode in ("translated", "bilingual") and not data.subtitle_lang.strip():
         errors.append("subtitle_lang is required when subtitle_mode is translated or bilingual")
-    if data.narration_preset.strip() and data.narration_preset.strip() not in _VALID_PRESETS:
-        errors.append(f"Invalid preset: {data.narration_preset}. Must be one of: douyin-fast, mainstream-dry, bilibili-long")
+    if data.narration_preset.strip() and data.narration_preset.strip() not in _valid_presets():
+        from movie_narrator.presets import list_presets
+        available = ", ".join(sorted(list_presets().keys()))
+        errors.append(f"Invalid preset: {data.narration_preset}. Must be one of: {available}")
     if data.scene_threshold is not None and not (0 <= data.scene_threshold <= 100):
         errors.append("Scene threshold must be 0-100")
     if data.match_min_score is not None and not (0 <= data.match_min_score <= 1):

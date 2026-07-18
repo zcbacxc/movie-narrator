@@ -272,7 +272,7 @@ mn create --movie "飞驰人生" --duration 60
 
 ### Full reference
 
-See [`.env.example`](.env.example) for the complete list of all 24 environment variables (LLM + TTS infrastructure only). All pipeline behavior is configured via [`examples/job.example.yaml`](examples/job.example.yaml) — 52 params keys covering scene detection, match, render, translate, BGM, WhisperX, async, and video sizes.
+See [`.env.example`](.env.example) for the complete list of all 24 environment variables (LLM + TTS infrastructure only). All pipeline behavior is configured via [`examples/job.example.yaml`](examples/job.example.yaml) — 48 params keys covering scene detection, match, render, translate, BGM, WhisperX, async, and video sizes.
 
 ### LLM Provider Guides
 

@@ -44,7 +44,7 @@ MN_DEFAULT_VOICE=zh-CN-YunxiNeural
 
 ### Job YAML 配置
 
-`examples/job.example.yaml` 包含全部 52 个行为参数的白名单和默认值。用法：
+`examples/job.example.yaml` 包含全部 48 个行为参数的白名单和默认值。用法：
 
 ```bash
 mn create --config examples/job.example.yaml
