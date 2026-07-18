@@ -38,6 +38,9 @@ class FormData:
     narration_preset: str = ""
 
 
+_VALID_PRESETS = {"", "douyin-fast", "mainstream-dry", "bilibili-long"}
+
+
 def validate_form(data: FormData) -> List[str]:
     """Return a list of validation error messages (empty = valid)."""
     errors: List[str] = []
@@ -51,6 +54,8 @@ def validate_form(data: FormData) -> List[str]:
         errors.append("Subtitle mode must be original, translated, or bilingual")
     if data.subtitle_mode in ("translated", "bilingual") and not data.subtitle_lang.strip():
         errors.append("subtitle_lang is required when subtitle_mode is translated or bilingual")
+    if data.narration_preset.strip() and data.narration_preset.strip() not in _VALID_PRESETS:
+        errors.append(f"Invalid preset: {data.narration_preset}. Must be one of: douyin-fast, mainstream-dry, bilibili-long")
     if data.scene_threshold is not None and not (0 <= data.scene_threshold <= 100):
         errors.append("Scene threshold must be 0-100")
     if data.match_min_score is not None and not (0 <= data.match_min_score <= 1):

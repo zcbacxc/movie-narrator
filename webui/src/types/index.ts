@@ -11,6 +11,7 @@ export interface FormSubmitData {
   strict: boolean;
   subtitle_lang: string;
   subtitle_mode: "original" | "translated" | "bilingual";
+  narration_preset: string;
   scene_threshold?: number;
   match_min_score?: number;
   translate_provider: string;
@@ -64,3 +65,11 @@ export const PIPELINE_STEPS = [
 ] as const;
 
 export type PipelineStep = typeof PIPELINE_STEPS[number];
+
+// Narration presets — must match presets/registry.py
+export const NARRATION_PRESETS = [
+  { value: "", label: "默认（抖音快节奏）", description: "18句×3.3s, 快切镜, 口语化" },
+  { value: "douyin-fast", label: "抖音快节奏", description: "18句×3.3s, 快切镜, 深度闪避" },
+  { value: "mainstream-dry", label: "主流干讲", description: "12句×5s, 慢切镜, 从容叙事" },
+  { value: "bilibili-long", label: "B站长解说", description: "8句×7.5s, 大场景合并, 书面风格" },
+] as const;

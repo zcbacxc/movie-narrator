@@ -342,7 +342,7 @@ def test_validate_form_bilingual_no_lang():
 
 def test_collect_artifacts_empty(tmp_path):
     """A ctx with no outputs yields an empty artifact list."""
-    ctx = SimpleNamespace(video_path=None, audio_path=None)
+    ctx = SimpleNamespace(video_path=None, audio_path=None, subtitle_paths=None)
     artifacts = collect_artifacts(ctx, tmp_path)
     assert artifacts == []
 

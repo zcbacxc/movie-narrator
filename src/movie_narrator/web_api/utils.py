@@ -103,14 +103,28 @@ def collect_artifacts(ctx, output_dir: Path) -> List[str]:
     # Video output
     if ctx.video_path and Path(ctx.video_path).exists():
         artifacts.append(str(ctx.video_path))
-    # SRT subtitle
-    srt_path = output_dir / "subtitle.srt"
-    if srt_path.exists():
-        artifacts.append(str(srt_path))
-    # Script JSON
-    script_path = output_dir / "script.json"
+    # SRT subtitles (original + translated + bilingual)
+    for name in ("subtitle.srt", "subtitle.bilingual.srt"):
+        p = output_dir / name
+        if p.exists():
+            artifacts.append(str(p))
+    # Translated subtitle (dynamic lang suffix)
+    if ctx.subtitle_paths and ctx.subtitle_paths.translated:
+        p = Path(ctx.subtitle_paths.translated)
+        if p.exists():
+            artifacts.append(str(p))
+    # Script markdown
+    script_path = output_dir / "script.md"
     if script_path.exists():
         artifacts.append(str(script_path))
+    # Research data
+    research_path = output_dir / "research.json"
+    if research_path.exists():
+        artifacts.append(str(research_path))
+    # Mixed audio (when BGM enabled)
+    mixed_path = output_dir / "mixed.mp3"
+    if mixed_path.exists():
+        artifacts.append(str(mixed_path))
     # Narration audio
     if ctx.audio_path and Path(ctx.audio_path).exists():
         artifacts.append(ctx.audio_path)

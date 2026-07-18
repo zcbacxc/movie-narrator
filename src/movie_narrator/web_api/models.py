@@ -29,6 +29,7 @@ class TaskCreateRequest(BaseModel):
     match_min_score: Optional[float] = Field(None, ge=0, le=1)
     translate_provider: str = Field("")
     translate_retries: Optional[int] = Field(None, ge=0, le=10)
+    narration_preset: str = Field("", description="Narration style preset")
 
     def to_form_data(self, video_path: Optional[str] = None, bgm_path: Optional[str] = None):
         """Convert to FormData for validate_form() and form_to_context_args()."""
@@ -53,6 +54,7 @@ class TaskCreateRequest(BaseModel):
             match_min_score=self.match_min_score,
             translate_provider=self.translate_provider,
             translate_retries=self.translate_retries,
+            narration_preset=self.narration_preset,
         )
 
 

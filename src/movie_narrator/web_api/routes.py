@@ -43,6 +43,7 @@ def create_router(manager: TaskManager, upload_dir: Path) -> APIRouter:
         match_min_score: Optional[float] = Form(None),
         translate_provider: str = Form(""),
         translate_retries: Optional[int] = Form(None),
+        narration_preset: str = Form(""),
         video: Optional[UploadFile] = File(None),
         bgm: Optional[UploadFile] = File(None),
     ):
@@ -72,6 +73,7 @@ def create_router(manager: TaskManager, upload_dir: Path) -> APIRouter:
             subtitle_lang=subtitle_lang, subtitle_mode=subtitle_mode,
             scene_threshold=scene_threshold, match_min_score=match_min_score,
             translate_provider=translate_provider, translate_retries=translate_retries,
+            narration_preset=narration_preset,
         )
 
         try:
