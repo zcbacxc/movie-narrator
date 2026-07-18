@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.17] - 2026-07-18
+
+### Added (Dynamic sentence count + L2 E2E tests)
+- **Dynamic sentence count by duration (方案 B)**: `generate_script()` now computes `n = round(duration / prompt_target_segment_duration)` when preset defines `prompt_target_segment_duration`. Longer videos get more sentences, not longer sentences — keeping per-sentence length in the natural 19-25 char range. At 60s, dynamic count equals preset's `prompt_target_sentences` (backward compatible).
+- **New preset field**: `prompt_target_segment_duration` added to all three presets (douyin=3.3s, mainstream=5.0s, bilibili=7.5s). Added to `ALLOWED_PARAM_KEYS` + `PARAM_WHITELIST`.
+- **`script_target_count` metadata**: records the calculated target count n, distinguishing "requested 16" from "got 16" for debugging.
+- **L2 automated E2E smoke tests**: CI-runnable end-to-end pipeline tests that verify the full `generate_script` → `synthesize_tts` → render chain contract. See Added section below.
+
+### Fixed (max_chars correction based on R5b real TTS data)
+- **max_chars_per_sentence corrected** based on R5b measured speech rate 3.8 chars/sec:
+  - `mainstream-dry`: 18 → 22 (5.0s × 3.8 = 19.0 chars, 16% margin)
+  - `bilibili-long`: 22 → 32 (7.5s × 3.8 = 28.5 chars, 12% margin)
+  - `douyin-fast`: 15 (unchanged, 3.3s × 3.8 = 12.5 chars)
+
+### Changed
+- Preset `max_chars` comments now document the R5b speech-rate calculation.
+- `generate_script` priority: `seg_duration > 0` → dynamic count; `base_count is int` → fixed count; else → default 18.
+
 ## [0.4.16] - 2026-07-17
 
 ### Added (Two-phase script generation + CLI/Config improvements)

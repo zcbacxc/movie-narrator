@@ -166,6 +166,15 @@ The Web UI is rebuilt from a Gradio single-file app into a decoupled **FastAPI +
 - [x] Degradation warnings: `SOFT_STEP_CONSEQUENCES` + pipeline-end summary
 - [x] Retry failure debug logging
 
+### v0.4.17 Dynamic Sentence Count + L2 E2E Tests
+
+- [x] Dynamic sentence count by duration (方案 B): `n = round(duration / prompt_target_segment_duration)`
+- [x] New preset field `prompt_target_segment_duration` (douyin=3.3s, mainstream=5.0s, bilibili=7.5s)
+- [x] max_chars corrected based on R5b real TTS data (3.8 chars/sec): mainstream 18→22, bilibili 22→32
+- [x] `script_target_count` metadata for debugging (distinguishes requested vs actual count)
+- [x] L2 automated E2E smoke tests: CI-runnable pipeline contract verification
+- [x] CI smoke assertions for preset sentence count (R4 regression guard)
+
 ### v0.4 Environment variables
 
 - `MN_TTS_PROVIDER` — `edge` (default), `openai`, or `mimo`
