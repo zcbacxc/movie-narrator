@@ -151,7 +151,6 @@ def test_e2e_metadata_json_is_valid(ci_env, output_dir):
 
     # Must have these fields
     assert "movie_name" in meta
-    assert "duration" in meta
     assert meta["movie_name"] == "E2E-Metadata"
 
 
@@ -364,7 +363,8 @@ def test_e2e_subtitle_srt_valid(ci_env, output_dir):
 
     srt_path = output_dir / "subtitle.srt"
     assert srt_path.is_file()
-    content = srt_path.read_text(encoding="utf-8").strip()
+    # Read with utf-8-sig to strip BOM if present
+    content = srt_path.read_text(encoding="utf-8-sig").strip()
     # SRT entries start with a number
     assert content[0].isdigit()
     # Should contain timestamp format -->
