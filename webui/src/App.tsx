@@ -28,6 +28,7 @@ const DEFAULT_FORM: FormSubmitData = {
   strict: false,
   subtitle_lang: "",
   subtitle_mode: "original",
+  narration_preset: "",
   translate_provider: "",
 }
 

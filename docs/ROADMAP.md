@@ -84,10 +84,10 @@ Soft pipeline steps (research, align, scene detect, scene match, BGM, clip expor
 
 ### v0.4.7 Config system overhaul
 
-- [x] Strict env/yaml boundary: `.env` = 21 LLM + TTS infrastructure fields only; `job.yaml` = 32 pipeline behavior params
+- [x] Strict env/yaml boundary: `.env` = 24 LLM + TTS infrastructure fields only; `job.yaml` = 52 pipeline behavior params
 - [x] YAML auto-discovery: `--config` not passed → `cwd/job.yaml` → packaged example → none
 - [x] `.env.example` and `job.example.yaml` as single sources of truth (no code constants module)
-- [x] All 32 YAML params properly connected through `runner.py` → `ctx.metadata` → pipeline steps
+- [x] All 48 YAML params properly connected through `runner.py` → `ctx.metadata` → pipeline steps
 - [x] Fixed `translate_chunk_chars/size` silently ignored (never copied to `ctx.metadata`)
 - [x] Fixed `export_clips` codecs hardcoded (now uses `ctx.metadata` → inline literal)
 - [x] Fixed `scene_frame_skip` missing from runner copy loop
@@ -131,7 +131,7 @@ The Web UI is rebuilt from a Gradio single-file app into a decoupled **FastAPI +
 - [x] Deliverable QA probes (`utils/deliverable_qa.py`) — structured `QAReport` / `QAIssue`
 - [x] Match defaults tightened — clamp 0.85–1.25, merge 2.0s, drop tiny scenes <0.4s
 - [x] Render encode quality — CRF 18, preset `slow`, `+faststart`
-- [x] 15 new `JobParams` fields plumbed (render fit/encode/subtitle, BGM duck/normalize, QA, match drop)
+- [x] 15 new `JobParams` fields plumbed (render fit/encode/subtitle, BGM duck/normalize, QA, match drop) — actual count: render_fit_mode, render_crf, render_preset, render_faststart, render_subtitle_position, render_subtitle_max_width_ratio, render_subtitle_bottom_margin_ratio, qa_enabled, qa_max_silence_db, qa_min_duration_ratio, qa_max_duration_ratio, match_drop_scene_min_duration, bgm_duck_db, bgm_normalize, audio_target_dbfs
 - [x] Pipeline 14 → 15 steps; frontend `PIPELINE_STEPS` / `STEP_LABELS` synced
 
 ### v0.4.14 Publishable Bottom Subtitle
@@ -189,13 +189,13 @@ The Web UI is rebuilt from a Gradio single-file app into a decoupled **FastAPI +
 
 ### v0.4.7 env/yaml boundary (config system overhaul)
 
-Strict separation: `.env` contains ONLY LLM + TTS infrastructure (21 fields); `job.yaml` contains ALL pipeline behavior (32 params).
+Strict separation: `.env` contains ONLY LLM + TTS infrastructure (24 fields); `job.yaml` contains ALL pipeline behavior (48 params).
 
-**`.env` (Settings) — 21 fields:** See [`.env.example`](../.env.example)
-- LLM (11): `MN_LLM_BASE_URL`, `MN_LLM_API_KEY`, `MN_LLM_MODEL`, `MN_LLM_TIMEOUT`, `MN_SCRIPT_TEMPERATURE`, `MN_SCRIPT_MAX_TOKENS`, `MN_SCRIPT_RETRIES`, `MN_SCRIPT_RETRY_DELAY`, `MN_RESEARCH_TEMPERATURE`, `MN_RESEARCH_MAX_TOKENS`, `MN_TRANSLATE_MAX_TOKENS`
+**`.env` (Settings) — 24 fields:** See [`.env.example`](../.env.example)
+- LLM (14): `MN_LLM_BASE_URL`, `MN_LLM_API_KEY`, `MN_LLM_MODEL`, `MN_LLM_TIMEOUT`, `MN_SCRIPT_TEMPERATURE`, `MN_SCRIPT_EXPAND_TEMPERATURE`, `MN_SCRIPT_MAX_TOKENS`, `MN_SCRIPT_RETRIES`, `MN_SCRIPT_RETRY_DELAY`, `MN_RESEARCH_TEMPERATURE`, `MN_RESEARCH_MAX_TOKENS`, `MN_RESEARCH_RETRIES`, `MN_RESEARCH_RETRY_DELAY`, `MN_TRANSLATE_MAX_TOKENS`
 - TTS (10): `MN_DEFAULT_VOICE`, `MN_TTS_PROVIDER`, `MN_TTS_CACHE_MAX_MB`, `MN_OPENAI_TTS_*`(3), `MN_MIMO_*`(4)
 
-**`job.yaml` (params) — 47 keys:** See [`job.example.yaml`](../examples/job.example.yaml)
+**`job.yaml` (params) — 48 keys:** See [`job.example.yaml`](../examples/job.example.yaml)
 - Scene: `scene_threshold`, `scene_frame_skip`
 - Match: `match_min_score`, `match_speed_clamp_min/max`, `scene_merge_min_duration`, `match_drop_scene_min_duration`, `embedding_model_name`
 - BGM: `bgm_gain_db`, `bgm_duck_db`, `bgm_normalize`, `audio_target_dbfs`

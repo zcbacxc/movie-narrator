@@ -37,7 +37,6 @@ movie-narrator/
 │   ├── pipeline/        # 15-step runner, preflight, tts/render/match/... step modules
 │   ├── tts/             # TTS provider abstraction (edge, openai, mimo, factory, cache)
 │   ├── web_api/         # FastAPI + WebSocket backend (default WebUI, port 8760)
-│   ├── web/             # Legacy Gradio UI (retained for reference, not default)
 │   ├── utils/           # llm.py, errors.py, shared helpers
 │   ├── models.py        # Context, PipelineStatus, StepState, ...
 │   ├── cli.py           # `mn` Typer entry points (create, web, version, ...)

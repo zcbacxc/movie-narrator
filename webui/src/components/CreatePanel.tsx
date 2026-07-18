@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { MovieSection } from "@/components/MovieSection"
 import { VoiceSection } from "@/components/VoiceSection"
+import { PresetSection } from "@/components/PresetSection"
 import { AssetsSection } from "@/components/AssetsSection"
 import { SubtitlesSection } from "@/components/SubtitlesSection"
 import { AdvancedSection } from "@/components/AdvancedSection"
@@ -54,6 +55,11 @@ export function CreatePanel() {
 
           {/* Voice section */}
           <VoiceSection data={formData} onChange={handleChange} />
+
+          <Separator />
+
+          {/* Preset section */}
+          <PresetSection data={formData} onChange={handleChange} />
 
           <Separator />
 

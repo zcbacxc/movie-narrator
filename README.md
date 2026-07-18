@@ -142,7 +142,7 @@ mn create --movie "飞驰人生" --keep-cache
 mn create --movie "飞驰人生" --style "热血搞笑" --duration 60
 ```
 
-All 18 CLI flags are documented in [`examples/cli-usage.sh`](examples/cli-usage.sh) with usage examples for every scenario: basic, video/library, research/BGM/clips, multi-language subtitles, and YAML config. Key flags: `--movie/-m`, `--style/-s`, `--duration/-d`, `--voice/-v`, `--format/-f`, `--video/-V`, `--library-dir`, `--research`, `--bgm`, `--no-bgm`, `--no-clips`, `--strict`, `--keep-cache`, `--retry`, `--subtitle-lang`, `--subtitle-mode`, `--config`.
+All 18 CLI flags are documented in [`examples/cli-usage.sh`](examples/cli-usage.sh) with usage examples for every scenario: basic, video/library, research/BGM/clips, multi-language subtitles, narration presets, and YAML config. Key flags: `--movie/-m`, `--style/-s`, `--duration/-d`, `--voice/-v`, `--format/-f`, `--video`, `--library-dir`, `--research`, `--bgm`, `--no-bgm`, `--no-clips`, `--strict`, `--keep-cache`, `--retry`, `--subtitle-lang`, `--subtitle-mode`, `--narration-preset/-p`, `--config`.
 
 ### Job YAML config
 
@@ -161,7 +161,7 @@ When `--config` is not passed, the CLI auto-discovers a YAML config in priority 
 
 This means new users can run `mn create --movie X` without creating any config file — the example YAML provides default steps/params automatically.
 
-See [`examples/job.example.yaml`](examples/job.example.yaml) for the full whitelist: soft-step toggles under `steps:` (`research`, `align`, `scene`, `match`, `bgm`, `export`, `translate`), all 32 `params:` keys (scene detection, match, BGM, TTS pacing, translate, research, WhisperX, render, async, video sizes), and the multi-language subtitle top-level keys `subtitle_lang` / `subtitle_mode`. Relative `video` / `bgm` / `library_dir` paths resolve against the YAML file's directory. LLM credentials stay in `.env` / `MN_*` only.
+See [`examples/job.example.yaml`](examples/job.example.yaml) for the full whitelist: soft-step toggles under `steps:` (`research`, `align`, `scene`, `match`, `bgm`, `export`, `translate`), all 52 `params:` keys (scene detection, match, BGM, TTS pacing, translate, research, WhisperX, render, async, video sizes), and the multi-language subtitle top-level keys `subtitle_lang` / `subtitle_mode`. Relative `video` / `bgm` / `library_dir` paths resolve against the YAML file's directory. LLM credentials stay in `.env` / `MN_*` only.
 
 ### Multi-language subtitles
 
@@ -272,7 +272,7 @@ mn create --movie "飞驰人生" --duration 60
 
 ### Full reference
 
-See [`.env.example`](.env.example) for the complete list of all 21 environment variables (LLM + TTS infrastructure only). All pipeline behavior is configured via [`examples/job.example.yaml`](examples/job.example.yaml) — 32 params keys covering scene detection, match, render, translate, BGM, WhisperX, async, and video sizes.
+See [`.env.example`](.env.example) for the complete list of all 24 environment variables (LLM + TTS infrastructure only). All pipeline behavior is configured via [`examples/job.example.yaml`](examples/job.example.yaml) — 48 params keys covering scene detection, match, render, translate, BGM, WhisperX, async, and video sizes.
 
 ### LLM Provider Guides
 
@@ -299,9 +299,7 @@ output/
     ├── subtitle.<lang>.srt    # (when --subtitle-lang set; e.g. subtitle.en.srt)
     ├── subtitle.bilingual.srt # (when --subtitle-lang set; original + LF + translation per cue)
     ├── script.md
-    ├── script.json
     ├── research.json        # (when --research)
-    ├── scenes.json          # (when video provided)
     ├── matches.json         # (when video provided)
     ├── metadata.json
     ├── final.mp4
@@ -316,9 +314,7 @@ output/
 | `subtitle.<lang>.srt` | Translated subtitle (when `--subtitle-lang` set) |
 | `subtitle.bilingual.srt` | Bilingual subtitle (when `--subtitle-lang` set; cue body `f"{src}\n{dst}"`) |
 | `script.md` | Human-readable script |
-| `script.json` | Machine-readable script segments |
 | `research.json` | Movie research data (when `--research`) |
-| `scenes.json` | Detected scene boundaries (when video provided) |
 | `metadata.json` | Segment timings, pipeline status, config |
 | `final.mp4` | Rendered video (16:9 or 9:16) |
 | `matches.json` | Scene-to-segment clip matching (when video provided) |
@@ -531,6 +527,7 @@ movie-narrator/
 - [Architecture](docs/ARCHITECTURE.md)
 - [LLM Provider Guides](docs/LLM_PROVIDERS.md)
 - [Contributing](docs/CONTRIBUTING.md)
+- [AI Coding Assistant Guide](docs/AI_GUIDE.md)
 
 ---
 
