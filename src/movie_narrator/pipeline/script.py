@@ -231,6 +231,7 @@ def generate_script(ctx: Context) -> Context:
                 ctx.segments = segments
                 ctx.metadata["script_source"] = "llm"
                 ctx.metadata["script_phase"] = "two-phase"
+                ctx.metadata["script_target_count"] = n
                 ctx.metadata["script_beat_count"] = len(beats)
                 ctx.metadata["script_segment_count"] = len(segments)
                 return ctx
