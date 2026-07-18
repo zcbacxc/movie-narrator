@@ -28,8 +28,9 @@ class DouyinFastPreset:
             "render_font_size": 100,
             # TTS: 紧凑停顿
             "tts_pause_ms": 150,
-            # Prompt: 18 句×~3.3s
+            # Prompt: 18 句×~3.3s (60s 基准), max_chars 按字速 3.8 字/s 计算
             "prompt_target_sentences": 18,
+            "prompt_target_segment_duration": 3.3,
             "prompt_max_chars_per_sentence": 15,
             "prompt_hook_seconds": 3,
         }

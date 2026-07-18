@@ -28,9 +28,11 @@ class MainstreamDryPreset:
             "render_font_size": 90,
             # TTS: 留呼吸
             "tts_pause_ms": 200,
-            # Prompt: 12 句×~5s
+            # Prompt: 12 句×~5s (60s 基准), max_chars 按字速 3.8 字/s 计算
+            # 5.0s × 3.8 = 19.0 字, max_chars=22 留 16% 余量
             "prompt_target_sentences": 12,
-            "prompt_max_chars_per_sentence": 18,
+            "prompt_target_segment_duration": 5.0,
+            "prompt_max_chars_per_sentence": 22,
             "prompt_hook_seconds": 5,
         }
 

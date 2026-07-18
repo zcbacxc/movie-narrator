@@ -61,6 +61,7 @@ ALLOWED_PARAM_KEYS: frozenset[str] = frozenset({
     "qa_max_duration_ratio",
     # Prompt shaping (new — added to whitelist in schema/load/runner)
     "prompt_target_sentences",
+    "prompt_target_segment_duration",
     "prompt_max_chars_per_sentence",
     "prompt_hook_seconds",
 })

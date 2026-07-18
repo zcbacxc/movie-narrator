@@ -28,9 +28,11 @@ class BilibiliLongPreset:
             "render_font_size": 75,
             # TTS: 长停顿,留白
             "tts_pause_ms": 300,
-            # Prompt: 8 句×~7.5s
+            # Prompt: 8 句×~7.5s (60s 基准), max_chars 按字速 3.8 字/s 计算
+            # 7.5s × 3.8 = 28.5 字, max_chars=32 留 12% 余量
             "prompt_target_sentences": 8,
-            "prompt_max_chars_per_sentence": 22,
+            "prompt_target_segment_duration": 7.5,
+            "prompt_max_chars_per_sentence": 32,
             "prompt_hook_seconds": 7,
         }
 

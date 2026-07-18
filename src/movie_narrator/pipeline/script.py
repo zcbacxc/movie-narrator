@@ -194,16 +194,29 @@ def generate_script(ctx: Context) -> Context:
     mock content (same as v0.4.15).
     """
     settings = get_settings()
-    target_count = ctx.metadata.get("prompt_target_sentences")
+    base_count = ctx.metadata.get("prompt_target_sentences")
+    seg_duration = ctx.metadata.get("prompt_target_segment_duration")
 
     for attempt in range(settings.script_retries):
         try:
             with get_llm_client() as llm:
-                # Determine target sentence count
-                if target_count and isinstance(target_count, int):
-                    n = target_count
+                # Determine target sentence count.
+                # If preset defines target_segment_duration, compute count
+                # dynamically from the actual target duration so that
+                # longer videos get more sentences (not longer sentences).
+                # This keeps per-sentence length natural (19-25 chars)
+                # regardless of total video duration.
+                #
+                # Example: bilibili-long (seg_duration=7.5s)
+                #   60s  → 8 sentences  (7.5s each)
+                #   90s  → 12 sentences (7.5s each)
+                #   120s → 16 sentences (7.5s each)
+                if seg_duration and isinstance(seg_duration, (int, float)) and seg_duration > 0:
+                    n = max(1, round(ctx.duration / seg_duration))
+                elif base_count and isinstance(base_count, int):
+                    n = base_count
                 else:
-                    # No preset active — use legacy range "15-20", pick 18
+                    # No preset active — use legacy default
                     n = 18
 
                 # Phase 1: extract plot beats
