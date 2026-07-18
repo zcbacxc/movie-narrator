@@ -123,12 +123,12 @@ def test_e2e_deliverable_files_produced(ci_env, output_dir):
     )
     run_pipeline(ctx)
 
-    # Core deliverables
-    assert (output_dir / "E2E-Deliverables" / "script.md").is_file()
-    assert (output_dir / "E2E-Deliverables" / "final.mp4").is_file()
-    assert (output_dir / "E2E-Deliverables" / "subtitle.srt").is_file()
-    assert (output_dir / "E2E-Deliverables" / "metadata.json").is_file()
-    assert (output_dir / "E2E-Deliverables" / "narration.mp3").is_file()
+    # Core deliverables — produced directly in output_dir (no movie_name subdir)
+    assert (output_dir / "script.md").is_file()
+    assert (output_dir / "final.mp4").is_file()
+    assert (output_dir / "subtitle.srt").is_file()
+    assert (output_dir / "metadata.json").is_file()
+    assert (output_dir / "narration.mp3").is_file()
 
 
 @pytest.mark.skipif(not _HAS_MP3, reason=_SKIP_REASON)
@@ -145,7 +145,7 @@ def test_e2e_metadata_json_is_valid(ci_env, output_dir):
     )
     run_pipeline(ctx)
 
-    meta_path = output_dir / "E2E-Metadata" / "metadata.json"
+    meta_path = output_dir / "metadata.json"
     assert meta_path.is_file()
     meta = json.loads(meta_path.read_text(encoding="utf-8"))
 
@@ -198,10 +198,38 @@ def test_e2e_dynamic_count_with_preset(ci_env, output_dir):
     two-phase path (not ci_mock fallback) so we can verify
     script_target_count.
     """
-    from tests.test_script import (
-        _mock_llm_response, _mock_llm_cm, _mock_settings,
-        _beats_json, _segments_json,
-    )
+    # Inline mock helpers (can't import from tests.test_script in CI —
+    # tests/ is not a package)
+    from unittest.mock import MagicMock
+    import json as _json
+
+    def _mock_llm_response(json_str):
+        resp = MagicMock()
+        resp.choices = [MagicMock()]
+        resp.choices[0].message.content = json_str
+        return resp
+
+    def _mock_llm_cm(side_effect):
+        mock_llm = MagicMock()
+        mock_llm.model = "test-model"
+        mock_llm.client.chat.completions.create.side_effect = side_effect
+        mock_cm = MagicMock()
+        mock_cm.__enter__ = MagicMock(return_value=mock_llm)
+        mock_cm.__exit__ = MagicMock(return_value=False)
+        return mock_cm
+
+    def _mock_settings():
+        s = MagicMock()
+        s.script_retries = 3
+        s.script_retry_delay = 0
+        s.script_temperature = 0.7
+        s.script_expand_temperature = 0.5
+        s.script_max_tokens = 2048
+        s.research_temperature = 0.3
+        s.research_max_tokens = 1024
+        s.research_retries = 3
+        s.research_retry_delay = 0
+        return s
 
     target = 8  # bilibili-long at 60s: round(60/7.5) = 8
 
@@ -217,8 +245,8 @@ def test_e2e_dynamic_count_with_preset(ci_env, output_dir):
     )
 
     # Mock LLM to return exactly target beats + segments
-    beats_resp = _mock_llm_response(_beats_json(target))
-    seg_resp = _mock_llm_response(_segments_json([f"旁白{i}" for i in range(target)]))
+    beats_resp = _mock_llm_response(_json.dumps({"beats": [f"beat{i}" for i in range(target)]}))
+    seg_resp = _mock_llm_response(_json.dumps({"segments": [{"text": f"旁白{i}"} for i in range(target)]}))
     mock_cm = _mock_llm_cm(side_effect=[beats_resp, seg_resp])
 
     with patch("movie_narrator.pipeline.script.get_settings", return_value=_mock_settings()):
@@ -312,7 +340,7 @@ def test_e2e_script_md_has_content(ci_env, output_dir):
     )
     run_pipeline(ctx)
 
-    script_path = output_dir / "E2E-ScriptMD" / "script.md"
+    script_path = output_dir / "script.md"
     assert script_path.is_file()
     content = script_path.read_text(encoding="utf-8").strip()
     assert len(content) > 0
@@ -334,7 +362,7 @@ def test_e2e_subtitle_srt_valid(ci_env, output_dir):
     )
     run_pipeline(ctx)
 
-    srt_path = output_dir / "E2E-SRT" / "subtitle.srt"
+    srt_path = output_dir / "subtitle.srt"
     assert srt_path.is_file()
     content = srt_path.read_text(encoding="utf-8").strip()
     # SRT entries start with a number
