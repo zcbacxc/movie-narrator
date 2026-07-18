@@ -732,6 +732,35 @@ def test_no_preset_defaults_to_18_sentences(tmp_path):
     assert result.metadata["script_segment_count"] == 18
 
 
+def test_script_target_count_in_metadata(tmp_path):
+    """script_target_count must be recorded to distinguish requested vs actual.
+
+    Without this, debugging "LLM returned wrong count" is hard — you can't
+    tell if script_segment_count=8 means "requested 8, got 8" or "requested
+    16, trimmed to 8".
+    """
+    ctx = _make_ctx(tmp_path, duration=120)
+    ctx.metadata["prompt_target_sentences"] = 8
+    ctx.metadata["prompt_target_segment_duration"] = 7.5  # 120/7.5 = 16
+
+    expected_n = 16
+    beats_resp = _mock_llm_response(_beats_json(expected_n))
+    seg_resp = _mock_llm_response(_segments_json([f"s{i}" for i in range(expected_n)]))
+    mock_cm = _mock_llm_cm(side_effect=[beats_resp, seg_resp])
+
+    with patch("movie_narrator.pipeline.script.get_settings", return_value=_mock_settings()):
+        with patch("movie_narrator.pipeline.script.get_llm_client", return_value=mock_cm):
+            result = generate_script(ctx)
+
+    # script_target_count records the calculated target (16), not the
+    # preset's prompt_target_sentences (8). This lets you distinguish
+    # "dynamic count=16" from "preset baseline=8".
+    assert result.metadata["script_target_count"] == expected_n
+    assert result.metadata["script_segment_count"] == expected_n
+    # preset's original target should NOT equal the dynamic target
+    assert result.metadata["script_target_count"] != ctx.metadata["prompt_target_sentences"]
+
+
 # ── 13. Dynamic sentence count (duration-aware) ────────────
 #
 # R5b 发现: 方案 B — 按时长动态调整句数, 保持每段字数自然.
