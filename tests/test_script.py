@@ -730,3 +730,90 @@ def test_no_preset_defaults_to_18_sentences(tmp_path):
 
     assert len(result.segments) == 18
     assert result.metadata["script_segment_count"] == 18
+
+
+# ── 13. Dynamic sentence count (duration-aware) ────────────
+#
+# R5b 发现: 方案 B — 按时长动态调整句数, 保持每段字数自然.
+# 句数 = round(duration / target_segment_duration)
+# 60s 时与 preset 的 prompt_target_sentences 一致 (向后兼容).
+# 非 60s 时句数按比例缩放, max_chars 不变.
+
+
+_DYNAMIC_CASES = [
+    # (preset_name, duration, expected_count)
+    # 60s baseline — matches preset's prompt_target_sentences
+    ("douyin-fast", 60, 18),      # 60 / 3.3 = 18.2 → 18
+    ("mainstream-dry", 60, 12),   # 60 / 5.0 = 12.0 → 12
+    ("bilibili-long", 60, 8),     # 60 / 7.5 = 8.0 → 8
+    # 120s — double the sentences, same per-sentence length
+    ("douyin-fast", 120, 36),     # 120 / 3.3 = 36.4 → 36
+    ("mainstream-dry", 120, 24),  # 120 / 5.0 = 24.0 → 24
+    ("bilibili-long", 120, 16),   # 120 / 7.5 = 16.0 → 16
+    # 90s — 1.5x sentences
+    ("bilibili-long", 90, 12),    # 90 / 7.5 = 12.0 → 12
+    # 30s — half sentences
+    ("douyin-fast", 30, 9),       # 30 / 3.3 = 9.1 → 9
+    ("bilibili-long", 30, 4),     # 30 / 7.5 = 4.0 → 4
+]
+
+
+@pytest.mark.parametrize("preset_name,duration,expected_count", _DYNAMIC_CASES)
+def test_dynamic_sentence_count_by_duration(preset_name, duration, expected_count, tmp_path):
+    """Sentence count must scale with duration, keeping per-sentence length fixed.
+
+    This is the core of 方案 B: longer videos get more sentences,
+    not longer sentences. The per-sentence max_chars stays constant
+    (defined by preset), but the total count adjusts to fill the duration.
+
+    Formula: n = round(duration / target_segment_duration)
+    """
+    from movie_narrator.presets import get_preset
+
+    preset = get_preset(preset_name)
+    seg_dur = preset.param_dict.get("prompt_target_segment_duration")
+    assert seg_dur is not None, f"{preset_name} missing prompt_target_segment_duration"
+
+    # Verify formula matches expected
+    calculated = max(1, round(duration / seg_dur))
+    assert calculated == expected_count, (
+        f"{preset_name} duration={duration}: "
+        f"round({duration}/{seg_dur}) = {calculated}, expected {expected_count}"
+    )
+
+    # End-to-end: generate_script with this duration should produce expected count
+    ctx = _make_ctx(tmp_path, duration=duration)
+    ctx.metadata["prompt_target_sentences"] = preset.param_dict.get("prompt_target_sentences")
+    ctx.metadata["prompt_target_segment_duration"] = seg_dur
+
+    beats_resp = _mock_llm_response(_beats_json(expected_count))
+    seg_resp = _mock_llm_response(_segments_json([f"s{i}" for i in range(expected_count)]))
+    mock_cm = _mock_llm_cm(side_effect=[beats_resp, seg_resp])
+
+    with patch("movie_narrator.pipeline.script.get_settings", return_value=_mock_settings()):
+        with patch("movie_narrator.pipeline.script.get_llm_client", return_value=mock_cm):
+            result = generate_script(ctx)
+
+    assert len(result.segments) == expected_count, (
+        f"{preset_name} duration={duration}s: expected {expected_count} segments, "
+        f"got {len(result.segments)}. Dynamic count formula is broken."
+    )
+
+
+def test_dynamic_count_60s_matches_preset_baseline(tmp_path):
+    """At 60s, dynamic count must equal preset's prompt_target_sentences.
+
+    This is the backward compatibility guarantee: existing 60s videos
+    behave exactly as before.
+    """
+    from movie_narrator.presets import get_preset
+
+    for name in ("douyin-fast", "mainstream-dry", "bilibili-long"):
+        preset = get_preset(name)
+        base_count = preset.param_dict.get("prompt_target_sentences")
+        seg_dur = preset.param_dict.get("prompt_target_segment_duration")
+        dynamic_count = round(60 / seg_dur)
+        assert dynamic_count == base_count, (
+            f"{name}: 60s dynamic count {dynamic_count} != "
+            f"preset baseline {base_count}"
+        )
