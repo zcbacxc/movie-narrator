@@ -88,6 +88,10 @@ def create(
         None, "--narration-preset", "-p",
         help="解说风格预设 douyin-fast | mainstream-dry | bilibili-long / Narration style preset",
     ),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", "-o",
+        help="输出目录(默认 output/<电影名>) / Output directory (default: output/<movie>)",
+    ),
 ):
     """生成解说短视频 — 从电影名到成片一站式产出.
 
@@ -172,8 +176,10 @@ def create(
             param_hint="--video",
         )
 
-    output_dir = Path("output") / _sanitize_filename(resolved.movie)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    # --output-dir / -o: user-specified output directory.
+    # Default: output/<sanitized-movie-name>
+    out_dir = Path(output_dir) if output_dir else Path("output") / _sanitize_filename(resolved.movie)
+    out_dir.mkdir(parents=True, exist_ok=True)
 
     ctx = build_context(
         movie=resolved.movie,
@@ -181,7 +187,7 @@ def create(
         duration=resolved.duration,
         voice=resolved.voice,
         format=resolved.format,
-        output_dir=output_dir,
+        output_dir=out_dir,
         keep_cache=resolved.keep_cache,
         video=resolved.video,
         library_dir=resolved.library_dir,
@@ -223,12 +229,16 @@ def resolve(
     movie: str = typer.Option(..., "--movie", "-m", help="电影名称 / Movie name to resolve"),
     library_dir: Optional[str] = typer.Option(None, "--library-dir", help="影视库目录 / Movie library directory"),
     json_output: bool = typer.Option(False, "--json", help="JSON 格式输出 / Output result as JSON"),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", "-o",
+        help="输出目录(默认 output/<电影名>) / Output directory (default: output/<movie>)",
+    ),
 ):
     """从影视库中查找电影 / Resolve a movie from library directory."""
-    output_dir = Path("output") / _sanitize_filename(movie)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    out_dir = Path(output_dir) if output_dir else Path("output") / _sanitize_filename(movie)
+    out_dir.mkdir(parents=True, exist_ok=True)
 
-    ctx = Context(movie_name=movie, output_dir=str(output_dir))
+    ctx = Context(movie_name=movie, output_dir=str(out_dir))
     if library_dir:
         ctx.library_dir = library_dir
     resolve_video(ctx)
@@ -247,19 +257,23 @@ def resolve(
 @app.command()
 def research(
     movie: str = typer.Option(..., "--movie", "-m", help="电影名称 / Movie name to research"),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", "-o",
+        help="输出目录(默认 output/<电影名>) / Output directory (default: output/<movie>)",
+    ),
 ):
     """运行剧情研究并输出 research.json / Run plot research."""
-    output_dir = Path("output") / _sanitize_filename(movie)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    out_dir = Path(output_dir) if output_dir else Path("output") / _sanitize_filename(movie)
+    out_dir.mkdir(parents=True, exist_ok=True)
 
-    ctx = Context(movie_name=movie, output_dir=str(output_dir))
+    ctx = Context(movie_name=movie, output_dir=str(out_dir))
     ctx.metadata["research_enabled"] = True
     research_plot(ctx)
 
     if ctx.status.research == "failed":
         raise typer.Exit(1)
 
-    research_path = output_dir / "research.json"
+    research_path = out_dir / "research.json"
     if research_path.exists():
         typer.echo(f"Research written to: {research_path}")
     else:
