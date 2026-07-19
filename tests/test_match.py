@@ -494,7 +494,12 @@ def test_match_clips_whisperx_failure_falls_back(tmp_path, monkeypatch):
 
 
 def test_match_clips_embedding_reranks_when_available(tmp_path, monkeypatch):
-    """sentence_transformers available → re-rank candidates by cosine."""
+    """sentence_transformers available → re-rank candidates by cosine.
+
+    MS-02 fix: embedding path now requires real transcript (not fake
+    placeholder labels). This test provides a mock transcript so the
+    embedding path is exercised.
+    """
     ctx = _make_ctx(tmp_path)
     (tmp_path / "video.mp4").write_bytes(b"00")
     # Two scenes so the embedding path can actually pick one over the other.
@@ -510,7 +515,16 @@ def test_match_clips_embedding_reranks_when_available(tmp_path, monkeypatch):
     monkeypatch.setattr(
         match_module,
         "probe",
-        lambda name: (True, "") if name == "sentence_transformers" else (False, ""),
+        lambda name: (True, ""),  # both sentence_transformers and whisperx
+    )
+
+    # MS-02: provide mock transcript so captions are real (not placeholders)
+    mock_transcript = [
+        {"start": 0.0, "end": 3.5, "text": "alpha scene zero"},
+        {"start": 4.0, "end": 9.0, "text": "beta scene one"},
+    ]
+    monkeypatch.setattr(
+        match_module, "_transcribe_video_audio", lambda *a, **k: mock_transcript
     )
 
     class FakeST:

@@ -442,14 +442,37 @@ def _match_clips_impl(
                     )
 
             scene_labels = _build_scene_captions(scenes, transcript)
-            emb_model = ctx.metadata.get("embedding_model_name", _EMBEDDING_MODEL_NAME)
-            scene_vecs = _embed_texts(scene_labels, emb_model)
-            narration_vecs = _embed_texts([seg.text for seg in ctx.timed_segments], emb_model)
-            for i, seg in enumerate(ctx.timed_segments):
-                best_idx = _cosine_top1(narration_vecs[i], scene_vecs)
-                best_scene = scenes[best_idx]
-                score = float(scene_vecs[best_idx] @ narration_vecs[i])
-                final.append((heuristic[i], score, best_scene, "embedding"))
+
+            # ── MS-02: Truth in match (Q-M1) ──────────────
+            # Detect fake captions (placeholder labels without real transcript).
+            # If too many scenes have fake captions, embedding re-rank is
+            # meaningless — it's matching narration against "scene 0 from
+            # 0.0s to 15.0s" strings that carry no semantic information.
+            # Threshold: if >70% of labels are fake, force heuristic.
+            fake_count = sum(
+                1 for label in scene_labels
+                if label.startswith("scene ") and "from" in label
+            )
+            fake_ratio = fake_count / len(scene_labels) if scene_labels else 1.0
+            if fake_ratio > 0.7:
+                ctx.services.console.inline_warn(
+                    f"Scene captions are {fake_ratio:.0%} placeholder labels "
+                    f"({fake_count}/{len(scene_labels)} scenes have no real transcript). "
+                    f"Embedding re-rank would be misleading — forcing heuristic match. "
+                    f"Install WhisperX with: pip install 'movie-narrator[ml]'"
+                )
+                ctx.metadata["match_captions_fake"] = True
+                final = [(h, 1.0, None, "heuristic") for h in heuristic]
+            else:
+                ctx.metadata["match_captions_fake"] = False
+                emb_model = ctx.metadata.get("embedding_model_name", _EMBEDDING_MODEL_NAME)
+                scene_vecs = _embed_texts(scene_labels, emb_model)
+                narration_vecs = _embed_texts([seg.text for seg in ctx.timed_segments], emb_model)
+                for i, seg in enumerate(ctx.timed_segments):
+                    best_idx = _cosine_top1(narration_vecs[i], scene_vecs)
+                    best_scene = scenes[best_idx]
+                    score = float(scene_vecs[best_idx] @ narration_vecs[i])
+                    final.append((heuristic[i], score, best_scene, "embedding"))
         except Exception as e:
             ctx.services.console.inline_warn(
                 f"embedding re-rank unavailable ({e}); using heuristic"
@@ -526,6 +549,19 @@ def _match_clips_impl(
         ),
         encoding="utf-8",
     )
+    # ── WP1: match_summary for metadata.json ─────────
+    # Records the match quality breakdown so L2 hand-test can verify
+    # the main path isn't "全 heuristic 糊弄" (O9/O10 in checklist).
+    embedding_count = sum(1 for mc in matched_clips if mc.source == "embedding")
+    heuristic_count = sum(1 for mc in matched_clips if mc.source == "heuristic")
+    ctx.metadata["match_summary"] = {
+        "total": len(matched_clips),
+        "embedding": embedding_count,
+        "heuristic": heuristic_count,
+        "heuristic_ratio": heuristic_count / len(matched_clips) if matched_clips else 1.0,
+        "captions_fake": ctx.metadata.get("match_captions_fake", False),
+    }
+
     ctx.status.match = "success"
     return ctx
 

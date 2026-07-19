@@ -3,12 +3,12 @@ from ..utils.optional_deps import probe
 
 
 def align_audio(ctx: Context) -> Context:
-    """Align timed segments using WhisperX transcription on the rendered audio.
+    """Align timed segments using WhisperX transcription + forced alignment.
 
-    WhisperX is optional — requires the ``[ml]`` extra or a manual
-    ``pip install movie-narrator[ml]``.  When unavailable the step is
-    marked *disabled* and skipped so the rest of the pipeline keeps
-    running.
+    AQ-01 fix (Q-X11): Now runs the full WhisperX pipeline
+    (transcribe → align) instead of only midpoint remapping.
+    Adds monotonic/non-overlap validation and drift detection.
+    Degrades to ``status='skipped'`` when ASR is empty or unreliable.
 
     Parameters
     ----------
@@ -38,53 +38,117 @@ def align_audio(ctx: Context) -> Context:
         import whisperx
 
         device = ctx.metadata.get("whisperx_device", "cpu")
+        language = ctx.metadata.get("whisperx_language", "zh")
         audio = whisperx.load_audio(ctx.audio_path)
         model = whisperx.load_model(
             ctx.metadata.get("whisperx_model", "medium"), device=device
         )
-        result = model.transcribe(
-            audio, language=ctx.metadata.get("whisperx_language", "zh")
-        )
+        result = model.transcribe(audio, language=language)
 
-        if result and "segments" in result:
-            wx_segments = []
-            for wseg in result["segments"]:
-                start = wseg.get("start", 0.0)
-                end = wseg.get("end", 0.0)
-                text = wseg.get("text", "").strip()
-                if text:
-                    wx_segments.append({"start": start, "end": end, "text": text})
+        if not result or "segments" not in result or not result["segments"]:
+            # ── AQ-01: empty ASR → skipped (not success) ──
+            ctx.services.console.inline_warn(
+                "WhisperX returned no speech segments; "
+                "timestamps remain TTS-estimated"
+            )
+            ctx.status.align = "skipped"
+            ctx.step_state.result = StepResult.WARNING
+            ctx.step_state.message = "WhisperX ASR returned empty"
+            ctx.metadata["align_degraded"] = True
+            return ctx
 
-            if not wx_segments:
-                ctx.services.console.inline_warn(
-                    "WhisperX returned no speech segments; "
-                    "timestamps remain TTS-estimated"
-                )
-            else:
-                # Match by time overlap instead of index.
-                # Index-based alignment causes drift when WhisperX produces
-                # a different number of segments than the script (common for
-                # long videos with silence or music-only sections).
-                for i, ts in enumerate(ctx.timed_segments):
-                    ts_mid = (ts.start + ts.end) / 2.0
-                    best = None
-                    best_dist = float("inf")
-                    for wseg in wx_segments:
-                        # Prefer segments that contain the midpoint
-                        if wseg["start"] <= ts_mid <= wseg["end"]:
-                            best = wseg
-                            break
-                        # Otherwise pick the closest by midpoint distance
-                        wseg_mid = (wseg["start"] + wseg["end"]) / 2.0
-                        dist = abs(wseg_mid - ts_mid)
-                        if dist < best_dist:
-                            best_dist = dist
-                            best = wseg
-                    if best:
-                        ts.start = best["start"]
-                        ts.end = best["end"]
+        # ── AQ-01: Run full forced alignment (Q-X11) ──
+        # Previously only midpoint remapping was done. Now we run
+        # whisperx.align() for word-level timestamps, then validate.
+        try:
+            model_a, metadata = whisperx.load_align_model(
+                language_code=language, device=device
+            )
+            result = whisperx.align(
+                result["segments"], model_a, metadata, audio, device=device
+            )
+        except Exception as align_err:
+            ctx.services.console.inline_warn(
+                f"WhisperX forced alignment failed ({align_err}); "
+                f"falling back to transcript-level timestamps"
+            )
+            ctx.metadata["align_fallback"] = True
+
+        wx_segments = []
+        for wseg in result.get("segments", []):
+            start = wseg.get("start", 0.0)
+            end = wseg.get("end", 0.0)
+            text = wseg.get("text", "").strip()
+            if text:
+                wx_segments.append({"start": start, "end": end, "text": text})
+
+        if not wx_segments:
+            ctx.services.console.inline_warn(
+                "WhisperX alignment produced no usable segments; "
+                "timestamps remain TTS-estimated"
+            )
+            ctx.status.align = "skipped"
+            ctx.step_state.result = StepResult.WARNING
+            ctx.step_state.message = "WhisperX align produced no segments"
+            ctx.metadata["align_degraded"] = True
+            return ctx
+
+        # ── AQ-01: Drift detection ──
+        # If WhisperX finds only 1 segment for the entire audio, it's
+        # unreliable (likely all-silence or all-noise detected as one blob).
+        if len(wx_segments) == 1 and ctx.timed_segments:
+            total_narr_duration = sum(
+                ts.end - ts.start for ts in ctx.timed_segments
+            )
+            wx_duration = wx_segments[0]["end"] - wx_segments[0]["start"]
+            if total_narr_duration > 0:
+                drift_ratio = abs(wx_duration - total_narr_duration) / total_narr_duration
+                if drift_ratio > 0.5:
+                    ctx.services.console.inline_warn(
+                        f"WhisperX single-segment duration drift {drift_ratio:.0%} "
+                        f"(wx={wx_duration:.1f}s vs narr={total_narr_duration:.1f}s); "
+                        f"timestamps remain TTS-estimated"
+                    )
+                    ctx.status.align = "skipped"
+                    ctx.step_state.result = StepResult.WARNING
+                    ctx.step_state.message = "WhisperX drift too large"
+                    ctx.metadata["align_degraded"] = True
+                    return ctx
+
+        # ── AQ-01: Monotonic non-overlap remapping ──
+        # Match each narration segment to the WhisperX segment whose
+        # time range contains the narration midpoint. Validate that
+        # resulting timestamps are monotonically non-decreasing and
+        # non-overlapping.
+        prev_end = 0.0
+        for i, ts in enumerate(ctx.timed_segments):
+            ts_mid = (ts.start + ts.end) / 2.0
+            best = None
+            best_dist = float("inf")
+            for wseg in wx_segments:
+                if wseg["start"] <= ts_mid <= wseg["end"]:
+                    best = wseg
+                    break
+                wseg_mid = (wseg["start"] + wseg["end"]) / 2.0
+                dist = abs(wseg_mid - ts_mid)
+                if dist < best_dist:
+                    best_dist = dist
+                    best = wseg
+            if best:
+                new_start = best["start"]
+                new_end = best["end"]
+                # Enforce monotonic non-overlap: if new_start < prev_end,
+                # push it forward to prev_end (with tiny gap).
+                if new_start < prev_end:
+                    new_start = prev_end
+                if new_end <= new_start:
+                    new_end = new_start + 0.1  # minimum 100ms segment
+                ts.start = new_start
+                ts.end = new_end
+                prev_end = new_end
 
         ctx.status.align = "success"
+        ctx.metadata["align_segments"] = len(wx_segments)
         return ctx
     except Exception as e:
         ctx.step_state.result = StepResult.WARNING

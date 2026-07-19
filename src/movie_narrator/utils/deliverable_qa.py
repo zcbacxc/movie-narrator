@@ -264,6 +264,20 @@ def evaluate_deliverable(
             f"mean volume {mean_vol:.1f}dB <= silence floor {max_silence_db:.1f}dB",
         ))
 
+    # ── AQ-05: fail-closed for unknown volume (Q-X10) ──
+    # If the file claims to have audio but volumedetect failed to parse
+    # (mean_volume=None), we cannot verify the audio is not silent.
+    # Previously this silently skipped the silence check, allowing
+    # near-silent or broken-audio deliverables to pass QA.
+    # Fix: treat as a warning issue so the pipeline at least surfaces it.
+    has_audio = metrics.get("has_audio", False)
+    if mean_vol is None and has_audio:
+        issues.append(QAIssue(
+            "volume_unknown",
+            "audio stream present but volumedetect failed — cannot verify "
+            "audio is not silent (ffmpeg may lack decoder or file may be corrupt)",
+        ))
+
     if metrics.get("width", 0) <= 0 or metrics.get("height", 0) <= 0:
         issues.append(QAIssue(
             "bad_resolution",
