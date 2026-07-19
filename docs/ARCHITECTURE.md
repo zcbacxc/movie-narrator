@@ -175,6 +175,44 @@ output/<movie>/
 └── clips/                 # per-segment clip files (when --no-clips not set)
 ```
 
+### `metadata.json` → `match_summary` schema (v1, PR #56)
+
+`match_summary` records the match-quality breakdown for L2 hand-test O9/O10.
+Full schema (21 fields + 4 back-compat fields):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `version` | int | schema version, currently = 1 |
+| `status` | str | "success" / "failed" |
+| `segments` | int | total matched narration segments |
+| `scenes_in` | int | original scene count (before merge/drop) |
+| `scenes_after_merge` | int | scene count after merge, before drop |
+| `scenes_after_drop` | int | final scene count after drop |
+| `merge_min_duration` | float | short-scene merge threshold (seconds) |
+| `drop_min_duration` | float | tiny-scene drop threshold (seconds) |
+| `min_score` | float | embedding low-score fallback threshold (default 0.25) |
+| `speed_clamp` | [float, float] | speed factor clamp range [min, max] |
+| `source_counts` | {embedding, heuristic} | segment count per source |
+| `heuristic_ratio` | float | heuristic segment ratio (0.0–1.0) |
+| `embedding_ratio` | float | embedding segment ratio (0.0–1.0) |
+| `score` | {min,max,avg} \| null | stats for **adopted** embedding scores (excludes fallbacks) |
+| `raw_score` | {min,max,avg,n} \| null | stats for **all attempted** embedding scores (includes fallbacks; n=attempts) |
+| `speed_factor` | {min,max,avg} \| null | speed factor stats (src_duration / narr_duration) |
+| `low_score_fallback_count` | int | segments that fell back to heuristic due to score < min_score |
+| `captioning` | {used, usable_label_ratio, cached, language, model} | WhisperX captioning status |
+| `embedding_model` | str | embedding model name used |
+| `degraded_reason` | str \| null | "fake_captions" / "all_heuristic" / null |
+| `diversity` | null | reserved for EP3 |
+| **— back-compat —** | | |
+| `total` | int | = segments (legacy consumers) |
+| `embedding` | int | = source_counts.embedding (legacy consumers) |
+| `heuristic` | int | = source_counts.heuristic (legacy consumers) |
+| `captions_fake` | bool | = (degraded_reason == "fake_captions") (legacy consumers) |
+
+`score` vs `raw_score`: `score.avg` reflects only "good" embedding hits (adopted);
+`raw_score.avg` includes "bad-but-fell-back" scores. If `score.avg=0.85` but
+`low_score_fallback_count=5`, the first N hits were accurate and 5 failed to fallback.
+
 ## Extension Points
 
 - **New pipeline step**: append to `STEPS` in `pipeline/runner.py`. Signature must be `(ctx: Context) -> Context`.

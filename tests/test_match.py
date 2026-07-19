@@ -322,6 +322,103 @@ def test_build_scene_captions_mixed_real_and_fake():
     assert result[2][1] is False  # scene 2 has speech
 
 
+# ── F1 back-compat: old metadata_export consumers must not break ──
+
+
+def test_match_summary_keys_compatible_with_old_metadata_export(tmp_path, monkeypatch):
+    """F1 back-compat: match_summary preserves the 4 legacy fields
+    (total/embedding/heuristic/captions_fake) so existing consumers
+    (metadata_export, L2 checklist jq queries, older scripts) don't break.
+
+    This test was listed in the PR #56 review report as 'excellent' but
+    was never actually written — the report praised a non-existent test.
+    This regression test closes that gap.
+    """
+    ctx = _make_ctx(tmp_path)
+    (tmp_path / "video.mp4").write_bytes(b"00")
+    ctx.scenes = [
+        Scene(index=0, start=0.0, end=4.0),
+        Scene(index=1, start=4.0, end=10.0),
+    ]
+    ctx.timed_segments = [
+        TimedSegment(text="alpha alpha", start=0.0, end=2.0),
+        TimedSegment(text="beta beta", start=2.5, end=5.0),
+    ]
+
+    # sentence_transformers available → embedding path runs
+    monkeypatch.setattr(match_module, "probe", lambda name: (True, ""))
+    mock_transcript = [
+        {"start": 0.0, "end": 3.5, "text": "alpha scene zero"},
+        {"start": 4.0, "end": 9.0, "text": "beta scene one"},
+    ]
+    monkeypatch.setattr(
+        match_module, "_transcribe_video_audio", lambda *a, **k: mock_transcript
+    )
+
+    class FakeST:
+        def __init__(self, *a, **kw):
+            pass
+
+        def encode(self, texts):
+            arr = np.zeros((len(texts), 3), dtype=float)
+            for i, t in enumerate(texts):
+                if "alpha" in t or "scene 0" in t.lower():
+                    arr[i] = np.array([1.0, 0.0, 0.0])
+                elif "beta" in t or "scene 1" in t.lower():
+                    arr[i] = np.array([0.0, 1.0, 0.0])
+            return arr
+
+    fake_mod = ModuleType("sentence_transformers")
+    fake_mod.SentenceTransformer = FakeST
+    monkeypatch.setitem(sys.modules, "sentence_transformers", fake_mod)
+
+    match_clips(ctx)
+    summary = ctx.metadata["match_summary"]
+
+    # Legacy fields must all be present (back-compat contract)
+    legacy_fields = ["total", "embedding", "heuristic", "captions_fake"]
+    for field in legacy_fields:
+        assert field in summary, (
+            f"F1 back-compat: legacy field '{field}' missing from match_summary — "
+            f"existing metadata_export consumers will break"
+        )
+
+    # Legacy fields must be consistent with new schema fields
+    assert summary["total"] == summary["segments"]
+    assert summary["embedding"] == summary["source_counts"]["embedding"]
+    assert summary["heuristic"] == summary["source_counts"]["heuristic"]
+    assert isinstance(summary["captions_fake"], bool)
+
+
+def test_match_summary_legacy_fields_when_all_heuristic(tmp_path, monkeypatch):
+    """F1 back-compat: legacy fields present even when embedding path doesn't run."""
+    ctx = _make_ctx(tmp_path)
+    (tmp_path / "video.mp4").write_bytes(b"00")
+    ctx.scenes = [
+        Scene(index=0, start=0.0, end=4.0),
+        Scene(index=1, start=4.0, end=10.0),
+    ]
+
+    # sentence_transformers NOT available → all heuristic
+    monkeypatch.setattr(
+        match_module, "probe", lambda name: (False, ""),
+    )
+
+    match_clips(ctx)
+    summary = ctx.metadata["match_summary"]
+
+    # Legacy fields still present
+    assert "total" in summary
+    assert "embedding" in summary
+    assert "heuristic" in summary
+    assert "captions_fake" in summary
+    # Values consistent
+    assert summary["total"] == summary["segments"]
+    assert summary["embedding"] == 0
+    assert summary["heuristic"] == summary["total"]
+    assert summary["heuristic_ratio"] == 1.0
+
+
 # ── MS-02: fake caption detection regression tests ──
 
 
