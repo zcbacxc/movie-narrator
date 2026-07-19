@@ -124,12 +124,20 @@ def test_align_unequal_segment_counts(tmp_path):
 
     assert ctx.status.align == "success"
     # All 5 segments should be assigned (not just first 2)
-    for ts in ctx.timed_segments:
-        assert ts.start in (0.0, 3.0)  # assigned to one of the 2 wx segments
+    # AQ-01 fix: timestamps are now monotonically non-decreasing
+    # and non-overlapping (multiple segments can't share the same
+    # wx segment time range without being pushed forward).
+    for prev, curr in zip(ctx.timed_segments, ctx.timed_segments[1:]):
+        assert curr.start >= prev.end  # monotonic non-overlap
+        assert curr.end > curr.start    # always positive duration
 
 
 def test_align_empty_whisperx_segments_warns(tmp_path):
-    """WhisperX returns empty segments → inline_warn, timestamps unchanged."""
+    """WhisperX returns empty segments → inline_warn, timestamps unchanged.
+
+    AQ-01 fix: empty ASR now degrades to status='skipped' (not 'success'),
+    so downstream knows alignment didn't happen.
+    """
     ctx = _make_ctx(tmp_path)
     original_starts = [ts.start for ts in ctx.timed_segments]
     original_ends = [ts.end for ts in ctx.timed_segments]
@@ -147,7 +155,9 @@ def test_align_empty_whisperx_segments_warns(tmp_path):
         m.setitem(sys.modules, "whisperx", fake_wx)
         align_audio(ctx)
 
-    assert ctx.status.align == "success"
+    # AQ-01: empty ASR → skipped (not success)
+    assert ctx.status.align == "skipped"
+    assert ctx.metadata.get("align_degraded") is True
     # Timestamps should be unchanged (no alignment happened)
     for i, ts in enumerate(ctx.timed_segments):
         assert ts.start == original_starts[i]

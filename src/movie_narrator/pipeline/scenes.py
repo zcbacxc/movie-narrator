@@ -42,6 +42,29 @@ def detect_scenes(ctx: Context) -> Context:
                     end=end.get_seconds(),
                 )
             )
+
+        # ── MS-01: 0-scene fallback (Q-X7) ─────────────
+        # ContentDetector can return 0 scenes for low-contrast videos
+        # (black bars, static shots). Without this fallback, scenes=[]
+        # + status=success silently turns downstream into a text-only
+        # video — pure 字卡, no footage.
+        # Fix: synthesize one Scene covering the full video duration.
+        if not scenes:
+            ctx.services.console.inline_warn(
+                "Scene detection found 0 cuts — synthesizing a single "
+                "full-length scene as fallback. Video may have low visual "
+                "contrast or be mostly static."
+            )
+            # Get video duration from the opened video object
+            try:
+                duration = float(video.duration)
+            except (AttributeError, TypeError, ValueError):
+                # Fallback: probe via ffprobe
+                from ..utils.deliverable_qa import probe_media
+                duration = probe_media(ctx.source_video_path).get("duration", 60.0)
+            scenes = [Scene(index=0, start=0.0, end=duration)]
+            ctx.metadata["scene_detection_degraded"] = True
+
         ctx.scenes = scenes
         ctx.status.scene = "success"
 
