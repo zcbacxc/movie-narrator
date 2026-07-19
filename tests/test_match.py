@@ -91,6 +91,237 @@ def test_match_clips_embedding_disabled_keeps_heuristic(tmp_path, monkeypatch):
     assert all(m.source == "heuristic" for m in ctx.matched_clips)
 
 
+# ── F1: match_summary full schema validation ──
+
+
+def test_match_summary_full_schema_when_embedding_path_runs(tmp_path, monkeypatch):
+    """F1: match_summary contains all CORE_ENGINE_TREATMENT_PLAN §5.2.3 fields
+    when embedding path runs successfully with real transcript."""
+    ctx = _make_ctx(tmp_path)
+    (tmp_path / "video.mp4").write_bytes(b"00")
+    ctx.scenes = [
+        Scene(index=0, start=0.0, end=4.0),
+        Scene(index=1, start=4.0, end=10.0),
+    ]
+    ctx.timed_segments = [
+        TimedSegment(text="alpha alpha", start=0.0, end=2.0),
+        TimedSegment(text="beta beta", start=2.5, end=5.0),
+    ]
+
+    monkeypatch.setattr(match_module, "probe", lambda name: (True, ""))
+    mock_transcript = [
+        {"start": 0.0, "end": 3.5, "text": "alpha scene zero"},
+        {"start": 4.0, "end": 9.0, "text": "beta scene one"},
+    ]
+    monkeypatch.setattr(
+        match_module, "_transcribe_video_audio", lambda *a, **k: mock_transcript
+    )
+
+    class FakeST:
+        def __init__(self, *a, **kw):
+            pass
+
+        def encode(self, texts):
+            arr = np.zeros((len(texts), 2), dtype=float)
+            for i, t in enumerate(texts):
+                if "alpha" in t or "scene 0" in t.lower():
+                    arr[i] = np.array([1.0, 0.0])
+                elif "beta" in t or "scene 1" in t.lower():
+                    arr[i] = np.array([0.0, 1.0])
+            return arr
+
+    fake_mod = ModuleType("sentence_transformers")
+    fake_mod.SentenceTransformer = FakeST
+    monkeypatch.setitem(sys.modules, "sentence_transformers", fake_mod)
+
+    match_clips(ctx)
+    summary = ctx.metadata["match_summary"]
+
+    # F1: all required fields present
+    required_fields = [
+        "version", "status", "segments", "scenes_in", "scenes_after_merge",
+        "scenes_after_drop", "merge_min_duration", "drop_min_duration",
+        "min_score", "speed_clamp", "source_counts", "heuristic_ratio",
+        "embedding_ratio", "score", "raw_score", "speed_factor",
+        "low_score_fallback_count", "captioning", "embedding_model",
+        "degraded_reason", "diversity",
+        # back-compat
+        "total", "embedding", "heuristic", "captions_fake",
+    ]
+    for field in required_fields:
+        assert field in summary, f"F1: missing field '{field}' in match_summary"
+
+    # Specific value checks
+    assert summary["version"] == 1
+    assert summary["status"] == "success"
+    assert summary["segments"] == 2
+    assert summary["scenes_in"] == 2
+    assert summary["source_counts"]["embedding"] == 2
+    assert summary["source_counts"]["heuristic"] == 0
+    assert summary["embedding_ratio"] == 1.0
+    assert summary["heuristic_ratio"] == 0.0
+    assert summary["low_score_fallback_count"] == 0
+    assert summary["degraded_reason"] is None  # not degraded
+    assert summary["captioning"]["used"] is True
+    assert summary["captioning"]["usable_label_ratio"] == 1.0  # all real
+    # raw_score should have stats (2 embedding scores collected)
+    assert summary["raw_score"] is not None
+    assert summary["raw_score"]["n"] == 2
+
+
+def test_match_summary_degraded_reason_all_heuristic(tmp_path, monkeypatch):
+    """F1: degraded_reason='all_heuristic' when all clips fall back to heuristic."""
+    ctx = _make_ctx(tmp_path)
+    (tmp_path / "video.mp4").write_bytes(b"00")
+    ctx.scenes = [
+        Scene(index=0, start=0.0, end=4.0),
+        Scene(index=1, start=4.0, end=10.0),
+    ]
+    # sentence_transformers NOT available → all heuristic
+    monkeypatch.setattr(
+        match_module, "probe", lambda name: (False, "") if name == "sentence_transformers" else (False, ""),
+    )
+
+    match_clips(ctx)
+    summary = ctx.metadata["match_summary"]
+
+    assert summary["source_counts"]["heuristic"] == len(ctx.timed_segments)
+    assert summary["heuristic_ratio"] == 1.0
+    assert summary["degraded_reason"] == "all_heuristic"
+    assert summary["low_score_fallback_count"] == 0  # no embedding attempted
+
+
+def test_match_summary_low_score_fallback_count(tmp_path, monkeypatch):
+    """F1: low_score_fallback_count tracks segments that fell back due to low score."""
+    ctx = _make_ctx(tmp_path)
+    (tmp_path / "video.mp4").write_bytes(b"00")
+    ctx.scenes = [
+        Scene(index=0, start=0.0, end=4.0),
+        Scene(index=1, start=4.0, end=10.0),
+    ]
+    ctx.timed_segments = [
+        TimedSegment(text="alpha alpha", start=0.0, end=2.0),
+        TimedSegment(text="gamma gamma", start=2.5, end=5.0),  # won't match well
+    ]
+
+    monkeypatch.setattr(match_module, "probe", lambda name: (True, ""))
+    mock_transcript = [
+        {"start": 0.0, "end": 3.5, "text": "alpha scene zero"},
+        {"start": 4.0, "end": 9.0, "text": "beta scene one"},
+    ]
+    monkeypatch.setattr(
+        match_module, "_transcribe_video_audio", lambda *a, **k: mock_transcript
+    )
+
+    # Embeddings: alpha matches scene 0 strongly, gamma is orthogonal to both.
+    # NOTE: _embed_texts L2-normalizes vectors, so we must use vectors that
+    # remain orthogonal after normalization. gamma=[1,1] normalizes to
+    # [0.707, 0.707], which has dot 0.707 with both scene axes — too high.
+    # Use gamma=[1,-1] (normalizes to [0.707,-0.707]): dot with [1,0] is
+    # 0.707, still too high. The only way to get a low cosine with both
+    # [1,0] and [0,1] is to have a vector whose max component is small.
+    # Use a 3D embedding space: scene0=[1,0,0], scene1=[0,1,0], gamma=[0,0,1].
+    # After normalization all are unit vectors; gamma's dot with both = 0.
+    class FakeST:
+        def __init__(self, *a, **kw):
+            pass
+
+        def encode(self, texts):
+            arr = np.zeros((len(texts), 3), dtype=float)
+            for i, t in enumerate(texts):
+                if "alpha" in t or "scene 0" in t.lower():
+                    arr[i] = np.array([1.0, 0.0, 0.0])
+                elif "beta" in t or "scene 1" in t.lower():
+                    arr[i] = np.array([0.0, 1.0, 0.0])
+                elif "gamma" in t:
+                    arr[i] = np.array([0.0, 0.0, 1.0])  # orthogonal → cosine=0
+            return arr
+
+    fake_mod = ModuleType("sentence_transformers")
+    fake_mod.SentenceTransformer = FakeST
+    monkeypatch.setitem(sys.modules, "sentence_transformers", fake_mod)
+
+    match_clips(ctx)
+    summary = ctx.metadata["match_summary"]
+
+    # gamma should have score=0.0 < min_score=0.25 → fallback to heuristic
+    assert summary["low_score_fallback_count"] >= 1
+    # raw_score should still contain the original (low) score
+    assert summary["raw_score"] is not None
+    assert summary["raw_score"]["n"] == 2  # both attempted embedding
+    assert summary["raw_score"]["min"] == 0.0  # gamma's score
+
+
+# ── F2: is_fake contract tests ──
+
+
+def test_build_scene_captions_returns_tuples_with_is_fake_flag():
+    """F2: _build_scene_captions returns List[Tuple[str, bool]] not List[str].
+
+    The is_fake flag replaces fragile string-pattern matching for detecting
+    placeholder labels. Callers should use the flag, not startswith().
+    """
+    from movie_narrator.pipeline.match import _build_scene_captions
+
+    scenes = [
+        Scene(index=0, start=0.0, end=5.0),
+        Scene(index=1, start=5.0, end=10.0),
+    ]
+
+    # No transcript → all fake
+    result = _build_scene_captions(scenes, None)
+    assert isinstance(result, list)
+    assert len(result) == 2
+    for item in result:
+        assert isinstance(item, tuple)
+        assert len(item) == 2
+        assert isinstance(item[0], str)
+        assert isinstance(item[1], bool)
+        assert item[1] is True  # all fake when no transcript
+
+
+def test_build_scene_captions_real_transcript_marks_is_fake_false():
+    """F2: scenes with overlapping speech get is_fake=False."""
+    from movie_narrator.pipeline.match import _build_scene_captions
+
+    scenes = [
+        Scene(index=0, start=0.0, end=5.0),
+        Scene(index=1, start=5.0, end=10.0),
+    ]
+    transcript = [
+        {"start": 0.0, "end": 4.0, "text": "real speech in scene 0"},
+        {"start": 6.0, "end": 9.0, "text": "real speech in scene 1"},
+    ]
+
+    result = _build_scene_captions(scenes, transcript)
+    assert len(result) == 2
+    assert result[0][1] is False  # scene 0 has speech → real
+    assert result[1][1] is False  # scene 1 has speech → real
+    assert "real speech" in result[0][0]
+    assert "real speech" in result[1][0]
+
+
+def test_build_scene_captions_mixed_real_and_fake():
+    """F2: scenes without overlapping speech get is_fake=True even with transcript."""
+    from movie_narrator.pipeline.match import _build_scene_captions
+
+    scenes = [
+        Scene(index=0, start=0.0, end=5.0),   # has speech
+        Scene(index=1, start=5.0, end=10.0),  # no speech (gap)
+        Scene(index=2, start=10.0, end=15.0), # has speech
+    ]
+    transcript = [
+        {"start": 0.0, "end": 4.0, "text": "speech in scene 0"},
+        {"start": 11.0, "end": 14.0, "text": "speech in scene 2"},
+    ]
+
+    result = _build_scene_captions(scenes, transcript)
+    assert len(result) == 3
+    assert result[0][1] is False  # scene 0 has speech
+    assert result[1][1] is True   # scene 1 no speech → fake
+    assert result[2][1] is False  # scene 2 has speech
+
+
 # ── MS-02: fake caption detection regression tests ──
 
 

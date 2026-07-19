@@ -90,18 +90,29 @@ def _transcribe_video_audio(
 def _build_scene_captions(
     scenes: List[Scene],
     transcript: Optional[List[dict]],
-) -> List[str]:
+) -> List[Tuple[str, bool]]:
     """Build semantic scene labels from WhisperX transcript.
 
     Each scene gets the concatenated text of all transcript segments
     that overlap with the scene's time range. Falls back to a
     deterministic placeholder when no transcript is available or a
     scene has no overlapping speech.
+
+    Returns
+    -------
+    List[Tuple[str, bool]]
+        Each tuple is ``(label, is_fake)`` where ``is_fake=True`` marks
+        a placeholder label (no real transcript). Callers use the flag
+        instead of string-pattern matching to detect fake captions
+        (F2 fix — eliminates fragile startswith("scene ") heuristic).
     """
     if not transcript:
-        return [_build_scene_label(s.index, s.start, s.end) for s in scenes]
+        return [
+            (_build_scene_label(s.index, s.start, s.end), True)
+            for s in scenes
+        ]
 
-    labels: List[str] = []
+    labels: List[Tuple[str, bool]] = []
     for scene in scenes:
         # Collect transcript segments overlapping this scene
         overlapping_texts = []
@@ -113,10 +124,12 @@ def _build_scene_captions(
         if overlapping_texts:
             # Join with space, truncate to keep embedding quality high
             caption = " ".join(overlapping_texts)[:200]
-            labels.append(caption)
+            labels.append((caption, False))
         else:
             # No speech in this scene — use placeholder
-            labels.append(_build_scene_label(scene.index, scene.start, scene.end))
+            labels.append(
+                (_build_scene_label(scene.index, scene.start, scene.end), True)
+            )
 
     return labels
 
@@ -345,6 +358,7 @@ def _match_clips_impl(
 ) -> Context:
     # Optionally merge short scenes to reduce extreme speed factors
     scenes = ctx.scenes
+    scenes_in = len(ctx.scenes)  # F1: original scene count
     if merge_min > 0:
         scenes = _merge_short_scenes(scenes, min_duration=merge_min)
         ctx.services.console.debug(
@@ -354,6 +368,7 @@ def _match_clips_impl(
     # Drop tiny scenes (e.g. <0.4s) that produce jarring sub-frame cuts.
     # If filtering would remove *all* scenes, keep the merged list as a
     # last-resort so matching still produces output.
+    scenes_after_merge = len(scenes)  # F1: count after merge, before drop
     if drop_min > 0 and scenes:
         filtered = [s for s in scenes if (s.end - s.start) >= drop_min]
         if filtered:
@@ -405,7 +420,14 @@ def _match_clips_impl(
         )
 
     # --- Optional embedding re-rank ----------------------------------------
+    # F1: initialize tracking variables for match_summary (defined in all
+    # branches below, but referenced at function end after the try/except).
     final = []
+    scene_captions: List[Tuple[str, bool]] = []
+    usable_label_ratio: float = 0.0
+    raw_scores: List[float] = []
+    low_score_fallback_count = 0
+    transcript: Optional[List[dict]] = None
     st_ok, st_hint = probe("sentence_transformers")
     if st_ok and len(scenes) > 1:
         try:
@@ -441,7 +463,7 @@ def _match_clips_impl(
                         "WhisperX transcription returned no results; using fallback scene labels"
                     )
 
-            scene_labels = _build_scene_captions(scenes, transcript)
+            scene_captions = _build_scene_captions(scenes, transcript)
 
             # ── MS-02: Truth in match (Q-M1) ──────────────
             # Detect fake captions (placeholder labels without real transcript).
@@ -449,15 +471,18 @@ def _match_clips_impl(
             # meaningless — it's matching narration against "scene 0 from
             # 0.0s to 15.0s" strings that carry no semantic information.
             # Threshold: if >70% of labels are fake, force heuristic.
-            fake_count = sum(
-                1 for label in scene_labels
-                if label.startswith("scene ") and "from" in label
-            )
-            fake_ratio = fake_count / len(scene_labels) if scene_labels else 1.0
+            #
+            # F2 fix: use the is_fake flag from _build_scene_captions
+            # instead of fragile string-pattern matching. This eliminates
+            # the implicit dependency on the "scene {i} from {s1}s to {s2}s"
+            # label template — if the template changes, the flag still works.
+            fake_count = sum(1 for _, is_fake in scene_captions if is_fake)
+            fake_ratio = fake_count / len(scene_captions) if scene_captions else 1.0
+            usable_label_ratio = 1.0 - fake_ratio
             if fake_ratio > 0.7:
                 ctx.services.console.inline_warn(
                     f"Scene captions are {fake_ratio:.0%} placeholder labels "
-                    f"({fake_count}/{len(scene_labels)} scenes have no real transcript). "
+                    f"({fake_count}/{len(scene_captions)} scenes have no real transcript). "
                     f"Embedding re-rank would be misleading — forcing heuristic match. "
                     f"Install WhisperX with: pip install 'movie-narrator[ml]'"
                 )
@@ -466,6 +491,8 @@ def _match_clips_impl(
             else:
                 ctx.metadata["match_captions_fake"] = False
                 emb_model = ctx.metadata.get("embedding_model_name", _EMBEDDING_MODEL_NAME)
+                # F2: extract labels from (label, is_fake) tuples
+                scene_labels = [label for label, _ in scene_captions]
                 scene_vecs = _embed_texts(scene_labels, emb_model)
                 narration_vecs = _embed_texts([seg.text for seg in ctx.timed_segments], emb_model)
                 for i, seg in enumerate(ctx.timed_segments):
@@ -473,6 +500,10 @@ def _match_clips_impl(
                     best_scene = scenes[best_idx]
                     score = float(scene_vecs[best_idx] @ narration_vecs[i])
                     final.append((heuristic[i], score, best_scene, "embedding"))
+                    # F1: collect raw embedding score (before low-score
+                    # fallback overrides it to 1.0). Lets match_summary
+                    # distinguish "matched well" from "matched poorly".
+                    raw_scores.append(score)
         except Exception as e:
             ctx.services.console.inline_warn(
                 f"embedding re-rank unavailable ({e}); using heuristic"
@@ -500,6 +531,7 @@ def _match_clips_impl(
             scene_obj = next(s for s in scenes if s.index == h["scene_index"])
             source = "heuristic"
             score = 1.0
+            low_score_fallback_count += 1  # F1: count low-score fallbacks
 
         narr_duration = h["narr_end"] - h["narr_start"]
         # Apply speed clamp: adjust src_start/src_end so factor stays in [clamp_min, clamp_max]
@@ -529,17 +561,17 @@ def _match_clips_impl(
 
     ctx.matched_clips = matched_clips
 
-    # Log speed factor stats
+    # Log speed factor stats + collect for match_summary (F1)
+    speed_factors: List[float] = []
     if matched_clips:
-        factors = []
         for mc in matched_clips:
             narr_dur = mc.narr_end - mc.narr_start
             if narr_dur > 0:
-                factors.append((mc.src_end - mc.src_start) / narr_dur)
-        if factors:
+                speed_factors.append((mc.src_end - mc.src_start) / narr_dur)
+        if speed_factors:
             ctx.services.console.debug(
-                f"  speed factors: min={min(factors):.2f}x max={max(factors):.2f}x "
-                f"avg={sum(factors)/len(factors):.2f}x (clamp={clamp_min}~{clamp_max}x)"
+                f"  speed factors: min={min(speed_factors):.2f}x max={max(speed_factors):.2f}x "
+                f"avg={sum(speed_factors)/len(speed_factors):.2f}x (clamp={clamp_min}~{clamp_max}x)"
             )
 
     matches_path = output_dir / "matches.json"
@@ -549,16 +581,80 @@ def _match_clips_impl(
         ),
         encoding="utf-8",
     )
-    # ── WP1: match_summary for metadata.json ─────────
+
+    # ── F1: match_summary for metadata.json (full schema) ──────
     # Records the match quality breakdown so L2 hand-test can verify
     # the main path isn't "全 heuristic 糊弄" (O9/O10 in checklist).
+    # Schema per CORE_ENGINE_TREATMENT_PLAN §5.2.3.
     embedding_count = sum(1 for mc in matched_clips if mc.source == "embedding")
     heuristic_count = sum(1 for mc in matched_clips if mc.source == "heuristic")
+    total = len(matched_clips)
+
+    # score stats: only for source==embedding clips that were adopted
+    # (i.e. did NOT fall back to heuristic due to low score)
+    adopted_embedding_scores = [
+        mc.score for mc in matched_clips
+        if mc.source == "embedding"
+    ]
+
+    def _stats(values: List[float]) -> Optional[dict]:
+        if not values:
+            return None
+        return {
+            "min": round(min(values), 4),
+            "max": round(max(values), 4),
+            "avg": round(sum(values) / len(values), 4),
+        }
+
+    def _stats_with_n(values: List[float]) -> Optional[dict]:
+        if not values:
+            return None
+        return {
+            "min": round(min(values), 4),
+            "max": round(max(values), 4),
+            "avg": round(sum(values) / len(values), 4),
+            "n": len(values),
+        }
+
+    # Determine degraded_reason
+    degraded_reason: Optional[str] = None
+    if ctx.metadata.get("match_captions_fake"):
+        degraded_reason = "fake_captions"
+    elif heuristic_count == total and total > 0:
+        degraded_reason = "all_heuristic"
+
     ctx.metadata["match_summary"] = {
-        "total": len(matched_clips),
+        "version": 1,
+        "status": "success",
+        "segments": total,
+        "scenes_in": scenes_in,
+        "scenes_after_merge": scenes_after_merge,
+        "scenes_after_drop": len(scenes),
+        "merge_min_duration": merge_min,
+        "drop_min_duration": drop_min,
+        "min_score": min_score,
+        "speed_clamp": [clamp_min, clamp_max],
+        "source_counts": {"embedding": embedding_count, "heuristic": heuristic_count},
+        "heuristic_ratio": round(heuristic_count / total, 4) if total else 1.0,
+        "embedding_ratio": round(embedding_count / total, 4) if total else 0.0,
+        "score": _stats(adopted_embedding_scores),
+        "raw_score": _stats_with_n(raw_scores),
+        "speed_factor": _stats(speed_factors),
+        "low_score_fallback_count": low_score_fallback_count,
+        "captioning": {
+            "used": transcript is not None,
+            "usable_label_ratio": round(usable_label_ratio, 4) if scene_captions else 0.0,
+            "cached": ctx.metadata.get("match_transcript_cached", False),
+            "language": ctx.metadata.get("whisperx_language", "zh"),
+            "model": ctx.metadata.get("whisperx_model", "medium"),
+        },
+        "embedding_model": ctx.metadata.get("embedding_model_name", _EMBEDDING_MODEL_NAME),
+        "degraded_reason": degraded_reason,
+        "diversity": None,  # reserved for future diversity metric
+        # Back-compat fields (kept for existing consumers)
+        "total": total,
         "embedding": embedding_count,
         "heuristic": heuristic_count,
-        "heuristic_ratio": heuristic_count / len(matched_clips) if matched_clips else 1.0,
         "captions_fake": ctx.metadata.get("match_captions_fake", False),
     }
 
