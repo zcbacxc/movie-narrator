@@ -7,6 +7,21 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
+# Concurrency control: cancel in-progress runs for the same PR/branch
+# when a new push arrives. This avoids wasted CI minutes when a PR is
+# amended + force-pushed (e.g. PR #57 triggered 28 runs instead of 14).
+#
+# Group strategy:
+# - PR: use pr-{number} so amend + force-push (same ref, new commit) cancels old runs
+# - push to main/feature: use ref name (one active run per branch)
+# - workflow_dispatch: use run_id (never cancels manual triggers)
+#
+# cancel-in-progress: true for all — main pushes are infrequent enough
+# that cancelling a stale run on rapid successive merges is desirable.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test-matrix:
     runs-on: ubuntu-latest
