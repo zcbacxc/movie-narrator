@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.18] - 2026-07-19
+
+### Added (Core engine hardening — 8 PRs, L2-ready observability + degradation visibility)
+- **`match_summary` full schema (21 fields + 4 back-compat)**: `metadata.json` now records complete match-quality breakdown per CORE_ENGINE_TREATMENT_PLAN §5.2.3 — `version`, `status`, `segments`, `scenes_in/after_merge/after_drop`, `merge_min_duration`, `drop_min_duration`, `min_score`, `speed_clamp`, `source_counts`, `heuristic_ratio`, `embedding_ratio`, `score` (adopted), `raw_score` (all attempted, with `n`), `speed_factor`, `low_score_fallback_count`, `captioning`, `embedding_model`, `degraded_reason`, `diversity` (reserved). Legacy fields (`total`/`embedding`/`heuristic`/`captions_fake`) preserved for back-compat.
+- **`align_backward_skipped` metadata**: count of segments that kept TTS estimates because the monotonic clamp would have crushed them to 100ms (F4 backward-jump detection).
+- **Runner `_degraded_steps` for non-exception paths**: soft steps that internally catch exceptions and set `status='failed'` + `step_state.result=WARNING` (e.g. `align_fallback`) are now accumulated into `_degraded_steps` — visible in CLI summary, not just metadata.
+- **CI concurrency control**: stale CI runs are cancelled on PR amend + force-push; main-branch pushes run to completion.
+- **`docs/ARCHITECTURE.md`**: canonical `match_summary` schema table for L2 hand-test jq queries.
+
+### Fixed
+- **C1: `align_fallback` status visibility** — `whisperx.align()` exception now sets `status.align='failed'` (was `'success'`), so users/CLI/metadata all see the alignment degradation. Remapping still runs (segment-level timestamps > TTS estimates).
+- **F4: align backward-jump crushing** — segments mapping far behind `prev_end` (>50% of original duration) are now skipped (TTS estimate kept) instead of being clamped to a 100ms flash on screen.
+- **MS-01: 0-scene fallback** — `ContentDetector` returning 0 scenes now synthesizes one full-length Scene + sets `scene_detection_degraded=True` (was silent empty list → text-only video).
+- **MS-02: fake caption detection** — `_build_scene_captions` returns `List[Tuple[str, bool]]` with explicit `is_fake` flag, replacing fragile `label.startswith("scene ")` string heuristic. Forces heuristic match when >70% of captions are placeholders.
+- **AQ-01: align drift detection** — single-segment WhisperX output with duration drift >50% is skipped (was silently accepted as "success").
+- **AQ-05: volume_unknown fail-closed** — audio stream present but `volumedetect` failed now reports `volume_unknown` issue (was silently skipping silence check).
+- **M1: align comment accuracy** — C1 comment no longer falsely claims `_degraded_steps` accumulates; accurately describes F3's runner upgrade.
+
+### Changed
+- **B3: 100ms segment floor documented** — `align.py` now explains why 100ms (minimum audible word duration; doesn't skew QA duration ratio which compares total length, not per-segment).
+- **B5: silent except blocks now log** — `scenes.py` + `runner.py` best-effort `try/except: pass` blocks now emit `console.debug()` so disk-full/readonly failures are visible in verbose logs.
+- **CI: `cancel-in-progress` only for PR events** — main-branch pushes represent release-ready verification and run to completion.
+
 ## [0.4.17] - 2026-07-18
 
 ### Added (Dynamic sentence count + L2 E2E tests)

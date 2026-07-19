@@ -136,6 +136,11 @@ def align_audio(ctx: Context) -> Context:
         # resulting timestamps are monotonically non-decreasing and
         # non-overlapping.
         prev_end = 0.0
+        # F4: count segments skipped due to extreme backward jumps
+        # (wx segment maps far behind prev_end, would be crushed to
+        # 100ms by the monotonic clamp). See align_backward_skipped
+        # in metadata for the diagnostic count.
+        backward_skipped = 0
         for i, ts in enumerate(ctx.timed_segments):
             ts_mid = (ts.start + ts.end) / 2.0
             best = None
@@ -152,6 +157,20 @@ def align_audio(ctx: Context) -> Context:
             if best:
                 new_start = best["start"]
                 new_end = best["end"]
+                # F4: detect extreme backward jumps. If the wx segment
+                # maps far behind prev_end AND the clamp would compress
+                # the segment to less than half its original duration,
+                # the alignment is unreliable for this segment — skip
+                # it (keep the TTS estimate) instead of producing a
+                # 100ms crushed segment that flashes a word on screen.
+                # Threshold: prev_end - new_start > original_duration * 0.5
+                original_duration = new_end - new_start
+                if (
+                    new_start < prev_end
+                    and (prev_end - new_start) > original_duration * 0.5
+                ):
+                    backward_skipped += 1
+                    continue  # keep ts.start/ts.end unchanged (TTS estimate)
                 # Enforce monotonic non-overlap: if new_start < prev_end,
                 # push it forward to prev_end (with tiny gap).
                 if new_start < prev_end:
@@ -179,6 +198,11 @@ def align_audio(ctx: Context) -> Context:
         if not ctx.metadata.get("align_fallback"):
             ctx.status.align = "success"
         ctx.metadata["align_segments"] = len(wx_segments)
+        # F4: record backward-jump skips for L2 hand-test diagnostics.
+        # Non-zero means some segments kept TTS estimates because the
+        # monotonic clamp would have crushed them to 100ms. See F4
+        # comment in the remapping loop above for the threshold logic.
+        ctx.metadata["align_backward_skipped"] = backward_skipped
         return ctx
     except Exception as e:
         ctx.step_state.result = StepResult.WARNING
