@@ -91,6 +91,118 @@ def test_match_clips_embedding_disabled_keeps_heuristic(tmp_path, monkeypatch):
     assert all(m.source == "heuristic" for m in ctx.matched_clips)
 
 
+# ── MS-02: fake caption detection regression tests ──
+
+
+def test_match_captions_fake_when_no_transcript(tmp_path, monkeypatch):
+    """MS-02: >70% placeholder labels → match_captions_fake=True, force heuristic.
+
+    When WhisperX is available but returns no transcript (or whisperx
+    not available), scene captions are all placeholder labels like
+    "scene 0 from 0.0s to 10.0s". Embedding re-rank against these is
+    meaningless, so the fix forces heuristic match and sets the flag.
+    """
+    ctx = _make_ctx(tmp_path)
+    (tmp_path / "video.mp4").write_bytes(b"00")
+    # Two scenes so embedding path would normally trigger
+    ctx.scenes = [
+        Scene(index=0, start=0.0, end=5.0),
+        Scene(index=1, start=5.0, end=10.0),
+    ]
+
+    # sentence_transformers available, but whisperx NOT available
+    # → all captions will be placeholders → fake_ratio = 100% > 70%
+    monkeypatch.setattr(
+        match_module,
+        "probe",
+        lambda name: (True, "") if name == "sentence_transformers" else (False, ""),
+    )
+
+    class FakeST:
+        def __init__(self, *a, **kw):
+            pass
+
+        def encode(self, texts):
+            # Would be called if embedding path ran, but MS-02 should
+            # short-circuit before reaching here
+            return np.zeros((len(texts), 2), dtype=float)
+
+    fake_mod = ModuleType("sentence_transformers")
+    fake_mod.SentenceTransformer = FakeST
+    monkeypatch.setitem(sys.modules, "sentence_transformers", fake_mod)
+
+    match_clips(ctx)
+
+    assert ctx.status.match == "success"
+    # MS-02: fake caption flag set
+    assert ctx.metadata.get("match_captions_fake") is True
+    # All clips should be heuristic (embedding path short-circuited)
+    assert all(m.source == "heuristic" for m in ctx.matched_clips)
+    # match_summary should reflect this
+    summary = ctx.metadata.get("match_summary", {})
+    assert summary.get("captions_fake") is True
+    assert summary.get("heuristic_ratio") == 1.0
+
+
+def test_match_captions_real_when_transcript_available(tmp_path, monkeypatch):
+    """MS-02: real transcript → match_captions_fake=False, embedding path runs."""
+    ctx = _make_ctx(tmp_path)
+    (tmp_path / "video.mp4").write_bytes(b"00")
+    ctx.scenes = [
+        Scene(index=0, start=0.0, end=4.0),
+        Scene(index=1, start=4.0, end=10.0),
+    ]
+    ctx.timed_segments = [
+        TimedSegment(text="alpha alpha alpha", start=0.0, end=2.0),
+        TimedSegment(text="beta beta beta", start=2.5, end=5.0),
+    ]
+
+    # Both available
+    monkeypatch.setattr(
+        match_module, "probe", lambda name: (True, ""),
+    )
+
+    # Real transcript covering both scenes
+    mock_transcript = [
+        {"start": 0.0, "end": 3.5, "text": "alpha scene zero"},
+        {"start": 4.0, "end": 9.0, "text": "beta scene one"},
+    ]
+    monkeypatch.setattr(
+        match_module, "_transcribe_video_audio", lambda *a, **k: mock_transcript
+    )
+
+    class FakeST:
+        def __init__(self, *a, **kw):
+            pass
+
+        def encode(self, texts):
+            arr = np.zeros((len(texts), 2), dtype=float)
+            for i, t in enumerate(texts):
+                if "alpha" in t:
+                    arr[i] = np.array([1.0, 0.0])
+                elif "beta" in t:
+                    arr[i] = np.array([0.0, 1.0])
+                elif "scene 0" in t:
+                    arr[i] = np.array([1.0, 0.0])
+                elif "scene 1" in t:
+                    arr[i] = np.array([0.0, 1.0])
+            return arr
+
+    fake_mod = ModuleType("sentence_transformers")
+    fake_mod.SentenceTransformer = FakeST
+    monkeypatch.setitem(sys.modules, "sentence_transformers", fake_mod)
+
+    match_clips(ctx)
+
+    assert ctx.status.match == "success"
+    # MS-02: real captions → not fake
+    assert ctx.metadata.get("match_captions_fake") is False
+    # Embedding path should have run
+    summary = ctx.metadata.get("match_summary", {})
+    assert summary.get("captions_fake") is False
+    assert summary.get("embedding", 0) > 0  # at least one embedding match
+
+
 # ── tiny-scene drop + merge defaults ───────────────────────
 
 

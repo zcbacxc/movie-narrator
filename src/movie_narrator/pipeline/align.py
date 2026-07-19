@@ -73,6 +73,14 @@ def align_audio(ctx: Context) -> Context:
                 f"falling back to transcript-level timestamps"
             )
             ctx.metadata["align_fallback"] = True
+            # C1 fix: mark as failed so runner's _degraded_steps accumulates
+            # and metadata.json exposes the degradation. Previously this
+            # fell through to status='success' at line 150, hiding the
+            # fallback from users.
+            ctx.status.align = "failed"
+            ctx.step_state.result = StepResult.WARNING
+            ctx.step_state.message = f"forced alignment failed: {align_err}"
+            ctx.metadata["align_degraded"] = True
 
         wx_segments = []
         for wseg in result.get("segments", []):
@@ -142,12 +150,27 @@ def align_audio(ctx: Context) -> Context:
                 if new_start < prev_end:
                     new_start = prev_end
                 if new_end <= new_start:
+                    # Floor = 100ms: avoids zero-duration segments (which
+                    # would break SRT generation and downstream timing),
+                    # while staying short enough to not skew QA's
+                    # duration ratio (which compares final.mp4 total
+                    # length vs expected, not per-segment lengths).
+                    # 100ms is the minimum audible word duration in
+                    # natural speech; anything shorter is perceptually
+                    # a click, not a word.
                     new_end = new_start + 0.1  # minimum 100ms segment
                 ts.start = new_start
                 ts.end = new_end
                 prev_end = new_end
 
-        ctx.status.align = "success"
+        # C1 fix: only mark success if forced alignment didn't fall back.
+        # Fallback path keeps status='failed' (set in except block above)
+        # so runner's _degraded_steps accumulates and metadata exposes it.
+        # Remapping still runs on fallback (segment-level timestamps from
+        # transcribe are better than TTS estimates), but users see the
+        # degradation signal.
+        if not ctx.metadata.get("align_fallback"):
+            ctx.status.align = "success"
         ctx.metadata["align_segments"] = len(wx_segments)
         return ctx
     except Exception as e:

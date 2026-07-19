@@ -83,9 +83,11 @@ def detect_scenes(ctx: Context) -> Context:
                     {"scene_count": len(scenes_data), "scenes": scenes_data},
                     f, ensure_ascii=False, indent=2,
                 )
-        except Exception:
+        except Exception as e:
             # Best-effort: scenes.json is diagnostic, not critical.
-            pass
+            # B5 fix: leave a debug trace so disk-full / readonly paths
+            # are visible in verbose logs (not silently swallowed).
+            ctx.services.console.debug(f"scenes.json write failed: {e}")
 
         return ctx
     except Exception as e:

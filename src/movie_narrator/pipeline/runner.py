@@ -401,10 +401,12 @@ def run_pipeline(
             meta = build_metadata_json(ctx)
             with open(output_dir / "metadata.json", "w", encoding="utf-8") as f:
                 json.dump(meta, f, ensure_ascii=False, indent=2)
-        except Exception:
+        except Exception as e:
             # Best-effort: metadata re-export is diagnostic, not critical.
             # If it fails, the render-time metadata.json is still valid.
-            pass
+            # B5 fix: leave a debug trace so disk-full / readonly paths
+            # are visible in verbose logs (not silently swallowed).
+            console.debug(f"metadata.json re-export failed: {e}")
 
     return ctx
 
