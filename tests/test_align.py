@@ -53,6 +53,9 @@ def test_align_success_with_mocked_whisperx(tmp_path):
     fake_model = MagicMock()
     fake_model.transcribe = MagicMock(return_value=mock_result)
     fake_wx.load_model = MagicMock(return_value=fake_model)
+    # AQ-01: align pipeline needs load_align_model + align mocks
+    fake_wx.load_align_model = MagicMock(return_value=(MagicMock(), {}))
+    fake_wx.align = MagicMock(return_value=mock_result)
 
     with pytest.MonkeyPatch.context() as m:
         m.setattr("movie_narrator.pipeline.align.probe", lambda name: (True, ""))
@@ -82,6 +85,9 @@ def test_align_midpoint_distance_when_no_containment(tmp_path):
     fake_model = MagicMock()
     fake_model.transcribe = MagicMock(return_value=mock_result)
     fake_wx.load_model = MagicMock(return_value=fake_model)
+    # AQ-01: align pipeline needs load_align_model + align mocks
+    fake_wx.load_align_model = MagicMock(return_value=(MagicMock(), {}))
+    fake_wx.align = MagicMock(return_value=mock_result)
 
     with pytest.MonkeyPatch.context() as m:
         m.setattr("movie_narrator.pipeline.align.probe", lambda name: (True, ""))
@@ -116,6 +122,9 @@ def test_align_unequal_segment_counts(tmp_path):
     fake_model = MagicMock()
     fake_model.transcribe = MagicMock(return_value=mock_result)
     fake_wx.load_model = MagicMock(return_value=fake_model)
+    # AQ-01: align pipeline needs load_align_model + align mocks
+    fake_wx.load_align_model = MagicMock(return_value=(MagicMock(), {}))
+    fake_wx.align = MagicMock(return_value=mock_result)
 
     with pytest.MonkeyPatch.context() as m:
         m.setattr("movie_narrator.pipeline.align.probe", lambda name: (True, ""))
@@ -162,3 +171,113 @@ def test_align_empty_whisperx_segments_warns(tmp_path):
     for i, ts in enumerate(ctx.timed_segments):
         assert ts.start == original_starts[i]
         assert ts.end == original_ends[i]
+
+
+# ── C1 fix: align_fallback status='failed' (regression test) ──
+
+
+def test_align_fallback_sets_status_failed(tmp_path):
+    """C1 fix: when whisperx.align() raises, status='failed' (not 'success').
+
+    Previously the except block set align_fallback=True but fell through
+    to status='success' at the end, hiding the degradation from users
+    and runner's _degraded_steps accumulation.
+    """
+    ctx = _make_ctx(tmp_path)
+    mock_result = {
+        "segments": [
+            {"start": 0.0, "end": 3.0, "text": "first"},
+            {"start": 3.0, "end": 6.0, "text": "second"},
+        ]
+    }
+
+    fake_wx = types.ModuleType("whisperx")
+    fake_wx.load_audio = MagicMock(return_value="audio")
+    fake_model = MagicMock()
+    fake_model.transcribe = MagicMock(return_value=mock_result)
+    fake_wx.load_model = MagicMock(return_value=fake_model)
+    # load_align_model raises — simulates OOM / version mismatch
+    fake_wx.load_align_model = MagicMock(side_effect=RuntimeError("OOM"))
+    fake_wx.align = MagicMock()
+
+    with pytest.MonkeyPatch.context() as m:
+        m.setattr("movie_narrator.pipeline.align.probe", lambda name: (True, ""))
+        m.setitem(sys.modules, "whisperx", fake_wx)
+        align_audio(ctx)
+
+    # C1 fix: status should be 'failed', not 'success'
+    assert ctx.status.align == "failed"
+    assert ctx.metadata.get("align_fallback") is True
+    assert ctx.metadata.get("align_degraded") is True
+    # Remapping still runs (segment-level timestamps > TTS estimates)
+    # but the degradation is visible to users and runner
+    assert ctx.metadata.get("align_segments") == 2
+
+
+# ── AQ-01: single-segment drift > 50% → skipped ──
+
+
+def test_align_single_segment_drift_skips(tmp_path):
+    """AQ-01: WhisperX returns 1 segment with duration drift > 50% → skipped.
+
+    When ASR detects only 1 segment for the entire audio but its duration
+    differs greatly from total narration duration, the alignment is
+    unreliable (likely all-silence or all-noise detected as one blob).
+    """
+    ctx = _make_ctx(tmp_path)
+    # narration total = (2.0-0.0) + (5.0-2.5) = 4.5s
+    # wx single segment = 0.0 to 20.0s → drift = |20-4.5|/4.5 = 344% > 50%
+    mock_result = {
+        "segments": [
+            {"start": 0.0, "end": 20.0, "text": "one giant blob"},
+        ]
+    }
+
+    fake_wx = types.ModuleType("whisperx")
+    fake_wx.load_audio = MagicMock(return_value="audio")
+    fake_model = MagicMock()
+    fake_model.transcribe = MagicMock(return_value=mock_result)
+    fake_wx.load_model = MagicMock(return_value=fake_model)
+    fake_wx.load_align_model = MagicMock(return_value=(MagicMock(), {}))
+    fake_wx.align = MagicMock(return_value=mock_result)
+
+    original_starts = [ts.start for ts in ctx.timed_segments]
+    original_ends = [ts.end for ts in ctx.timed_segments]
+
+    with pytest.MonkeyPatch.context() as m:
+        m.setattr("movie_narrator.pipeline.align.probe", lambda name: (True, ""))
+        m.setitem(sys.modules, "whisperx", fake_wx)
+        align_audio(ctx)
+
+    assert ctx.status.align == "skipped"
+    assert ctx.metadata.get("align_degraded") is True
+    # Timestamps unchanged (drift too large, alignment unreliable)
+    for i, ts in enumerate(ctx.timed_segments):
+        assert ts.start == original_starts[i]
+        assert ts.end == original_ends[i]
+
+
+def test_align_single_segment_no_drift_succeeds(tmp_path):
+    """AQ-01: single segment with reasonable duration → success (not skipped)."""
+    ctx = _make_ctx(tmp_path)
+    # narration total = 4.5s, wx single segment = 0.0 to 5.0s → drift = 11% < 50%
+    mock_result = {
+        "segments": [
+            {"start": 0.0, "end": 5.0, "text": "reasonable single segment"},
+        ]
+    }
+
+    fake_wx = types.ModuleType("whisperx")
+    fake_wx.load_audio = MagicMock(return_value="audio")
+    fake_model = MagicMock()
+    fake_model.transcribe = MagicMock(return_value=mock_result)
+    fake_wx.load_model = MagicMock(return_value=fake_model)
+    fake_wx.load_align_model = MagicMock(return_value=(MagicMock(), {}))
+    fake_wx.align = MagicMock(return_value=mock_result)
+
+    with pytest.MonkeyPatch.context() as m:
+        m.setattr("movie_narrator.pipeline.align.probe", lambda name: (True, ""))
+        m.setitem(sys.modules, "whisperx", fake_wx)
+        align_audio(ctx)
+
+    assert ctx.status.align == "success"

@@ -147,3 +147,39 @@ def test_evaluate_tiny_file(tmp_path):
         report = evaluate_deliverable(str(f), expected_duration=10.0, min_size_bytes=10000)
     assert report.ok is False
     assert any(i.code == "tiny_file" for i in report.issues)
+
+
+# ── AQ-05: volume_unknown fail-closed (PR #53 regression test) ──
+
+
+def test_evaluate_volume_unknown_with_audio_streams(tmp_path):
+    """AQ-05: audio stream present but volumedetect failed → volume_unknown issue.
+
+    Previously this silently skipped the silence check, allowing
+    near-silent or broken-audio deliverables to pass QA.
+    """
+    f = tmp_path / "broken.mp4"
+    f.write_bytes(b"x" * 50000)
+    with patch("movie_narrator.utils.deliverable_qa.probe_media", return_value={
+        "duration": 10.0, "has_video": True, "has_audio": True,
+        "width": 1920, "height": 1080, "size_bytes": 50000,
+        "mean_volume": None,  # volumedetect failed to parse
+    }):
+        report = evaluate_deliverable(str(f), expected_duration=10.0)
+    # Should report volume_unknown (not silently pass)
+    assert any(i.code == "volume_unknown" for i in report.issues)
+    assert report.ok is False  # volume_unknown is a failure
+
+
+def test_evaluate_volume_unknown_not_triggered_when_no_audio(tmp_path):
+    """AQ-05: no audio stream → no volume_unknown issue (no_audio_stream covers it)."""
+    f = tmp_path / "noaudio.mp4"
+    f.write_bytes(b"x" * 50000)
+    with patch("movie_narrator.utils.deliverable_qa.probe_media", return_value={
+        "duration": 10.0, "has_video": True, "has_audio": False,
+        "width": 1920, "height": 1080, "size_bytes": 50000, "mean_volume": None,
+    }):
+        report = evaluate_deliverable(str(f), expected_duration=10.0)
+    # Should report no_audio_stream, NOT volume_unknown
+    assert any(i.code == "no_audio_stream" for i in report.issues)
+    assert not any(i.code == "volume_unknown" for i in report.issues)
