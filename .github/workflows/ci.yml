@@ -16,13 +16,14 @@ on:
 # - push to main/feature: use ref name (one active run per branch)
 # - workflow_dispatch: use run_id (never cancels manual triggers)
 #
-# cancel-in-progress: only for PR events. Main-branch pushes represent
-# "release-ready" verification — each push should run to completion so
-# we always have a final pass/fail signal on main. Rapid successive
-# merges to main won't cancel each other's runs.
+# cancel-in-progress: cancel for PR events AND non-main branch pushes.
+# Main-branch pushes represent "release-ready" verification — each push
+# runs to completion so we always have a final pass/fail signal on main.
+# Feature/hotfix branch pushes (including amend + force-push) cancel
+# stale runs — this closes the last gap from PR #57's 28-run runaway.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.ref != 'refs/heads/main' }}
 
 jobs:
   test-matrix:
