@@ -367,6 +367,27 @@ def run_pipeline(
 
         elapsed = time.time() - step_start
 
+        # ── F3: surface soft-step degradation from non-exception paths ──
+        # Some soft steps (e.g. align_audio in C1 fix) internally catch
+        # exceptions and set status.<field>='failed' + step_state.result
+        # = WARNING without re-raising. The runner's outer except block
+        # (line 336-348) only accumulates _degraded_steps for steps that
+        # raise; without this check, internal fallbacks stay invisible
+        # in the runner's degradation summary (even though metadata.json
+        # records them via align_degraded / scene_detection_degraded).
+        #
+        # Fix: after a step returns normally, if it's a soft step whose
+        # status field is 'failed' or 'skipped' AND step_state.result is
+        # WARNING, accumulate it into _degraded_steps (idempotent — the
+        # exception path may have already added it).
+        if name in SOFT_STATUS_STEPS and ctx.step_state.result is StepResult.WARNING:
+            field = STATUS_FIELD_FOR_STEP.get(name)
+            status_val = getattr(ctx.status, field, None) if field else None
+            if status_val in ("failed", "skipped"):
+                degraded_list = ctx.metadata.setdefault("_degraded_steps", [])
+                if name not in degraded_list:  # dedupe vs exception path
+                    degraded_list.append(name)
+
         # ── Render step result ───────────────────────────────
         _render_step_result(ctx, name, elapsed, console)
         _check_strict(ctx, name)

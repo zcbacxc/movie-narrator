@@ -73,10 +73,17 @@ def align_audio(ctx: Context) -> Context:
                 f"falling back to transcript-level timestamps"
             )
             ctx.metadata["align_fallback"] = True
-            # C1 fix: mark as failed so runner's _degraded_steps accumulates
-            # and metadata.json exposes the degradation. Previously this
-            # fell through to status='success' at line 150, hiding the
-            # fallback from users.
+            # C1 fix: mark as 'failed' (vs previous secret 'success') so
+            # users, CLI summary and metadata.json all see the alignment
+            # degradation. Remapping still runs below (segment-level
+            # timestamps from transcribe are better than TTS estimates),
+            # but the degradation is visible.
+            #
+            # F3 (runner.py): the runner now also accumulates
+            # _degraded_steps for soft steps that return normally with
+            # status='failed' + step_state.result=WARNING, so this
+            # fallback is surfaced in the runner's degradation summary
+            # too (not just metadata.status.align).
             ctx.status.align = "failed"
             ctx.step_state.result = StepResult.WARNING
             ctx.step_state.message = f"forced alignment failed: {align_err}"
