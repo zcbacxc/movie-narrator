@@ -96,11 +96,38 @@ assert SOFT_STATUS_STEPS == set(STATUS_FIELD_FOR_STEP), (
 )
 
 # Short alias mapping for workflow_steps keys (spec §9 back-compat).
-# Allows users to write `{"translate": False}` in addition to the
-# function-name key `{"translate_subtitles": False}`.
-_STEP_ALIASES: Dict[str, str] = {
-    "translate_subtitles": "translate",
+# Allows users to write `{"scene": False}` in addition to the
+# function-name key `{"detect_scenes": False}`.
+# WP1: expanded from 1 alias to full coverage for all SOFT_STATUS_STEPS.
+_SHORT_TO_STEP: Dict[str, str] = {
+    "research": "research_plot",
+    "align": "align_audio",
+    "scene": "detect_scenes",
+    "match": "match_clips",
+    "bgm": "mix_bgm",
+    "export": "export_clips",
+    "translate": "translate_subtitles",
 }
+
+# Reverse map for backward compat with old _STEP_ALIASES usage.
+_STEP_ALIASES: Dict[str, str] = {v: k for k, v in _SHORT_TO_STEP.items()}
+
+
+def _step_enabled(workflow_steps: Optional[Dict[str, bool]], step_name: str) -> bool:
+    """Return False if either function-name or short alias is explicitly false.
+
+    Replaces the old inline `workflow_steps.get(name, True)` check.
+    Now covers all 7 SOFT_STATUS_STEPS short keys, not just translate.
+    """
+    if not workflow_steps:
+        return True
+    if workflow_steps.get(step_name) is False:
+        return False
+    # Reverse lookup: is there a short key for this step, and is it False?
+    for short, full in _SHORT_TO_STEP.items():
+        if full == step_name and workflow_steps.get(short) is False:
+            return False
+    return True
 
 STEPS = [
     resolve_video,
@@ -277,11 +304,8 @@ def run_pipeline(
         # ── Pre-check: workflow_steps disabled? ──────────────
         # Authoritative path: runner short-circuits before step runs.
         # Checks both the function-name key and any short alias (spec §9).
-        alias = _STEP_ALIASES.get(name)
-        if workflow_steps and (
-            not workflow_steps.get(name, True)
-            or (alias and not workflow_steps.get(alias, True))
-        ):
+        # WP1: now uses _step_enabled() for full short-key coverage.
+        if not _step_enabled(workflow_steps, name):
             ctx.step_state = StepState(
                 result=StepResult.SKIPPED, message="disabled by workflow config"
             )
@@ -362,6 +386,25 @@ def run_pipeline(
             f"Pipeline completed with {len(degraded)} degraded step(s): "
             f"{', '.join(degraded)}. The final output may have reduced quality."
         )
+
+    # ── WP1: Re-export metadata.json after all steps ────
+    # render_video writes metadata.json before QA runs, so qa_report and
+    # other late-stage diagnostics are missing. Re-export here to capture
+    # the full picture (qa_report, degraded_steps, match_summary, etc.).
+    if ctx.video_path:
+        try:
+            import json
+            from pathlib import Path
+            from ..utils.metadata_export import build_metadata_json
+
+            output_dir = Path(ctx.output_dir)
+            meta = build_metadata_json(ctx)
+            with open(output_dir / "metadata.json", "w", encoding="utf-8") as f:
+                json.dump(meta, f, ensure_ascii=False, indent=2)
+        except Exception:
+            # Best-effort: metadata re-export is diagnostic, not critical.
+            # If it fails, the render-time metadata.json is still valid.
+            pass
 
     return ctx
 
