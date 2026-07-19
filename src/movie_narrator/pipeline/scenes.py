@@ -44,6 +44,26 @@ def detect_scenes(ctx: Context) -> Context:
             )
         ctx.scenes = scenes
         ctx.status.scene = "success"
+
+        # ── WP1: Persist scenes.json for debugging ──────
+        # Lets you verify scene detection quality without re-running the
+        # pipeline.  File is small (just timestamps), so always write it.
+        try:
+            output_dir = Path(ctx.output_dir)
+            output_dir.mkdir(parents=True, exist_ok=True)
+            scenes_data = [
+                {"index": s.index, "start": s.start, "end": s.end}
+                for s in scenes
+            ]
+            with open(output_dir / "scenes.json", "w", encoding="utf-8") as f:
+                json.dump(
+                    {"scene_count": len(scenes_data), "scenes": scenes_data},
+                    f, ensure_ascii=False, indent=2,
+                )
+        except Exception:
+            # Best-effort: scenes.json is diagnostic, not critical.
+            pass
+
         return ctx
     except Exception as e:
         ctx.step_state.result = StepResult.WARNING

@@ -1,0 +1,37 @@
+# L2 Golden Sample Matrix
+#
+# 三档源片定义，手测时填入实际路径。
+# G1 = 黄金横屏 16:9（主战场）
+# G2 = 黄金竖屏 9:16（竖屏覆盖）
+# G3 = 边缘片（黑场多/音轨差/极短，测韧性）
+
+samples:
+  G1:
+    description: "黄金横屏 — 60s douyin-fast 主战场"
+    format: "16:9"
+    duration: 60
+    preset: douyin-fast
+    video: ""    # 填入源片路径
+    bgm: ""      # 填入 BGM 路径
+    movie: ""    # 填入电影名
+    style: "热血搞笑"
+
+  G2:
+    description: "黄金竖屏 — 9:16 竖屏覆盖"
+    format: "9:16"
+    duration: 60
+    preset: douyin-fast
+    video: ""
+    bgm: ""
+    movie: ""
+    style: "热血搞笑"
+
+  G3:
+    description: "边缘片 — 黑场多/音轨差/极短，测韧性"
+    format: "16:9"
+    duration: 30
+    preset: mainstream-dry
+    video: ""
+    bgm: ""
+    movie: ""
+    style: "悬疑反转"
