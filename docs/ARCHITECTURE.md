@@ -1,3 +1,6 @@
+[![English](https://img.shields.io/badge/English-Architecture-blue)](ARCHITECTURE.md)
+[![简体中文](https://img.shields.io/badge/简体中文-架构-green)](ARCHITECTURE.zh-CN.md)
+
 # Architecture
 
 ## Pipeline Overview
@@ -35,8 +38,9 @@ class PipelineStatus(BaseModel):
 
 `translate` is the only soft status whose **default** is `skipped` rather than
 `disabled` — "feature off" is semantically distinct from "explicitly disabled
-via `steps.translate=false` or unknown provider" (see
-`docs/superpowers/specs/2026-07-13-multi-language-subtitle-design.md` §4.1).
+via `steps.translate=false` or unknown provider" (the multi-language subtitle
+design rationale is captured in this section's history; pre-launch design specs
+live outside the public tree).
 
 ## Job config merge layer
 

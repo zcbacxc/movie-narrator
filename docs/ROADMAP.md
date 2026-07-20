@@ -1,3 +1,6 @@
+[![English](https://img.shields.io/badge/English-Roadmap-blue)](ROADMAP.md)
+[![简体中文](https://img.shields.io/badge/简体中文-路线图-green)](ROADMAP.zh-CN.md)
+
 # Roadmap
 
 ## v0.1.x — Core Pipeline
@@ -174,6 +177,25 @@ The Web UI is rebuilt from a Gradio single-file app into a decoupled **FastAPI +
 - [x] `script_target_count` metadata for debugging (distinguishes requested vs actual count)
 - [x] L2 automated E2E smoke tests: CI-runnable pipeline contract verification
 - [x] CI smoke assertions for preset sentence count (R4 regression guard)
+
+### v0.4.18 Core Engine Hardening (L2-ready observability + degradation visibility)
+
+> 8 PRs landed in this release. Focus: make degradation visible instead of silent, harden the match/align boundaries, surface F4 / C1 / MS-* bugs as metadata for L2 hand-tests.
+
+- [x] **`match_summary` full schema (21 fields + 4 back-compat)** in `metadata.json` for L2 O9/O10 jq queries
+- [x] **`align_backward_skipped` metadata** — segments that kept TTS estimates because the monotonic clamp would have crushed them to 100ms (F4)
+- [x] **Runner `_degraded_steps` for non-exception paths** — soft steps that catch exceptions and set `status='failed'` + `step_state.result=WARNING` (e.g. `align_fallback`) now appear in the CLI summary
+- [x] **CI concurrency**: stale runs cancelled on PR amend + force-push; main pushes run to completion
+- [x] **`docs/ARCHITECTURE.md`**: canonical `match_summary` schema table
+- [x] **C1**: `align_fallback` now sets `status.align='failed'` (was silently `'success'`)
+- [x] **F4**: align backward-jump >50% of original duration → keep TTS estimate, don't clamp to 100ms
+- [x] **MS-01**: 0-scene `ContentDetector` fallback synthesizes one full-length Scene + `scene_detection_degraded`
+- [x] **MS-02**: fake caption detection via explicit `is_fake` flag (no more `label.startswith("scene ")` heuristic)
+- [x] **AQ-01**: single-segment WhisperX with drift >50% is rejected
+- [x] **AQ-05**: `volume_unknown` fail-closed when `volumedetect` fails
+- [x] **M1**: align comment corrected to reflect F3 runner upgrade (not `_degraded_steps`)
+- [x] **B3**: 100ms segment floor rationale documented
+- [x] **B5**: silent `try/except: pass` blocks now `console.debug()` (scenes.py + runner.py)
 
 ### v0.4 Environment variables
 

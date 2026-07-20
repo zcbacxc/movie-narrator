@@ -76,7 +76,7 @@ mn create \
 - 至少 **2 部**黄金样片 checklist 全绿
 - 同一命令连续 **2 轮**复跑无 P0 回归
 - Match 诊断显示主路径不是「全 heuristic 糊弄」
-- 参见 `docs/superpowers/L2_PUBLISHABLE_PLAN.md`
+- 参见 `../L2_PUBLISHABLE_PLAN.md`
 
 ## Layer 0 运行手册（零代码提效）
 

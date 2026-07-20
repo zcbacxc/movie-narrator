@@ -1,3 +1,6 @@
+[![English](https://img.shields.io/badge/English-Contributing-blue)](CONTRIBUTING.md)
+[![简体中文](https://img.shields.io/badge/简体中文-贡献指南-green)](CONTRIBUTING.zh-CN.md)
+
 # Contributing
 
 ## Development Setup
@@ -96,9 +99,9 @@ After a successful build, `mn web` alone serves both the API and the freshly bui
 3. Run `pytest -v` and ensure all tests pass
 4. Update `docs/ROADMAP.md` if you're adding a new feature
 5. Add a CHANGELOG entry under `[Unreleased]` (Keep a Changelog format)
-6. Submit a pull request targeting `main` (see
-   `docs/superpowers/specs/2026-07-13-gitflow-design.md` for the full
-   branching model)
+6. Submit a pull request targeting `main`. This project uses a
+   simplified Gitflow: `feature/*` and `hotfix/*` branches merge back to
+   `main`; no `release/*` branches are used.
 
 ## Adding a New Pipeline Step
 
