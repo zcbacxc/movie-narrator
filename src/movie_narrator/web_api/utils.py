@@ -132,6 +132,11 @@ def collect_artifacts(ctx, output_dir: Path) -> List[str]:
     meta_path = output_dir / "metadata.json"
     if meta_path.exists():
         artifacts.append(str(meta_path))
+    # Clips directory (per-segment .mp4 files from export_clips step)
+    clips_dir = Path(ctx.clips_dir) if ctx.clips_dir else output_dir / "clips"
+    if clips_dir.is_dir():
+        for clip in sorted(clips_dir.glob("*.mp4")):
+            artifacts.append(str(clip))
     return artifacts
 
 
