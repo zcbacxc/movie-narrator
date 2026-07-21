@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: ["main", "feature/*", "hotfix/*"]
+    branches: ["main"]
   pull_request:
     branches: ["main"]
   workflow_dispatch:
@@ -11,16 +11,21 @@ on:
 # when a new push arrives. This avoids wasted CI minutes when a PR is
 # amended + force-pushed (e.g. PR #57 triggered 28 runs instead of 14).
 #
+# Trigger strategy:
+# - push: only main branch (feature/hotfix branches don't trigger CI
+#   on push — they get CI via the pull_request event instead, avoiding
+#   duplicate runs from push + PR sync)
+# - pull_request: all PRs targeting main
+# - workflow_dispatch: manual triggers
+#
 # Group strategy:
-# - PR: use pr-{number} so amend + force-push (same ref, new commit) cancels old runs
-# - push to main/feature: use ref name (one active run per branch)
+# - PR: use pr-{number} so amend + force-push cancels old runs
+# - push to main: use ref name (one active run per branch)
 # - workflow_dispatch: use run_id (never cancels manual triggers)
 #
 # cancel-in-progress: cancel for PR events AND non-main branch pushes.
 # Main-branch pushes represent "release-ready" verification — each push
 # runs to completion so we always have a final pass/fail signal on main.
-# Feature/hotfix branch pushes (including amend + force-push) cancel
-# stale runs — this closes the last gap from PR #57's 28-run runaway.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' || github.ref != 'refs/heads/main' }}
