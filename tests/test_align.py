@@ -142,7 +142,7 @@ def test_select_align_backend_neither_available(tmp_path, monkeypatch):
 
 
 def test_align_faster_whisper_path(tmp_path, monkeypatch):
-    """faster_whisper backend produces segment-level timestamps + fallback status."""
+    """faster_whisper backend produces segment-level timestamps + success status."""
     ctx = _make_ctx(tmp_path)
     ctx.metadata["align_backend"] = "faster_whisper"
 
@@ -167,11 +167,12 @@ def test_align_faster_whisper_path(tmp_path, monkeypatch):
         m.setitem(sys.modules, "faster_whisper", fake_fw)
         align_audio(ctx)
 
-    # faster_whisper has no forced alignment → status='failed' (degraded but usable)
-    assert ctx.status.align == "failed"
+    # faster-whisper succeeded: status='success' (not 'failed'), align_fallback
+    # signals segment-level only. NOT in _degraded_steps because output quality
+    # is not degraded (subtitle.py only needs segment-level).
+    assert ctx.status.align == "success"
     assert ctx.metadata.get("align_backend_used") == "faster_whisper"
     assert ctx.metadata.get("align_fallback") is True
-    assert ctx.metadata.get("align_degraded") is True
     assert ctx.metadata.get("align_segments") == 2
 
 
