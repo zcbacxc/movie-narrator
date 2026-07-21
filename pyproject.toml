@@ -38,6 +38,7 @@ dependencies = [
 media = ["scenedetect>=0.6"]
 ml = [
     'whisperx>=3.0; python_version < "3.14"',
+    'faster-whisper>=1.0; python_version < "3.14"',
     'sentence-transformers>=3.0; python_version < "3.14"',
 ]
 web = [
@@ -48,6 +49,7 @@ web = [
 full = [
     "scenedetect>=0.6",
     'whisperx>=3.0; python_version < "3.14"',
+    'faster-whisper>=1.0; python_version < "3.14"',
     'sentence-transformers>=3.0; python_version < "3.14"',
     "movie-narrator[web]",
 ]

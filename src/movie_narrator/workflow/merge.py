@@ -92,6 +92,7 @@ def merge_job(
             "research_provider",
             # WhisperX
             "whisperx_device", "whisperx_model", "whisperx_language",
+            "align_backend",
             # Render
             "render_fps", "render_video_codec", "render_audio_codec", "render_threads",
             "render_bg_color", "render_font_size", "render_output_name", "render_ffmpeg_timeout",
