@@ -294,12 +294,17 @@ def _align_with_faster_whisper(ctx: Context) -> Context:
         ctx.metadata["align_degraded"] = True
         return ctx
 
-    # faster-whisper has no forced alignment → always mark as fallback
+    # faster-whisper has no forced alignment → mark as fallback.
+    # But transcription + remapping DID succeed, so status='success'
+    # (not 'failed'). The align_fallback flag carries the "segment-level
+    # only" signal for metadata consumers. This prevents faster-whisper
+    # from appearing in _degraded_steps (runner.py:386 checks for
+    # 'failed'/'skipped'), since the output quality is not degraded —
+    # subtitle.py only needs segment-level timestamps, and embedding
+    # re-rank works at full ratio (L2 handtest: embedding_ratio=1.0).
     ctx.metadata["align_fallback"] = True
-    ctx.status.align = "failed"
-    ctx.step_state.result = StepResult.WARNING
+    ctx.status.align = "success"
     ctx.step_state.message = "faster-whisper (segment-level, no forced alignment)"
-    ctx.metadata["align_degraded"] = True
 
     # ── AQ-01: Drift detection (shared logic) ──
     if _detect_drift(ctx, wx_segments, "faster-whisper"):

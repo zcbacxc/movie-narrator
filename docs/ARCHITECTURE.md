@@ -232,12 +232,14 @@ Full schema (21 fields + 4 back-compat fields):
 
 **`status.align` semantics:**
 
-| Value | Meaning | Timestamps |
-|-------|---------|------------|
-| `success` | WhisperX transcribe + forced alignment both succeeded | Word-level (best precision) |
-| `failed` | Alignment ran but degraded to segment-level. **Timestamps are still usable** — subtitle.py only needs segment-level. Triggered by: (a) WhisperX `align()` raised → fallback to transcript-level, (b) faster-whisper backend (always segment-level). | Segment-level |
-| `skipped` | ASR returned empty or single-segment drift too large. Timestamps remain TTS-estimated. | TTS-estimated |
-| `disabled` | Neither whisperx nor faster_whisper importable. | TTS-estimated |
+| Value | Meaning | Timestamps | In `_degraded_steps`? |
+|-------|---------|------------|----------------------|
+| `success` | Alignment succeeded. May be word-level (WhisperX forced align) or segment-level (faster-whisper). Check `align_fallback` flag to distinguish. | Word-level or segment-level | No |
+| `failed` | WhisperX forced alignment raised — fell back to transcript-level timestamps. Timestamps are still usable (segment-level). | Segment-level | Yes |
+| `skipped` | ASR returned empty or single-segment drift too large. Timestamps remain TTS-estimated. | TTS-estimated | Yes |
+| `disabled` | Neither whisperx nor faster_whisper importable. | TTS-estimated | No (uses `skipped` step result) |
+
+**`align_fallback` flag**: When `True`, alignment used segment-level timestamps only (no word-level forced alignment). This is set when: (a) WhisperX `align()` raised → fallback to transcript-level, (b) faster-whisper backend used. **Segment-level timestamps are sufficient for subtitle.py and embedding re-rank** (L2 handtest: `embedding_ratio=1.0` with faster-whisper).
 
 `align_backward_skipped > 0` means some segments' timestamps are TTS estimates
 (not WhisperX-aligned) because the wx segment mapped far behind the previous
