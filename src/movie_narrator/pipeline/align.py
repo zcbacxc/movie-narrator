@@ -3,6 +3,101 @@ from ..utils.optional_deps import probe
 from ._align_backend import select_align_backend, run_faster_whisper, BackendUnavailable
 
 
+# ── Shared remapping logic (extracted from WhisperX and faster-whisper paths) ──
+# Drift threshold: if the single ASR segment's duration differs from the
+# total narration duration by more than this ratio, the ASR is unreliable
+# (likely all-silence detected as one blob).
+_DRIFT_THRESHOLD = 0.5
+
+# F4 backward-jump threshold: if the wx segment maps far behind prev_end
+# AND the clamp would compress the segment to less than half its original
+# duration, the alignment is unreliable for this segment — skip it (keep
+# the TTS estimate) instead of producing a 100ms crushed segment.
+# Expressed as: (prev_end - new_start) > original_duration * _BACKWARD_JUMP_RATIO
+_BACKWARD_JUMP_RATIO = 0.5
+
+# Minimum segment duration: avoids zero-duration segments (which would
+# break SRT generation). 100ms is the minimum audible word duration in
+# natural speech; anything shorter is perceptually a click, not a word.
+_MIN_SEGMENT_DURATION = 0.1
+
+
+def _detect_drift(ctx: Context, wx_segments: list, backend_name: str) -> bool:
+    """Return True if drift too large (caller should skip remapping).
+
+    AQ-01 drift detection: if ASR finds only 1 segment for the entire
+    audio, it's unreliable. We compare its duration against the total
+    narration duration; if the drift exceeds _DRIFT_THRESHOLD, we skip
+    remapping and keep TTS estimates.
+    """
+    if len(wx_segments) != 1 or not ctx.timed_segments:
+        return False
+    total_narr_duration = sum(ts.end - ts.start for ts in ctx.timed_segments)
+    if total_narr_duration <= 0:
+        return False
+    wx_duration = wx_segments[0]["end"] - wx_segments[0]["start"]
+    drift_ratio = abs(wx_duration - total_narr_duration) / total_narr_duration
+    if drift_ratio > _DRIFT_THRESHOLD:
+        ctx.services.console.inline_warn(
+            f"{backend_name} single-segment duration drift {drift_ratio:.0%} "
+            f"(asr={wx_duration:.1f}s vs narr={total_narr_duration:.1f}s); "
+            f"timestamps remain TTS-estimated"
+        )
+        ctx.status.align = "skipped"
+        ctx.step_state.result = StepResult.WARNING
+        ctx.step_state.message = f"{backend_name} drift too large"
+        ctx.metadata["align_degraded"] = True
+        return True
+    return False
+
+
+def _remap_segments(ctx: Context, wx_segments: list) -> int:
+    """Remap narration segments to ASR segments (monotonic non-overlap).
+
+    Matches each narration segment to the ASR segment whose time range
+    contains the narration midpoint (falls back to nearest midpoint).
+    Enforces monotonic non-overlap with F4 backward-jump detection.
+
+    Returns the count of segments skipped due to extreme backward jumps
+    (F4 diagnostic).
+    """
+    prev_end = 0.0
+    backward_skipped = 0
+    for ts in ctx.timed_segments:
+        ts_mid = (ts.start + ts.end) / 2.0
+        best = None
+        best_dist = float("inf")
+        for wseg in wx_segments:
+            if wseg["start"] <= ts_mid <= wseg["end"]:
+                best = wseg
+                break
+            wseg_mid = (wseg["start"] + wseg["end"]) / 2.0
+            dist = abs(wseg_mid - ts_mid)
+            if dist < best_dist:
+                best_dist = dist
+                best = wseg
+        if best:
+            new_start = best["start"]
+            new_end = best["end"]
+            original_duration = new_end - new_start
+            # F4: detect extreme backward jumps
+            if (
+                new_start < prev_end
+                and (prev_end - new_start) > original_duration * _BACKWARD_JUMP_RATIO
+            ):
+                backward_skipped += 1
+                continue  # keep ts.start/ts.end unchanged (TTS estimate)
+            # Enforce monotonic non-overlap
+            if new_start < prev_end:
+                new_start = prev_end
+            if new_end <= new_start:
+                new_end = new_start + _MIN_SEGMENT_DURATION
+            ts.start = new_start
+            ts.end = new_end
+            prev_end = new_end
+    return backward_skipped
+
+
 def align_audio(ctx: Context) -> Context:
     """Align timed segments using WhisperX transcription + forced alignment.
 
@@ -154,86 +249,12 @@ def _align_with_whisperx(ctx: Context) -> Context:
             ctx.metadata["align_degraded"] = True
             return ctx
 
-        # ── AQ-01: Drift detection ──
-        # If WhisperX finds only 1 segment for the entire audio, it's
-        # unreliable (likely all-silence or all-noise detected as one blob).
-        if len(wx_segments) == 1 and ctx.timed_segments:
-            total_narr_duration = sum(
-                ts.end - ts.start for ts in ctx.timed_segments
-            )
-            wx_duration = wx_segments[0]["end"] - wx_segments[0]["start"]
-            if total_narr_duration > 0:
-                drift_ratio = abs(wx_duration - total_narr_duration) / total_narr_duration
-                if drift_ratio > 0.5:
-                    ctx.services.console.inline_warn(
-                        f"WhisperX single-segment duration drift {drift_ratio:.0%} "
-                        f"(wx={wx_duration:.1f}s vs narr={total_narr_duration:.1f}s); "
-                        f"timestamps remain TTS-estimated"
-                    )
-                    ctx.status.align = "skipped"
-                    ctx.step_state.result = StepResult.WARNING
-                    ctx.step_state.message = "WhisperX drift too large"
-                    ctx.metadata["align_degraded"] = True
-                    return ctx
+        # ── AQ-01: Drift detection (shared logic) ──
+        if _detect_drift(ctx, wx_segments, "WhisperX"):
+            return ctx
 
-        # ── AQ-01: Monotonic non-overlap remapping ──
-        # Match each narration segment to the WhisperX segment whose
-        # time range contains the narration midpoint. Validate that
-        # resulting timestamps are monotonically non-decreasing and
-        # non-overlapping.
-        prev_end = 0.0
-        # F4: count segments skipped due to extreme backward jumps
-        # (wx segment maps far behind prev_end, would be crushed to
-        # 100ms by the monotonic clamp). See align_backward_skipped
-        # in metadata for the diagnostic count.
-        backward_skipped = 0
-        for i, ts in enumerate(ctx.timed_segments):
-            ts_mid = (ts.start + ts.end) / 2.0
-            best = None
-            best_dist = float("inf")
-            for wseg in wx_segments:
-                if wseg["start"] <= ts_mid <= wseg["end"]:
-                    best = wseg
-                    break
-                wseg_mid = (wseg["start"] + wseg["end"]) / 2.0
-                dist = abs(wseg_mid - ts_mid)
-                if dist < best_dist:
-                    best_dist = dist
-                    best = wseg
-            if best:
-                new_start = best["start"]
-                new_end = best["end"]
-                # F4: detect extreme backward jumps. If the wx segment
-                # maps far behind prev_end AND the clamp would compress
-                # the segment to less than half its original duration,
-                # the alignment is unreliable for this segment — skip
-                # it (keep the TTS estimate) instead of producing a
-                # 100ms crushed segment that flashes a word on screen.
-                # Threshold: prev_end - new_start > original_duration * 0.5
-                original_duration = new_end - new_start
-                if (
-                    new_start < prev_end
-                    and (prev_end - new_start) > original_duration * 0.5
-                ):
-                    backward_skipped += 1
-                    continue  # keep ts.start/ts.end unchanged (TTS estimate)
-                # Enforce monotonic non-overlap: if new_start < prev_end,
-                # push it forward to prev_end (with tiny gap).
-                if new_start < prev_end:
-                    new_start = prev_end
-                if new_end <= new_start:
-                    # Floor = 100ms: avoids zero-duration segments (which
-                    # would break SRT generation and downstream timing),
-                    # while staying short enough to not skew QA's
-                    # duration ratio (which compares final.mp4 total
-                    # length vs expected, not per-segment lengths).
-                    # 100ms is the minimum audible word duration in
-                    # natural speech; anything shorter is perceptually
-                    # a click, not a word.
-                    new_end = new_start + 0.1  # minimum 100ms segment
-                ts.start = new_start
-                ts.end = new_end
-                prev_end = new_end
+        # ── AQ-01: Monotonic non-overlap remapping (shared logic) ──
+        backward_skipped = _remap_segments(ctx, wx_segments)
 
         # C1 fix: only mark success if forced alignment didn't fall back.
         # Fallback path keeps status='failed' (set in except block above)
@@ -244,10 +265,6 @@ def _align_with_whisperx(ctx: Context) -> Context:
         if not ctx.metadata.get("align_fallback"):
             ctx.status.align = "success"
         ctx.metadata["align_segments"] = len(wx_segments)
-        # F4: record backward-jump skips for L2 hand-test diagnostics.
-        # Non-zero means some segments kept TTS estimates because the
-        # monotonic clamp would have crushed them to 100ms. See F4
-        # comment in the remapping loop above for the threshold logic.
         ctx.metadata["align_backward_skipped"] = backward_skipped
         return ctx
     except Exception as e:
@@ -284,57 +301,12 @@ def _align_with_faster_whisper(ctx: Context) -> Context:
     ctx.step_state.message = "faster-whisper (segment-level, no forced alignment)"
     ctx.metadata["align_degraded"] = True
 
-    # ── AQ-01: Drift detection (same as WhisperX path) ──
-    if len(wx_segments) == 1 and ctx.timed_segments:
-        total_narr_duration = sum(
-            ts.end - ts.start for ts in ctx.timed_segments
-        )
-        wx_duration = wx_segments[0]["end"] - wx_segments[0]["start"]
-        if total_narr_duration > 0:
-            drift_ratio = abs(wx_duration - total_narr_duration) / total_narr_duration
-            if drift_ratio > 0.5:
-                ctx.services.console.inline_warn(
-                    f"faster-whisper single-segment duration drift {drift_ratio:.0%} "
-                    f"(fw={wx_duration:.1f}s vs narr={total_narr_duration:.1f}s); "
-                    f"timestamps remain TTS-estimated"
-                )
-                ctx.status.align = "skipped"
-                ctx.step_state.message = "faster-whisper drift too large"
-                return ctx
+    # ── AQ-01: Drift detection (shared logic) ──
+    if _detect_drift(ctx, wx_segments, "faster-whisper"):
+        return ctx
 
     # ── Monotonic non-overlap remapping (shared logic) ──
-    prev_end = 0.0
-    backward_skipped = 0
-    for ts in ctx.timed_segments:
-        ts_mid = (ts.start + ts.end) / 2.0
-        best = None
-        best_dist = float("inf")
-        for wseg in wx_segments:
-            if wseg["start"] <= ts_mid <= wseg["end"]:
-                best = wseg
-                break
-            wseg_mid = (wseg["start"] + wseg["end"]) / 2.0
-            dist = abs(wseg_mid - ts_mid)
-            if dist < best_dist:
-                best_dist = dist
-                best = wseg
-        if best:
-            new_start = best["start"]
-            new_end = best["end"]
-            original_duration = new_end - new_start
-            if (
-                new_start < prev_end
-                and (prev_end - new_start) > original_duration * 0.5
-            ):
-                backward_skipped += 1
-                continue
-            if new_start < prev_end:
-                new_start = prev_end
-            if new_end <= new_start:
-                new_end = new_start + 0.1
-            ts.start = new_start
-            ts.end = new_end
-            prev_end = new_end
+    backward_skipped = _remap_segments(ctx, wx_segments)
 
     ctx.metadata["align_segments"] = len(wx_segments)
     ctx.metadata["align_backward_skipped"] = backward_skipped
