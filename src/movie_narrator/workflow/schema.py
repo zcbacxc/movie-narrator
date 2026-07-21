@@ -54,6 +54,7 @@ class JobParams(BaseModel):
     whisperx_device: Optional[str] = None
     whisperx_model: Optional[str] = None
     whisperx_language: Optional[str] = None
+    align_backend: Optional[str] = None  # "whisperx" | "faster_whisper" | None (auto)
     # ── Render ──
     render_fps: Optional[int] = None
     render_video_codec: Optional[str] = None

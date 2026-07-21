@@ -65,6 +65,129 @@ def test_align_success_with_mocked_whisperx(tmp_path):
     assert ctx.status.align == "success"
 
 
+# ── B+: Environment-adaptive backend selection tests ──
+
+
+def test_select_align_backend_explicit_override(tmp_path, monkeypatch):
+    """Explicit align_backend override is respected when the backend is importable."""
+    from movie_narrator.pipeline._align_backend import select_align_backend
+
+    ctx = _make_ctx(tmp_path)
+    ctx.metadata["align_backend"] = "faster_whisper"
+
+    monkeypatch.setattr(
+        "movie_narrator.pipeline._align_backend.probe",
+        lambda name: (True, "") if name == "faster_whisper" else (False, ""),
+    )
+    backend, reason = select_align_backend(ctx)
+    assert backend == "faster_whisper"
+    assert "explicit override" in reason
+
+
+def test_select_align_backend_windows_cpu_prefers_faster_whisper(tmp_path, monkeypatch):
+    """Windows CPU + both backends importable → faster_whisper (k2-fsa issue)."""
+    from movie_narrator.pipeline._align_backend import select_align_backend
+
+    ctx = _make_ctx(tmp_path)
+    ctx.metadata["whisperx_device"] = "cpu"
+
+    monkeypatch.setattr("movie_narrator.pipeline._align_backend.probe", lambda name: (True, ""))
+    monkeypatch.setattr("movie_narrator.pipeline._align_backend.platform.system", lambda: "Windows")
+
+    backend, reason = select_align_backend(ctx)
+    assert backend == "faster_whisper"
+    assert "Windows CPU" in reason
+
+
+def test_select_align_backend_linux_cpu_prefers_whisperx(tmp_path, monkeypatch):
+    """Linux CPU + whisperx importable → whisperx (k2-fsa has wheels)."""
+    from movie_narrator.pipeline._align_backend import select_align_backend
+
+    ctx = _make_ctx(tmp_path)
+    ctx.metadata["whisperx_device"] = "cpu"
+
+    monkeypatch.setattr("movie_narrator.pipeline._align_backend.probe", lambda name: (True, ""))
+    monkeypatch.setattr("movie_narrator.pipeline._align_backend.platform.system", lambda: "Linux")
+
+    backend, reason = select_align_backend(ctx)
+    assert backend == "whisperx"
+    assert "non-Windows" in reason
+
+
+def test_select_align_backend_gpu_prefers_whisperx(tmp_path, monkeypatch):
+    """GPU + whisperx importable → whisperx (word-level alignment)."""
+    from movie_narrator.pipeline._align_backend import select_align_backend
+
+    ctx = _make_ctx(tmp_path)
+    ctx.metadata["whisperx_device"] = "cuda"
+
+    monkeypatch.setattr("movie_narrator.pipeline._align_backend.probe", lambda name: (True, ""))
+    monkeypatch.setattr("movie_narrator.pipeline._align_backend.platform.system", lambda: "Windows")
+
+    backend, reason = select_align_backend(ctx)
+    assert backend == "whisperx"
+    assert "GPU" in reason
+
+
+def test_select_align_backend_neither_available(tmp_path, monkeypatch):
+    """Neither backend importable → none."""
+    from movie_narrator.pipeline._align_backend import select_align_backend
+
+    ctx = _make_ctx(tmp_path)
+    monkeypatch.setattr("movie_narrator.pipeline._align_backend.probe", lambda name: (False, ""))
+
+    backend, reason = select_align_backend(ctx)
+    assert backend == "none"
+    assert "neither" in reason
+
+
+def test_align_faster_whisper_path(tmp_path, monkeypatch):
+    """faster_whisper backend produces segment-level timestamps + fallback status."""
+    ctx = _make_ctx(tmp_path)
+    ctx.metadata["align_backend"] = "faster_whisper"
+
+    # Mock faster_whisper module — 2 segments matching narration duration
+    # (_make_ctx has [A(0,2), B(2.5,5)] → total 4.5s; use 2 segs summing ~4.5s)
+    fake_fw = types.ModuleType("faster_whisper")
+    fake_seg1 = MagicMock()
+    fake_seg1.start = 0.1
+    fake_seg1.end = 2.0
+    fake_seg1.text = " 第一段 "
+    fake_seg2 = MagicMock()
+    fake_seg2.start = 2.5
+    fake_seg2.end = 5.0
+    fake_seg2.text = " 第二段 "
+    fake_model = MagicMock()
+    fake_model.transcribe = MagicMock(return_value=([fake_seg1, fake_seg2], MagicMock()))
+    fake_fw.WhisperModel = MagicMock(return_value=fake_model)
+
+    with pytest.MonkeyPatch.context() as m:
+        m.setattr("movie_narrator.pipeline._align_backend.probe", lambda name: (True, "") if name == "faster_whisper" else (False, ""))
+        m.setattr("movie_narrator.pipeline.align.probe", lambda name: (True, "") if name == "faster_whisper" else (False, ""))
+        m.setitem(sys.modules, "faster_whisper", fake_fw)
+        align_audio(ctx)
+
+    # faster_whisper has no forced alignment → status='failed' (degraded but usable)
+    assert ctx.status.align == "failed"
+    assert ctx.metadata.get("align_backend_used") == "faster_whisper"
+    assert ctx.metadata.get("align_fallback") is True
+    assert ctx.metadata.get("align_degraded") is True
+    assert ctx.metadata.get("align_segments") == 2
+
+
+def test_align_backend_none_when_neither_importable(tmp_path, monkeypatch):
+    """When neither backend is importable, align is disabled (not failed)."""
+    ctx = _make_ctx(tmp_path)
+
+    monkeypatch.setattr("movie_narrator.pipeline._align_backend.probe", lambda name: (False, ""))
+    monkeypatch.setattr("movie_narrator.pipeline.align.probe", lambda name: (False, ""))
+
+    align_audio(ctx)
+
+    assert ctx.status.align == "disabled"
+    assert ctx.step_state.result.value == "skipped"
+
+
 # ── F4: backward jump detection ──
 
 

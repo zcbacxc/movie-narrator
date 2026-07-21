@@ -1,5 +1,6 @@
 from ..models import Context, StepResult
 from ..utils.optional_deps import probe
+from ._align_backend import select_align_backend, run_faster_whisper, BackendUnavailable
 
 
 def align_audio(ctx: Context) -> Context:
@@ -22,18 +23,63 @@ def align_audio(ctx: Context) -> Context:
         The same (mutated) context with ``ctx.status.align`` set to one
         of ``disabled`` / ``skipped`` / ``success`` / ``failed``.
     """
-    ok, hint = probe("whisperx")
-    if not ok:
-        ctx.status.align = "disabled"
-        ctx.step_state.result = StepResult.SKIPPED
-        ctx.step_state.message = hint
-        return ctx
+    # B+: backend availability is checked by select_align_backend() below,
+    # which probes both whisperx and faster_whisper. The old whisperx-only
+    # probe here was removed to allow faster_whisper fallback when whisperx
+    # is not importable.
     if not ctx.audio_path:
         ctx.status.align = "skipped"
         ctx.step_state.result = StepResult.SKIPPED
         ctx.step_state.message = "no audio"
         return ctx
 
+    # ── B+: Environment-adaptive backend selection ──
+    # WhisperX depends on pyannote VAD → speechbrain → k2-fsa, which
+    # has no prebuilt Windows CPU wheel. On Windows CPU (or when
+    # whisperx is not importable), we use faster-whisper instead.
+    # The user can override with ctx.metadata['align_backend'].
+    backend, backend_reason = select_align_backend(ctx)
+    ctx.metadata["align_backend_used"] = backend
+    ctx.metadata["align_backend_reason"] = backend_reason
+
+    if backend == "none":
+        ctx.services.console.inline_warn(
+            f"Audio alignment unavailable: {backend_reason}"
+        )
+        ctx.status.align = "disabled"
+        ctx.step_state.result = StepResult.SKIPPED
+        ctx.step_state.message = backend_reason
+        return ctx
+
+    try:
+        if backend == "faster_whisper":
+            return _align_with_faster_whisper(ctx)
+        else:
+            return _align_with_whisperx(ctx)
+    except BackendUnavailable as e:
+        # faster-whisper was selected but failed at runtime — try whisperx
+        ctx.services.console.inline_warn(
+            f"faster-whisper failed ({e}); trying whisperx"
+        )
+        ctx.metadata.setdefault("align_backend_attempted", []).append(
+            f"faster_whisper: {e}"
+        )
+        try:
+            return _align_with_whisperx(ctx)
+        except Exception as fallback_err:
+            ctx.step_state.result = StepResult.WARNING
+            ctx.step_state.message = str(fallback_err)
+            ctx.status.align = "failed"
+            return ctx
+    except Exception as e:
+        ctx.step_state.result = StepResult.WARNING
+        ctx.step_state.message = str(e)
+        ctx.status.align = "failed"
+        return ctx
+
+
+def _align_with_whisperx(ctx: Context) -> Context:
+    """Original WhisperX backend (transcribe + forced alignment)."""
     try:
         import whisperx
 
@@ -209,3 +255,87 @@ def align_audio(ctx: Context) -> Context:
         ctx.step_state.message = str(e)
         ctx.status.align = "failed"
         return ctx
+
+
+def _align_with_faster_whisper(ctx: Context) -> Context:
+    """faster-whisper backend (segment-level only, no forced alignment).
+
+    Uses the shared remapping logic from _align_with_whisperx by
+    constructing wx_segments via run_faster_whisper() then running
+    the same drift detection + monotonic remapping.
+    """
+    wx_segments = run_faster_whisper(ctx)
+
+    if not wx_segments:
+        ctx.services.console.inline_warn(
+            "faster-whisper returned no speech segments; "
+            "timestamps remain TTS-estimated"
+        )
+        ctx.status.align = "skipped"
+        ctx.step_state.result = StepResult.WARNING
+        ctx.step_state.message = "faster-whisper ASR returned empty"
+        ctx.metadata["align_degraded"] = True
+        return ctx
+
+    # faster-whisper has no forced alignment → always mark as fallback
+    ctx.metadata["align_fallback"] = True
+    ctx.status.align = "failed"
+    ctx.step_state.result = StepResult.WARNING
+    ctx.step_state.message = "faster-whisper (segment-level, no forced alignment)"
+    ctx.metadata["align_degraded"] = True
+
+    # ── AQ-01: Drift detection (same as WhisperX path) ──
+    if len(wx_segments) == 1 and ctx.timed_segments:
+        total_narr_duration = sum(
+            ts.end - ts.start for ts in ctx.timed_segments
+        )
+        wx_duration = wx_segments[0]["end"] - wx_segments[0]["start"]
+        if total_narr_duration > 0:
+            drift_ratio = abs(wx_duration - total_narr_duration) / total_narr_duration
+            if drift_ratio > 0.5:
+                ctx.services.console.inline_warn(
+                    f"faster-whisper single-segment duration drift {drift_ratio:.0%} "
+                    f"(fw={wx_duration:.1f}s vs narr={total_narr_duration:.1f}s); "
+                    f"timestamps remain TTS-estimated"
+                )
+                ctx.status.align = "skipped"
+                ctx.step_state.message = "faster-whisper drift too large"
+                return ctx
+
+    # ── Monotonic non-overlap remapping (shared logic) ──
+    prev_end = 0.0
+    backward_skipped = 0
+    for ts in ctx.timed_segments:
+        ts_mid = (ts.start + ts.end) / 2.0
+        best = None
+        best_dist = float("inf")
+        for wseg in wx_segments:
+            if wseg["start"] <= ts_mid <= wseg["end"]:
+                best = wseg
+                break
+            wseg_mid = (wseg["start"] + wseg["end"]) / 2.0
+            dist = abs(wseg_mid - ts_mid)
+            if dist < best_dist:
+                best_dist = dist
+                best = wseg
+        if best:
+            new_start = best["start"]
+            new_end = best["end"]
+            original_duration = new_end - new_start
+            if (
+                new_start < prev_end
+                and (prev_end - new_start) > original_duration * 0.5
+            ):
+                backward_skipped += 1
+                continue
+            if new_start < prev_end:
+                new_start = prev_end
+            if new_end <= new_start:
+                new_end = new_start + 0.1
+            ts.start = new_start
+            ts.end = new_end
+            prev_end = new_end
+
+    ctx.metadata["align_segments"] = len(wx_segments)
+    ctx.metadata["align_backward_skipped"] = backward_skipped
+    return ctx
