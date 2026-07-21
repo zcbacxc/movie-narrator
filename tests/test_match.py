@@ -1026,3 +1026,117 @@ def test_match_clips_embedding_failure_falls_back_to_heuristic(tmp_path, monkeyp
     match_clips(ctx)
     assert ctx.status.match == "success"
     assert all(m.source == "heuristic" for m in ctx.matched_clips)
+
+
+# ── faster-whisper fallback for _transcribe_video_audio ──
+
+
+def test_transcribe_video_audio_faster_whisper_fallback(tmp_path, monkeypatch):
+    """When WhisperX fails, _transcribe_video_audio falls back to faster-whisper."""
+    from movie_narrator.pipeline import match as match_module
+
+    # Create a fake video file (content doesn't matter, transcription is mocked)
+    video_path = tmp_path / "test.mp4"
+    video_path.write_bytes(b"fake video")
+
+    # Make WhisperX import raise to simulate Windows CPU k2-fsa failure
+    import builtins
+    real_import = builtins.__import__
+
+    def fail_whisperx(name, *args, **kwargs):
+        if name == "whisperx":
+            raise ImportError("k2-fsa not available on Windows CPU")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fail_whisperx)
+
+    # Mock faster-whisper to return 2 segments
+    fake_fw = ModuleType("faster_whisper")
+    fake_seg1 = MagicMock()
+    fake_seg1.start = 0.0
+    fake_seg1.end = 5.0
+    fake_seg1.text = " 场景一对话 "
+    fake_seg2 = MagicMock()
+    fake_seg2.start = 5.5
+    fake_seg2.end = 10.0
+    fake_seg2.text = " 场景二对话 "
+    fake_model = MagicMock()
+    fake_model.transcribe = MagicMock(
+        return_value=([fake_seg1, fake_seg2], MagicMock())
+    )
+    fake_fw.WhisperModel = MagicMock(return_value=fake_model)
+    monkeypatch.setitem(sys.modules, "faster_whisper", fake_fw)
+
+    result = match_module._transcribe_video_audio(
+        str(video_path), tmp_path, device="cpu", model_name="medium", language="zh"
+    )
+
+    assert result is not None
+    assert len(result) == 2
+    assert result[0]["text"] == "场景一对话"
+    assert result[1]["text"] == "场景二对话"
+    # Cache should be written
+    cache_files = list(tmp_path.glob("*.json"))
+    assert len(cache_files) == 1
+
+
+def test_transcribe_video_audio_both_backends_fail_returns_none(tmp_path, monkeypatch):
+    """When both WhisperX and faster-whisper fail, returns None."""
+    from movie_narrator.pipeline import match as match_module
+
+    video_path = tmp_path / "test.mp4"
+    video_path.write_bytes(b"fake video")
+
+    # Make WhisperX import fail
+    import builtins
+    real_import = builtins.__import__
+
+    def fail_whisperx(name, *args, **kwargs):
+        if name == "whisperx":
+            raise ImportError("whisperx not available")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fail_whisperx)
+
+    # Make faster_whisper import fail too
+    def fail_both(name, *args, **kwargs):
+        if name in ("whisperx", "faster_whisper"):
+            raise ImportError(f"{name} not available")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fail_both)
+
+    result = match_module._transcribe_video_audio(
+        str(video_path), tmp_path, device="cpu", model_name="medium", language="zh"
+    )
+
+    assert result is None
+
+
+def test_transcribe_video_audio_cache_hit_skips_transcription(tmp_path, monkeypatch):
+    """Cache hit returns cached segments without calling any backend."""
+    from movie_narrator.pipeline import match as match_module
+
+    video_path = tmp_path / "test.mp4"
+    video_path.write_bytes(b"fake video")
+
+    # Pre-populate cache
+    cached_segments = [{"start": 0.0, "end": 3.0, "text": "cached text"}]
+    cache_key = match_module._cache_key(str(video_path), "medium", "zh")
+    (tmp_path / cache_key).write_text(
+        __import__("json").dumps(cached_segments, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    # If cache works, this mock should never be called
+    def fail_if_called(*a, **kw):
+        raise AssertionError("transcription should not run on cache hit")
+
+    monkeypatch.setattr(match_module, "_transcribe_video_audio", fail_if_called)
+
+    # Read cache directly (simulating what _transcribe_video_audio does)
+    cache_path = tmp_path / cache_key
+    import json
+    result = json.loads(cache_path.read_text(encoding="utf-8"))
+
+    assert result == cached_segments

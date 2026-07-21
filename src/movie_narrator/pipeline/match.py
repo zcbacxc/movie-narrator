@@ -45,10 +45,14 @@ def _transcribe_video_audio(
     model_name: str = "medium",
     language: str = "zh",
 ) -> Optional[List[dict]]:
-    """Transcribe the video's audio track with WhisperX.
+    """Transcribe the video's audio track for scene-level captions.
+
+    Tries WhisperX first (word-level alignment). If WhisperX is not
+    importable or fails (common on Windows CPU due to k2-fsa missing),
+    falls back to faster-whisper (CTranslate2, no pyannote/k2-fsa deps).
 
     Returns a list of ``{"start", "end", "text"}`` dicts, or ``None``
-    when WhisperX is unavailable or transcription fails.
+    when both backends are unavailable or transcription fails.
     Results are cached per video file hash + model + language.
     """
     cache_path = output_dir / _cache_key(video_path, model_name, language)
@@ -60,6 +64,7 @@ def _transcribe_video_audio(
         except Exception:
             pass  # corrupt cache, re-transcribe
 
+    # Try WhisperX first (preserves forced alignment if available)
     try:
         import whisperx
 
@@ -82,8 +87,29 @@ def _transcribe_video_audio(
                 encoding="utf-8",
             )
         return segments if segments else None
-    except Exception as e:
-        logger.warning("WhisperX video transcription failed: %s", e)
+    except Exception as wx_err:
+        logger.warning("WhisperX video transcription failed: %s", wx_err)
+        # Fall through to faster-whisper
+
+    # Fallback: faster-whisper (works on Windows CPU where k2-fsa missing)
+    try:
+        from ._align_backend import transcribe_with_faster_whisper
+        segments = transcribe_with_faster_whisper(
+            audio_path=video_path,
+            device=device,
+            language=language,
+            # Use "small" for faster-whisper fallback (int8 on CPU);
+            # WhisperX's "medium" would be too slow without GPU.
+            model_size="small" if model_name == "medium" else model_name,
+        )
+        if segments:
+            cache_path.write_text(
+                json.dumps(segments, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        return segments if segments else None
+    except Exception as fw_err:
+        logger.warning("faster-whisper video transcription failed: %s", fw_err)
         return None
 
 
