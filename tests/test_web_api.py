@@ -342,9 +342,49 @@ def test_validate_form_bilingual_no_lang():
 
 def test_collect_artifacts_empty(tmp_path):
     """A ctx with no outputs yields an empty artifact list."""
-    ctx = SimpleNamespace(video_path=None, audio_path=None, subtitle_paths=None)
+    ctx = SimpleNamespace(video_path=None, audio_path=None, subtitle_paths=None, clips_dir=None)
     artifacts = collect_artifacts(ctx, tmp_path)
     assert artifacts == []
+
+
+def test_collect_artifacts_includes_clips(tmp_path):
+    """collect_artifacts includes per-segment .mp4 clips from clips_dir."""
+    clips_dir = tmp_path / "clips"
+    clips_dir.mkdir()
+    (clips_dir / "scene_0000.mp4").write_bytes(b"clip0")
+    (clips_dir / "scene_0001.mp4").write_bytes(b"clip1")
+    # Non-mp4 file should be ignored
+    (clips_dir / "notes.txt").write_text("ignore me", encoding="utf-8")
+
+    ctx = SimpleNamespace(
+        video_path=None,
+        audio_path=None,
+        subtitle_paths=None,
+        clips_dir=str(clips_dir),
+    )
+    artifacts = collect_artifacts(ctx, tmp_path)
+    clip_artifacts = [a for a in artifacts if "scene_" in a and a.endswith(".mp4")]
+    assert len(clip_artifacts) == 2
+    # Clips should be sorted
+    assert "scene_0000" in clip_artifacts[0]
+    assert "scene_0001" in clip_artifacts[1]
+
+
+def test_collect_artifacts_clips_default_dir(tmp_path):
+    """When ctx.clips_dir is None, falls back to output_dir/clips."""
+    clips_dir = tmp_path / "clips"
+    clips_dir.mkdir()
+    (clips_dir / "scene_0000.mp4").write_bytes(b"clip0")
+
+    ctx = SimpleNamespace(
+        video_path=None,
+        audio_path=None,
+        subtitle_paths=None,
+        clips_dir=None,
+    )
+    artifacts = collect_artifacts(ctx, tmp_path)
+    clip_artifacts = [a for a in artifacts if "scene_" in a and a.endswith(".mp4")]
+    assert len(clip_artifacts) == 1
 
 
 def test_zip_artifacts(tmp_path):
