@@ -96,14 +96,30 @@ def run_faster_whisper(ctx: Context) -> List[dict]:
     This is sufficient for ``subtitle.py`` which only reads
     ``seg.start`` / ``seg.end`` / ``seg.text``.
     """
+    return transcribe_with_faster_whisper(
+        audio_path=ctx.audio_path,
+        device=ctx.metadata.get("whisperx_device", "cpu"),
+        language=ctx.metadata.get("whisperx_language", "zh"),
+        model_size=ctx.metadata.get("whisperx_model", "small"),
+    )
+
+
+def transcribe_with_faster_whisper(
+    audio_path: str,
+    device: str = "cpu",
+    language: str = "zh",
+    model_size: str = "small",
+) -> List[dict]:
+    """Transcribe an arbitrary audio/video file with faster-whisper.
+
+    Shared backend for both ``align.py`` (narration audio) and
+    ``match.py`` (video audio track). Returns segment-level timestamps
+    only (no forced alignment).
+    """
     try:
         from faster_whisper import WhisperModel
     except ImportError as e:
         raise BackendUnavailable(f"faster-whisper not installed: {e}") from e
-
-    device = ctx.metadata.get("whisperx_device", "cpu")
-    language = ctx.metadata.get("whisperx_language", "zh")
-    model_size = ctx.metadata.get("whisperx_model", "small")
 
     # CPU: int8 quantization (fast + small); GPU: float16
     if device == "cuda":
@@ -114,7 +130,7 @@ def run_faster_whisper(ctx: Context) -> List[dict]:
         fw_device = "cpu"
 
     model = WhisperModel(model_size, device=fw_device, compute_type=compute_type)
-    segments, _info = model.transcribe(ctx.audio_path, language=language)
+    segments, _info = model.transcribe(audio_path, language=language)
 
     wx_segments: List[dict] = []
     for seg in segments:
