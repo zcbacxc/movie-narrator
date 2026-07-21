@@ -217,15 +217,27 @@ Full schema (21 fields + 4 back-compat fields):
 `raw_score.avg` includes "bad-but-fell-back" scores. If `score.avg=0.85` but
 `low_score_fallback_count=5`, the first N hits were accurate and 5 failed to fallback.
 
-### `metadata.json` → align diagnostics (v0.4.18)
+### `metadata.json` → align diagnostics (v0.4.18+)
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `status.align` | str | "success" / "failed" / "skipped" — "failed" means fallback to segment-level timestamps (C1 fix) |
-| `align_fallback` | bool | True if `whisperx.align()` raised and we fell back to transcript-level timestamps |
+| `status.align` | str | "success" / "failed" / "skipped" / "disabled" — see semantics table below |
+| `align_fallback` | bool | True if alignment is segment-level only (no word-level forced alignment). Triggered by: (a) WhisperX `align()` raised, (b) faster-whisper backend used. **Segment-level timestamps are sufficient for subtitle.py.** |
 | `align_degraded` | bool | True if alignment is degraded (fallback, empty ASR, or single-segment drift) |
-| `align_segments` | int | number of WhisperX segments returned |
+| `align_segments` | int | number of ASR segments returned by the backend |
 | `align_backward_skipped` | int | segments that kept TTS estimates because monotonic clamp would have crushed them to 100ms (F4) |
+| `align_backend_used` | str | actual backend: "whisperx" / "faster_whisper" / "none" (v0.4.19+) |
+| `align_backend_reason` | str | why this backend was selected (v0.4.19+) |
+| `align_backend_attempted` | list | failed backend attempts before fallback (v0.4.19+) |
+
+**`status.align` semantics:**
+
+| Value | Meaning | Timestamps |
+|-------|---------|------------|
+| `success` | WhisperX transcribe + forced alignment both succeeded | Word-level (best precision) |
+| `failed` | Alignment ran but degraded to segment-level. **Timestamps are still usable** — subtitle.py only needs segment-level. Triggered by: (a) WhisperX `align()` raised → fallback to transcript-level, (b) faster-whisper backend (always segment-level). | Segment-level |
+| `skipped` | ASR returned empty or single-segment drift too large. Timestamps remain TTS-estimated. | TTS-estimated |
+| `disabled` | Neither whisperx nor faster_whisper importable. | TTS-estimated |
 
 `align_backward_skipped > 0` means some segments' timestamps are TTS estimates
 (not WhisperX-aligned) because the wx segment mapped far behind the previous
