@@ -31,6 +31,8 @@ class JobParams(BaseModel):
     match_speed_clamp_max: Optional[float] = None
     scene_merge_min_duration: Optional[float] = None
     match_drop_scene_min_duration: Optional[float] = None
+    match_diversity_window: Optional[int] = None
+    match_max_scene_reuse: Optional[int] = None
     embedding_model_name: Optional[str] = None
     # ── BGM ──
     bgm_gain_db: Optional[float] = None

@@ -1140,3 +1140,67 @@ def test_transcribe_video_audio_cache_hit_skips_transcription(tmp_path, monkeypa
     result = json.loads(cache_path.read_text(encoding="utf-8"))
 
     assert result == cached_segments
+
+
+# ── WP3: diversity post-processing tests ──
+
+
+def test_apply_diversity_no_swaps_needed():
+    """No swaps when scenes are already diverse."""
+    from movie_narrator.pipeline.match import _apply_diversity
+    from movie_narrator.models import MatchedClip
+
+    clips = [
+        MatchedClip(segment_index=0, text="a", narr_start=0, narr_end=2,
+                    src_start=0, src_end=2, score=1.0, scene_index=0, source="heuristic"),
+        MatchedClip(segment_index=1, text="b", narr_start=2, narr_end=4,
+                    src_start=2, src_end=4, score=1.0, scene_index=1, source="heuristic"),
+        MatchedClip(segment_index=2, text="c", narr_start=4, narr_end=6,
+                    src_start=4, src_end=6, score=1.0, scene_index=2, source="heuristic"),
+    ]
+    scenes = [SimpleNamespace(index=i, start=i*2, end=i*2+2) for i in range(5)]
+    swaps = _apply_diversity(clips, scenes, window=3, max_reuse=2)
+    assert swaps == 0
+    assert clips[0].scene_index == 0
+    assert clips[1].scene_index == 1
+    assert clips[2].scene_index == 2
+
+
+def test_apply_diversity_swaps_consecutive_reuse():
+    """Swaps 3rd consecutive use of same scene to nearest unused."""
+    from movie_narrator.pipeline.match import _apply_diversity
+    from movie_narrator.models import MatchedClip
+
+    clips = [
+        MatchedClip(segment_index=0, text="a", narr_start=0, narr_end=2,
+                    src_start=0, src_end=2, score=1.0, scene_index=1, source="embedding"),
+        MatchedClip(segment_index=1, text="b", narr_start=2, narr_end=4,
+                    src_start=2, src_end=4, score=1.0, scene_index=1, source="embedding"),
+        MatchedClip(segment_index=2, text="c", narr_start=4, narr_end=6,
+                    src_start=4, src_end=6, score=1.0, scene_index=1, source="embedding"),
+    ]
+    scenes = [SimpleNamespace(index=i, start=i*2, end=i*2+2) for i in range(5)]
+    swaps = _apply_diversity(clips, scenes, window=3, max_reuse=2)
+    assert swaps == 1
+    # 3rd clip should be swapped to a different scene
+    assert clips[2].scene_index != 1
+
+
+def test_apply_diversity_no_swap_when_all_scenes_used():
+    """No swap when all scenes in window are already used."""
+    from movie_narrator.pipeline.match import _apply_diversity
+    from movie_narrator.models import MatchedClip
+
+    clips = [
+        MatchedClip(segment_index=0, text="a", narr_start=0, narr_end=2,
+                    src_start=0, src_end=2, score=1.0, scene_index=0, source="heuristic"),
+        MatchedClip(segment_index=1, text="b", narr_start=2, narr_end=4,
+                    src_start=2, src_end=4, score=1.0, scene_index=1, source="heuristic"),
+        MatchedClip(segment_index=2, text="c", narr_start=4, narr_end=6,
+                    src_start=4, src_end=6, score=1.0, scene_index=0, source="heuristic"),
+    ]
+    # Only 2 scenes available — both used in window, can't swap
+    scenes = [SimpleNamespace(index=i, start=i*2, end=i*2+2) for i in range(2)]
+    swaps = _apply_diversity(clips, scenes, window=3, max_reuse=1)
+    # Scene 0 appears 2 times in window of 3, max_reuse=1, but no unused scene available
+    assert swaps == 0

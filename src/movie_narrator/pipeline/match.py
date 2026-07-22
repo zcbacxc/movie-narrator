@@ -333,6 +333,63 @@ def _clamp_scene_window(
 # ── Main match logic ────────────────────────────────────────
 
 
+def _apply_diversity(
+    matched_clips: list, scenes: list, window: int = 3, max_reuse: int = 2
+) -> int:
+    """Post-process matched clips to reduce consecutive scene reuse (WP3).
+
+    If a scene index appears more than ``max_reuse`` times within a
+    sliding window of ``window`` segments, swap the latest occurrence
+    to the nearest unused scene. Returns the number of swaps made.
+
+    Only swaps ``scene_index`` / ``src_start`` / ``src_end`` — score
+    and source remain unchanged (the match quality is not affected,
+    just the footage selection).
+    """
+    if not matched_clips or len(scenes) <= 1:
+        return 0
+
+    swaps = 0
+    for i in range(len(matched_clips)):
+        # Count scene reuse in the look-back window [i-window+1, i]
+        win_start = max(0, i - window + 1)
+        window_clips = matched_clips[win_start : i + 1]
+        scene_counts: dict[int, int] = {}
+        for mc in window_clips:
+            scene_counts[mc.scene_index] = scene_counts.get(mc.scene_index, 0) + 1
+
+        current_scene = matched_clips[i].scene_index
+        if scene_counts.get(current_scene, 0) <= max_reuse:
+            continue  # within limit
+
+        # Find nearest unused scene (by index proximity)
+        used_in_window = set(mc.scene_index for mc in window_clips)
+        candidates = [s for s in scenes if s.index not in used_in_window]
+        if not candidates:
+            continue  # all scenes used in window, nothing to swap
+
+        # Pick the nearest scene by index distance
+        best_scene = min(candidates, key=lambda s: abs(s.index - current_scene))
+
+        # Re-clamp the new scene's window to fit narration duration
+        narr_duration = matched_clips[i].narr_end - matched_clips[i].narr_start
+        clamped_start, clamped_end = _clamp_scene_window(
+            best_scene.start,
+            best_scene.end,
+            narr_duration,
+            video_start=0.0,
+            video_end=max(s.end for s in scenes),
+            clamp_min=0.85,
+            clamp_max=1.25,
+        )
+        matched_clips[i].scene_index = best_scene.index
+        matched_clips[i].src_start = clamped_start
+        matched_clips[i].src_end = clamped_end
+        swaps += 1
+
+    return swaps
+
+
 def match_clips(ctx: Context) -> Context:
     if not ctx.source_video_path:
         ctx.status.match = "skipped"
@@ -587,6 +644,16 @@ def _match_clips_impl(
 
     ctx.matched_clips = matched_clips
 
+    # ── WP3: Diversity post-processing ──────────────────────
+    # Prevent consecutive scene reuse: if the same scene index appears
+    # more than match_max_scene_reuse times within match_diversity_window
+    # segments, swap later occurrences to the nearest unused scene.
+    diversity_swaps = _apply_diversity(
+        matched_clips, scenes,
+        window=ctx.metadata.get("match_diversity_window", 3),
+        max_reuse=ctx.metadata.get("match_max_scene_reuse", 2),
+    )
+
     # Log speed factor stats + collect for match_summary (F1)
     speed_factors: List[float] = []
     if matched_clips:
@@ -676,7 +743,11 @@ def _match_clips_impl(
         },
         "embedding_model": ctx.metadata.get("embedding_model_name", _EMBEDDING_MODEL_NAME),
         "degraded_reason": degraded_reason,
-        "diversity": None,  # reserved for future diversity metric
+        "diversity": {
+            "swaps": diversity_swaps,
+            "window": ctx.metadata.get("match_diversity_window", 3),
+            "max_reuse": ctx.metadata.get("match_max_scene_reuse", 2),
+        },
         # Back-compat fields (kept for existing consumers)
         "total": total,
         "embedding": embedding_count,

@@ -1,4 +1,5 @@
 from typing import List
+import re
 
 from ..config import get_settings
 from ..models import Context, ScriptSegment
@@ -7,6 +8,28 @@ from ..utils.llm import get_llm_client
 from ..utils.json_parser import extract_json
 from ..tts.base import is_ci
 from time import sleep
+
+
+# ── WP5: max_chars hard truncation ──────────────────────
+# LLM may ignore the max_chars prompt instruction. This post-processing
+# step hard-truncates any sentence exceeding the limit, cutting at the
+# last punctuation mark before the limit for natural breaks.
+_PUNCT_PATTERN = re.compile(r'[。！？；，、…\.,!?;]')
+
+
+def _truncate_to_max_chars(text: str, max_chars: int) -> str:
+    """Hard-truncate text to max_chars, preferring natural punctuation breaks."""
+    if len(text) <= max_chars:
+        return text
+    # Find the last punctuation mark before max_chars
+    truncated = text[:max_chars]
+    match = None
+    for m in _PUNCT_PATTERN.finditer(truncated):
+        match = m  # keep the last match
+    if match:
+        return truncated[: match.end()].rstrip()
+    # No punctuation found — hard cut
+    return truncated.rstrip()
 
 # CI-only fallback: used when LLM is unreachable in CI environment
 # to allow full pipeline testing. Never used for real users.
@@ -172,7 +195,10 @@ def _expand_beats_to_script(
         # Skip empty / whitespace-only segments — they'd produce
         # silent TTS audio and break the count contract.
         if text:
-            segments.append(ScriptSegment(text=text))
+            # WP5: hard-truncate to max_chars (LLM may ignore prompt)
+            text = _truncate_to_max_chars(text, max_chars)
+            if text:
+                segments.append(ScriptSegment(text=text))
 
     if not segments:
         raise ValueError("Phase 2: LLM returned zero segments")
