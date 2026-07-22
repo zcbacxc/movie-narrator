@@ -62,5 +62,9 @@ def build_metadata_json(ctx: Context) -> Dict[str, Any]:
         "degraded_steps": ctx.metadata.get("_degraded_steps", []),
         "match_summary": ctx.metadata.get("match_summary"),
         "qa_report": ctx.metadata.get("qa_report"),
+        # ── WP4: footage coverage (how many segments have real footage) ──
+        "footage_coverage": ctx.metadata.get("footage_coverage"),
+        # ── WP5: duration metrics (target vs actual) ──
+        "duration_metrics": ctx.metadata.get("duration_metrics"),
     }
     return meta

@@ -10,6 +10,7 @@ from ..models import Context, MatchedClip, StepResult, TimedSegment
 from ..utils.metadata_export import build_metadata_json
 from ..utils.text_image import create_text_image as _create_text_image
 from ..utils.video_layout import compute_fit_box
+from .bgm import ensure_final_audio
 
 
 class _RenderProgressLogger(TqdmProgressBarLogger):
@@ -60,6 +61,11 @@ def _overlay_text(ctx: Context, idx: int, seg: TimedSegment) -> str:
 
 
 def render_video(ctx: Context) -> Context:
+    # AQ-04 safety net: ensure final audio is normalized even if mix_bgm
+    # was skipped or failed. This guarantees render never receives raw
+    # unnormalized narration when bgm_normalize=True.
+    ensure_final_audio(ctx)
+
     output_dir = Path(ctx.output_dir)
     video_format = ctx.metadata.get("format", "16:9")
     size = _get_video_sizes(ctx).get(video_format, (1920, 1080))
@@ -272,4 +278,47 @@ def render_video(ctx: Context) -> Context:
             shutil.rmtree(cache_dir)
 
     ctx.video_path = str(video_path)
+
+    # ── WP4: footage coverage ────────────────────────────
+    # Calculate what fraction of narration segments have real footage
+    # (vs text-only fallback). This catches the failure mode where
+    # detect_scenes found 0 scenes or match_clips produced no usable
+    # matches — the final video would be all text cards.
+    total_segments = len(ctx.timed_segments)
+    footage_segments_count = len(footage_segments)
+    coverage_ratio = (
+        footage_segments_count / total_segments if total_segments > 0 else 0.0
+    )
+    ctx.metadata["footage_coverage"] = {
+        "total_segments": total_segments,
+        "footage_segments": footage_segments_count,
+        "text_only_segments": total_segments - footage_segments_count,
+        "ratio": round(coverage_ratio, 4),
+    }
+
+    # Gate: if render_require_footage is True and coverage is too low,
+    # warn but don't fail (the video is still produced, just flagged).
+    require_footage = ctx.metadata.get("render_require_footage", False)
+    min_coverage = ctx.metadata.get("render_min_footage_coverage", 0.5)
+    if require_footage and coverage_ratio < min_coverage:
+        ctx.services.console.inline_warn(
+            f"Footage coverage {coverage_ratio:.0%} < required {min_coverage:.0%} "
+            f"({footage_segments_count}/{total_segments} segments have footage). "
+            f"Final video may be mostly text-only."
+        )
+        ctx.metadata.setdefault("_degraded_steps", [])
+        if "render_video" not in ctx.metadata["_degraded_steps"]:
+            ctx.metadata["_degraded_steps"].append("render_video")
+
+    # ── WP5: duration metrics ────────────────────────────
+    target_duration = ctx.metadata.get("duration")
+    actual_duration = total_duration
+    if target_duration:
+        duration_ratio = actual_duration / target_duration
+        ctx.metadata["duration_metrics"] = {
+            "target_sec": target_duration,
+            "actual_sec": round(actual_duration, 2),
+            "ratio": round(duration_ratio, 4),
+        }
+
     return ctx
