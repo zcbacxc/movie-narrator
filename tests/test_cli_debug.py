@@ -21,6 +21,10 @@ def _make_missing_probe(monkeypatch, module_name: str):
     """Patch ``probe`` inside ``movie_narrator.pipeline.<step_module>`` to
     report the given module as unavailable, simulating a fresh install
     without the ``[media]`` or ``[ml]`` extra.
+
+    Also patches ``_align_backend.probe`` so that ``select_align_backend``
+    sees the same unavailability — otherwise faster_whisper (if installed)
+    would be selected instead of returning "none".
     """
     step_to_module = {
         "scenedetect": "movie_narrator.pipeline.scenes",
@@ -36,6 +40,17 @@ def _make_missing_probe(monkeypatch, module_name: str):
             'pip install "movie-narrator[ml]"' if name == module_name else (True, ""),
         ),
     )
+    # Also patch _align_backend.probe so select_align_backend sees the same
+    _backend_mod = sys.modules.get("movie_narrator.pipeline._align_backend")
+    if _backend_mod:
+        monkeypatch.setattr(
+            _backend_mod,
+            "probe",
+            lambda name: (
+                False,
+                'pip install "movie-narrator[ml]"' if name == module_name else (True, ""),
+            ),
+        )
 
 
 def test_mn_scenes_exits_nonzero_when_dep_missing(tmp_path, monkeypatch):

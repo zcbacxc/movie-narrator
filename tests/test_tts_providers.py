@@ -553,6 +553,11 @@ class TestGenerateVoiceCI:
     def test_ci_produces_narration_and_timed_segments(self, tmp_path, monkeypatch):
         from movie_narrator.models import Context, ScriptSegment
         from movie_narrator.pipeline.tts import generate_voice
+        from movie_narrator.config import get_settings
+
+        # Clear lru_cache so .env (MN_TTS_PROVIDER=mimo) doesn't leak in
+        get_settings.cache_clear()
+        monkeypatch.setenv("MN_TTS_PROVIDER", "edge")
 
         monkeypatch.setenv("CI", "1")
         ctx = self._make_ctx(tmp_path)
@@ -567,6 +572,11 @@ class TestGenerateVoiceCI:
 
     def test_ci_does_not_write_to_cache(self, tmp_path, monkeypatch):
         from movie_narrator.pipeline.tts import generate_voice
+        from movie_narrator.config import get_settings
+
+        # Clear lru_cache so .env (MN_TTS_PROVIDER=mimo) doesn't leak in
+        get_settings.cache_clear()
+        monkeypatch.setenv("MN_TTS_PROVIDER", "edge")
 
         monkeypatch.setenv("CI", "1")
         ctx = self._make_ctx(tmp_path)
@@ -580,6 +590,10 @@ class TestGenerateVoiceCI:
 
     def test_ci_temp_files_cleaned_up(self, tmp_path, monkeypatch):
         from movie_narrator.pipeline.tts import generate_voice
+        from movie_narrator.config import get_settings
+
+        get_settings.cache_clear()
+        monkeypatch.setenv("MN_TTS_PROVIDER", "edge")
 
         monkeypatch.setenv("CI", "1")
         ctx = self._make_ctx(tmp_path)
@@ -590,6 +604,10 @@ class TestGenerateVoiceCI:
 
     def test_ci_sets_tts_provider_metadata(self, tmp_path, monkeypatch):
         from movie_narrator.pipeline.tts import generate_voice
+        from movie_narrator.config import get_settings
+
+        get_settings.cache_clear()
+        monkeypatch.setenv("MN_TTS_PROVIDER", "edge")
 
         monkeypatch.setenv("CI", "1")
         ctx = self._make_ctx(tmp_path)
@@ -598,6 +616,10 @@ class TestGenerateVoiceCI:
 
     def test_ci_sets_voice_used_metadata(self, tmp_path, monkeypatch):
         from movie_narrator.pipeline.tts import generate_voice
+        from movie_narrator.config import get_settings
+
+        get_settings.cache_clear()
+        monkeypatch.setenv("MN_TTS_PROVIDER", "edge")
 
         monkeypatch.setenv("CI", "1")
         ctx = self._make_ctx(tmp_path)
@@ -618,6 +640,11 @@ class TestGenerateVoiceCache:
     @requires_mp3
     def test_cache_hit_skips_synthesize(self, tmp_path, monkeypatch):
         from movie_narrator.pipeline.tts import generate_voice
+        from movie_narrator.config import get_settings
+
+        # Clear lru_cache so .env (MN_TTS_PROVIDER=mimo) doesn't leak in
+        get_settings.cache_clear()
+        monkeypatch.setenv("MN_TTS_PROVIDER", "edge")
 
         monkeypatch.delenv("CI", raising=False)
         ctx = self._make_ctx(tmp_path)
