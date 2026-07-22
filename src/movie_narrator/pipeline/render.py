@@ -279,11 +279,17 @@ def render_video(ctx: Context) -> Context:
 
     ctx.video_path = str(video_path)
 
-    # ── WP4: footage coverage ────────────────────────────
+    # ── WP4: footage coverage (warn-only gate) ───────────
     # Calculate what fraction of narration segments have real footage
     # (vs text-only fallback). This catches the failure mode where
     # detect_scenes found 0 scenes or match_clips produced no usable
     # matches — the final video would be all text cards.
+    #
+    # NOTE: This is a WARN-ONLY gate, not an abort gate. The video is
+    # already rendered by this point — we can only flag the issue in
+    # metadata and _degraded_steps. To enforce footage coverage as a
+    # hard requirement, check metadata.footage_coverage.ratio in a
+    # post-pipeline script or use --strict with custom logic.
     total_segments = len(ctx.timed_segments)
     footage_segments_count = len(footage_segments)
     coverage_ratio = (
