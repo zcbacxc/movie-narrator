@@ -3,7 +3,7 @@ from pathlib import Path
 from pydub import AudioSegment
 
 from movie_narrator.models import Assets, Context
-from movie_narrator.pipeline.bgm import mix_bgm
+from movie_narrator.pipeline.bgm import ensure_final_audio, mix_bgm
 
 
 def _export_wav_fallback(seg: AudioSegment, path: Path):
@@ -68,13 +68,59 @@ def test_mix_bgm_skipped_none_normalizes(tmp_path):
     assert Path(ctx.final_audio_path).exists()
 
 
+# ── AQ-04: ensure_final_audio tests ──
+
+
+def test_ensure_final_audio_normalizes_raw_narration(tmp_path):
+    """ensure_final_audio normalizes when final_audio_path is still raw narration."""
+    narr = _write_tone_mp3(tmp_path / "narration.mp3", 800, freq=440)
+    ctx = Context(movie_name="m", output_dir=str(tmp_path), audio_path=str(narr))
+    # Simulate: BGM failed, final_audio_path not set (defaults to audio_path)
+    ctx.final_audio_path = str(narr)
+    ctx.metadata["bgm_normalize"] = True
+
+    ensure_final_audio(ctx)
+    assert ctx.final_audio_path != str(narr)  # normalized
+    assert Path(ctx.final_audio_path).exists()
+
+
+def test_ensure_final_audio_skips_already_mixed(tmp_path):
+    """ensure_final_audio does nothing when final_audio_path is already mixed."""
+    narr = _write_tone_mp3(tmp_path / "narration.mp3", 800, freq=440)
+    mixed = _write_tone_mp3(tmp_path / "mixed.mp3", 800, freq=880)
+    ctx = Context(movie_name="m", output_dir=str(tmp_path), audio_path=str(narr))
+    ctx.final_audio_path = str(mixed)  # already mixed
+
+    ensure_final_audio(ctx)
+    assert ctx.final_audio_path == str(mixed)  # unchanged
+
+
+def test_ensure_final_audio_skips_when_normalize_disabled(tmp_path):
+    """ensure_final_audio uses raw audio when bgm_normalize=False."""
+    narr = _write_tone_mp3(tmp_path / "narration.mp3", 800, freq=440)
+    ctx = Context(movie_name="m", output_dir=str(tmp_path), audio_path=str(narr))
+    ctx.final_audio_path = str(narr)
+    ctx.metadata["bgm_normalize"] = False
+
+    ensure_final_audio(ctx)
+    assert ctx.final_audio_path == str(narr)  # raw, not normalized
+
+
+def test_ensure_final_audio_handles_no_audio_path(tmp_path):
+    """ensure_final_audio is a no-op when audio_path is None."""
+    ctx = Context(movie_name="m", output_dir=str(tmp_path), audio_path=None)
+    ensure_final_audio(ctx)
+    assert ctx.final_audio_path is None or ctx.final_audio_path == ctx.audio_path
+
+
 def test_mix_bgm_explicit_missing_failed(tmp_path):
     narr = _write_silent_mp3(tmp_path / "narration.mp3")
     ctx = Context(movie_name="m", output_dir=str(tmp_path), audio_path=str(narr))
     ctx.metadata["bgm_request"] = "explicit"
     mix_bgm(ctx)
     assert ctx.status.bgm == "failed"
-    assert ctx.final_audio_path == str(narr)
+    # AQ-04: even failed path gets normalized (ensure_final_audio)
+    assert ctx.final_audio_path != str(narr)  # normalized, not raw
 
 
 def test_mix_bgm_success(tmp_path):

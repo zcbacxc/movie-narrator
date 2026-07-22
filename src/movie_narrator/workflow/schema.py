@@ -72,6 +72,8 @@ class JobParams(BaseModel):
     render_subtitle_position: Optional[str] = None
     render_subtitle_max_width_ratio: Optional[float] = None
     render_subtitle_bottom_margin_ratio: Optional[float] = None
+    render_require_footage: Optional[bool] = None
+    render_min_footage_coverage: Optional[float] = None
     # ── QA ──
     qa_enabled: Optional[bool] = None
     qa_max_silence_db: Optional[float] = None

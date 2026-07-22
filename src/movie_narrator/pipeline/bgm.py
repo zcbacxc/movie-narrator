@@ -31,6 +31,40 @@ def _normalize_narration(ctx: Context, narration: AudioSegment) -> str:
     return _export_robust(normalized, out)
 
 
+def ensure_final_audio(ctx: Context) -> Context:
+    """Guarantee that ctx.final_audio_path is normalized (AQ-04 fix).
+
+    All BGM exit paths (skip, fail, exception) must go through this
+    function. If the final audio is still the raw narration (not mixed),
+    normalize it so that the exception/fail path is not worse than the
+    success path.
+
+    Called by mix_bgm at every exit point and by runner.py as a safety
+    net before render.
+    """
+    if not ctx.audio_path:
+        return ctx
+
+    # Already mixed (BGM success path) — nothing to do
+    if ctx.final_audio_path and ctx.final_audio_path != ctx.audio_path:
+        return ctx
+
+    # Raw narration — normalize if configured
+    do_norm = ctx.metadata.get("bgm_normalize", True)
+    if not do_norm:
+        ctx.final_audio_path = ctx.audio_path
+        return ctx
+
+    try:
+        narration = AudioSegment.from_file(ctx.audio_path)
+        ctx.final_audio_path = _normalize_narration(ctx, narration)
+    except Exception:
+        # Last resort: use raw audio as-is (better than nothing)
+        ctx.final_audio_path = ctx.audio_path
+
+    return ctx
+
+
 def mix_bgm(ctx: Context) -> Context:
     if not ctx.audio_path:
         ctx.status.bgm = "skipped"
@@ -38,32 +72,21 @@ def mix_bgm(ctx: Context) -> Context:
         return ctx
 
     req = ctx.metadata.get("bgm_request", "none")
-    do_norm = ctx.metadata.get("bgm_normalize", True)
 
     if req == "none" or (req == "default" and not ctx.assets.bgm):
-        # No BGM — still normalize narration for production consistency.
-        if do_norm:
-            try:
-                narration = AudioSegment.from_file(ctx.audio_path)
-                ctx.final_audio_path = _normalize_narration(ctx, narration)
-            except Exception:
-                ctx.final_audio_path = ctx.audio_path
-        else:
-            ctx.final_audio_path = ctx.audio_path
+        # No BGM — normalize narration for production consistency.
         ctx.status.bgm = "skipped"
-        return ctx
+        return ensure_final_audio(ctx)
 
     if req == "explicit" and not ctx.assets.bgm:
         ctx.step_state.result = StepResult.WARNING
         ctx.step_state.message = "explicit BGM missing"
         ctx.status.bgm = "failed"
-        ctx.final_audio_path = ctx.audio_path
-        return ctx
+        return ensure_final_audio(ctx)
 
     if not ctx.assets.bgm:
         ctx.status.bgm = "skipped"
-        ctx.final_audio_path = ctx.audio_path
-        return ctx
+        return ensure_final_audio(ctx)
 
     try:
         narration = AudioSegment.from_file(ctx.audio_path)
@@ -75,6 +98,7 @@ def mix_bgm(ctx: Context) -> Context:
             narration, bgm_raw,
             bgm_gain_db=gain_db, duck_db=duck_db,
         )
+        do_norm = ctx.metadata.get("bgm_normalize", True)
         if do_norm:
             target = ctx.metadata.get("audio_target_dbfs", -14.0)
             mixed = normalize_peak(mixed, target_dbfs=target)
@@ -86,5 +110,4 @@ def mix_bgm(ctx: Context) -> Context:
         ctx.step_state.result = StepResult.WARNING
         ctx.step_state.message = str(e)
         ctx.status.bgm = "failed"
-        ctx.final_audio_path = ctx.audio_path
-        return ctx
+        return ensure_final_audio(ctx)
