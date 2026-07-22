@@ -661,7 +661,8 @@ class TestGenerateVoiceCache:
 class TestSettingsTTS:
     def test_default_tts_provider_is_edge(self):
         from movie_narrator.config import Settings, TTSProviderType
-        s = Settings()
+        # Use _env_file=None to prevent .env from overriding defaults
+        s = Settings(_env_file=None)
         assert s.tts_provider is TTSProviderType.EDGE
 
     def test_openai_tts_model_default(self):
@@ -694,7 +695,8 @@ class TestSettingsTTS:
 
     def test_mimo_defaults(self):
         from movie_narrator.config import Settings
-        s = Settings()
+        # Use _env_file=None to prevent .env from overriding defaults
+        s = Settings(_env_file=None)
         assert s.mimo_tts_model == "mimo-v2.5-tts"
         assert s.mimo_api_key is None
         assert s.mimo_base_url == "https://api.xiaomimimo.com/v1"
