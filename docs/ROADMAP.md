@@ -178,6 +178,20 @@ The Web UI is rebuilt from a Gradio single-file app into a decoupled **FastAPI +
 - [x] L2 automated E2E smoke tests: CI-runnable pipeline contract verification
 - [x] CI smoke assertions for preset sentence count (R4 regression guard)
 
+### v0.4.19 faster-whisper Backend + L2 Hand-Test Passed
+
+> 6 PRs landed in this release. Focus: resolve WhisperX CPU compatibility blocker with environment-adaptive faster-whisper backend, unlock O10 (embedding_ratio > 0), close L2 hand-test.
+
+- [x] **faster-whisper backend** with `select_align_backend()` — environment-adaptive: GPU/Linux CPU → whisperx (word-level), Windows CPU → faster_whisper (no k2-fsa dependency)
+- [x] **`align_backend` param** in `job.yaml` for explicit override
+- [x] **match.py faster-whisper fallback** — second WhisperX call site (`_transcribe_video_audio`) also gets faster-whisper, unlocking O10
+- [x] **`_remap_segments()` + `_detect_drift()` extraction** — eliminates ~45 lines of duplicated code between WhisperX and faster-whisper paths
+- [x] **`status.align` semantics documented** — `success` for faster-whisper (not `failed`), `align_fallback` flag carries segment-level signal
+- [x] **CI trigger fix** — feature/hotfix pushes no longer trigger CI (only main + PR), eliminating duplicate runs
+- [x] **`collect_artifacts` clips** — per-segment `.mp4` clips now in artifact list
+- [x] **3 stale remote branches deleted** — `feature/core-engine-production-quality`, `feature/docs-sync-with-code`, `release/v0.4.11`
+- [x] **L2 hand-test passed** — O1-O10 100% achieved (G1 满江红 + G3 飞驰人生3, `embedding_ratio=1.00`, `degraded_steps=[]`)
+
 ### v0.4.18 Core Engine Hardening (L2-ready observability + degradation visibility)
 
 > 8 PRs landed in this release. Focus: make degradation visible instead of silent, harden the match/align boundaries, surface F4 / C1 / MS-* bugs as metadata for L2 hand-tests.

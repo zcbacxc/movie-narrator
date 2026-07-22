@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.19] - 2026-07-22
+
+### Added (WhisperX compatibility blocker resolved — faster-whisper backend + L2 hand-test passed)
+
+- **faster-whisper backend** (`pipeline/_align_backend.py`): environment-adaptive backend selection for audio alignment. WhisperX (pyannote VAD → speechbrain → k2-fsa) has no prebuilt Windows CPU wheel and torch 2.8 `weights_only=True` rejects pyannote's omegaconf pickle. faster-whisper (CTranslate2) has none of these dependencies. L2 handtest: `faster-whisper small` transcribes 60s Chinese audio in 1.9s on CPU.
+- **`select_align_backend()`**: auto-detects GPU/CPU + OS + importability. GPU or Linux CPU → whisperx (word-level alignment); Windows CPU → faster_whisper (k2-fsa unavailable); neither importable → skip. User can override via `align_backend: whisperx|faster_whisper` in `job.yaml`.
+- **`transcribe_with_faster_whisper()`**: shared transcription function for both `align.py` (narration audio) and `match.py` (video audio track). Returns segment-level `{"start", "end", "text"}` dicts.
+- **`_remap_segments()` + `_detect_drift()`**: extracted from duplicated code in WhisperX and faster-whisper paths. Thresholds centralized as module constants (`_DRIFT_THRESHOLD`, `_BACKWARD_JUMP_RATIO`, `_MIN_SEGMENT_DURATION`).
+- **faster-whisper in `[ml]` and `[full]` extras**: `faster-whisper>=1.0` added alongside `whisperx>=3.0`.
+- **`align_backend` param**: added to `job.yaml` whitelist (`merge.py`, `load.py`, `schema.py`).
+- **3 new metadata fields**: `align_backend_used`, `align_backend_reason`, `align_backend_attempted`.
+- **`status.align` semantics table** in `docs/ARCHITECTURE.md`: documents `success`/`failed`/`skipped`/`disabled` + `align_fallback` flag + `_degraded_steps` membership.
+- **CI trigger fix**: feature/hotfix branch pushes no longer trigger CI (only `main` push + PR events). Eliminates duplicate CI runs from push + PR sync.
+- **`collect_artifacts` clips collection**: per-segment `.mp4` clips from `export_clips` step are now included in artifact list for Web UI download.
+
+### Fixed
+
+- **WhisperX CPU blocker (align.py)**: `align_audio` now uses `select_align_backend()` instead of hardcoded `import whisperx`. On Windows CPU, automatically falls back to faster-whisper.
+- **WhisperX CPU blocker (match.py)**: `_transcribe_video_audio` had a second hardcoded `import whisperx` call site (PR #65 missed it). Added faster-whisper fallback. This was the root cause of `embedding_ratio=0%` — without video audio transcription, all scene captions were placeholders → `fake_ratio=1.0 > 0.7` → forced heuristic match.
+- **faster-whisper success path status**: `status.align` now reports `success` (not `failed`) when faster-whisper transcription + remapping succeeds. `align_fallback=True` still marks segment-level only, but the step no longer pollutes `_degraded_steps`. L2 handtest confirmed: `embedding_ratio=1.0` with faster-whisper, output quality is not degraded.
+- **CI duplicate runs**: feature branch push + PR sync triggered 2 batches of CI runs (different concurrency groups). Fixed by removing `feature/*` and `hotfix/*` from push trigger.
+
+### Changed
+
+- **3 stale remote branches deleted**: `feature/core-engine-production-quality` (merged via PR #37), `feature/docs-sync-with-code` (merged via PR #51), `release/v0.4.11` (merged via PR #32, version long superseded).
+- **`probe()` supports `faster_whisper`**: added to `_HINTS` and `module_names` in `utils/optional_deps.py`.
+
+### L2 Hand-Test Results (2026-07-21/22)
+
+4-PR fix chain resolved the WhisperX compatibility blocker and unlocked O10 (`embedding_ratio > 0`):
+
+| PR | Fix | Key metric change |
+|----|-----|-------------------|
+| #65 | align.py faster-whisper backend | `align_segments`: 0 → 9 |
+| #66 | extract `_remap_segments` + document semantics | (refactor, no behavior change) |
+| #67 | match.py faster-whisper fallback | `embedding_ratio`: 0.00 → 1.00 |
+| #68 | faster-whisper success path → `success` | `degraded_steps`: `["align_audio"]` → `[]` |
+
+L2 objective exit criteria (O1-O10) **100% achieved** across two films (G1 满江红 + G3 飞驰人生3):
+- `align_status: success`, `degraded_steps: []`, `embedding_ratio: 1.00`, `qa.ok: true`
+
+See [`docs/checklists/L2_HANDTEST_20260721.md`](docs/checklists/L2_HANDTEST_20260721.md) for full v1→v4 progression.
+
 ## [0.4.18] - 2026-07-19
 
 ### Added (Core engine hardening — 8 PRs, L2-ready observability + degradation visibility)
