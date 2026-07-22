@@ -103,6 +103,9 @@ def merge_job(
             "render_require_footage", "render_min_footage_coverage",
             # QA
             "qa_enabled", "qa_max_silence_db", "qa_min_duration_ratio", "qa_max_duration_ratio",
+            # Prompt shaping (preset-driven, but also YAML-configurable)
+            "prompt_target_sentences", "prompt_target_segment_duration",
+            "prompt_max_chars_per_sentence", "prompt_hook_seconds",
             # Async
             "async_timeout", "async_max_workers",
             # Video sizes

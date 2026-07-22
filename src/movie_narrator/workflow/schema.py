@@ -83,6 +83,7 @@ class JobParams(BaseModel):
     qa_max_duration_ratio: Optional[float] = None
     # ── Prompt shaping (preset-driven) ──
     prompt_target_sentences: Optional[int] = None
+    prompt_target_segment_duration: Optional[float] = None
     prompt_max_chars_per_sentence: Optional[int] = None
     prompt_hook_seconds: Optional[int] = None
     # ── Async ──
