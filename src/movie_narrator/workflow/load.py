@@ -78,6 +78,7 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
             "match_min_score", "match_speed_clamp_min", "match_speed_clamp_max",
             "scene_merge_min_duration", "embedding_model_name",
             "match_drop_scene_min_duration",
+            "match_diversity_window", "match_max_scene_reuse",
             # BGM + loudness
             "bgm_gain_db", "bgm_duck_db", "bgm_normalize", "audio_target_dbfs",
             # TTS pacing

@@ -846,3 +846,37 @@ def test_dynamic_count_60s_matches_preset_baseline(tmp_path):
             f"{name}: 60s dynamic count {dynamic_count} != "
             f"preset baseline {base_count}"
         )
+
+
+# ── WP5: max_chars hard truncation tests ──
+
+
+def test_truncate_to_max_chars_no_truncation_needed():
+    """Text within limit is unchanged."""
+    from movie_narrator.pipeline.script import _truncate_to_max_chars
+    assert _truncate_to_max_chars("短句", 10) == "短句"
+
+
+def test_truncate_to_max_chars_hard_cut():
+    """Text exceeding limit with no punctuation is hard-cut."""
+    from movie_narrator.pipeline.script import _truncate_to_max_chars
+    result = _truncate_to_max_chars("abcdefghij", 5)
+    assert result == "abcde"
+
+
+def test_truncate_to_max_chars_cut_at_punctuation():
+    """Text exceeding limit is cut at last punctuation before limit."""
+    from movie_narrator.pipeline.script import _truncate_to_max_chars
+    # "这是一句，很长的中文测试句子" with max_chars=8
+    # Comma at position 4, within the first 8 chars
+    text = "这是一句，很长的中文测试句子"
+    result = _truncate_to_max_chars(text, 8)
+    assert len(result) <= 8
+    assert result.endswith("，")
+
+
+def test_truncate_to_max_chars_empty_after_truncation():
+    """Edge case: punctuation-only text truncates to empty."""
+    from movie_narrator.pipeline.script import _truncate_to_max_chars
+    # Single punctuation char within limit
+    assert _truncate_to_max_chars("，", 1) == "，"
