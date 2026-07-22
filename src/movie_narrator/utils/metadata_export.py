@@ -66,5 +66,7 @@ def build_metadata_json(ctx: Context) -> Dict[str, Any]:
         "footage_coverage": ctx.metadata.get("footage_coverage"),
         # ── WP5: duration metrics (target vs actual) ──
         "duration_metrics": ctx.metadata.get("duration_metrics"),
+        # ── WP5: script truncation audit ──
+        "script_truncated": ctx.metadata.get("script_truncated"),
     }
     return meta

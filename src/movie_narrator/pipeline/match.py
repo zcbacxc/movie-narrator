@@ -335,21 +335,27 @@ def _clamp_scene_window(
 
 def _apply_diversity(
     matched_clips: list, scenes: list, window: int = 3, max_reuse: int = 2
-) -> int:
+) -> tuple[int, list[dict]]:
     """Post-process matched clips to reduce consecutive scene reuse (WP3).
 
     If a scene index appears more than ``max_reuse`` times within a
     sliding window of ``window`` segments, swap the latest occurrence
-    to the nearest unused scene. Returns the number of swaps made.
+    to the nearest unused scene.
+
+    Returns ``(swaps_count, swaps_log)`` where ``swaps_log`` is a list
+    of ``{"segment_index": int, "old_scene": int, "new_scene": int}``
+    dicts for auditability — downstream consumers can distinguish
+    original embedding scores from post-swap scores.
 
     Only swaps ``scene_index`` / ``src_start`` / ``src_end`` — score
     and source remain unchanged (the match quality is not affected,
     just the footage selection).
     """
     if not matched_clips or len(scenes) <= 1:
-        return 0
+        return 0, []
 
     swaps = 0
+    swaps_log: list[dict] = []
     for i in range(len(matched_clips)):
         # Count scene reuse in the look-back window [i-window+1, i]
         win_start = max(0, i - window + 1)
@@ -382,12 +388,18 @@ def _apply_diversity(
             clamp_min=0.85,
             clamp_max=1.25,
         )
+        old_scene = matched_clips[i].scene_index
         matched_clips[i].scene_index = best_scene.index
         matched_clips[i].src_start = clamped_start
         matched_clips[i].src_end = clamped_end
         swaps += 1
+        swaps_log.append({
+            "segment_index": matched_clips[i].segment_index,
+            "old_scene": old_scene,
+            "new_scene": best_scene.index,
+        })
 
-    return swaps
+    return swaps, swaps_log
 
 
 def match_clips(ctx: Context) -> Context:
@@ -648,7 +660,7 @@ def _match_clips_impl(
     # Prevent consecutive scene reuse: if the same scene index appears
     # more than match_max_scene_reuse times within match_diversity_window
     # segments, swap later occurrences to the nearest unused scene.
-    diversity_swaps = _apply_diversity(
+    diversity_swaps, diversity_swaps_log = _apply_diversity(
         matched_clips, scenes,
         window=ctx.metadata.get("match_diversity_window", 3),
         max_reuse=ctx.metadata.get("match_max_scene_reuse", 2),
@@ -745,6 +757,7 @@ def _match_clips_impl(
         "degraded_reason": degraded_reason,
         "diversity": {
             "swaps": diversity_swaps,
+            "swaps_log": diversity_swaps_log,
             "window": ctx.metadata.get("match_diversity_window", 3),
             "max_reuse": ctx.metadata.get("match_max_scene_reuse", 2),
         },

@@ -185,6 +185,8 @@ def _expand_beats_to_script(
     raw_segments = data.get("segments", [])
 
     segments = []
+    truncated_count = 0
+    truncated_details: list[dict] = []
     for item in raw_segments:
         if isinstance(item, str):
             text = item.strip()
@@ -195,10 +197,25 @@ def _expand_beats_to_script(
         # Skip empty / whitespace-only segments — they'd produce
         # silent TTS audio and break the count contract.
         if text:
+            original_len = len(text)
             # WP5: hard-truncate to max_chars (LLM may ignore prompt)
             text = _truncate_to_max_chars(text, max_chars)
+            if len(text) < original_len:
+                truncated_count += 1
+                truncated_details.append({
+                    "original_len": original_len,
+                    "truncated_len": len(text),
+                })
             if text:
                 segments.append(ScriptSegment(text=text))
+
+    # WP5: audit metadata — track truncation for diagnostics
+    if truncated_count > 0:
+        ctx.metadata["script_truncated"] = {
+            "count": truncated_count,
+            "max_chars": max_chars,
+            "details": truncated_details,
+        }
 
     if not segments:
         raise ValueError("Phase 2: LLM returned zero segments")

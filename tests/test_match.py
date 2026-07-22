@@ -1159,8 +1159,9 @@ def test_apply_diversity_no_swaps_needed():
                     src_start=4, src_end=6, score=1.0, scene_index=2, source="heuristic"),
     ]
     scenes = [SimpleNamespace(index=i, start=i*2, end=i*2+2) for i in range(5)]
-    swaps = _apply_diversity(clips, scenes, window=3, max_reuse=2)
+    swaps, swaps_log = _apply_diversity(clips, scenes, window=3, max_reuse=2)
     assert swaps == 0
+    assert swaps_log == []
     assert clips[0].scene_index == 0
     assert clips[1].scene_index == 1
     assert clips[2].scene_index == 2
@@ -1180,8 +1181,12 @@ def test_apply_diversity_swaps_consecutive_reuse():
                     src_start=4, src_end=6, score=1.0, scene_index=1, source="embedding"),
     ]
     scenes = [SimpleNamespace(index=i, start=i*2, end=i*2+2) for i in range(5)]
-    swaps = _apply_diversity(clips, scenes, window=3, max_reuse=2)
+    swaps, swaps_log = _apply_diversity(clips, scenes, window=3, max_reuse=2)
     assert swaps == 1
+    assert len(swaps_log) == 1
+    assert swaps_log[0]["old_scene"] == 1
+    assert swaps_log[0]["new_scene"] != 1
+    assert swaps_log[0]["segment_index"] == 2
     # 3rd clip should be swapped to a different scene
     assert clips[2].scene_index != 1
 
@@ -1201,6 +1206,7 @@ def test_apply_diversity_no_swap_when_all_scenes_used():
     ]
     # Only 2 scenes available — both used in window, can't swap
     scenes = [SimpleNamespace(index=i, start=i*2, end=i*2+2) for i in range(2)]
-    swaps = _apply_diversity(clips, scenes, window=3, max_reuse=1)
+    swaps, swaps_log = _apply_diversity(clips, scenes, window=3, max_reuse=1)
     # Scene 0 appears 2 times in window of 3, max_reuse=1, but no unused scene available
     assert swaps == 0
+    assert swaps_log == []
