@@ -90,6 +90,7 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
             "research_provider",
             # WhisperX
             "whisperx_device", "whisperx_model", "whisperx_language",
+            "align_backend",
             # Render
             "render_fps", "render_video_codec", "render_audio_codec", "render_threads",
             "render_bg_color", "render_font_size", "render_output_name", "render_ffmpeg_timeout",
@@ -102,7 +103,8 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
             "qa_enabled", "qa_max_silence_db",
             "qa_min_duration_ratio", "qa_max_duration_ratio",
             # Prompt shaping (preset-driven)
-            "prompt_target_sentences", "prompt_max_chars_per_sentence",
+            "prompt_target_sentences", "prompt_target_segment_duration",
+            "prompt_max_chars_per_sentence",
             "prompt_hook_seconds",
             # Async
             "async_timeout", "async_max_workers",
