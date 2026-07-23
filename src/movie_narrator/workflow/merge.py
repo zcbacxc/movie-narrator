@@ -101,6 +101,7 @@ def merge_job(
             "render_subtitle_position", "render_subtitle_max_width_ratio",
             "render_subtitle_bottom_margin_ratio",
             "render_require_footage", "render_min_footage_coverage",
+            "render_profile",
             # QA
             "qa_enabled", "qa_max_silence_db", "qa_min_duration_ratio", "qa_max_duration_ratio",
             # Prompt shaping (preset-driven, but also YAML-configurable)

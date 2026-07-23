@@ -47,10 +47,11 @@ _CI_MOCK_SEGMENTS = [
 def _trim_segments(segments: List[ScriptSegment], target: int) -> List[ScriptSegment]:
     """Trim segments to exactly *target* count if over.
 
-    Strategy: preserve the first ``hook_count`` segments (hooks must stay),
-    then from the remaining pool select those whose length is closest to
-    the median.  This avoids outlier sentences (very short or very long)
-    and keeps the most "normal" content.
+    Strategy: preserve the first ``hook_count`` segments (hooks must stay)
+    and the last segment (tail climax/outro must stay), then from the
+    remaining pool select those whose length is closest to the median.
+    This avoids outlier sentences (very short or very long) and keeps
+    the most "normal" content.
 
     If ``len(segments) <= target``, returns as-is (no padding).
     """
@@ -59,10 +60,18 @@ def _trim_segments(segments: List[ScriptSegment], target: int) -> List[ScriptSeg
 
     # Lock the first hook_count segments (hooks must be preserved)
     hook_count = min(3, target)
-    locked = list(segments[:hook_count])
-    pool = list(segments[hook_count:])
+    # ST-06: Also lock the last segment (tail climax/outro protection)
+    # Only lock tail if we have enough segments to spare.
+    lock_tail = target > hook_count + 1 and len(segments) > target + 1
 
-    need = target - hook_count
+    locked = list(segments[:hook_count])
+    if lock_tail:
+        locked.append(segments[-1])
+        pool = list(segments[hook_count:-1])
+    else:
+        pool = list(segments[hook_count:])
+
+    need = target - len(locked)
     if need <= 0:
         return locked[:target]
 

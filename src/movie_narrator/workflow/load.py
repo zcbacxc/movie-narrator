@@ -99,6 +99,7 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
             "render_subtitle_position", "render_subtitle_max_width_ratio",
             "render_subtitle_bottom_margin_ratio",
             "render_require_footage", "render_min_footage_coverage",
+            "render_profile",
             # Deliverable QA
             "qa_enabled", "qa_max_silence_db",
             "qa_min_duration_ratio", "qa_max_duration_ratio",

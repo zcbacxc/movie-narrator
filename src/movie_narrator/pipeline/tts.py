@@ -21,6 +21,31 @@ _TTS_SEGMENT_RETRIES = 3
 _TTS_RETRY_DELAY = 1.0  # seconds
 
 
+def _build_audio(
+    results: list[tuple[AudioSegment, float]],
+    segments: list,
+    pause_ms: int,
+) -> tuple[AudioSegment, list[TimedSegment]]:
+    """Assemble per-segment audio into a single track with inter-segment pauses.
+
+    Returns (combined_audio, timed_segments) where timed_segments[i] has
+    start/end timestamps relative to the combined track.
+    """
+    combined = AudioSegment.empty()
+    timed_segments: list[TimedSegment] = []
+    current_time = 0.0
+    for i, (audio, duration) in enumerate(results):
+        combined += audio
+        pause = (pause_ms / 1000.0) if i < len(segments) - 1 else 0
+        if pause > 0:
+            combined += AudioSegment.silent(duration=pause_ms)
+        timed_segments.append(
+            TimedSegment(text=segments[i].text, start=current_time, end=current_time + duration)
+        )
+        current_time += duration + pause
+    return combined, timed_segments
+
+
 def generate_voice(ctx: Context) -> Context:
     settings = get_settings()
     output_dir = Path(ctx.output_dir)
@@ -34,7 +59,6 @@ def generate_voice(ctx: Context) -> Context:
     audio_fmt = ctx.metadata.get("tts_audio_format", "mp3")
     audio_bitrate = ctx.metadata.get("tts_audio_bitrate", "128k")
     console = ctx.services.console
-
     def _key(seg_text: str) -> TTSCacheKey:
         return TTSCacheKey(
             schema_version=CACHE_SCHEMA_VERSION,
@@ -100,18 +124,62 @@ def generate_voice(ctx: Context) -> Context:
 
     results = run_async(_run_all())
 
-    combined = AudioSegment.empty()
-    timed_segments = []
-    current_time = 0.0
-    for i, (audio, duration) in enumerate(results):
-        combined += audio
-        pause = (pause_ms / 1000.0) if i < len(ctx.segments) - 1 else 0
-        if pause > 0:
-            combined += AudioSegment.silent(duration=pause_ms)
-        timed_segments.append(
-            TimedSegment(text=ctx.segments[i].text, start=current_time, end=current_time + duration)
-        )
-        current_time += duration + pause
+    combined, timed_segments = _build_audio(
+        results, ctx.segments, pause_ms
+    )
+
+    # ── WP5: duration pause feedback ─────────────────────────
+    # If narration exceeds target duration by >15%, try reducing pause_ms
+    # and rebuilding.  This is a v1 approach: only adjusts pause, does NOT
+    # re-run TTS or trim sentences.
+    target_duration = ctx.metadata.get("duration") or ctx.duration
+    if target_duration and pause_ms > 50:
+        actual_duration = timed_segments[-1].end if timed_segments else 0
+        ratio = actual_duration / target_duration if target_duration else 1.0
+        if ratio > 1.15:
+            # Calculate a pause that should bring us closer to target
+            # total = sum(audio) + (n-1) * pause
+            # We want: sum(audio) + (n-1) * new_pause ≈ target
+            audio_only = sum(d for _, d in results)
+            n_pause = max(1, len(results) - 1)
+            new_pause_ms = max(50, int((target_duration - audio_only) * 1000 / n_pause))
+            if new_pause_ms < pause_ms:
+                console.inline_warn(
+                    f"Narration {actual_duration:.1f}s exceeds target {target_duration:.1f}s "
+                    f"(ratio {ratio:.2f}). Reducing pause {pause_ms}ms → {new_pause_ms}ms."
+                )
+                combined, timed_segments = _build_audio(
+                    results, ctx.segments, new_pause_ms
+                )
+                ctx.metadata["duration_metrics"] = {
+                    "target_sec": target_duration,
+                    "narration_sec": round(timed_segments[-1].end, 2) if timed_segments else 0,
+                    "ratio_vs_target": round(
+                        (timed_segments[-1].end / target_duration) if timed_segments and target_duration else 0, 3
+                    ),
+                    "pause_ms_original": pause_ms,
+                    "pause_ms_applied": new_pause_ms,
+                    "adjusted": True,
+                }
+            else:
+                ctx.metadata["duration_metrics"] = {
+                    "target_sec": target_duration,
+                    "narration_sec": round(actual_duration, 2),
+                    "ratio_vs_target": round(ratio, 3),
+                    "pause_ms_original": pause_ms,
+                    "pause_ms_applied": pause_ms,
+                    "adjusted": False,
+                    "reason": "pause_already_at_floor",
+                }
+        else:
+            ctx.metadata["duration_metrics"] = {
+                "target_sec": target_duration,
+                "narration_sec": round(actual_duration, 2),
+                "ratio_vs_target": round(ratio, 3),
+                "pause_ms_original": pause_ms,
+                "pause_ms_applied": pause_ms,
+                "adjusted": False,
+            }
 
     audio_path = output_dir / f"narration.{audio_fmt}"
     # Explicit bitrate prevents pydub's default 32 kbps export, which

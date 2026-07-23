@@ -264,6 +264,24 @@ def build_context(
         for key in PARAM_WHITELIST:
             if key in effective_params and effective_params[key] is not None:
                 ctx.metadata[key] = effective_params[key]
+
+    # ── WP7: Draft profile — fast iteration override ──
+    # When render_profile=draft, override render params for speed.
+    # User-supplied params (via job.yaml or preset) always take precedence
+    # over draft defaults — draft only fills gaps.
+    render_profile = (params or {}).get("render_profile") or (effective_params.get("render_profile"))
+    if render_profile == "draft":
+        _DRAFT_RENDER_DEFAULTS = {
+            "render_crf": 28,
+            "render_preset": "ultrafast",
+            "render_faststart": True,
+        }
+        for dk, dv in _DRAFT_RENDER_DEFAULTS.items():
+            # Only set if user didn't explicitly set this param
+            if dk not in effective_params or effective_params.get(dk) is None:
+                ctx.metadata[dk] = dv
+        ctx.metadata["render_profile"] = "draft"
+
     if config_path:
         ctx.metadata["config_path"] = config_path
 
