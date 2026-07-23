@@ -278,6 +278,18 @@ segment's end. This is preferable to a 100ms flash on screen.
 
 **ST-06 tail protection**: `_trim_segments` now locks the last segment (tail climax/outro) in addition to the first 3 hooks. Only activates when `target > 4 and len(segments) > target + 1` — no behavior change for typical configurations (target ≥ 8).
 
+### v0.4.22 audit fields (EP1 act-weighted timeline)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `match_summary.timeline.mode` | str | `"uniform"` (default) or `"weighted_acts"` (v0.4.22+) |
+| `match_summary.timeline.act_weights` | list\|null | Weight per act, e.g. `[0.15, 0.25, 0.40, 0.20]`; null when uniform (v0.4.22+) |
+| `match_summary.timeline.segments_per_act` | list\|null | Segment count per act, e.g. `[3, 5, 7, 3]`; null when uniform (v0.4.22+) |
+
+**`timeline.act_weights` is null (not absent) when uniform mode** — the field always exists so downstream consumers can branch on `mode` without checking key presence.
+
+**Weighted acts fallback**: when `match_timeline_mode="weighted_acts"` but `< 8 scenes` or `< 4 segments`, the mode silently falls back to `uniform` and `timeline.mode` reflects `"uniform"`. This ensures the feature never breaks on short videos.
+
 ## Extension Points
 
 - **New pipeline step**: append to `STEPS` in `pipeline/runner.py`. Signature must be `(ctx: Context) -> Context`.

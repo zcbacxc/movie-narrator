@@ -178,6 +178,18 @@ The Web UI is rebuilt from a Gradio single-file app into a decoupled **FastAPI +
 - [x] L2 automated E2E smoke tests: CI-runnable pipeline contract verification
 - [x] CI smoke assertions for preset sentence count (R4 regression guard)
 
+### v0.4.22 EP1 — Act-Weighted Timeline Partitioning
+
+> 1 PR landed (#78). Highest-value visual quality improvement in Stage D: transforms match from flat proportional mapping to dramatic four-act pacing.
+
+- [x] **EP1 act-weighted match** — `match_timeline_mode="weighted_acts"` partitions scenes into 4 time buckets, allocates segments by weight `[0.15, 0.25, 0.40, 0.20]` (#78)
+- [x] **3 match helpers** — `_partition_scenes_by_act` / `_assign_segments_to_acts` / `_get_act_candidate_indices` (#78)
+- [x] **Heuristic + embedding act-constrained** — both paths restrict candidates to act bucket ± overflow (#78)
+- [x] **Timeline audit** — `match_summary.timeline.{mode, act_weights, segments_per_act}` (#78)
+- [x] **O(n²) → O(n) optimization** — pre-computed `act_seg_map` dict (#78)
+- [x] **18 new tests** — 3 unit classes + 6 integration tests, 495 total passed (#78)
+- [x] **User code review passed** — gating, fallbacks, whitelist sync, fancy indexing safety
+
 ### v0.4.21 Stage D Remaining — Pause Feedback + Tail Protection + Draft Profile
 
 > 1 PR landed (#77). Completes WP5 (duration feedback), ST-06 (tail trim), WP7 (draft profile). AQ-02 verified already implemented.

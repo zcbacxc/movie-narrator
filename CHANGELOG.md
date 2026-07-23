@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.22] - 2026-07-23
+
+### Added (EP1 — Act-weighted timeline partitioning)
+
+- **EP1 act-weighted match** (`pipeline/match.py`): new `match_timeline_mode="weighted_acts"` partitions scenes into 4 equal-time buckets and assigns narration segments to acts by weight. Default weights `[0.15, 0.25, 0.40, 0.20]` concentrate 40% of segments in act 3 (climax), replacing the flat "fast-forward browse" feel with dramatic pacing. Both heuristic and embedding paths are act-constrained — embedding candidates restricted to act bucket ± adjacent overflow. Falls back to `uniform` when < 8 scenes or < 4 segments (#78).
+- **3 new match helpers** (`pipeline/match.py`):
+  - `_partition_scenes_by_act()` — divides scenes into N equal-time buckets by `scene.start`
+  - `_assign_segments_to_acts()` — allocates segments to acts by weight, counts sum exactly to n_segments
+  - `_get_act_candidate_indices()` — returns scene indices for act + adjacent overflow
+- **Timeline audit** (`match_summary.timeline`): `{mode, act_weights, segments_per_act}` records which timeline mode was used and how segments were distributed across acts (#78).
+- **2 new params**: `match_timeline_mode` + `match_act_weights` added to whitelist across all 4 files (`schema.py`, `merge.py`, `load.py`, `runner.py`) (#78).
+
+### Changed
+
+- **Heuristic loop O(n²) → O(n)**: pre-computed `act_seg_map` dict before the loop instead of `list(enumerate).filter` per segment (#78).
+- **`job.example.yaml`**: added `match_timeline_mode` + `match_act_weights` examples + whitelist comment update (#78).
+
+### Verified
+
+- 18 new EP1 tests: 3 unit test classes (partition, assign, candidates) + 6 integration tests (act-constrained heuristic, fallback gating, uniform default, custom weights, src_start distribution).
+- Full test suite: 495 passed (+18), 23 skipped, 0 failures.
+- User code review verified: gating, empty bucket fallback, `_cosine_top1 < 0` fallback, 4-file whitelist sync, `scene.index` safety in fancy indexing.
+
 ## [0.4.21] - 2026-07-23
 
 ### Added (Stage D remaining — WP5 pause feedback, ST-06 tail protection, WP7 draft profile)
