@@ -69,7 +69,9 @@ narration_preset: ""        # douyin-fast | mainstream-dry | bilibili-long
 #   场景: scene_threshold / scene_frame_skip
 #   匹配: match_min_score / match_speed_clamp_min / match_speed_clamp_max
 #          scene_merge_min_duration / match_drop_scene_min_duration
-#          embedding_model_name / match_diversity_window / match_max_scene_reuse
+#          embedding_model_name
+#          match_diversity_window / match_max_scene_reuse
+#          match_timeline_mode / match_act_weights
 #   BGM:  bgm_gain_db / bgm_duck_db / bgm_normalize / audio_target_dbfs
 #   TTS:  tts_pause_ms / tts_max_concurrent / tts_audio_format / tts_audio_bitrate
 #   翻译: translate_source_lang / translate_provider / translate_retries
@@ -104,6 +106,8 @@ params:
   # embedding_model_name: paraphrase-multilingual-MiniLM-L12-v2
   # match_diversity_window: 3       # 滑动窗口大小（段），检测连续场景复用
   # match_max_scene_reuse: 2        # 窗口内同一场景最大允许出现次数（超过则换景）
+  # match_timeline_mode: uniform    # uniform（默认，全片比例映射）| weighted_acts（四幕时间桶，高光集中在高潮幕）
+  # match_act_weights: [0.15, 0.25, 0.40, 0.20]  # 四幕时间占比（开/中/高潮/尾），仅 weighted_acts 模式生效
 
   # ---- BGM / 音频 ----
   # bgm_gain_db: -18          # BGM 基础增益（dB）

@@ -402,6 +402,102 @@ def _apply_diversity(
     return swaps, swaps_log
 
 
+# ── EP1: Act-weighted timeline partitioning ────────────────
+
+
+_DEFAULT_ACT_WEIGHTS = [0.15, 0.25, 0.40, 0.20]
+
+
+def _partition_scenes_by_act(
+    scenes: List[Scene],
+    n_acts: int = 4,
+) -> List[List[Scene]]:
+    """Partition scenes into *n_acts* equal-time buckets.
+
+    Returns a list of scene lists, one per act.  Acts with no scenes
+    get an empty list — the caller is responsible for fallback.
+    """
+    if not scenes:
+        return [[] for _ in range(n_acts)]
+
+    scene_start = min(s.start for s in scenes)
+    scene_end = max(s.end for s in scenes)
+    span = scene_end - scene_start
+    if span <= 0:
+        return [list(scenes)] + [[] for _ in range(n_acts - 1)]
+
+    bucket_size = span / n_acts
+    buckets: List[List[Scene]] = [[] for _ in range(n_acts)]
+    for s in scenes:
+        idx = min(n_acts - 1, int((s.start - scene_start) / bucket_size))
+        buckets[idx].append(s)
+    return buckets
+
+
+def _assign_segments_to_acts(
+    n_segments: int,
+    weights: List[float],
+) -> List[int]:
+    """Assign *n_segments* narration segments to acts by *weights*.
+
+    Returns a list of act indices (0-based), one per segment, in
+    chronological order.  Segment counts per act are proportional to
+    weights, adjusted to sum exactly to *n_segments*.
+    """
+    n_acts = len(weights)
+    total = sum(weights)
+    if total <= 0:
+        weights = list(_DEFAULT_ACT_WEIGHTS)
+        total = sum(weights)
+    norm = [w / total for w in weights]
+
+    # Raw counts (may not sum to n_segments due to rounding)
+    counts = [max(1, round(n_segments * w)) for w in norm]
+
+    # Adjust to sum exactly to n_segments
+    while sum(counts) > n_segments:
+        max_idx = counts.index(max(counts))
+        counts[max_idx] -= 1
+    while sum(counts) < n_segments:
+        max_idx = counts.index(max(counts))
+        counts[max_idx] += 1
+
+    # Build chronological assignment list
+    assignments: List[int] = []
+    for act_idx, count in enumerate(counts):
+        assignments.extend([act_idx] * count)
+    return assignments
+
+
+def _get_act_candidate_indices(
+    act_idx: int,
+    n_acts: int,
+    act_scenes: List[List[Scene]],
+    allow_overflow: bool = True,
+) -> List[int]:
+    """Return global scene indices for act *act_idx* + optional adjacent overflow.
+
+    When the target act has no scenes, expands search to all acts.
+    """
+    # Start with the act's own scenes
+    indices = [s.index for s in act_scenes[act_idx]]
+
+    if not indices and allow_overflow:
+        # Act is empty — fall back to all scenes
+        for bucket in act_scenes:
+            indices.extend(s.index for s in bucket)
+        return indices
+
+    if allow_overflow and len(act_scenes) > 1:
+        # Add adjacent acts (±1) for overflow candidates
+        for delta in (-1, 1):
+            neighbor = act_idx + delta
+            if 0 <= neighbor < len(act_scenes):
+                indices.extend(s.index for s in act_scenes[neighbor])
+
+    return indices
+
+
 def match_clips(ctx: Context) -> Context:
     if not ctx.source_video_path:
         ctx.status.match = "skipped"
@@ -481,26 +577,88 @@ def _match_clips_impl(
     last_end = ctx.timed_segments[-1].end
     narr_span = last_end - first_start
 
+    # ── EP1: Act-weighted timeline partitioning ─────────────
+    # When match_timeline_mode="weighted_acts", partition scenes into 4
+    # equal-time buckets and assign narration segments to acts by weight.
+    # Each segment's heuristic midpoint is mapped within its assigned
+    # bucket (not the full timeline), and embedding candidates are
+    # restricted to the bucket (+ adjacent overflow).
+    timeline_mode = ctx.metadata.get("match_timeline_mode", "uniform")
+    act_weights = ctx.metadata.get("match_act_weights", list(_DEFAULT_ACT_WEIGHTS))
+    use_weighted_acts = (
+        timeline_mode == "weighted_acts"
+        and len(scenes) >= 8
+        and len(ctx.timed_segments) >= 4
+    )
+    if use_weighted_acts:
+        act_scenes = _partition_scenes_by_act(scenes, n_acts=len(act_weights))
+        act_assignments = _assign_segments_to_acts(
+            len(ctx.timed_segments), act_weights
+        )
+        ctx.services.console.debug(
+            f"  EP1 weighted_acts: {len(act_weights)} acts, "
+            f"segments per act: {[act_assignments.count(a) for a in range(len(act_weights))]}"
+        )
+        # Pre-compute act -> segment indices map (O(n) once, not O(n²) per segment)
+        act_seg_map: dict[int, list[int]] = {}
+        for seg_idx, act_i in enumerate(act_assignments):
+            act_seg_map.setdefault(act_i, []).append(seg_idx)
+    else:
+        act_scenes = None
+        act_assignments = None
+
     # --- Heuristic baseline -------------------------------------------------
     # Map each narration midpoint proportionally onto the scene span, pick the
     # containing scene window. Produces a stable candidate per segment with
     # score=1.0 (plan T14 normative rule).
     heuristic = []
     for i, seg in enumerate(ctx.timed_segments):
-        narr_mid = (seg.start + seg.end) / 2.0
-        if narr_span > 0:
-            ratio = (narr_mid - first_start) / narr_span
-            src_mid = scene_start + ratio * scene_span
-        else:
-            src_mid = scene_start
+        if use_weighted_acts:
+            # EP1: map within assigned act bucket
+            act_idx = act_assignments[i]
+            bucket = act_scenes[act_idx]
+            if not bucket:
+                # Empty act — fall back to all scenes
+                bucket = scenes
+            b_start = min(s.start for s in bucket)
+            b_end = max(s.end for s in bucket)
+            b_span = b_end - b_start
 
-        containing = None
-        for scene in scenes:
-            if scene.start <= src_mid <= scene.end:
-                containing = scene
-                break
-        if containing is None:
-            containing = scenes[0]
+            # Position within this segment's slot in the bucket
+            act_segs = act_seg_map[act_idx]
+            pos_in_act = act_segs.index(i)
+            n_in_act = len(act_segs)
+            if n_in_act > 1:
+                local_ratio = (pos_in_act + 0.5) / n_in_act
+            else:
+                local_ratio = 0.5
+
+            src_mid = b_start + local_ratio * b_span if b_span > 0 else b_start
+
+            # Find containing scene within bucket
+            containing = None
+            for scene in bucket:
+                if scene.start <= src_mid <= scene.end:
+                    containing = scene
+                    break
+            if containing is None:
+                containing = bucket[0]
+        else:
+            # Original uniform mapping
+            narr_mid = (seg.start + seg.end) / 2.0
+            if narr_span > 0:
+                ratio = (narr_mid - first_start) / narr_span
+                src_mid = scene_start + ratio * scene_span
+            else:
+                src_mid = scene_start
+
+            containing = None
+            for scene in scenes:
+                if scene.start <= src_mid <= scene.end:
+                    containing = scene
+                    break
+            if containing is None:
+                containing = scenes[0]
 
         heuristic.append(
             {
@@ -590,10 +748,35 @@ def _match_clips_impl(
                 scene_labels = [label for label, _ in scene_captions]
                 scene_vecs = _embed_texts(scene_labels, emb_model)
                 narration_vecs = _embed_texts([seg.text for seg in ctx.timed_segments], emb_model)
+                import numpy as np
+
                 for i, seg in enumerate(ctx.timed_segments):
-                    best_idx = _cosine_top1(narration_vecs[i], scene_vecs)
-                    best_scene = scenes[best_idx]
-                    score = float(scene_vecs[best_idx] @ narration_vecs[i])
+                    if use_weighted_acts:
+                        # EP1: restrict embedding candidates to act bucket + overflow
+                        act_idx = act_assignments[i]
+                        cand_indices = _get_act_candidate_indices(
+                            act_idx, len(act_weights), act_scenes
+                        )
+                        # Filter to valid indices within scene_vecs
+                        cand_indices = [idx for idx in cand_indices if idx < len(scene_vecs)]
+                        if not cand_indices:
+                            cand_indices = list(range(len(scenes)))
+                        cand_vecs = scene_vecs[np.array(cand_indices)]
+                        local_best = _cosine_top1(narration_vecs[i], cand_vecs)
+                        if local_best >= 0:
+                            best_idx = cand_indices[local_best]
+                            best_scene = scenes[best_idx]
+                            score = float(scene_vecs[best_idx] @ narration_vecs[i])
+                        else:
+                            best_scene = next(
+                                (s for s in scenes if s.index == heuristic[i]["scene_index"]),
+                                scenes[0],
+                            )
+                            score = 1.0
+                    else:
+                        best_idx = _cosine_top1(narration_vecs[i], scene_vecs)
+                        best_scene = scenes[best_idx]
+                        score = float(scene_vecs[best_idx] @ narration_vecs[i])
                     final.append((heuristic[i], score, best_scene, "embedding"))
                     # F1: collect raw embedding score (before low-score
                     # fallback overrides it to 1.0). Lets match_summary
@@ -760,6 +943,14 @@ def _match_clips_impl(
             "swaps_log": diversity_swaps_log,
             "window": ctx.metadata.get("match_diversity_window", 3),
             "max_reuse": ctx.metadata.get("match_max_scene_reuse", 2),
+        },
+        "timeline": {
+            "mode": "weighted_acts" if use_weighted_acts else "uniform",
+            "act_weights": act_weights if use_weighted_acts else None,
+            "segments_per_act": (
+                [act_assignments.count(a) for a in range(len(act_weights))]
+                if use_weighted_acts else None
+            ),
         },
         # Back-compat fields (kept for existing consumers)
         "total": total,
