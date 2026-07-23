@@ -26,7 +26,12 @@ def _make_ctx(tmp_path, audio=True):
 
 def test_align_disabled_without_whisperx(tmp_path):
     ctx = _make_ctx(tmp_path)
-    align_audio(ctx)
+    with pytest.MonkeyPatch.context() as m:
+        # Patch both probe references so select_align_backend returns "none"
+        # regardless of what's installed in the environment.
+        m.setattr("movie_narrator.pipeline.align.probe", lambda name: (False, ""))
+        m.setattr("movie_narrator.pipeline._align_backend.probe", lambda name: (False, ""))
+        align_audio(ctx)
     assert ctx.status.align == "disabled"
 
 
