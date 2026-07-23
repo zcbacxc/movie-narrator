@@ -82,6 +82,7 @@ def merge_job(
             "scene_merge_min_duration", "match_drop_scene_min_duration",
             "match_diversity_window", "match_max_scene_reuse",
             "match_timeline_mode", "match_act_weights",
+            "match_topk", "match_topk_reuse_penalty",
             "embedding_model_name",
             # BGM
             "bgm_gain_db", "bgm_duck_db", "bgm_normalize", "audio_target_dbfs",

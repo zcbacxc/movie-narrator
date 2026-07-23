@@ -214,6 +214,114 @@ def _cosine_top1(target_vec, candidate_matrix) -> int:
     return int(sims.argmax())
 
 
+def _cosine_topk(
+    target_vec, candidate_matrix, k: int = 5
+) -> list[tuple[int, float]]:
+    """Return top-K candidates as ``(local_index, score)`` sorted by score descending.
+
+    ``local_index`` is the row index within ``candidate_matrix``.
+    Returns an empty list if the matrix is empty or k <= 0.
+    """
+    if candidate_matrix.size == 0 or k <= 0:
+        return []
+    import numpy as np
+
+    sims = candidate_matrix @ target_vec
+    k = min(k, len(sims))
+    # argpartition for O(n) top-K, then sort the K winners
+    top_indices = np.argpartition(sims, -k)[-k:]
+    top_indices = top_indices[np.argsort(sims[top_indices])[::-1]]
+    return [(int(i), float(sims[i])) for i in top_indices]
+
+
+def _greedy_topk_assign(
+    narration_vecs,
+    scene_vecs,
+    scenes: List[Scene],
+    topk: int = 5,
+    reuse_penalty: float = 0.15,
+    reuse_window: int = 3,
+    use_weighted_acts: bool = False,
+    act_assignments: Optional[list[int]] = None,
+    act_scenes: Optional[list[list[Scene]]] = None,
+    act_weights: Optional[list[float]] = None,
+) -> list[tuple[int, float, str]]:
+    """Greedy top-K assignment with order-backtrack reuse penalty (EP3).
+
+    For each narration segment, computes top-K candidate scenes from the
+    embedding similarity, then picks the candidate with the highest
+    *adjusted* score — where scenes used in the last ``reuse_window``
+    segments get a ``reuse_penalty`` deduction.
+
+    Returns a list of ``(scene_index, score, source)`` per segment.
+    ``source`` is ``"embedding_topk"`` when top-K ran, ``"embedding_top1"``
+    when top-K is disabled (k <= 1).
+    """
+    import numpy as np
+
+    n_seg = len(narration_vecs)
+    n_scenes = len(scenes)
+    results: list[tuple[int, float, str]] = []
+    recent_usage: list[int] = []  # scene indices used recently (chronological)
+
+    source = "embedding_topk" if topk > 1 else "embedding_top1"
+
+    for i in range(n_seg):
+        # Determine candidate pool
+        if use_weighted_acts and act_assignments and act_scenes:
+            act_idx = act_assignments[i]
+            cand_indices = _get_act_candidate_indices(
+                act_idx, len(act_weights), act_scenes
+            )
+            cand_indices = [idx for idx in cand_indices if idx < n_scenes]
+            if not cand_indices:
+                cand_indices = list(range(n_scenes))
+        else:
+            cand_indices = list(range(n_scenes))
+
+        cand_vecs = scene_vecs[np.array(cand_indices)]
+
+        if topk > 1:
+            top_candidates = _cosine_topk(narration_vecs[i], cand_vecs, k=topk)
+        else:
+            # Fallback to top-1
+            best_local = _cosine_top1(narration_vecs[i], cand_vecs)
+            if best_local < 0:
+                results.append((0, 1.0, source))
+                continue
+            top_candidates = [(best_local, float(cand_vecs[best_local] @ narration_vecs[i]))]
+
+        if not top_candidates:
+            results.append((0, 1.0, source))
+            continue
+
+        # Adjust scores with reuse penalty
+        recent_set = set(recent_usage[-reuse_window:]) if recent_usage else set()
+        # Initialise from the first candidate's *adjusted* score (not raw)
+        # so that the penalty on a recently-used top-1 candidate can actually
+        # let a lower-ranked candidate win.
+        first_global = cand_indices[top_candidates[0][0]]
+        first_raw = top_candidates[0][1]
+        best_global_idx = first_global
+        best_adjusted = first_raw - reuse_penalty if first_global in recent_set else first_raw
+        best_raw = first_raw
+
+        for local_idx, raw_score in top_candidates:
+            global_idx = cand_indices[local_idx]
+            adjusted = raw_score
+            if global_idx in recent_set:
+                adjusted -= reuse_penalty
+            if adjusted > best_adjusted:
+                best_adjusted = adjusted
+                best_global_idx = global_idx
+                best_raw = raw_score
+
+        results.append((best_global_idx, best_raw, source))
+        recent_usage.append(best_global_idx)
+
+    return results
+
+
 # ── Scene merging ───────────────────────────────────────────
 
 
@@ -590,6 +698,9 @@ def _match_clips_impl(
         and len(scenes) >= 8
         and len(ctx.timed_segments) >= 4
     )
+    # EP3: top-K rerank params
+    topk = ctx.metadata.get("match_topk", 5)
+    reuse_penalty = ctx.metadata.get("match_topk_reuse_penalty", 0.15)
     if use_weighted_acts:
         act_scenes = _partition_scenes_by_act(scenes, n_acts=len(act_weights))
         act_assignments = _assign_segments_to_acts(
@@ -748,36 +859,24 @@ def _match_clips_impl(
                 scene_labels = [label for label, _ in scene_captions]
                 scene_vecs = _embed_texts(scene_labels, emb_model)
                 narration_vecs = _embed_texts([seg.text for seg in ctx.timed_segments], emb_model)
-                import numpy as np
 
-                for i, seg in enumerate(ctx.timed_segments):
-                    if use_weighted_acts:
-                        # EP1: restrict embedding candidates to act bucket + overflow
-                        act_idx = act_assignments[i]
-                        cand_indices = _get_act_candidate_indices(
-                            act_idx, len(act_weights), act_scenes
-                        )
-                        # Filter to valid indices within scene_vecs
-                        cand_indices = [idx for idx in cand_indices if idx < len(scene_vecs)]
-                        if not cand_indices:
-                            cand_indices = list(range(len(scenes)))
-                        cand_vecs = scene_vecs[np.array(cand_indices)]
-                        local_best = _cosine_top1(narration_vecs[i], cand_vecs)
-                        if local_best >= 0:
-                            best_idx = cand_indices[local_best]
-                            best_scene = scenes[best_idx]
-                            score = float(scene_vecs[best_idx] @ narration_vecs[i])
-                        else:
-                            best_scene = next(
-                                (s for s in scenes if s.index == heuristic[i]["scene_index"]),
-                                scenes[0],
-                            )
-                            score = 1.0
-                    else:
-                        best_idx = _cosine_top1(narration_vecs[i], scene_vecs)
-                        best_scene = scenes[best_idx]
-                        score = float(scene_vecs[best_idx] @ narration_vecs[i])
-                    final.append((heuristic[i], score, best_scene, "embedding"))
+                # EP3: greedy top-K assignment with reuse penalty
+                topk_results = _greedy_topk_assign(
+                    narration_vecs=narration_vecs,
+                    scene_vecs=scene_vecs,
+                    scenes=scenes,
+                    topk=topk,
+                    reuse_penalty=reuse_penalty,
+                    reuse_window=ctx.metadata.get("match_diversity_window", 3),
+                    use_weighted_acts=use_weighted_acts,
+                    act_assignments=act_assignments if use_weighted_acts else None,
+                    act_scenes=act_scenes if use_weighted_acts else None,
+                    act_weights=act_weights if use_weighted_acts else None,
+                )
+
+                for i, (scene_idx, score, source) in enumerate(topk_results):
+                    best_scene = scenes[scene_idx]
+                    final.append((heuristic[i], score, best_scene, source))
                     # F1: collect raw embedding score (before low-score
                     # fallback overrides it to 1.0). Lets match_summary
                     # distinguish "matched well" from "matched poorly".
@@ -874,15 +973,21 @@ def _match_clips_impl(
     # Records the match quality breakdown so L2 hand-test can verify
     # the main path isn't "全 heuristic 糊弄" (O9/O10 in checklist).
     # Schema per CORE_ENGINE_TREATMENT_PLAN §5.2.3.
-    embedding_count = sum(1 for mc in matched_clips if mc.source == "embedding")
+    # EP3: sources can be "embedding_topk", "embedding_top1", or "heuristic"
+    embedding_count = sum(
+        1 for mc in matched_clips
+        if mc.source in ("embedding", "embedding_topk", "embedding_top1")
+    )
     heuristic_count = sum(1 for mc in matched_clips if mc.source == "heuristic")
+    topk_count = sum(1 for mc in matched_clips if mc.source == "embedding_topk")
+    top1_count = sum(1 for mc in matched_clips if mc.source == "embedding_top1")
     total = len(matched_clips)
 
     # score stats: only for source==embedding clips that were adopted
     # (i.e. did NOT fall back to heuristic due to low score)
     adopted_embedding_scores = [
         mc.score for mc in matched_clips
-        if mc.source == "embedding"
+        if mc.source in ("embedding", "embedding_topk", "embedding_top1")
     ]
 
     def _stats(values: List[float]) -> Optional[dict]:
@@ -922,7 +1027,12 @@ def _match_clips_impl(
         "drop_min_duration": drop_min,
         "min_score": min_score,
         "speed_clamp": [clamp_min, clamp_max],
-        "source_counts": {"embedding": embedding_count, "heuristic": heuristic_count},
+        "source_counts": {
+            "embedding": embedding_count,
+            "embedding_topk": topk_count,
+            "embedding_top1": top1_count,
+            "heuristic": heuristic_count,
+        },
         "heuristic_ratio": round(heuristic_count / total, 4) if total else 1.0,
         "embedding_ratio": round(embedding_count / total, 4) if total else 0.0,
         "score": _stats(adopted_embedding_scores),
@@ -951,6 +1061,12 @@ def _match_clips_impl(
                 [act_assignments.count(a) for a in range(len(act_weights))]
                 if use_weighted_acts else None
             ),
+        },
+        "topk": {
+            "k": topk,
+            "reuse_penalty": reuse_penalty,
+            "topk_count": topk_count,
+            "top1_count": top1_count,
         },
         # Back-compat fields (kept for existing consumers)
         "total": total,

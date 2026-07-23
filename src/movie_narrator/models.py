@@ -152,7 +152,7 @@ class MatchedClip(BaseModel):
     src_end: float
     score: float
     scene_index: Optional[int] = None
-    source: Literal["scene", "heuristic", "embedding", "fallback"] = "fallback"
+    source: Literal["scene", "heuristic", "embedding", "embedding_topk", "embedding_top1", "fallback"] = "fallback"
 
 
 class Context(BaseModel):

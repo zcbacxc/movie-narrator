@@ -835,7 +835,7 @@ def test_match_clips_whisperx_scene_captions(tmp_path, monkeypatch):
     assert racing_match.scene_index == 0
     # Crying narration should match scene 1 (crying dialogue)
     assert crying_match.scene_index == 1
-    assert all(m.source == "embedding" for m in ctx.matched_clips)
+    assert all(m.source.startswith("embedding") for m in ctx.matched_clips)
 
 
 def test_match_clips_whisperx_cache_hit(tmp_path, monkeypatch):
@@ -996,7 +996,7 @@ def test_match_clips_embedding_reranks_when_available(tmp_path, monkeypatch):
     # alpha should resolve to scene 0, beta to scene 1
     assert alpha_match.scene_index == 0
     assert beta_match.scene_index == 1
-    assert all(m.source == "embedding" for m in ctx.matched_clips)
+    assert all(m.source.startswith("embedding") for m in ctx.matched_clips)
     # Cosine between one-hots is exactly 1.0
     for m in ctx.matched_clips:
         assert math.isclose(m.score, 1.0, abs_tol=1e-6)
@@ -1210,3 +1210,221 @@ def test_apply_diversity_no_swap_when_all_scenes_used():
     # Scene 0 appears 2 times in window of 3, max_reuse=1, but no unused scene available
     assert swaps == 0
     assert swaps_log == []
+
+
+# ── EP3: top-K rerank with order-backtrack reuse penalty ──
+
+
+class _EP3FakeST:
+    """Fake SentenceTransformer for EP3 tests.
+
+    Maps scene/narration texts to 3-D vectors so that:
+    - scene_0 / "zero"  → [1, 0, 0]    (cosine with [1,0,0] = 1.0)
+    - scene_1 / "one"   → [0.96, 0.28, 0]  (cosine with [1,0,0] = 0.96)
+    - alpha / beta      → [1, 0, 0]    (both narrations match scene_0 best)
+
+    After L2-normalisation all vectors are unit length (0.96² + 0.28² = 1.0),
+    so cosine = dot product.
+    """
+
+    def __init__(self, *a, **kw):
+        pass
+
+    def encode(self, texts):
+        arr = np.zeros((len(texts), 3), dtype=float)
+        for i, t in enumerate(texts):
+            tl = t.lower()
+            if "alpha" in tl or "beta" in tl:
+                arr[i] = np.array([1.0, 0.0, 0.0])
+            elif "zero" in tl or "scene 0" in tl:
+                arr[i] = np.array([1.0, 0.0, 0.0])
+            elif "one" in tl or "scene 1" in tl:
+                arr[i] = np.array([0.96, 0.28, 0.0])
+        return arr
+
+
+def _setup_ep3_ctx(tmp_path, monkeypatch, topk=None, reuse_penalty=None):
+    """Shared setup for EP3 embedding-path tests."""
+    ctx = _make_ctx(tmp_path)
+    (tmp_path / "video.mp4").write_bytes(b"00")
+    ctx.scenes = [
+        Scene(index=0, start=0.0, end=4.0),
+        Scene(index=1, start=4.0, end=10.0),
+    ]
+    ctx.timed_segments = [
+        TimedSegment(text="alpha alpha", start=0.0, end=2.0),
+        TimedSegment(text="beta beta", start=2.5, end=5.0),
+    ]
+    if topk is not None:
+        ctx.metadata["match_topk"] = topk
+    if reuse_penalty is not None:
+        ctx.metadata["match_topk_reuse_penalty"] = reuse_penalty
+
+    monkeypatch.setattr(match_module, "probe", lambda name: (True, ""))
+    mock_transcript = [
+        {"start": 0.0, "end": 3.5, "text": "scene zero speech"},
+        {"start": 4.0, "end": 9.0, "text": "scene one speech"},
+    ]
+    monkeypatch.setattr(
+        match_module, "_transcribe_video_audio", lambda *a, **k: mock_transcript
+    )
+
+    fake_mod = ModuleType("sentence_transformers")
+    fake_mod.SentenceTransformer = _EP3FakeST
+    monkeypatch.setitem(sys.modules, "sentence_transformers", fake_mod)
+    return ctx
+
+
+def test_ep3_topk_reuse_penalty_swaps_scene(tmp_path, monkeypatch):
+    """EP3: reuse penalty causes segment 1 to pick a different scene.
+
+    Both narrations match scene_0 best (cosine=1.0), but scene_1 is close
+    (cosine=0.96). With reuse_penalty=0.15, segment 1's adjusted score for
+    scene_0 (1.0-0.15=0.85) < scene_1 (0.96) → picks scene_1.
+    """
+    ctx = _setup_ep3_ctx(tmp_path, monkeypatch, topk=5, reuse_penalty=0.15)
+
+    match_clips(ctx)
+    assert ctx.status.match == "success"
+    assert len(ctx.matched_clips) == 2
+    # Segment 0 → scene_0 (best raw, no penalty)
+    assert ctx.matched_clips[0].scene_index == 0
+    # Segment 1 → scene_1 (scene_0 penalized: 1.0-0.15=0.85 < 0.96)
+    assert ctx.matched_clips[1].scene_index == 1
+    # Both use embedding_topk source
+    assert all(m.source == "embedding_topk" for m in ctx.matched_clips)
+
+
+def test_ep3_topk_disabled_top1_mode(tmp_path, monkeypatch):
+    """EP3: topk=1 → source is "embedding_top1", no reuse-penalty swap.
+
+    In top-1 mode only one candidate is considered per segment, so the
+    reuse penalty cannot cause a swap. Both segments pick scene_0.
+    """
+    ctx = _setup_ep3_ctx(tmp_path, monkeypatch, topk=1, reuse_penalty=0.15)
+
+    match_clips(ctx)
+    assert ctx.status.match == "success"
+    assert len(ctx.matched_clips) == 2
+    # Both segments pick scene_0 (only 1 candidate, no swap possible)
+    assert ctx.matched_clips[0].scene_index == 0
+    assert ctx.matched_clips[1].scene_index == 0
+    assert all(m.source == "embedding_top1" for m in ctx.matched_clips)
+
+
+def test_ep3_topk_zero_penalty_no_swap(tmp_path, monkeypatch):
+    """EP3: reuse_penalty=0 → no penalty, both segments pick scene_0."""
+    ctx = _setup_ep3_ctx(tmp_path, monkeypatch, topk=5, reuse_penalty=0.0)
+
+    match_clips(ctx)
+    assert ctx.status.match == "success"
+    assert len(ctx.matched_clips) == 2
+    # No penalty → both pick scene_0 (best raw score)
+    assert ctx.matched_clips[0].scene_index == 0
+    assert ctx.matched_clips[1].scene_index == 0
+    assert all(m.source == "embedding_topk" for m in ctx.matched_clips)
+
+
+def test_ep3_topk_audit_fields(tmp_path, monkeypatch):
+    """EP3: match_summary contains topk audit section."""
+    ctx = _setup_ep3_ctx(tmp_path, monkeypatch, topk=5, reuse_penalty=0.15)
+
+    match_clips(ctx)
+    summary = ctx.metadata["match_summary"]
+
+    assert "topk" in summary
+    assert summary["topk"]["k"] == 5
+    assert summary["topk"]["reuse_penalty"] == 0.15
+    assert summary["topk"]["topk_count"] == 2  # both segments used embedding_topk
+    assert summary["topk"]["top1_count"] == 0
+
+
+def test_ep3_topk_audit_fields_top1_mode(tmp_path, monkeypatch):
+    """EP3: topk audit fields reflect top-1 mode."""
+    ctx = _setup_ep3_ctx(tmp_path, monkeypatch, topk=1, reuse_penalty=0.15)
+
+    match_clips(ctx)
+    summary = ctx.metadata["match_summary"]
+
+    assert summary["topk"]["k"] == 1
+    assert summary["topk"]["topk_count"] == 0
+    assert summary["topk"]["top1_count"] == 2  # both used embedding_top1
+
+
+def test_ep3_cosine_topk_returns_sorted_descending():
+    """EP3: _cosine_topk returns (index, score) sorted by score descending."""
+    from movie_narrator.pipeline.match import _cosine_topk
+
+    target = np.array([1.0, 0.0, 0.0])
+    candidates = np.array([
+        [0.5, 0.866, 0.0],   # cosine = 0.5
+        [1.0, 0.0, 0.0],     # cosine = 1.0
+        [0.0, 1.0, 0.0],     # cosine = 0.0
+        [0.8, 0.6, 0.0],     # cosine = 0.8
+    ])
+    result = _cosine_topk(target, candidates, k=3)
+    assert len(result) == 3
+    # Sorted descending: 1.0, 0.8, 0.5
+    assert result[0] == (1, 1.0)
+    assert result[1] == (3, 0.8)
+    assert result[2] == (0, 0.5)
+
+
+def test_ep3_cosine_topk_k_exceeds_candidates():
+    """EP3: k > len(candidates) → returns all candidates sorted."""
+    from movie_narrator.pipeline.match import _cosine_topk
+
+    target = np.array([1.0, 0.0])
+    candidates = np.array([
+        [0.6, 0.8],   # cosine = 0.6
+        [1.0, 0.0],   # cosine = 1.0
+    ])
+    result = _cosine_topk(target, candidates, k=10)
+    assert len(result) == 2  # capped at available candidates
+    assert result[0] == (1, 1.0)
+    assert result[1] == (0, 0.6)
+
+
+def test_ep3_cosine_topk_empty_matrix():
+    """EP3: empty candidate matrix → returns empty list."""
+    from movie_narrator.pipeline.match import _cosine_topk
+
+    target = np.array([1.0, 0.0])
+    candidates = np.array([]).reshape(0, 2)
+    result = _cosine_topk(target, candidates, k=5)
+    assert result == []
+
+
+def test_ep3_greedy_topk_assign_unit():
+    """EP3: direct unit test for _greedy_topk_assign reuse-penalty logic."""
+    from movie_narrator.pipeline.match import _greedy_topk_assign
+
+    # 3 scenes, 2 narration segments
+    # narration_0 = [1,0,0], narration_1 = [1,0,0]  (both match scene_0 best)
+    # scene_0 = [1,0,0], scene_1 = [0.96,0.28,0], scene_2 = [0,1,0]
+    narration_vecs = np.array([
+        [1.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+    ])
+    scene_vecs = np.array([
+        [1.0, 0.0, 0.0],
+        [0.96, 0.28, 0.0],
+        [0.0, 1.0, 0.0],
+    ])
+    scenes = [SimpleNamespace(index=i, start=i * 2, end=i * 2 + 2) for i in range(3)]
+
+    results = _greedy_topk_assign(
+        narration_vecs=narration_vecs,
+        scene_vecs=scene_vecs,
+        scenes=scenes,
+        topk=3,
+        reuse_penalty=0.15,
+        reuse_window=3,
+    )
+    assert len(results) == 2
+    # Segment 0 → scene_0 (best raw, no penalty)
+    assert results[0][0] == 0  # scene_index
+    assert results[0][2] == "embedding_topk"  # source
+    # Segment 1 → scene_1 (scene_0 penalized: 1.0-0.15=0.85 < 0.96)
+    assert results[1][0] == 1  # scene_index
+    assert results[1][2] == "embedding_topk"  # source

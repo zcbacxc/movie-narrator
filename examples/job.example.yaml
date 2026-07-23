@@ -72,6 +72,7 @@ narration_preset: ""        # douyin-fast | mainstream-dry | bilibili-long
 #          embedding_model_name
 #          match_diversity_window / match_max_scene_reuse
 #          match_timeline_mode / match_act_weights
+#          match_topk / match_topk_reuse_penalty
 #   BGM:  bgm_gain_db / bgm_duck_db / bgm_normalize / audio_target_dbfs
 #   TTS:  tts_pause_ms / tts_max_concurrent / tts_audio_format / tts_audio_bitrate
 #   翻译: translate_source_lang / translate_provider / translate_retries
@@ -108,6 +109,8 @@ params:
   # match_max_scene_reuse: 2        # 窗口内同一场景最大允许出现次数（超过则换景）
   # match_timeline_mode: uniform    # uniform（默认，全片比例映射）| weighted_acts（四幕时间桶，高光集中在高潮幕）
   # match_act_weights: [0.15, 0.25, 0.40, 0.20]  # 四幕时间占比（开/中/高潮/尾），仅 weighted_acts 模式生效
+  # match_topk: 5                    # EP3: 每句取 top-K 候选场景，贪心分配时避免近期已用场景（默认 5，0/1 = 禁用退回 top-1）
+  # match_topk_reuse_penalty: 0.15   # EP3: 近期已用场景的分数扣减值（默认 0.15，越大越倾向换景）
 
   # ---- BGM / 音频 ----
   # bgm_gain_db: -18          # BGM 基础增益（dB）
