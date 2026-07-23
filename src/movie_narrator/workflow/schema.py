@@ -33,6 +33,8 @@ class JobParams(BaseModel):
     match_drop_scene_min_duration: Optional[float] = None
     match_diversity_window: Optional[int] = None
     match_max_scene_reuse: Optional[int] = None
+    match_timeline_mode: Optional[str] = None  # "uniform" (default) | "weighted_acts"
+    match_act_weights: Optional[list] = None  # e.g. [0.15, 0.25, 0.40, 0.20]
     embedding_model_name: Optional[str] = None
     # ── BGM ──
     bgm_gain_db: Optional[float] = None
