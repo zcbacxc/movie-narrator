@@ -35,6 +35,8 @@ class JobParams(BaseModel):
     match_max_scene_reuse: Optional[int] = None
     match_timeline_mode: Optional[str] = None  # "uniform" (default) | "weighted_acts"
     match_act_weights: Optional[list] = None  # e.g. [0.15, 0.25, 0.40, 0.20]
+    match_topk: Optional[int] = None  # EP3: top-K rerank (default 5, 0/1 = top-1)
+    match_topk_reuse_penalty: Optional[float] = None  # EP3: score deduction for recently used scenes (default 0.15)
     embedding_model_name: Optional[str] = None
     # ── BGM ──
     bgm_gain_db: Optional[float] = None
