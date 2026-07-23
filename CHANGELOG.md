@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.20] - 2026-07-23
+
+### Added (Stage D quality consolidation — audit fields, param whitelist, test isolation)
+
+- **WP3 diversity post-processing** (`pipeline/match.py`): `_apply_diversity()` reduces consecutive scene reuse. If a scene index appears more than `match_max_scene_reuse` times (default 2) within a sliding window of `match_diversity_window` segments (default 3), the latest occurrence is swapped to the nearest unused scene. Only `scene_index`/`src_start`/`src_end` are changed — score and source remain unchanged. Configurable via `job.yaml` (#70).
+- **WP5 max_chars hard truncation** (`pipeline/script.py`): `_truncate_to_max_chars()` post-processes each segment after LLM expansion. Truncates at the last punctuation mark before `prompt_max_chars_per_sentence` for natural breaks, or hard-cuts at the limit if no punctuation found (#70).
+- **WP4 footage coverage gate** (`pipeline/render.py`): calculates what fraction of narration segments have real footage (vs text-only fallback). Writes `metadata.footage_coverage.ratio` + `metadata.footage_coverage.segments_with_footage` / `total_segments`. Warn-only gate — flags low coverage in `_degraded_steps` but does not abort (video already rendered by this point). Configurable via `render_require_footage` + `render_min_footage_coverage` in `job.yaml` (#69).
+- **AQ-04 `ensure_final_audio()`** (`pipeline/bgm.py`): unified BGM output normalization across all 4 exit points. Idempotent guard — already-mixed audio is a no-op. Render step additionally calls it as a safety net (#69).
+- **WP3 diversity audit log**: `match_summary.diversity.swaps_log` records `[{segment_index, old_scene, new_scene}]` for each swap, enabling downstream consumers to distinguish original embedding scores from post-swap scores (#71).
+- **WP5 truncation audit**: `metadata.script_truncated` records `{count, max_chars, details: [{original_len, truncated_len}]}` when truncation occurs. Zero overhead when LLM respects max_chars — field is absent, not null (#71).
+- **Metadata export**: `footage_coverage`, `duration_metrics`, and `script_truncated` added to `metadata_export.py` (#69, #71).
+- **Audit integration tests** (`tests/test_audit_integration.py`): 4 CI-friendly tests replacing the 50-min L2+ handtest. Verify `diversity.swaps_log` triggers with small scene pool (3 scenes × 10 segments × max_reuse=1) and `script_truncated` populates when LLM exceeds max_chars. Runs in 15 seconds vs 50 minutes (#75).
+
+### Fixed
+
+- **Param whitelist desync** (4 files, 12 params): `schema.py`, `merge.py`, `load.py`, `runner.py` had drifted out of sync over multiple PRs. 8 params silently dropped by runner (`match_diversity_window`, `match_max_scene_reuse`, `render_require_footage`, `render_min_footage_coverage`, `align_backend`, `translate_provider`, `translate_retries`, `research_provider`), 3 dropped by merge (`prompt_target_sentences`, `prompt_max_chars_per_sentence`, `prompt_hook_seconds`), 1 missing from schema (`prompt_target_segment_duration`). `align_backend` was a hard failure in `load.py` (JobConfigError), others were silent drops. All 4 files aligned to union set (#72).
+- **Test isolation: `.env` pollution** (`tests/test_tts_providers.py`): `Settings()` reads `.env` via pydantic-settings. Tests asserting defaults (`test_default_tts_provider_is_edge`, `test_mimo_defaults`) failed when `.env` set `MN_TTS_PROVIDER=mimo`. Fixed with `_env_file=None` (#73).
+- **Test isolation: faster_whisper probe** (`tests/test_align.py`, `tests/test_cli_debug.py`): tests only patched `align.probe` but `select_align_backend()` uses `_align_backend.probe` (separate import). On machines with faster_whisper installed, backend was auto-selected as faster_whisper instead of whisperx, causing 12 test failures. Fixed by patching both probe references (#74, #76).
+- **Test isolation: lru_cache settings** (`tests/test_tts_providers.py`): 5 CI/cache tests calling `generate_voice()` → `get_settings()` inherited cached `.env` mimo config. Fixed with `get_settings.cache_clear()` + `MN_TTS_PROVIDER=edge` env override (#74).
+
+### Changed
+
+- **WP4 render.py docstring**: explicitly documented as "WARN-ONLY gate, not an abort gate" — the video is already rendered by the time coverage is calculated, so the gate can only flag, not prevent (#71).
+- **ROADMAP.md**: added v0.4.20 section.
+
+### L2+ Hand-Test Results (2026-07-23)
+
+Stage D audit + PR #72 whitelist trigger verified end-to-end:
+
+| Verification | Result |
+|--------------|--------|
+| PR #72 whitelist end-to-end | ✅ `max_reuse:1` + `max_chars:3` reached `ctx.metadata` |
+| WP5 script_truncated | ✅ `count:18` (all 18 segments truncated from 6-10 chars to 3) |
+| WP3 diversity.swaps | 0 (2424 scenes — naturally diverse, not a bug) |
+| WP4 footage_coverage | ✅ `ratio:1.0` |
+| Total wall-clock | 50 min (PySceneDetect on 130-min movie = 45 min) |
+
+See [`docs/checklists/L2_HANDTEST_20260723.md`](docs/checklists/L2_HANDTEST_20260723.md) for full report.
+
 ## [0.4.19] - 2026-07-22
 
 ### Added (WhisperX compatibility blocker resolved — faster-whisper backend + L2 hand-test passed)

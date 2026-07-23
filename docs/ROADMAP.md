@@ -178,6 +178,21 @@ The Web UI is rebuilt from a Gradio single-file app into a decoupled **FastAPI +
 - [x] L2 automated E2E smoke tests: CI-runnable pipeline contract verification
 - [x] CI smoke assertions for preset sentence count (R4 regression guard)
 
+### v0.4.20 Stage D Quality Consolidation
+
+> 8 PRs landed in this release (#69–#76). Focus: visual quality guardrails (WP3 diversity, WP5 truncation), system stability (WP4 footage coverage, AQ-04 audio normalization), audit visibility (swaps_log, script_truncated), param whitelist sync, and test isolation fixes.
+
+- [x] **WP3 diversity post-processing** — `_apply_diversity()` with sliding-window scene reuse limit (`match_diversity_window` + `match_max_scene_reuse`) (#70)
+- [x] **WP5 max_chars hard truncation** — `_truncate_to_max_chars()` enforces `prompt_max_chars_per_sentence` after LLM expansion, preferring punctuation breaks (#70)
+- [x] **WP4 footage coverage gate** — `metadata.footage_coverage.ratio` + warn-only `_degraded_steps` flag when coverage below `render_min_footage_coverage` (#69)
+- [x] **AQ-04 `ensure_final_audio()`** — unified BGM normalization across all 4 exit points, idempotent guard (#69)
+- [x] **WP3 swaps_log audit** — `match_summary.diversity.swaps_log` records each swap `{segment_index, old_scene, new_scene}` (#71)
+- [x] **WP5 truncation audit** — `metadata.script_truncated` records `{count, max_chars, details}` (#71)
+- [x] **Param whitelist sync** — 12 params realigned across `schema.py` / `merge.py` / `load.py` / `runner.py` (#72)
+- [x] **Test isolation fixes** — `.env` pollution (`_env_file=None`), faster_whisper probe patching (dual `_align_backend.probe`), lru_cache settings clear (#73, #74, #76)
+- [x] **Audit integration tests** — 4 CI tests replacing 50-min handtest, verify swaps_log trigger + script_truncated schema (#75)
+- [x] **L2+ hand-test passed** — PR #72 whitelist + PR #71 audit schema verified end-to-end (2026-07-23)
+
 ### v0.4.19 faster-whisper Backend + L2 Hand-Test Passed
 
 > 6 PRs landed in this release. Focus: resolve WhisperX CPU compatibility blocker with environment-adaptive faster-whisper backend, unlock O10 (embedding_ratio > 0), close L2 hand-test.

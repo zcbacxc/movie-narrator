@@ -69,20 +69,22 @@ narration_preset: ""        # douyin-fast | mainstream-dry | bilibili-long
 #   场景: scene_threshold / scene_frame_skip
 #   匹配: match_min_score / match_speed_clamp_min / match_speed_clamp_max
 #          scene_merge_min_duration / match_drop_scene_min_duration
-#          embedding_model_name
+#          embedding_model_name / match_diversity_window / match_max_scene_reuse
 #   BGM:  bgm_gain_db / bgm_duck_db / bgm_normalize / audio_target_dbfs
 #   TTS:  tts_pause_ms / tts_max_concurrent / tts_audio_format / tts_audio_bitrate
 #   翻译: translate_source_lang / translate_provider / translate_retries
 #          translate_chunk_chars / translate_chunk_size
 #   调研: research_provider
-#   WhisperX: whisperx_device / whisperx_model / whisperx_language
+#   对齐: whisperx_device / whisperx_model / whisperx_language / align_backend
 #   渲染: render_fps / render_video_codec / render_audio_codec / render_threads
 #          render_bg_color / render_font_size / render_output_name / render_ffmpeg_timeout
 #          render_fit_mode / render_crf / render_preset / render_faststart
 #          render_subtitle_position / render_subtitle_max_width_ratio
 #          render_subtitle_bottom_margin_ratio
+#          render_require_footage / render_min_footage_coverage
 #   质检: qa_enabled / qa_max_silence_db / qa_min_duration_ratio / qa_max_duration_ratio
-#   文案: prompt_target_sentences / prompt_max_chars_per_sentence / prompt_hook_seconds
+#   文案: prompt_target_sentences / prompt_target_segment_duration
+#         prompt_max_chars_per_sentence / prompt_hook_seconds
 #   异步: async_timeout / async_max_workers
 #   视频: video_sizes
 params:
@@ -100,6 +102,8 @@ params:
   scene_merge_min_duration: 2.0  # 场景最短时长（秒），0=不合并；2.0 给 clamp 更大窗口
   # match_drop_scene_min_duration: 0.4  # 合并后丢弃短于此阈值的场景（秒）
   # embedding_model_name: paraphrase-multilingual-MiniLM-L12-v2
+  # match_diversity_window: 3       # 滑动窗口大小（段），检测连续场景复用
+  # match_max_scene_reuse: 2        # 窗口内同一场景最大允许出现次数（超过则换景）
 
   # ---- BGM / 音频 ----
   # bgm_gain_db: -18          # BGM 基础增益（dB）
@@ -127,6 +131,7 @@ params:
   # whisperx_device: cpu      # cpu | cuda
   # whisperx_model: medium    # tiny|base|small|medium|large
   # whisperx_language: zh     # 转录语言
+  # align_backend: auto       # auto | whisperx | faster_whisper（auto=按环境自动选择）
 
   # ---- 渲染 ----
   # render_fps: 24            # 输出帧率
@@ -145,6 +150,8 @@ params:
   # render_subtitle_position: bottom  # bottom | center
   # render_subtitle_max_width_ratio: 0.9   # 字幕最大宽度占画布比例
   # render_subtitle_bottom_margin_ratio: 0.08  # 底部留白比例
+  # render_require_footage: false    # true=覆盖率低于阈值时 warn + 标记 _degraded_steps
+  # render_min_footage_coverage: 0.5 # footage 覆盖率阈值（0-1）
 
   # ---- 成片质检（v0.4.13 新增硬步骤 validate_deliverable）----
   # qa_enabled: true              # false=显式关闭；CI 默认跳过，本地默认开启
@@ -155,6 +162,12 @@ params:
   # ---- 异步 ----
   # async_timeout: 300        # 异步任务超时（秒）
   # async_max_workers: 2      # 线程池大小
+
+  # ---- 文案塑形（v0.4.20 新增 / 补全）----
+  # prompt_target_segment_duration: 2.5  # 每段旁白目标时长（秒），影响段数计算
+  # prompt_target_sentences: 18          # 期望段数（两阶段生成第二阶段严格遵守）
+  # prompt_max_chars_per_sentence: 25    # 每段最大字符数（LLM 提示 + 硬截断双重保障）
+  # prompt_hook_seconds: 3               # 开头 hook 秒数
 
   # ---- 视频分辨率 ----
   # video_sizes:

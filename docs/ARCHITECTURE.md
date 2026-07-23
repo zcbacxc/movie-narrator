@@ -245,6 +245,23 @@ Full schema (21 fields + 4 back-compat fields):
 (not WhisperX-aligned) because the wx segment mapped far behind the previous
 segment's end. This is preferable to a 100ms flash on screen.
 
+### v0.4.20 audit fields (Stage D)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `match_summary.diversity.swaps` | int | Number of scene swaps performed by `_apply_diversity()` (v0.4.20+) |
+| `match_summary.diversity.swaps_log` | list | `[{segment_index, old_scene, new_scene}]` for each swap — audit trail to distinguish original embedding scores from post-swap scores (v0.4.20+) |
+| `match_summary.diversity.window` | int | Sliding window size used for diversity check (v0.4.20+) |
+| `match_summary.diversity.max_reuse` | int | Max scene reuse allowed within window (v0.4.20+) |
+| `footage_coverage.ratio` | float | Fraction of narration segments with real footage (vs text-only fallback) (v0.4.20+) |
+| `footage_coverage.segments_with_footage` | int | Count of segments with footage (v0.4.20+) |
+| `footage_coverage.total_segments` | int | Total narration segments (v0.4.20+) |
+| `script_truncated.count` | int | Number of segments truncated by `_truncate_to_max_chars()` (v0.4.20+) |
+| `script_truncated.max_chars` | int | The max_chars limit used (v0.4.20+) |
+| `script_truncated.details` | list | `[{original_len, truncated_len}]` for each truncated segment (v0.4.20+) |
+
+**`script_truncated` is absent (not null) when no truncation occurred** — zero overhead when LLM respects `prompt_max_chars_per_sentence`.
+
 ## Extension Points
 
 - **New pipeline step**: append to `STEPS` in `pipeline/runner.py`. Signature must be `(ctx: Context) -> Context`.
