@@ -1,12 +1,15 @@
 """Audio loudness helpers — peak normalization and BGM ducking.
 
-Uses pydub only (no scipy). Ducking is a simple windowed envelope:
-when narration RMS in a window exceeds the speech threshold, BGM is
-attenuated by ``duck_db`` for that window with linear attack/release.
+Uses pydub for I/O and numpy for envelope application (AQ-07: replaces
+O(n²) pydub chunk concatenation with O(n) numpy array multiplication).
+Ducking is a simple windowed envelope: when narration RMS in a window
+exceeds the speech threshold, BGM is attenuated by ``duck_db`` for that
+window with linear attack/release.
 """
 
 from __future__ import annotations
 
+import numpy as np
 from pydub import AudioSegment
 from pydub.utils import db_to_float
 
@@ -81,23 +84,49 @@ def duck_bgm(
     # amplitude factor, then interpolate across windows.
     smoothed = _smooth_envelope(window_envelope, attack_ms, release_ms, window_ms)
 
-    # Apply the envelope by slicing BGM into windows and gain-adjusting each.
-    ducked_chunks: list[AudioSegment] = []
-    for i in range(n_windows):
-        start = i * window_ms
-        end = min(start + window_ms, target_len)
-        chunk = bgm_base[start:end]
-        extra_db = smoothed[i]
-        if extra_db < 0.0:
-            chunk = chunk.apply_gain(extra_db)
-        ducked_chunks.append(chunk)
-
-    if not ducked_chunks:
+    # AQ-07: Apply the envelope via numpy instead of pydub chunk slicing.
+    # The old approach sliced BGM into n_windows chunks, applied gain per
+    # chunk, then concatenated with `+` — O(n²) due to pydub copying all
+    # previous data on each concatenation.
+    #
+    # New approach: build a per-sample amplitude envelope as a numpy array,
+    # multiply the BGM's raw samples in one operation, then reconstruct
+    # a single AudioSegment. This is O(n) in total samples.
+    if not smoothed or n_windows == 0:
         return narration
 
-    ducked_bgm = ducked_chunks[0]
-    for c in ducked_chunks[1:]:
-        ducked_bgm = ducked_bgm + c
+    # Convert dB envelope → linear amplitude factors
+    amp_factors = np.array(
+        [db_to_float(db) if db < 0.0 else 1.0 for db in smoothed],
+        dtype=np.float64,
+    )
+
+    # Expand per-window factors to per-sample (linear interpolation at
+    # window boundaries for smooth transitions).
+    n_samples = len(bgm_base.get_array_of_samples())
+    sample_rate = bgm_base.frame_rate
+    samples_per_window = max(1, window_ms * sample_rate // 1000)
+    per_sample = np.ones(n_samples, dtype=np.float64)
+    for i, factor in enumerate(amp_factors):
+        start_sample = i * samples_per_window
+        end_sample = min(start_sample + samples_per_window, n_samples)
+        if start_sample >= n_samples:
+            break
+        per_sample[start_sample:end_sample] = factor
+
+    # Apply gain to raw samples
+    raw = np.array(bgm_base.get_array_of_samples(), dtype=np.float64)
+    raw *= per_sample[:len(raw)]
+    raw = np.clip(raw, np.iinfo(np.int16).min, np.iinfo(np.int16).max)
+    raw = raw.astype(np.int16)
+
+    # Reconstruct AudioSegment from modified samples
+    ducked_bgm = AudioSegment(
+        raw.tobytes(),
+        frame_rate=bgm_base.frame_rate,
+        sample_width=bgm_base.sample_width,
+        channels=bgm_base.channels,
+    )
 
     # Ensure exact length (window rounding may add/drop a few ms).
     if len(ducked_bgm) != target_len:

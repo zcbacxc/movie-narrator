@@ -66,7 +66,7 @@ class TestTTSCacheKey:
             model="",
             voice="zh-CN-YunxiNeural",
             text="hello",
-            pause_ms=300,
+            style_prompt="",
         )
         defaults.update(overrides)
         return TTSCacheKey(**defaults)
@@ -114,8 +114,8 @@ class TestTTSCacheKey:
         assert PROVIDER_CACHE_VERSIONS["openai"] >= 1
         assert PROVIDER_CACHE_VERSIONS["mimo"] >= 1
 
-    def test_schema_version_is_2(self):
-        assert CACHE_SCHEMA_VERSION == 2
+    def test_schema_version_is_3(self):
+        assert CACHE_SCHEMA_VERSION == 3
 
 
 # ─── is_ci() ───
@@ -672,12 +672,12 @@ class TestGenerateVoiceCache:
         from movie_narrator.tts.cache import TTSCacheKey, cache_path_for
 
         k_edge = TTSCacheKey(
-            schema_version=2, provider="edge", provider_version=1,
-            model="", voice="v", text="t", pause_ms=300,
+            schema_version=3, provider="edge", provider_version=1,
+            model="", voice="v", text="t", style_prompt="",
         )
         k_openai = TTSCacheKey(
-            schema_version=2, provider="openai", provider_version=1,
-            model="tts-1", voice="v", text="t", pause_ms=300,
+            schema_version=3, provider="openai", provider_version=1,
+            model="tts-1", voice="v", text="t", style_prompt="",
         )
         assert cache_path_for(tmp_path, k_edge) != cache_path_for(tmp_path, k_openai)
 

@@ -1,4 +1,5 @@
 import asyncio
+import os
 from pathlib import Path
 
 from pydub import AudioSegment
@@ -59,6 +60,9 @@ def generate_voice(ctx: Context) -> Context:
     audio_fmt = ctx.metadata.get("tts_audio_format", "mp3")
     audio_bitrate = ctx.metadata.get("tts_audio_bitrate", "128k")
     console = ctx.services.console
+    # ST-08: style_prompt affects MiMo TTS audio output; must be in cache key
+    style_prompt = ctx.metadata.get("tts_style_prompt", "")
+
     def _key(seg_text: str) -> TTSCacheKey:
         return TTSCacheKey(
             schema_version=CACHE_SCHEMA_VERSION,
@@ -73,7 +77,7 @@ def generate_voice(ctx: Context) -> Context:
             ),
             voice=voice,
             text=seg_text,
-            pause_ms=pause_ms,
+            style_prompt=style_prompt,
         )
 
     async def _run_all():
@@ -100,11 +104,17 @@ def generate_voice(ctx: Context) -> Context:
                         last_err = None
                         for attempt in range(_TTS_SEGMENT_RETRIES):
                             try:
-                                await provider.synthesize(seg.text, voice, cached)
+                                # ST-07: atomic write — synthesize to .partial
+                                # then os.replace to final path. Prevents
+                                # corrupt cache files from interrupted writes.
+                                partial = cached.with_suffix(".partial")
+                                await provider.synthesize(seg.text, voice, partial)
+                                os.replace(str(partial), str(cached))
                                 last_err = None
                                 break
                             except Exception as e:
                                 last_err = e
+                                partial.unlink(missing_ok=True)
                                 if attempt < _TTS_SEGMENT_RETRIES - 1:
                                     await asyncio.sleep(_TTS_RETRY_DELAY)
                                 else:
@@ -113,7 +123,17 @@ def generate_voice(ctx: Context) -> Context:
                                     )
                         if last_err is not None:
                             raise last_err
-                    audio = AudioSegment.from_mp3(cached)
+                    # ST-07: if cached file is corrupt (from a previous
+                    # interrupted write before the fix), delete and retry once.
+                    try:
+                        audio = AudioSegment.from_mp3(cached)
+                    except Exception:
+                        console.inline_warn(
+                            f"Corrupt TTS cache file detected, re-synthesizing: {cached.name}"
+                        )
+                        cached.unlink(missing_ok=True)
+                        await provider.synthesize(seg.text, voice, cached)
+                        audio = AudioSegment.from_mp3(cached)
                 return audio, round(len(audio) / 1000.0, 3)
 
         return await tqdm_asyncio.gather(

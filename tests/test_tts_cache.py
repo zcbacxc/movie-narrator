@@ -20,11 +20,11 @@ def test_provider_version_change_produces_different_key():
     root = Path("/tmp/cache_test")
     k1 = TTSCacheKey(
         schema_version=CACHE_SCHEMA_VERSION, provider="edge",
-        provider_version=1, model="", voice="v", text="t", pause_ms=300,
+        provider_version=1, model="", voice="v", text="t", style_prompt="",
     )
     k2 = TTSCacheKey(
         schema_version=CACHE_SCHEMA_VERSION, provider="edge",
-        provider_version=2, model="", voice="v", text="t", pause_ms=300,
+        provider_version=2, model="", voice="v", text="t", style_prompt="",
     )
     assert cache_path_for(root, k1) != cache_path_for(root, k2)
 
@@ -34,11 +34,11 @@ def test_text_change_produces_different_key():
     root = Path("/tmp/cache_test")
     k1 = TTSCacheKey(
         schema_version=CACHE_SCHEMA_VERSION, provider="edge",
-        provider_version=1, model="", voice="v", text="hello", pause_ms=300,
+        provider_version=1, model="", voice="v", text="hello", style_prompt="",
     )
     k2 = TTSCacheKey(
         schema_version=CACHE_SCHEMA_VERSION, provider="edge",
-        provider_version=1, model="", voice="v", text="world", pause_ms=300,
+        provider_version=1, model="", voice="v", text="world", style_prompt="",
     )
     assert cache_path_for(root, k1) != cache_path_for(root, k2)
 
@@ -48,11 +48,25 @@ def test_provider_change_produces_different_key():
     root = Path("/tmp/cache_test")
     k1 = TTSCacheKey(
         schema_version=CACHE_SCHEMA_VERSION, provider="edge",
-        provider_version=1, model="", voice="v", text="t", pause_ms=300,
+        provider_version=1, model="", voice="v", text="t", style_prompt="",
     )
     k2 = TTSCacheKey(
         schema_version=CACHE_SCHEMA_VERSION, provider="openai",
-        provider_version=1, model="tts-1", voice="v", text="t", pause_ms=300,
+        provider_version=1, model="tts-1", voice="v", text="t", style_prompt="",
+    )
+    assert cache_path_for(root, k1) != cache_path_for(root, k2)
+
+
+def test_style_prompt_change_produces_different_key():
+    """ST-08: Different style_prompt must produce a different cache path."""
+    root = Path("/tmp/cache_test")
+    k1 = TTSCacheKey(
+        schema_version=CACHE_SCHEMA_VERSION, provider="mimo",
+        provider_version=1, model="mimo-tts", voice="v", text="t", style_prompt="",
+    )
+    k2 = TTSCacheKey(
+        schema_version=CACHE_SCHEMA_VERSION, provider="mimo",
+        provider_version=1, model="mimo-tts", voice="v", text="t", style_prompt="excited",
     )
     assert cache_path_for(root, k1) != cache_path_for(root, k2)
 

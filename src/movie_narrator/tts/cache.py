@@ -5,7 +5,7 @@ import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-CACHE_SCHEMA_VERSION = 2  # v0.4: key shape gains provider + provider_version + model
+CACHE_SCHEMA_VERSION = 3  # v0.4.23: key gains style_prompt, drops pause_ms (not audio-affecting)
 
 PROVIDER_CACHE_VERSIONS: dict[str, int] = {
     "edge": 1,
@@ -16,13 +16,13 @@ PROVIDER_CACHE_VERSIONS: dict[str, int] = {
 
 @dataclass(frozen=True, slots=True)
 class TTSCacheKey:
-    schema_version: int   # currently 2; bumps when key shape changes
-    provider: str         # "edge" | "openai"
+    schema_version: int   # currently 3; bumps when key shape changes
+    provider: str         # "edge" | "openai" | "mimo"
     provider_version: int  # per-backend encoding version
     model: str            # "" for Edge, "tts-1" for OpenAI
     voice: str
     text: str
-    pause_ms: int
+    style_prompt: str     # ST-08: MiMo style_prompt affects audio; must be in key
 
 
 def cache_path_for(root: Path, key: TTSCacheKey) -> Path:
