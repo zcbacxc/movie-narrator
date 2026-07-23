@@ -290,6 +290,14 @@ segment's end. This is preferable to a 100ms flash on screen.
 
 **Weighted acts fallback**: when `match_timeline_mode="weighted_acts"` but `< 8 scenes` or `< 4 segments`, the mode silently falls back to `uniform` and `timeline.mode` reflects `"uniform"`. This ensures the feature never breaks on short videos.
 
+### v0.4.23 audit fields (performance contract)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `bgm_error` | str\|absent | Error message when `mix_bgm` fails; absent when BGM succeeds (v0.4.23+) |
+
+**TTS cache key change (ST-08)**: `TTSCacheKey` now includes `style_prompt` instead of `pause_ms`. `CACHE_SCHEMA_VERSION` bumped 2 → 3, so all pre-v0.4.23 cache files are automatically re-generated on first run. Atomic write (`.partial` → `os.replace`) prevents corrupt cache files; if a corrupt file is detected at load time, it is deleted and re-synthesized transparently.
+
 ## Extension Points
 
 - **New pipeline step**: append to `STEPS` in `pipeline/runner.py`. Signature must be `(ctx: Context) -> Context`.

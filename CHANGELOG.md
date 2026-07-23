@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.23] - 2026-07-23
+
+### Added (Performance contract closure + audit cleanup)
+
+- **ST-07 TTS cache atomic write** (`pipeline/tts.py`): synthesize to `.partial` then `os.replace()` for atomic commit. Corrupt cache file detection — if `AudioSegment.from_mp3()` fails on a cached file, delete + re-synthesize automatically. Prevents cache poisoning from interrupted writes (#79).
+- **ST-08 style_prompt in TTSCacheKey** (`tts/cache.py`): replaced `pause_ms` (not audio-affecting) with `style_prompt` (affects MiMo TTS output) in cache key. `CACHE_SCHEMA_VERSION` bumped 2 → 3, auto-invalidating all old cache entries (#79).
+- **AQ-10 bgm_error metadata** (`pipeline/runner.py`): `mix_bgm` failure now writes `ctx.metadata["bgm_error"]` with the error message for downstream audit (#79).
+
+### Changed
+
+- **ST-09 Phase1 max_tokens scaling** (`pipeline/script.py`): `max_tokens = max(settings.research_max_tokens, target_count * 60)`. Prevents JSON truncation on high-segment presets (e.g. douyin 120s → n=36 segments would exceed the old fixed cap) (#79).
+- **AQ-07 duck_bgm O(n²) → O(n)** (`utils/audio_mix.py`): replaced pydub chunk slicing + `+` concatenation with numpy array multiplication. Per-sample amplitude envelope applied in one operation. Expected speedup: 300s audio ~53s → <2s (#79).
+- **MS-10 min_score comment** (`examples/job.example.yaml`): corrected from "低于此值丢弃" to "低于此值回退 heuristic 基线，不丢弃" — matches actual code behavior (#79).
+
+### Verified (no code change needed)
+
+- **AQ-08 empty ASR status**: `align.py` lines 189-197, 241-248, 286-293 already set `status.align="skipped"` on empty WhisperX/faster-whisper results — not `"success"`.
+- **ST-10 CI mock segments**: tests use dynamic `range(n)` segment counts, not fixed — verified across `test_match.py`, `test_render.py`, `test_align.py`.
+
 ## [0.4.22] - 2026-07-23
 
 ### Added (EP1 — Act-weighted timeline partitioning)

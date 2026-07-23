@@ -178,6 +178,19 @@ The Web UI is rebuilt from a Gradio single-file app into a decoupled **FastAPI +
 - [x] L2 automated E2E smoke tests: CI-runnable pipeline contract verification
 - [x] CI smoke assertions for preset sentence count (R4 regression guard)
 
+### v0.4.23 Performance Contract Closure
+
+> 1 PR landed (#79). Closes §13.2 performance contract group (ST-07/08/09 + AQ-07) + §13.3 audit cleanup (MS-10/AQ-10, AQ-08/ST-10 verified).
+
+- [x] **ST-07 TTS cache atomic write** — `.partial` → `os.replace()`, corrupt cache auto-recovery (#79)
+- [x] **ST-08 style_prompt in TTSCacheKey** — replaces `pause_ms`, schema version 2 → 3 (#79)
+- [x] **ST-09 Phase1 max_tokens scaling** — `max(research_max_tokens, target_count * 60)` prevents truncation (#79)
+- [x] **AQ-07 duck_bgm numpy rewrite** — O(n²) → O(n), 300s ~53s → <2s (#79)
+- [x] **MS-10 min_score comment** — "丢弃" → "回退 heuristic" (#79)
+- [x] **AQ-10 bgm_error metadata** — `mix_bgm` failure writes `ctx.metadata["bgm_error"]` (#79)
+- [x] **AQ-08 empty ASR status** — verified already `skipped`, not `success`
+- [x] **ST-10 CI mock segments** — verified dynamic `range(n)`, not fixed
+
 ### v0.4.22 EP1 — Act-Weighted Timeline Partitioning
 
 > 1 PR landed (#78). Highest-value visual quality improvement in Stage D: transforms match from flat proportional mapping to dramatic four-act pacing.
