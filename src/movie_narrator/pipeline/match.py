@@ -599,6 +599,10 @@ def _match_clips_impl(
             f"  EP1 weighted_acts: {len(act_weights)} acts, "
             f"segments per act: {[act_assignments.count(a) for a in range(len(act_weights))]}"
         )
+        # Pre-compute act -> segment indices map (O(n) once, not O(n²) per segment)
+        act_seg_map: dict[int, list[int]] = {}
+        for seg_idx, act_i in enumerate(act_assignments):
+            act_seg_map.setdefault(act_i, []).append(seg_idx)
     else:
         act_scenes = None
         act_assignments = None
@@ -621,7 +625,7 @@ def _match_clips_impl(
             b_span = b_end - b_start
 
             # Position within this segment's slot in the bucket
-            act_segs = [j for j, a in enumerate(act_assignments) if a == act_idx]
+            act_segs = act_seg_map[act_idx]
             pos_in_act = act_segs.index(i)
             n_in_act = len(act_segs)
             if n_in_act > 1:
