@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.21] - 2026-07-23
+
+### Added (Stage D remaining — WP5 pause feedback, ST-06 tail protection, WP7 draft profile)
+
+- **WP5 duration pause feedback** (`pipeline/tts.py`): after TTS assembly, if narration exceeds target `--duration` by >15%, automatically reduces inter-segment pause_ms and rebuilds audio. Writes `metadata.duration_metrics` with `{target_sec, narration_sec, ratio_vs_target, pause_ms_original, pause_ms_applied, adjusted}`. Zero overhead when within target — field is absent, not null. Extracted `_build_audio()` helper to avoid code duplication between initial build and rebuild (#77).
+- **WP7 draft profile** (`pipeline/runner.py`): new `render_profile` param (`publish` | `draft`). When `draft`, overrides `render_crf: 28`, `render_preset: ultrafast`, `render_faststart: true` for fast iteration. User-supplied params always take precedence — draft only fills gaps. Configurable via `job.yaml` (#77).
+- **ST-06 tail climax protection** (`pipeline/script.py`): `_trim_segments` now locks the last segment (tail climax/outro) in addition to the first 3 hooks, preventing the ending from being trimmed away. Only activates when `target > hook_count + 1 and len(segments) > target + 1` — no behavior change for small target counts (#77).
+
+### Changed
+
+- **`_build_audio()` extraction** (`pipeline/tts.py`): audio assembly logic extracted from inline `generate_voice` into a standalone helper function, used by both initial build and pause-feedback rebuild (#77).
+- **`render_profile` added to whitelist** (`workflow/schema.py`, `workflow/load.py`, `workflow/merge.py`): new param aligned across all 4 whitelist files, consistent with PR #72 pattern (#77).
+- **`job.example.yaml`**: added `render_profile` example + whitelist comment update (#77).
+
+### Verified
+
+- D-3 AQ-02 (soft-step degraded_steps): confirmed F3 patch in `runner.py` already covers soft-step internal failures — no code change needed.
+- Full test suite: 499 passed, 1 skipped, 0 failed (user-verified, 40 min).
+
 ## [0.4.20] - 2026-07-23
 
 ### Added (Stage D quality consolidation — audit fields, param whitelist, test isolation)

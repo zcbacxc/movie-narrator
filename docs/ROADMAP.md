@@ -178,6 +178,16 @@ The Web UI is rebuilt from a Gradio single-file app into a decoupled **FastAPI +
 - [x] L2 automated E2E smoke tests: CI-runnable pipeline contract verification
 - [x] CI smoke assertions for preset sentence count (R4 regression guard)
 
+### v0.4.21 Stage D Remaining — Pause Feedback + Tail Protection + Draft Profile
+
+> 1 PR landed (#77). Completes WP5 (duration feedback), ST-06 (tail trim), WP7 (draft profile). AQ-02 verified already implemented.
+
+- [x] **WP5 duration pause feedback** — auto-reduce pause_ms when narration exceeds target by >15%, write `duration_metrics` audit (#77)
+- [x] **ST-06 tail climax protection** — `_trim_segments` locks last segment in addition to first 3 hooks (#77)
+- [x] **WP7 draft profile** — `render_profile: draft` overrides crf=28/preset=ultrafast for fast iteration (#77)
+- [x] **AQ-02 soft-step degraded** — verified F3 patch already covers soft-step catch path, no change needed
+- [x] **Full test suite verified** — 499 passed, 1 skipped, 0 failed (user-verified)
+
 ### v0.4.20 Stage D Quality Consolidation
 
 > 8 PRs landed in this release (#69–#76). Focus: visual quality guardrails (WP3 diversity, WP5 truncation), system stability (WP4 footage coverage, AQ-04 audio normalization), audit visibility (swaps_log, script_truncated), param whitelist sync, and test isolation fixes.

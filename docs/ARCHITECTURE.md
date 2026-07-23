@@ -262,6 +262,22 @@ segment's end. This is preferable to a 100ms flash on screen.
 
 **`script_truncated` is absent (not null) when no truncation occurred** — zero overhead when LLM respects `prompt_max_chars_per_sentence`.
 
+### v0.4.21 audit fields (Stage D remaining)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `duration_metrics.target_sec` | int/float | Target narration duration from `--duration` (v0.4.21+) |
+| `duration_metrics.narration_sec` | float | Actual narration duration after TTS assembly (v0.4.21+) |
+| `duration_metrics.ratio_vs_target` | float | `narration_sec / target_sec` (v0.4.21+) |
+| `duration_metrics.pause_ms_original` | int | Original pause_ms from config (v0.4.21+) |
+| `duration_metrics.pause_ms_applied` | int | Actual pause_ms used (reduced if adjustment triggered) (v0.4.21+) |
+| `duration_metrics.adjusted` | bool | Whether pause was reduced to fit target (v0.4.21+) |
+| `render_profile` | str | `"publish"` (default) or `"draft"` (fast iteration: crf=28, preset=ultrafast) (v0.4.21+) |
+
+**`duration_metrics` is absent (not null) when no target duration is set** — zero overhead when `--duration` is not specified or narration is within 15% of target.
+
+**ST-06 tail protection**: `_trim_segments` now locks the last segment (tail climax/outro) in addition to the first 3 hooks. Only activates when `target > 4 and len(segments) > target + 1` — no behavior change for typical configurations (target ≥ 8).
+
 ## Extension Points
 
 - **New pipeline step**: append to `STEPS` in `pipeline/runner.py`. Signature must be `(ctx: Context) -> Context`.
