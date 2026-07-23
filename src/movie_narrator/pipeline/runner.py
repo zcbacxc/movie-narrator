@@ -370,6 +370,9 @@ def run_pipeline(
                     )
                     console.step_warn(name, ctx.step_state.message)
                     ctx.metadata.setdefault("_degraded_steps", []).append(name)
+                    # AQ-10: write per-step error to metadata for audit
+                    if name == "mix_bgm":
+                        ctx.metadata["bgm_error"] = str(e)
                     _check_strict(ctx, name)
                     break  # exit retry loop, continue to next step
 

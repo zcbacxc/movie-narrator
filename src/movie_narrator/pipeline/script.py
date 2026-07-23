@@ -114,11 +114,16 @@ def _generate_plot_beats(
         target_count=target_count,
     )
 
+    # ST-09: Scale max_tokens by target_count to avoid truncation on
+    # high-segment presets (e.g. douyin 120s → n=36). Each beat needs
+    # ~60 tokens; floor at the configured research_max_tokens.
+    scaled_max_tokens = max(settings.research_max_tokens, target_count * 60)
+
     response = llm.client.chat.completions.create(
         model=llm.model,
         messages=[{"role": "user", "content": prompt}],
         temperature=settings.research_temperature,
-        max_tokens=settings.research_max_tokens,
+        max_tokens=scaled_max_tokens,
     )
     raw = response.choices[0].message.content or ""
     data = extract_json(raw)
