@@ -4,6 +4,7 @@ import subprocess
 from pathlib import Path
 
 from moviepy import AudioFileClip, ColorClip, CompositeVideoClip, ImageClip, VideoFileClip
+from PIL import Image, ImageDraw, ImageFilter
 from proglog import TqdmProgressBarLogger
 
 from ..models import Context, MatchedClip, StepResult, TimedSegment
@@ -21,6 +22,13 @@ _SEG_DURATION_FLOOR = 0.1
 # RS-08: Default ffmpeg mux timeout (seconds) when render_ffmpeg_timeout
 # is not specified in job params. 10 min is generous for 4K + slow preset.
 _DEFAULT_MUX_TIMEOUT = 600
+
+# EP5: Vertical (9:16) safe area defaults.
+# On vertical video, platform UI (TikTok/Douyin caption area, like/share
+# buttons) can cover the bottom 20-25% of the screen. These conservative
+# ratios push subtitles above the danger zone.
+_VERTICAL_BOTTOM_MARGIN_RATIO = 0.15  # vs 0.08 default for 16:9
+_VERTICAL_MAX_WIDTH_RATIO = 0.82      # vs 0.90 default for 16:9
 
 
 class _RenderProgressLogger(TqdmProgressBarLogger):
@@ -70,6 +78,120 @@ def _overlay_text(ctx: Context, idx: int, seg: TimedSegment) -> str:
     return seg.text
 
 
+def _export_cover_image(
+    ctx: Context,
+    usable_clips: list[MatchedClip],
+    output_dir: Path,
+) -> None:
+    """EP5 V6: Export cover.jpg from the highest-score matched frame.
+
+    Extracts the midpoint frame of the highest-score MatchedClip using
+    ffmpeg, then overlays the movie name with a semi-transparent gradient
+    using PIL. The result is saved as ``cover.jpg`` in the output dir.
+
+    Failures are non-fatal (warn-only) — cover.jpg is a bonus artifact,
+    not a pipeline requirement.
+    """
+    if not usable_clips or not ctx.source_video_path:
+        ctx.services.console.debug("  EP5 cover: no usable clips or source video — skipping")
+        return
+
+    # Find the highest-score clip (embedding source preferred)
+    scored = [mc for mc in usable_clips if mc.score is not None and mc.score > 0]
+    if not scored:
+        ctx.services.console.debug("  EP5 cover: no scored clips — skipping")
+        return
+
+    best = max(scored, key=lambda mc: mc.score)
+    mid_ts = (best.src_start + best.src_end) / 2.0
+
+    cover_raw = output_dir / "_cover_raw.jpg"
+    cover_final = output_dir / "cover.jpg"
+
+    # Extract frame via ffmpeg
+    ffmpeg_bin = shutil.which("ffmpeg")
+    if not ffmpeg_bin:
+        ctx.services.console.debug("  EP5 cover: ffmpeg not found — skipping")
+        return
+
+    extract_cmd = [
+        ffmpeg_bin, "-y", "-loglevel", "error",
+        "-ss", f"{mid_ts:.2f}",
+        "-i", str(ctx.source_video_path),
+        "-frames:v", "1",
+        "-q:v", "2",
+        str(cover_raw),
+    ]
+    try:
+        proc = subprocess.run(
+            extract_cmd, capture_output=True, text=True,
+            encoding="utf-8", errors="replace", timeout=30,
+        )
+        if proc.returncode != 0 or not cover_raw.exists():
+            ctx.services.console.debug(
+                f"  EP5 cover: ffmpeg extract failed: {proc.stderr[:200]}"
+            )
+            return
+    except Exception as e:
+        ctx.services.console.debug(f"  EP5 cover: extract error: {e}")
+        return
+
+    # Overlay movie name with PIL
+    try:
+        img = Image.open(cover_raw).convert("RGB")
+        w, h = img.size
+
+        # Resize to a standard cover size (1280px wide, maintain aspect)
+        if w > 1280:
+            new_h = int(h * 1280 / w)
+            img = img.resize((1280, new_h))
+            w, h = img.size
+
+        draw = ImageDraw.Draw(img)
+
+        # Semi-transparent gradient at bottom for text readability
+        gradient_height = int(h * 0.35)
+        gradient = Image.new("RGBA", (w, gradient_height), (0, 0, 0, 0))
+        g_draw = ImageDraw.Draw(gradient)
+        for y in range(gradient_height):
+            alpha = int(180 * (y / gradient_height))
+            g_draw.line([(0, y), (w, y)], fill=(0, 0, 0, alpha))
+        img.paste(gradient, (0, h - gradient_height), gradient)
+
+        # Draw movie name
+        from ..utils.font import get_font
+        font_size = max(28, int(w * 0.06))
+        font = get_font(font_size)
+        text = ctx.movie_name or ""
+
+        # Wrap text
+        from ..utils.text_image import _wrap_line
+        lines = _wrap_line(text, draw, font, int(w * 0.85))
+        line_height = font_size + 6
+        total_text_h = len(lines) * line_height
+        y_start = h - gradient_height // 2 - total_text_h // 2
+
+        for i, line in enumerate(lines):
+            bbox = draw.textbbox((0, 0), line, font=font)
+            text_w = bbox[2] - bbox[0]
+            x = (w - text_w) // 2
+            y = y_start + i * line_height
+            # Shadow for readability
+            draw.text((x + 2, y + 2), line, fill=(0, 0, 0), font=font)
+            draw.text((x, y), line, fill=(255, 255, 255), font=font)
+
+        img.save(str(cover_final), "JPEG", quality=90)
+        ctx.services.console.debug(
+            f"  EP5 cover: exported cover.jpg from segment {best.segment_index} "
+            f"(score={best.score:.3f}, ts={mid_ts:.1f}s)"
+        )
+    except Exception as e:
+        ctx.services.console.debug(f"  EP5 cover: overlay error: {e}")
+    finally:
+        # Clean up raw frame
+        cover_raw.unlink(missing_ok=True)
+
+
 def render_video(ctx: Context) -> Context:
     # AQ-04 safety net: ensure final audio is normalized even if mix_bgm
     # was skipped or failed. This guarantees render never receives raw
@@ -91,6 +213,19 @@ def render_video(ctx: Context) -> Context:
     subtitle_position = ctx.metadata.get("render_subtitle_position", "bottom")
     max_width_ratio = ctx.metadata.get("render_subtitle_max_width_ratio", 0.9)
     bottom_margin_ratio = ctx.metadata.get("render_subtitle_bottom_margin_ratio", 0.08)
+
+    # EP5 V5: Vertical (9:16) safe area auto-adjustment.
+    # Platform UI on vertical video (TikTok/Douyin caption area, like/share
+    # buttons) covers the bottom 20-25% of the screen. When enabled,
+    # push subtitles higher and narrow them so they stay visible.
+    vertical_safe = ctx.metadata.get("render_vertical_safe_area", True)
+    if vertical_safe and video_format == "9:16":
+        max_width_ratio = min(max_width_ratio, _VERTICAL_MAX_WIDTH_RATIO)
+        bottom_margin_ratio = max(bottom_margin_ratio, _VERTICAL_BOTTOM_MARGIN_RATIO)
+        ctx.services.console.debug(
+            f"  EP5 vertical safe area: max_width={max_width_ratio:.2f} "
+            f"bottom_margin={bottom_margin_ratio:.2f}"
+        )
 
     # Parse background color "R,G,B" → tuple
     bg_color_str = ctx.metadata.get("render_bg_color", "20,20,30")
@@ -362,5 +497,13 @@ def render_video(ctx: Context) -> Context:
             "actual_sec": round(actual_duration, 2),
             "ratio": round(duration_ratio, 4),
         }
+
+    # ── EP5 V6: cover.jpg export ─────────────────────────
+    # Export a cover image from the highest-score matched frame,
+    # with movie name overlay. Controlled by render_cover_export param.
+    # Failures are non-fatal — cover.jpg is a bonus artifact.
+    cover_export = ctx.metadata.get("render_cover_export", False)
+    if cover_export:
+        _export_cover_image(ctx, usable_clips, output_dir)
 
     return ctx

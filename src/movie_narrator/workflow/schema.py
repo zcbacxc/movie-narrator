@@ -85,6 +85,10 @@ class JobParams(BaseModel):
     render_profile: Optional[str] = None  # "publish" (default) | "draft" (fast iteration)
     # EP5: title card duration (seconds, 0 = disabled)
     render_title_card_sec: Optional[float] = None
+    # EP5: export cover.jpg from highest-score frame (bool, default False)
+    render_cover_export: Optional[bool] = None
+    # EP5: auto-adjust subtitle margins for 9:16 vertical safe area (bool, default True)
+    render_vertical_safe_area: Optional[bool] = None
     # ── QA ──
     qa_enabled: Optional[bool] = None
     qa_max_silence_db: Optional[float] = None

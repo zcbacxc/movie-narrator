@@ -56,6 +56,7 @@ PARAM_WHITELIST: frozenset[str] = frozenset({
     "render_subtitle_bottom_margin_ratio",
     "render_require_footage", "render_min_footage_coverage",
     "render_profile", "render_title_card_sec",
+    "render_cover_export", "render_vertical_safe_area",
     "qa_enabled", "qa_max_silence_db", "qa_min_duration_ratio", "qa_max_duration_ratio",
     "prompt_target_sentences", "prompt_target_segment_duration", "prompt_max_chars_per_sentence", "prompt_hook_seconds",
     "hook_templates", "set_pieces",
