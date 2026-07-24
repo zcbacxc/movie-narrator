@@ -1,7 +1,7 @@
 import json
 import re
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, Optional
 
 import typer
 
@@ -10,6 +10,80 @@ from .models import Context
 from .pipeline.resolve import resolve_video
 from .pipeline.research import research_plot
 from .pipeline.runner import build_context, run_pipeline
+
+
+def _format_match_summary(ctx: Context) -> Optional[str]:
+    """Format a one-line match summary from ctx.metadata for CLI output.
+
+    Returns None if no match_summary is available (e.g. match step skipped).
+    """
+    ms: Optional[Dict[str, Any]] = ctx.metadata.get("match_summary")
+    if not ms:
+        return None
+
+    segments = ms.get("segments", 0)
+    sc = ms.get("source_counts", {})
+    emb = sc.get("embedding", 0)
+    heur = sc.get("heuristic", 0)
+    fb = sc.get("fallback", 0)
+    scene = sc.get("scene", 0)
+
+    parts: list[str] = [f"match: {segments} segs"]
+
+    source_parts: list[str] = []
+    if emb:
+        pct = round(emb / segments * 100) if segments else 0
+        source_parts.append(f"emb {emb}({pct}%)")
+    if heur:
+        pct = round(heur / segments * 100) if segments else 0
+        source_parts.append(f"heur {heur}({pct}%)")
+    if fb:
+        source_parts.append(f"fb {fb}")
+    if scene:
+        source_parts.append(f"scene {scene}")
+    if source_parts:
+        parts.append(" | ".join(source_parts))
+
+    score = ms.get("score")
+    if score and isinstance(score, dict):
+        avg = score.get("avg")
+        if avg is not None:
+            parts.append(f"avg {avg:.2f}")
+
+    degraded = ms.get("degraded_reason")
+    if degraded:
+        parts.append(f"degraded: {degraded}")
+
+    return " | ".join(parts)
+
+
+def _format_degradation_hints(ctx: Context) -> list[str]:
+    """Return human-readable degradation hints for the CLI output."""
+    hints: list[str] = []
+    ms: Optional[Dict[str, Any]] = ctx.metadata.get("match_summary")
+    if ms:
+        degraded = ms.get("degraded_reason")
+        if degraded == "fake_captions":
+            hints.append(
+                "match: using fake captions (no WhisperX) — "
+                "scene matching is heuristic-only, install [ml] extras for embedding match"
+            )
+        elif degraded == "all_heuristic":
+            hints.append(
+                "match: all segments fell back to heuristic — "
+                "check embedding model availability"
+            )
+        elif degraded:
+            hints.append(f"match degraded: {degraded}")
+
+    degraded_steps = ctx.metadata.get("_degraded_steps", [])
+    if degraded_steps:
+        hints.append(
+            f"degraded steps: {', '.join(degraded_steps)} — "
+            f"see metadata.json for details"
+        )
+
+    return hints
 
 app = typer.Typer(
     help="Movie Narrator — 从一个提示词生成解说短视频 / Generate narrated movie recap videos from a single prompt.",
@@ -239,6 +313,12 @@ def create(
             "⚠ 警告：旁白为占位内容——LLM 不可达。请检查 LLM 连接后重试。",
             err=True,
         )
+    # E.5: one-line match summary + degradation hints
+    match_line = _format_match_summary(ctx)
+    if match_line:
+        typer.echo(f"  {match_line}", err=True)
+    for hint in _format_degradation_hints(ctx):
+        typer.echo(f"  ⚠ {hint}", err=True)
     typer.echo(f"{ctx.video_path}")
 
 

@@ -12,6 +12,16 @@ from ..utils.text_image import create_text_image as _create_text_image
 from ..utils.video_layout import compute_fit_box
 from .bgm import ensure_final_audio
 
+# RS-07: Minimum segment duration floor for speed scaling.
+# Prevents division-by-zero when seg_duration is extremely short
+# (e.g. 0-length segment from alignment glitch). 0.1s is intentional:
+# below this, speed scaling produces visually absurd fast-forward.
+_SEG_DURATION_FLOOR = 0.1
+
+# RS-08: Default ffmpeg mux timeout (seconds) when render_ffmpeg_timeout
+# is not specified in job params. 10 min is generous for 4K + slow preset.
+_DEFAULT_MUX_TIMEOUT = 600
+
 
 class _RenderProgressLogger(TqdmProgressBarLogger):
     """MoviePy progress logger with readable bar descriptions.
@@ -109,7 +119,7 @@ def render_video(ctx: Context) -> Context:
                 try:
                     subclip = source.subclipped(mc.src_start, mc.src_end)
                     if src_duration > 0:
-                        subclip = subclip.with_speed_scaled(factor=src_duration / max(seg_duration, 0.1))
+                        subclip = subclip.with_speed_scaled(factor=src_duration / max(seg_duration, _SEG_DURATION_FLOOR))
 
                     # Fit source frame onto the canvas (cover=crop+fill,
                     # contain=letterbox+center). Keeps footage from overflowing
@@ -162,6 +172,31 @@ def render_video(ctx: Context) -> Context:
         img_clip = ImageClip(img_array, is_mask=False)
         img_clip = img_clip.with_duration(seg.end - seg.start).with_start(seg.start)
         clips.append(img_clip)
+
+    # EP5: Title card overlay — show movie name at the beginning for a
+    # polished opening. Uses a larger centered font with fade in/out.
+    # Duration is controlled by render_title_card_sec (0 = disabled).
+    title_card_sec = ctx.metadata.get("render_title_card_sec", 0)
+    if title_card_sec and title_card_sec > 0 and ctx.movie_name:
+        title_font_size = int(font_size * 1.4)
+        title_img = _create_text_image(
+            ctx.movie_name, size, fontsize=title_font_size,
+            position="center",
+            max_width_ratio=0.85,
+        )
+        title_clip = ImageClip(title_img, is_mask=False)
+        title_clip = title_clip.with_duration(title_card_sec).with_start(0)
+        # Fade in/out for polish (graceful degradation if MoviePy fx unavailable)
+        try:
+            from moviepy.video.fx import FadeIn, FadeOut
+            fade_dur = min(0.3, title_card_sec / 3)
+            title_clip = title_clip.with_effects([FadeIn(fade_dur), FadeOut(fade_dur)])
+        except Exception:
+            pass  # no fade — title card still visible
+        clips.append(title_clip)
+        ctx.services.console.debug(
+            f"  EP5 title card: {ctx.movie_name} ({title_card_sec}s)"
+        )
 
     final_video = CompositeVideoClip(clips).with_audio(audio_clip)
     video_path = output_dir / ctx.metadata.get("render_output_name", "final.mp4")
@@ -255,16 +290,17 @@ def render_video(ctx: Context) -> Context:
             text=True,
             encoding="utf-8",
             errors="replace",
-            timeout=600,  # 10 min — generous for slow ffmpeg mux
+            timeout=ctx.metadata.get("render_ffmpeg_timeout", _DEFAULT_MUX_TIMEOUT),
         )
         if proc.returncode != 0:
             raise RuntimeError(
                 f"ffmpeg mux failed (exit={proc.returncode}): {proc.stderr}"
             )
     finally:
-        # Clean up the video-only intermediate to keep the output dir tidy.
+        # RS-09: Clean up the .tmp directory (video_only.mp4 and any
+        # other intermediates) to keep the output dir tidy.
         try:
-            video_only_path.unlink(missing_ok=True)
+            shutil.rmtree(tmp_dir, ignore_errors=True)
         except OSError:
             pass
 

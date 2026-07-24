@@ -34,6 +34,12 @@ class MainstreamDryPreset:
             "prompt_target_segment_duration": 5.0,
             "prompt_max_chars_per_sentence": 22,
             "prompt_hook_seconds": 5,
+            # EP4: hook templates — measured, curiosity-driven openings
+            "hook_templates": [
+                "{movie}是一部被低估的佳作",
+                "关于{movie}，有个细节你可能没注意",
+                "{movie}的故事，远比表面看到的复杂",
+            ],
         }
 
     def prompt_tags(self) -> Dict[str, str]:
