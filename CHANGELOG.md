@@ -5,6 +5,66 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.26] - 2026-07-25
+
+### Added (Stage E contract + Effect uplift + EP8/EP9)
+
+#### Stage E — Productization contract (PR #83)
+
+- **E.5 CLI match summary** (`cli.py`): `mn create` now prints a one-line match summary at pipeline end — segment count, embedding/heuristic ratio, average score, and degradation reason if any. Provides immediate visibility without opening `metadata.json` (#83).
+- **RS-07 segment duration floor** (`pipeline/render.py`): `_SEG_DURATION_FLOOR = 0.1` prevents division-by-zero in `with_speed_scaled()` when segment duration approaches zero. Eliminates silent overflow that could cover adjacent segments (#83).
+- **RS-08 mux timeout whitelist** (`pipeline/render.py`): `_DEFAULT_MUX_TIMEOUT = 600` is now overridable by `render_ffmpeg_timeout` param. Previously the whitelist entry was ignored by a hardcoded 600s in the mux call (#83).
+- **RS-09 tmp directory cleanup** (`pipeline/render.py`): `shutil.rmtree(tmp_dir, ignore_errors=True)` replaces single-file cleanup, preventing `.tmp/` empty directory residue on subclip failures (#83).
+- **M2 documentation** (`examples/job.example.yaml`): `prompt_target_segment_duration` YAML param path documented as fully connected (`JobParams` + `load` + `merge` + `PARAM_WHITELIST`) (#83).
+
+#### EP4 — Hook templates & set pieces (PR #84)
+
+- **`hook_templates`** (`presets/*`): genre-appropriate scroll-stopping hook sentence templates injected into `EXPAND_PROMPT` via `build_hook_hint()`. Each preset gets 5–8 templates with `{movie}` slot (#84).
+- **`set_pieces`** (`presets/*`): named-scene injection into `BEATS_PROMPT` via `build_set_pieces_hint()`. Lets presets seed known set pieces (e.g. "公交车战", "封神桥段") into Phase 1 beat generation (#84).
+- **2 new params** — `hook_templates` + `set_pieces` added to whitelist across all 4 files (`schema.py`, `merge.py`, `load.py`, `runner.py`) (#84).
+
+#### EP2 — Beat time anchor (PR #84)
+
+- **Structured beats output** (`utils/prompts.py`): `BEATS_PROMPT` now requests JSON with `act` (1–4) + `approx_ratio` (0–1) per beat, enabling time-anchored scene search (#84).
+- **Beat metadata** (`pipeline/script.py`): parses structured beats, stores `ctx.metadata["beats_meta"]` with act + approx_ratio per segment (#84).
+- **Time-anchored heuristic** (`pipeline/match.py`): heuristic baseline uses `approx_ratio` as primary time anchor — priority: EP2 beat anchor > EP1 weighted acts > uniform mapping. `match_summary.timeline` records `beat_anchor` mode and `anchored_count` (#84).
+
+#### EP5 — Title card overlay (PR #84)
+
+- **`render_title_card_sec`** (`pipeline/render.py`): overlays centered movie name with 1.4x font size and fade in/out (0.3s). Duration configurable per preset: douyin-fast=1.0s, bilibili-long=1.2s, mainstream-dry=0 (disabled) (#84).
+
+#### EP6 — Audio duck curve & loudnorm (PR #84)
+
+- **Proportional duck curve** (`utils/audio_mix.py`): `duck_bgm` now scales duck depth with narration energy — louder narration segments get deeper ducking, quieter segments allow BGM to rise. Replaces flat `bgm_duck_db` with dynamic curve (#84).
+- **`bgm_loudnorm`** (`pipeline/bgm.py`): `normalize_loudnorm()` provides RMS-based loudness normalization as alternative to peak normalization. `bgm_loudnorm: true` in douyin-fast preset for consistent short-form loudness (#84).
+- **1 new param** — `bgm_loudnorm` added to whitelist across all 4 files (#84).
+
+#### EP8 — VisionCaptioner abstraction (PR #85)
+
+- **`vision/` package** (new): `VisionCaptioner` ABC (`protocol.py`) with `caption_scenes()` contract; `StubVisionCaptioner` (`stub.py`) returning placeholder labels; `get_vision_captioner()` factory (`factory.py`) dispatching by `vision_captioner` param (#85).
+- **EP8 integration** (`pipeline/match.py`): vision captions supplement audio-transcript captions. Stub labels flagged as fake (`is_stub=True`) so existing fake-caption guard behavior is unchanged. Real VLM provider can be plugged in via factory without touching match logic (#85).
+- **1 new param** — `vision_captioner` added to whitelist (values: `"none"` default | `"stub"` | future provider names) (#85).
+- **15 new vision tests** (`tests/test_vision.py`): ABC contract, stub behavior, factory dispatch, placeholder pattern compatibility (#85).
+
+#### EP9 — Human-in-the-loop pause/resume (PR #85)
+
+- **`PipelinePaused` exception** (`pipeline/errors.py`): carries `completed_step` attribute for resume targeting (#85).
+- **State serialization** (`pipeline/runner.py`): `_save_pipeline_state()` serializes `Context` to `pipeline_state.json` (excludes non-serializable `services`); `_load_pipeline_state()` reconstructs `Context` (auto-injects `SilentConsole` via `model_validator`); `_next_step_after()` returns next step name (#85).
+- **`--pause-at` CLI option** (`cli.py`): `mn create --pause-at script|match` pauses after the specified step; `mn resume <output_dir>` loads state file, re-injects real console, resumes from next step (#85).
+- **`start_step` param** (`run_pipeline()`): skips completed steps when resuming (#85).
+- **24 new pause/resume tests** (`tests/test_pipeline_pause.py`): exception, state serialization round-trip, resume from various steps, console re-injection (#85).
+
+### Changed
+
+- **`PARAM_WHITELIST`** (`pipeline/runner.py`): added `vision_captioner`, `bgm_loudnorm`, `hook_templates`, `set_pieces`, `render_title_card_sec` — all 4-file whitelist sync maintained (#83, #84, #85).
+- **All 3 presets** (`presets/douyin_fast.py`, `mainstream_dry.py`, `bilibili_long.py`): added `hook_templates`, `set_pieces`, `render_title_card_sec`, `bgm_loudnorm` (douyin only) with genre-appropriate values (#84).
+- **`BEATS_PROMPT`** (`utils/prompts.py`): upgraded to request structured JSON output with `act` + `approx_ratio` fields (#84).
+
+### Verified
+
+- Full test suite: 566 passed, 0 failures (CI verified).
+- Merge conflict in `runner.py` `PARAM_WHITELIST` resolved: `vision_captioner` (EP8) + `bgm_loudnorm` (EP6) both kept — independent entries, no semantic conflict.
+
 ## [0.4.25] - 2026-07-24
 
 ### Added (Contract layer — stable API boundary)

@@ -129,6 +129,53 @@ web_api/*  →  contract.py  →  pipeline/runner.py (build_context, run_pipelin
 | `web_api/utils.py` | Upload handling (`output/_uploads`), `collect_artifacts()`, filename sanitization |
 | `web_api/__init__.py` | Package init |
 
+### Modules — `vision/` (Visual scene captioning, v0.4.26+)
+
+The `vision/` package provides an abstraction layer for visual scene captioning, enabling future VLM (Vision Language Model) integration without touching match logic:
+
+```text
+pipeline/match._build_scene_captions()
+    ▼
+vision.factory.get_vision_captioner(name) → VisionCaptioner
+    ▼
+captioner.caption_scenes(scenes, video_path) → list[SceneCaption]
+```
+
+| Module | Responsibility |
+|--------|---------------|
+| `vision/protocol.py` | `VisionCaptioner` ABC — defines `caption_scenes()` contract + `SceneCaption` dataclass |
+| `vision/stub.py` | `StubVisionCaptioner` — returns placeholder labels (flagged `is_stub=True`) |
+| `vision/factory.py` | `get_vision_captioner()` — dispatches by `vision_captioner` param (`"none"` / `"stub"` / future providers) |
+| `vision/__init__.py` | Public API exports |
+
+**Integration with match**: vision captions supplement (not replace) audio-transcript captions. When `vision_captioner="stub"`, labels are flagged as fake so the existing fake-caption guard treats them identically to placeholder labels — embedding is skipped, heuristic path runs. A real VLM provider can be registered in `factory.py` without modifying `match.py`.
+
+**Trigger condition for real VLM** (per QUALITY_UPLIFT_METHODS §5): EP1–EP4 must be online + G1/G2 hand-test S6 ≤ 1 + acceptable latency overhead.
+
+### EP9 — Pipeline pause/resume (v0.4.26+)
+
+The pipeline supports human-in-the-loop pause points via `PipelinePaused` exception and state serialization:
+
+```text
+mn create ... --pause-at script
+    ▼
+runner: after "generate_script" step completes
+    ▼
+_save_pipeline_state(ctx) → output_dir/pipeline_state.json
+    ▼
+raise PipelinePaused(completed_step="generate_script")
+
+mn resume <output_dir>
+    ▼
+_load_pipeline_state(path) → Context (SilentConsole auto-injected)
+    ▼
+run_pipeline(ctx, start_step="align_audio")  # skips completed steps
+```
+
+**State file** (`pipeline_state.json`): serializes all `Context` fields except `services` (non-serializable). On resume, `SilentConsole` is auto-injected via `model_validator`, then replaced with a real `Console` by the `mn resume` command.
+
+**Pause points**: `--pause-at script` (after script generation) or `--pause-at match` (after scene matching). User can edit `script.md` or `matches.json` before resuming.
+
 ## TTS Abstraction Layer
 
 The `tts/` package decouples TTS backend selection from pipeline orchestration:
@@ -313,6 +360,21 @@ segment's end. This is preferable to a 100ms flash on screen.
 
 **Weighted acts fallback**: when `match_timeline_mode="weighted_acts"` but `< 8 scenes` or `< 4 segments`, the mode silently falls back to `uniform` and `timeline.mode` reflects `"uniform"`. This ensures the feature never breaks on short videos.
 
+### v0.4.26 audit fields (Stage E + Effect uplift + EP8/EP9)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `match_summary.timeline.mode` | str | Extended: `"beat_anchor"` when EP2 beat anchors used (v0.4.26+) |
+| `match_summary.timeline.anchored_count` | int\|null | Number of segments that used beat `approx_ratio` as time anchor (v0.4.26+) |
+| `ctx.metadata["beats_meta"]` | list\|absent | Per-beat `{text, act, approx_ratio}` from structured LLM output (v0.4.26+) |
+| `render_title_card_sec` | float\|absent | Title card duration in seconds; 0 or absent = disabled (v0.4.26+) |
+
+**EP2 beat anchor priority**: when beat metadata is available, the heuristic baseline uses `approx_ratio` as the primary time anchor. Priority chain: EP2 beat anchor > EP1 weighted acts > uniform proportional mapping. If LLM returns invalid `approx_ratio` (out of [0,1] or non-numeric), it falls back to EP1 weighted acts.
+
+**EP6 duck curve**: `duck_bgm` now scales duck depth proportionally with narration energy. The `bgm_duck_db` param remains the maximum duck depth; actual per-segment ducking varies from 0 to `bgm_duck_db` based on narration RMS amplitude.
+
+**EP9 pause/resume**: `pipeline_state.json` is written to `output_dir/` when `--pause-at` triggers. The file contains all `Context` fields except `services`. On `mn resume`, the state is loaded, `SilentConsole` is auto-injected, then replaced with a real `Console`, and `run_pipeline()` is called with `start_step` to skip completed steps.
+
 ### v0.4.24 audit fields (EP3 top-K rerank)
 
 | Field | Type | Description |
@@ -342,6 +404,8 @@ segment's end. This is preferable to a 100ms flash on screen.
 
 - **New pipeline step**: append to `STEPS` in `pipeline/runner.py`. Signature must be `(ctx: Context) -> Context`.
 - **Swap TTS/renderer/LLM**: replace `pipeline/tts.py`, `pipeline/render.py`, or `utils/llm.py` while keeping the step function signature.
+- **New VisionCaptioner provider**: implement `VisionCaptioner` ABC in `vision/`, register in `vision/factory.py`. See `vision/stub.py` for reference. Match logic auto-detects fake vs real captions via `is_stub` flag.
+- **Pipeline pause/resume**: `--pause-at script|match` pauses after the step; `mn resume <output_dir>` continues. State serialized to `pipeline_state.json`.
 - **New CLI command**: add `@app.command()` in `cli.py`.
 - **Frontend / WebUI**: the React SPA lives in `webui/` (Vite + TypeScript + shadcn/ui + Tailwind CSS). Add a route/component under `webui/src/`, talk to the backend through the REST endpoints in `web_api/routes.py` and the WebSocket in `web_api/ws.py`. During development run `cd webui && npm run dev` (Vite dev server proxies API calls to FastAPI on :8760); ship changes by rebuilding the bundle (`npm run build`) so FastAPI serves the updated static assets. See `docs/CONTRIBUTING.md` → *Frontend Development*.
 

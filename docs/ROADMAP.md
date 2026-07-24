@@ -178,6 +178,23 @@ The Web UI is rebuilt from a Gradio single-file app into a decoupled **FastAPI +
 - [x] L2 automated E2E smoke tests: CI-runnable pipeline contract verification
 - [x] CI smoke assertions for preset sentence count (R4 regression guard)
 
+### v0.4.26 Stage E + Effect Uplift + EP8/EP9
+
+> 3 PRs landed (#83, #84, #85). Completes Stage E productization (E.5 CLI summary + RS-07/08/09 render fixes), Effect Portfolio EP2/EP4/EP5/EP6, EP8 VisionCaptioner abstraction, and EP9 human-in-the-loop pause/resume.
+
+- [x] **E.5 CLI match summary** — one-line match summary at pipeline end (segments, emb/heur ratio, score, degradation) (#83)
+- [x] **RS-07/08/09 render fixes** — segment duration floor, mux timeout whitelist, tmp directory cleanup (#83)
+- [x] **EP4 hook templates & set pieces** — genre-appropriate hook sentence templates + named-scene injection into beats (#84)
+- [x] **EP2 beat time anchor** — structured beats with `act` + `approx_ratio`, time-anchored heuristic matching (#84)
+- [x] **EP5 title card overlay** — `render_title_card_sec` with centered movie name + fade in/out (#84)
+- [x] **EP6 duck curve & loudnorm** — proportional duck depth + RMS-based loudness normalization (#84)
+- [x] **EP8 VisionCaptioner abstraction** — `vision/` package with ABC + stub + factory; stub labels flagged as fake (#85)
+- [x] **EP9 pause/resume** — `--pause-at` CLI + `mn resume` + `pipeline_state.json` serialization (#85)
+- [x] **5 new params** — `vision_captioner`, `bgm_loudnorm`, `hook_templates`, `set_pieces`, `render_title_card_sec` (4-file whitelist sync) (#83, #84, #85)
+- [x] **39 new tests** — 15 vision + 24 pause/resume (#85)
+- [ ] **EP5 remaining** — cover.jpg export (V6) + vertical safe area presets (V5)
+- [ ] **L2+ hand test** — verify EP2/EP4/EP5/EP6 effect on G1/G2 samples
+
 ### v0.4.25 Contract Layer — Stable API Boundary
 
 > 1 PR landed (#82). Introduces `contract.py` as the single import surface between web_api and the core engine. Formalizes implicit `Context` duck-typing via `PipelineResult` protocol. Prepares the natural package boundary for future repository split.
