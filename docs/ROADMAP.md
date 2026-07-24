@@ -192,8 +192,21 @@ The Web UI is rebuilt from a Gradio single-file app into a decoupled **FastAPI +
 - [x] **EP9 pause/resume** — `--pause-at` CLI + `mn resume` + `pipeline_state.json` serialization (#85)
 - [x] **5 new params** — `vision_captioner`, `bgm_loudnorm`, `hook_templates`, `set_pieces`, `render_title_card_sec` (4-file whitelist sync) (#83, #84, #85)
 - [x] **39 new tests** — 15 vision + 24 pause/resume (#85)
-- [ ] **EP5 remaining** — cover.jpg export (V6) + vertical safe area presets (V5)
-- [ ] **L2+ hand test** — verify EP2/EP4/EP5/EP6 effect on G1/G2 samples
+- [x] **EP5 remaining** — cover.jpg export (V6) + vertical safe area presets (V5) (#87)
+- [x] **L2+ hand test** — verify EP2/EP4/EP5/EP6 effect on G1/G2 samples (#86)
+
+### v0.4.27 EP5 Completion + L2+ Hand-Test Materials
+
+> 2 PRs landed (#86, #87). Completes EP5 (cover.jpg export + vertical safe area for 9:16) and ships L2+ hand-test toolkit (checklist + run comparison script + SOP). Last checkpoint before L2 real-film validation gate.
+
+- [x] **Cover.jpg export** — `render_cover_export` exports highest-score frame with movie title overlay; non-blocking on failure (#87)
+- [x] **Vertical safe area** — `render_vertical_safe_area` auto-tightens subtitle margins for 9:16 (bottom_margin ≥ 0.15, max_width ≤ 0.82) (#87)
+- [x] **5-file param sync** — `render_cover_export` + `render_vertical_safe_area` across schema/base/load/merge/runner (#87)
+- [x] **Preset injection** — `douyin-fast` and `bilibili-long` enable cover export + vertical safe area by default (#87)
+- [x] **21 new tests** — cover logic, vertical clamping, preset injection, whitelist coverage (#87)
+- [x] **L2+ checklist** — EP-specific objective gates + subjective bonus items (#86)
+- [x] **Run comparison tool** — `compare_runs.py` for metadata.json A/B diff (#86)
+- [x] **L2+ SOP** — step-by-step execution procedure with pass/fail criteria (#86)
 
 ### v0.4.25 Contract Layer — Stable API Boundary
 

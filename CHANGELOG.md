@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.27] - 2026-07-25
+
+### Added (EP5 completion + L2+ hand-test materials)
+
+#### EP5 — Cover export & vertical safe area (PR #87)
+
+- **Cover.jpg export** (`pipeline/render.py`): `render_cover_export` param exports the highest-score frame as `cover.jpg` with movie title overlay. Non-blocking — failures log a warning and continue, never aborting the render. Presets `douyin-fast` and `bilibili-long` enable this by default (#87).
+- **Vertical safe area** (`pipeline/render.py`): `render_vertical_safe_area` param auto-tightens subtitle margins for 9:16 mobile output — `bottom_margin_ratio ≥ 0.15` and `subtitle_max_width_ratio ≤ 0.82`. Prevents subtitles from being clipped by platform UI overlays (#87).
+- **5-file param sync** — `render_cover_export` + `render_vertical_safe_area` added to `schema.py`, `base.py`, `load.py`, `merge.py`, `runner.py` PARAM_WHITELIST. Presets updated with sensible defaults (#87).
+- **21 new tests** — cover export logic, vertical safe area clamping, preset injection, param whitelist coverage (#87).
+
+#### L2+ hand-test preparation (PR #86)
+
+- **L2+ checklist** (`docs/checklists/L2_HANDTEST_PLUS.md`): EP-specific objective gates (EP2 beat anchor accuracy, EP4 hook CTR proxy, EP5 cover/vertical, EP6 loudness consistency) + subjective bonus items (#86).
+- **Run comparison tool** (`scripts/compare_runs.py`): CLI tool to diff `metadata.json` files across runs — highlights score deltas, source-count changes, and degradation differences. Supports before/after A/B comparison for effect verification (#86).
+- **L2+ SOP** (`docs/checklists/L2_PLUS_SOP.md`): step-by-step standard operating procedure for executing the L2+ hand test, including sample selection, run configuration, and pass/fail criteria (#86).
+
+### Changed
+
+- ROADMAP.md: v0.4.26 `EP5 remaining` and `L2+ hand test` items marked complete.
+
 ## [0.4.26] - 2026-07-25
 
 ### Added (Stage E contract + Effect uplift + EP8/EP9)
