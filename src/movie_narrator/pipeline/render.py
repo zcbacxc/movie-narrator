@@ -173,6 +173,31 @@ def render_video(ctx: Context) -> Context:
         img_clip = img_clip.with_duration(seg.end - seg.start).with_start(seg.start)
         clips.append(img_clip)
 
+    # EP5: Title card overlay — show movie name at the beginning for a
+    # polished opening. Uses a larger centered font with fade in/out.
+    # Duration is controlled by render_title_card_sec (0 = disabled).
+    title_card_sec = ctx.metadata.get("render_title_card_sec", 0)
+    if title_card_sec and title_card_sec > 0 and ctx.movie_name:
+        title_font_size = int(font_size * 1.4)
+        title_img = _create_text_image(
+            ctx.movie_name, size, fontsize=title_font_size,
+            position="center",
+            max_width_ratio=0.85,
+        )
+        title_clip = ImageClip(title_img, is_mask=False)
+        title_clip = title_clip.with_duration(title_card_sec).with_start(0)
+        # Fade in/out for polish (graceful degradation if MoviePy fx unavailable)
+        try:
+            from moviepy.video.fx import FadeIn, FadeOut
+            fade_dur = min(0.3, title_card_sec / 3)
+            title_clip = title_clip.with_effects([FadeIn(fade_dur), FadeOut(fade_dur)])
+        except Exception:
+            pass  # no fade — title card still visible
+        clips.append(title_clip)
+        ctx.services.console.debug(
+            f"  EP5 title card: {ctx.movie_name} ({title_card_sec}s)"
+        )
+
     final_video = CompositeVideoClip(clips).with_audio(audio_clip)
     video_path = output_dir / ctx.metadata.get("render_output_name", "final.mp4")
 

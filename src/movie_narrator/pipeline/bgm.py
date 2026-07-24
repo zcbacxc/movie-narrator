@@ -3,7 +3,7 @@ from pathlib import Path
 from pydub import AudioSegment
 
 from ..models import Context, StepResult
-from ..utils.audio_mix import duck_bgm, normalize_peak
+from ..utils.audio_mix import duck_bgm, normalize_loudnorm, normalize_peak
 
 
 def _export_robust(seg: AudioSegment, out: Path) -> str:
@@ -27,7 +27,11 @@ def _normalize_narration(ctx: Context, narration: AudioSegment) -> str:
     """Normalize narration and write to a side file, returning the path."""
     out = Path(ctx.output_dir) / "narration_normalized.mp3"
     target = ctx.metadata.get("audio_target_dbfs", -14.0)
-    normalized = normalize_peak(narration, target_dbfs=target)
+    # EP6: Use RMS-based loudnorm when configured, else peak normalization
+    if ctx.metadata.get("bgm_loudnorm", False):
+        normalized = normalize_loudnorm(narration, target_dbfs=target)
+    else:
+        normalized = normalize_peak(narration, target_dbfs=target)
     return _export_robust(normalized, out)
 
 
@@ -101,7 +105,11 @@ def mix_bgm(ctx: Context) -> Context:
         do_norm = ctx.metadata.get("bgm_normalize", True)
         if do_norm:
             target = ctx.metadata.get("audio_target_dbfs", -14.0)
-            mixed = normalize_peak(mixed, target_dbfs=target)
+            # EP6: Use RMS-based loudnorm when configured, else peak normalization
+            if ctx.metadata.get("bgm_loudnorm", False):
+                mixed = normalize_loudnorm(mixed, target_dbfs=target)
+            else:
+                mixed = normalize_peak(mixed, target_dbfs=target)
         out = Path(ctx.output_dir) / "mixed.mp3"
         ctx.final_audio_path = _export_robust(mixed, out)
         ctx.status.bgm = "success"

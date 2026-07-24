@@ -101,7 +101,8 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
             "render_subtitle_position", "render_subtitle_max_width_ratio",
             "render_subtitle_bottom_margin_ratio",
             "render_require_footage", "render_min_footage_coverage",
-            "render_profile",
+            "render_profile", "render_title_card_sec",
+            "bgm_loudnorm",
             # Deliverable QA
             "qa_enabled", "qa_max_silence_db",
             "qa_min_duration_ratio", "qa_max_duration_ratio",
@@ -109,6 +110,7 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
             "prompt_target_sentences", "prompt_target_segment_duration",
             "prompt_max_chars_per_sentence",
             "prompt_hook_seconds",
+            "hook_templates", "set_pieces",
             # Async
             "async_timeout", "async_max_workers",
             # Video sizes

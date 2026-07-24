@@ -27,6 +27,26 @@ def normalize_peak(seg: AudioSegment, target_dbfs: float = -14.0) -> AudioSegmen
     return seg.apply_gain(gain)
 
 
+def normalize_loudnorm(seg: AudioSegment, target_dbfs: float = -16.0) -> AudioSegment:
+    """RMS-based loudness normalization (EP6).
+
+    Approximates EBU R128 loudness normalization using RMS measurement.
+    More consistent than peak normalization across different content types
+    because it accounts for the overall energy, not just the loudest sample.
+
+    Gain is clamped to ±12 dB to prevent extreme amplification of near-silent
+    segments or excessive attenuation of loud ones.
+    """
+    if seg.rms == 0:
+        return seg
+    current_rms_db = seg.dBFS
+    if current_rms_db is None or current_rms_db <= -100:
+        return seg
+    gain = target_dbfs - current_rms_db
+    gain = max(-12.0, min(12.0, gain))
+    return seg.apply_gain(gain)
+
+
 def duck_bgm(
     narration: AudioSegment,
     bgm: AudioSegment,
@@ -75,7 +95,12 @@ def duck_bgm(
         if rms_db is None or rms_db <= -100:
             window_envelope.append(0.0)
         elif rms_db > speech_threshold_dbfs:
-            window_envelope.append(duck_db)
+            # EP6: Proportional duck curve — scale duck amount by narration
+            # energy above the threshold, producing a smoother, more natural
+            # ducking effect. Full duck_db is reached at +10dB above threshold.
+            excess = rms_db - speech_threshold_dbfs
+            proportional = min(1.0, excess / 10.0)
+            window_envelope.append(duck_db * proportional)
         else:
             window_envelope.append(0.0)
 
