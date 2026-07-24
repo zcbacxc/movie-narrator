@@ -68,8 +68,10 @@ ALLOWED_PARAM_KEYS: frozenset[str] = frozenset({
     # EP4: hook templates and set pieces
     "hook_templates",
     "set_pieces",
-    # EP5: title card
+    # EP5: title card + cover export + vertical safe area
     "render_title_card_sec",
+    "render_cover_export",
+    "render_vertical_safe_area",
 })
 
 # Safety: ALLOWED_PARAM_KEYS must be a subset of PARAM_WHITELIST.

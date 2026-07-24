@@ -43,8 +43,10 @@ class DouyinFastPreset:
                 "别被{movie}的片名骗了，这片太猛了",
                 "{movie}里这个反转，我看了五遍才懂",
             ],
-            # EP5: title card
+            # EP5: title card + cover export + vertical safe area
             "render_title_card_sec": 1.0,
+            "render_cover_export": True,
+            "render_vertical_safe_area": True,
         }
 
     def prompt_tags(self) -> Dict[str, str]:

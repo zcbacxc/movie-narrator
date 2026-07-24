@@ -40,8 +40,10 @@ class BilibiliLongPreset:
                 "{movie}为什么值得反复观看？",
                 "从{movie}看导演的叙事野心",
             ],
-            # EP5: title card for long-form
+            # EP5: title card + cover export + vertical safe area for long-form
             "render_title_card_sec": 1.2,
+            "render_cover_export": True,
+            "render_vertical_safe_area": True,
         }
 
     def prompt_tags(self) -> Dict[str, str]:
