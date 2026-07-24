@@ -93,6 +93,27 @@ The React SPA is built by Vite into static assets that FastAPI serves directly, 
 - **Uploads to a stable dir**: uploaded files go to `output/_uploads` (FastAPI), never to ad-hoc `mn_web_*` temp dirs or the `output/` movie folder
 - **Single-job per task**: re-entrancy guard via `TaskManager` (FastAPI) per task id, replacing the old `gr.State`-based `WebRun` session state
 
+### Modules — `contract.py` (stable API boundary)
+
+The `contract.py` module is the **single import surface** that web_api and future consumers depend on. It re-exports symbols from 4 internal modules and defines the `PipelineResult` protocol, without moving any code:
+
+```text
+web_api/*  →  contract.py  →  pipeline/runner.py (build_context, run_pipeline, PARAM_WHITELIST)
+                          →  pipeline/errors.py (PipelineCancelled, RunController, StepAction, ...)
+                          →  utils/console.py (BaseConsole, Console, SilentConsole)
+                          →  utils/sanitize.py (sanitize_filename)
+```
+
+| Symbol | Source | Purpose |
+|--------|--------|---------|
+| `PipelineResult` | contract.py (new) | `runtime_checkable` Protocol — formalizes 5 Context attributes (video_path, audio_path, clips_dir, output_dir, subtitle_paths) |
+| `PARAM_WHITELIST` | pipeline/runner.py | ~60 allowed param keys — single source of truth for form↔engine sync |
+| `build_context` / `run_pipeline` | pipeline/runner.py | Engine entry points |
+| `BaseConsole` / `Console` / `SilentConsole` | utils/console.py | Output abstraction protocol + base class |
+| `PipelineCancelled` / `PipelineStrictError` | pipeline/errors.py | Pipeline terminal exceptions |
+| `RunController` / `StepAction` / `check_cancelled` | pipeline/errors.py | Cooperative cancel + retry protocol |
+| `sanitize_filename` | utils/sanitize.py | Cross-platform filename sanitization |
+
 ### Modules — `web_api/` (FastAPI backend, default)
 
 | Module | Responsibility |

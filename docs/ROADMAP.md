@@ -178,6 +178,15 @@ The Web UI is rebuilt from a Gradio single-file app into a decoupled **FastAPI +
 - [x] L2 automated E2E smoke tests: CI-runnable pipeline contract verification
 - [x] CI smoke assertions for preset sentence count (R4 regression guard)
 
+### v0.4.25 Contract Layer — Stable API Boundary
+
+> 1 PR landed (#82). Introduces `contract.py` as the single import surface between web_api and the core engine. Formalizes implicit `Context` duck-typing via `PipelineResult` protocol. Prepares the natural package boundary for future repository split.
+
+- [x] **`contract.py`** — re-exports 13 symbols (BaseConsole, Console, SilentConsole, PipelineCancelled, PipelineStrictError, RunController, StepAction, check_cancelled, PARAM_WHITELIST, build_context, run_pipeline, sanitize_filename) from 4 internal modules (#82)
+- [x] **`PipelineResult` protocol** — `runtime_checkable` Protocol formalizing 5 Context attributes (video_path, audio_path, clips_dir, output_dir, subtitle_paths) previously duck-typed by web_api (#82)
+- [x] **web_api import unification** — console.py, tasks.py, utils.py, form.py all import from `..contract` instead of reaching into internal modules (#82)
+- [x] **18 new contract tests** — re-export identity, __all__ completeness, protocol satisfaction, import isolation (#82)
+
 ### v0.4.24 EP3 — Top-K Rerank + L2 Cross-Movie Validation
 
 > 2 PRs landed (#80, #81). EP3 top-K rerank with order-backtrack reuse penalty replaces top-1 embedding assignment, letting unused lower-ranked scenes win over recently-used top-1. L2 exit §12.2 §1 achieved with G1 + G2 cross-movie validation.

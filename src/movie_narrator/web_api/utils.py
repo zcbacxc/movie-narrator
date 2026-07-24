@@ -98,7 +98,13 @@ def cleanup_uploads(upload_dir: Path, task_id: str) -> None:
 
 
 def collect_artifacts(ctx, output_dir: Path) -> List[str]:
-    """Collect all output artifacts for a completed task."""
+    """Collect all output artifacts for a completed task.
+
+    ``ctx`` is expected to satisfy the ``PipelineResult`` protocol
+    (see ``movie_narrator.contract``). It is typed as ``Any`` here
+    to avoid importing the full ``Context`` model — the contract
+    layer formalizes the attribute access surface.
+    """
     artifacts = []
     # Video output
     if ctx.video_path and Path(ctx.video_path).exists():
