@@ -12,6 +12,16 @@ from ..utils.text_image import create_text_image as _create_text_image
 from ..utils.video_layout import compute_fit_box
 from .bgm import ensure_final_audio
 
+# RS-07: Minimum segment duration floor for speed scaling.
+# Prevents division-by-zero when seg_duration is extremely short
+# (e.g. 0-length segment from alignment glitch). 0.1s is intentional:
+# below this, speed scaling produces visually absurd fast-forward.
+_SEG_DURATION_FLOOR = 0.1
+
+# RS-08: Default ffmpeg mux timeout (seconds) when render_ffmpeg_timeout
+# is not specified in job params. 10 min is generous for 4K + slow preset.
+_DEFAULT_MUX_TIMEOUT = 600
+
 
 class _RenderProgressLogger(TqdmProgressBarLogger):
     """MoviePy progress logger with readable bar descriptions.
@@ -109,7 +119,7 @@ def render_video(ctx: Context) -> Context:
                 try:
                     subclip = source.subclipped(mc.src_start, mc.src_end)
                     if src_duration > 0:
-                        subclip = subclip.with_speed_scaled(factor=src_duration / max(seg_duration, 0.1))
+                        subclip = subclip.with_speed_scaled(factor=src_duration / max(seg_duration, _SEG_DURATION_FLOOR))
 
                     # Fit source frame onto the canvas (cover=crop+fill,
                     # contain=letterbox+center). Keeps footage from overflowing
@@ -255,16 +265,17 @@ def render_video(ctx: Context) -> Context:
             text=True,
             encoding="utf-8",
             errors="replace",
-            timeout=600,  # 10 min — generous for slow ffmpeg mux
+            timeout=ctx.metadata.get("render_ffmpeg_timeout", _DEFAULT_MUX_TIMEOUT),
         )
         if proc.returncode != 0:
             raise RuntimeError(
                 f"ffmpeg mux failed (exit={proc.returncode}): {proc.stderr}"
             )
     finally:
-        # Clean up the video-only intermediate to keep the output dir tidy.
+        # RS-09: Clean up the .tmp directory (video_only.mp4 and any
+        # other intermediates) to keep the output dir tidy.
         try:
-            video_only_path.unlink(missing_ok=True)
+            shutil.rmtree(tmp_dir, ignore_errors=True)
         except OSError:
             pass
 
