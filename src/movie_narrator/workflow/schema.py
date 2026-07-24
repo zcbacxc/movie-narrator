@@ -43,6 +43,8 @@ class JobParams(BaseModel):
     bgm_duck_db: Optional[float] = None
     bgm_normalize: Optional[bool] = None
     audio_target_dbfs: Optional[float] = None
+    # EP6: RMS-based loudness normalization (more consistent than peak)
+    bgm_loudnorm: Optional[bool] = None
     # ── TTS pacing ──
     tts_pause_ms: Optional[int] = None
     tts_max_concurrent: Optional[int] = None
@@ -81,6 +83,8 @@ class JobParams(BaseModel):
     render_require_footage: Optional[bool] = None
     render_min_footage_coverage: Optional[float] = None
     render_profile: Optional[str] = None  # "publish" (default) | "draft" (fast iteration)
+    # EP5: title card duration (seconds, 0 = disabled)
+    render_title_card_sec: Optional[float] = None
     # ── QA ──
     qa_enabled: Optional[bool] = None
     qa_max_silence_db: Optional[float] = None
@@ -91,6 +95,9 @@ class JobParams(BaseModel):
     prompt_target_segment_duration: Optional[float] = None
     prompt_max_chars_per_sentence: Optional[int] = None
     prompt_hook_seconds: Optional[int] = None
+    # EP4: hook templates and set pieces for narrative hook enhancement
+    hook_templates: Optional[list] = None  # e.g. ["你敢信？{movie}里这段直接封神", ...]
+    set_pieces: Optional[list] = None  # e.g. ["公交车战", "天台对峙"] — injected into Phase1 beats
     # ── Async ──
     async_timeout: Optional[int] = None
     async_max_workers: Optional[int] = None

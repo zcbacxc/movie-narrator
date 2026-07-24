@@ -722,9 +722,44 @@ def _match_clips_impl(
     # Map each narration midpoint proportionally onto the scene span, pick the
     # containing scene window. Produces a stable candidate per segment with
     # score=1.0 (plan T14 normative rule).
+    #
+    # EP2: When beat metadata (approx_ratio) is available from Phase 1,
+    # use it as the primary time anchor — it's the LLM's estimate of where
+    # in the film this plot point occurs, which is more accurate than
+    # uniform narration-position mapping for improving D2 (scene-dialogue
+    # relevance). Priority: EP2 beat anchor > EP1 weighted acts > uniform.
+    beats_meta = ctx.metadata.get("beats_meta", [])
+    use_beat_anchor = (
+        len(beats_meta) == len(ctx.timed_segments)
+        and any(bm.get("approx_ratio") is not None for bm in beats_meta)
+    )
+    if use_beat_anchor:
+        n_with_ratio = sum(
+            1 for bm in beats_meta if bm.get("approx_ratio") is not None
+        )
+        ctx.services.console.debug(
+            f"  EP2 beat anchor: {n_with_ratio}/{len(beats_meta)} "
+            f"segments have approx_ratio — using beat-based time anchoring"
+        )
+
     heuristic = []
     for i, seg in enumerate(ctx.timed_segments):
-        if use_weighted_acts:
+        beat_meta = beats_meta[i] if i < len(beats_meta) else {}
+        approx_ratio = beat_meta.get("approx_ratio")
+
+        if approx_ratio is not None and 0.0 <= approx_ratio <= 1.0:
+            # EP2: Use beat-based anchoring — LLM's estimate of where
+            # this plot point occurs in the film timeline.
+            src_mid = scene_start + approx_ratio * scene_span
+
+            containing = None
+            for scene in scenes:
+                if scene.start <= src_mid <= scene.end:
+                    containing = scene
+                    break
+            if containing is None:
+                containing = scenes[0]
+        elif use_weighted_acts:
             # EP1: map within assigned act bucket
             act_idx = act_assignments[i]
             bucket = act_scenes[act_idx]
@@ -1055,7 +1090,16 @@ def _match_clips_impl(
             "max_reuse": ctx.metadata.get("match_max_scene_reuse", 2),
         },
         "timeline": {
-            "mode": "weighted_acts" if use_weighted_acts else "uniform",
+            "mode": (
+                "beat_anchor" if use_beat_anchor
+                else "weighted_acts" if use_weighted_acts
+                else "uniform"
+            ),
+            "beat_anchor": use_beat_anchor,
+            "beat_anchored_count": (
+                sum(1 for bm in beats_meta if bm.get("approx_ratio") is not None)
+                if use_beat_anchor else 0
+            ),
             "act_weights": act_weights if use_weighted_acts else None,
             "segments_per_act": (
                 [act_assignments.count(a) for a in range(len(act_weights))]

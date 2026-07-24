@@ -43,6 +43,7 @@ ALLOWED_PARAM_KEYS: frozenset[str] = frozenset({
     "bgm_duck_db",
     "bgm_normalize",
     "audio_target_dbfs",
+    "bgm_loudnorm",
     # Render / subtitle
     "render_subtitle_position",
     "render_subtitle_max_width_ratio",
@@ -64,6 +65,11 @@ ALLOWED_PARAM_KEYS: frozenset[str] = frozenset({
     "prompt_target_segment_duration",
     "prompt_max_chars_per_sentence",
     "prompt_hook_seconds",
+    # EP4: hook templates and set pieces
+    "hook_templates",
+    "set_pieces",
+    # EP5: title card
+    "render_title_card_sec",
 })
 
 # Safety: ALLOWED_PARAM_KEYS must be a subset of PARAM_WHITELIST.

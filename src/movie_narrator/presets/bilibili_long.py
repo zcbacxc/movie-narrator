@@ -34,6 +34,14 @@ class BilibiliLongPreset:
             "prompt_target_segment_duration": 7.5,
             "prompt_max_chars_per_sentence": 32,
             "prompt_hook_seconds": 7,
+            # EP4: hook templates — analytical, depth-driven openings
+            "hook_templates": [
+                "今天聊聊{movie}，一部被时间证明的经典",
+                "{movie}为什么值得反复观看？",
+                "从{movie}看导演的叙事野心",
+            ],
+            # EP5: title card for long-form
+            "render_title_card_sec": 1.2,
         }
 
     def prompt_tags(self) -> Dict[str, str]:

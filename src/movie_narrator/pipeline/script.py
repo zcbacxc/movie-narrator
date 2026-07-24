@@ -3,7 +3,7 @@ import re
 
 from ..config import get_settings
 from ..models import Context, ScriptSegment
-from ..utils.prompts import BEATS_PROMPT, EXPAND_PROMPT, build_cadence_hint
+from ..utils.prompts import BEATS_PROMPT, EXPAND_PROMPT, build_cadence_hint, build_set_pieces_hint, build_hook_hint
 from ..utils.llm import get_llm_client
 from ..utils.json_parser import extract_json
 from ..tts.base import is_ci
@@ -112,6 +112,7 @@ def _generate_plot_beats(
         style=ctx.style,
         research=research_block,
         target_count=target_count,
+        set_pieces_hint=build_set_pieces_hint(ctx.metadata.get("set_pieces")),
     )
 
     # ST-09: Scale max_tokens by target_count to avoid truncation on
@@ -141,17 +142,46 @@ def _generate_plot_beats(
     # Filter out None / non-string / empty beats.
     # str(None) = "None" is truthy and would silently pass the old
     # `if str(b).strip()` check, producing a meaningless "None" beat.
+    # EP2: Also extract beat metadata (act, approx_ratio) when LLM
+    # returns structured objects. Falls back to plain strings for
+    # backward compatibility.
     cleaned = []
+    beats_meta: list[dict] = []
     for b in beats:
         if b is None:
             continue
-        text = str(b).strip()
-        if text and text.lower() != "none":
+        if isinstance(b, dict):
+            text = str(b.get("text", "")).strip()
+            if not text or text.lower() == "none":
+                continue
+            act = b.get("act")
+            try:
+                act = int(act) if act is not None else None
+                if act is not None and not (1 <= act <= 4):
+                    act = None
+            except (TypeError, ValueError):
+                act = None
+            ratio = b.get("approx_ratio")
+            try:
+                ratio = float(ratio) if ratio is not None else None
+                if ratio is not None:
+                    ratio = max(0.0, min(1.0, ratio))  # clamp to [0, 1]
+            except (TypeError, ValueError):
+                ratio = None
             cleaned.append(text)
+            beats_meta.append({"text": text, "act": act, "approx_ratio": ratio})
+        else:
+            text = str(b).strip()
+            if not text or text.lower() == "none":
+                continue
+            cleaned.append(text)
+            beats_meta.append({"text": text, "act": None, "approx_ratio": None})
     if len(cleaned) != target_count:
         raise ValueError(
             f"Phase 1: after filtering None/empty beats, expected {target_count}, got {len(cleaned)}"
         )
+    # EP2: Store beat metadata for match.py time anchoring
+    ctx.metadata["beats_meta"] = beats_meta
     return cleaned
 
 
@@ -186,6 +216,7 @@ def _expand_beats_to_script(
         target_count=target_count,
         max_chars=max_chars,
         hook_seconds=hook_seconds,
+        hook_hint=build_hook_hint(ctx.metadata.get("hook_templates"), ctx.movie_name),
     )
 
     response = llm.client.chat.completions.create(

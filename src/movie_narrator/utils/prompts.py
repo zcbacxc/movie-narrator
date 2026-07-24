@@ -40,13 +40,19 @@ Requirements:
 - Total MUST be exactly {target_count} points — no more, no less.
 - Points should span the full movie arc: opening hook -> rising tension -> climax -> resolution.
 - Arrange in chronological order of the film's plot.
-
+- For each beat, estimate which act (1-4) it belongs to and its approximate position in the film (0.0 = opening, 1.0 = ending).
+{set_pieces_hint}
 Output ONLY a JSON object:
 {{
-  "beats": ["Point 1", "Point 2", ..., "Point {target_count}"]
+  "beats": [
+    {{"text": "Point 1", "act": 1, "approx_ratio": 0.05}},
+    {{"text": "Point 2", "act": 2, "approx_ratio": 0.25}},
+    ...
+  ]
 }}
 
 The "beats" array MUST contain exactly {target_count} items.
+Each item MUST have "text" (string), "act" (int 1-4), and "approx_ratio" (float 0.0-1.0).
 """
 
 EXPAND_PROMPT = """\
@@ -64,7 +70,7 @@ Requirements:
 3. First {hook_seconds}s worth of sentences MUST hook hard (suspense, surprise, conflict).
 4. Last sentence needs emotional elevation or a thought-provoking punch.
 5. Maintain the given plot order. One input point -> one output segment.
-
+{hook_hint}
 Output ONLY JSON:
 {{
   "segments": [
@@ -113,6 +119,36 @@ def build_cadence_hint(cadence: str = "", connectors: str = "", register: str = 
     if register and register in _REGISTER_HINTS:
         parts.append(_REGISTER_HINTS[register])
     return "\n".join(parts)
+
+
+def build_set_pieces_hint(set_pieces: list[str] | None) -> str:
+    """Build the {set_pieces_hint} block for BEATS_PROMPT.
+
+    Injects named scenes that MUST appear in the extracted beats.
+    Returns empty string when no set_pieces are provided.
+    """
+    if not set_pieces:
+        return ""
+    lines = ["- The following named scenes MUST be included among the beats:"]
+    for i, sp in enumerate(set_pieces, 1):
+        lines.append(f"  {i}. {sp}")
+    return "\n".join(lines)
+
+
+def build_hook_hint(hook_templates: list[str] | None, movie: str) -> str:
+    """Build the {hook_hint} block for EXPAND_PROMPT.
+
+    Injects hook template candidates for the first sentence.
+    Returns empty string when no hook_templates are provided.
+    """
+    if not hook_templates:
+        return ""
+    lines = ["6. Hook templates for the FIRST sentence (pick one or write inspired by one — fill {movie} with the actual title):"]
+    for i, tmpl in enumerate(hook_templates, 1):
+        filled = tmpl.replace("{movie}", movie)
+        lines.append(f"   {i}. {filled}")
+    lines.append("   The first sentence MUST be a scroll-stopping hook. Do NOT copy verbatim — adapt to the plot.")
+    return "\n".join(lines)
 
 # Translation prompt — multi-language subtitle (v0.3).
 # The LLM must return a JSON object with a "translations" array aligned

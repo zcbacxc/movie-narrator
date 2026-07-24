@@ -23,6 +23,8 @@ class DouyinFastPreset:
             "bgm_duck_db": -10.0,
             "bgm_normalize": True,
             "audio_target_dbfs": -14.0,
+            # EP6: loudnorm for consistent loudness across short-form content
+            "bgm_loudnorm": True,
             # Render: 紧凑字幕
             "render_subtitle_position": "bottom",
             "render_font_size": 100,
@@ -33,6 +35,16 @@ class DouyinFastPreset:
             "prompt_target_segment_duration": 3.3,
             "prompt_max_chars_per_sentence": 15,
             "prompt_hook_seconds": 3,
+            # EP4: hook templates — punchy, scroll-stop openings
+            "hook_templates": [
+                "你敢信？{movie}里这段直接封神",
+                "看完{movie}我三天没缓过来",
+                "{movie}最炸裂的一幕，不看后悔",
+                "别被{movie}的片名骗了，这片太猛了",
+                "{movie}里这个反转，我看了五遍才懂",
+            ],
+            # EP5: title card
+            "render_title_card_sec": 1.0,
         }
 
     def prompt_tags(self) -> Dict[str, str]:
