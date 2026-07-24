@@ -10,7 +10,7 @@ from ..utils.environment import collect_environment
 from .align import align_audio
 from .assets import prepare_assets
 from .bgm import mix_bgm
-from .errors import PipelineCancelled, PipelineStrictError, RunController, StepAction, check_cancelled
+from .errors import PipelineCancelled, PipelinePaused, PipelineStrictError, RunController, StepAction, check_cancelled
 from .export_clips import export_clips
 from .match import match_clips
 from .preflight import PreflightError, run_preflight
@@ -40,7 +40,8 @@ PARAM_WHITELIST: frozenset[str] = frozenset({
     "match_timeline_mode", "match_act_weights",
     "match_topk", "match_topk_reuse_penalty",
     "embedding_model_name",
-    "bgm_gain_db", "bgm_duck_db", "bgm_normalize", "audio_target_dbfs",
+    "vision_captioner",  # EP8: "none" (default) | "stub" | future providers
+    "bgm_gain_db", "bgm_duck_db", "bgm_normalize", "audio_target_dbfs", "bgm_loudnorm",
     "tts_pause_ms",
     "tts_max_concurrent", "tts_audio_format", "tts_audio_bitrate",
     "translate_source_lang", "translate_provider", "translate_retries",
@@ -293,10 +294,55 @@ def build_context(
 # ── Pipeline execution ─────────────────────────────────────
 
 
+def _save_pipeline_state(ctx: Context, completed_step: str) -> Path:
+    """Serialize pipeline state for resume (EP9).
+
+    Writes ``pipeline_state.json`` to ``ctx.output_dir``. Excludes the
+    non-serializable ``services`` field — the ``Context`` model_validator
+    auto-injects ``SilentConsole`` on load.
+
+    Returns the path to the saved state file.
+    """
+    import json
+    state = {
+        "completed_step": completed_step,
+        "context": ctx.model_dump(mode="json", exclude={"services"}),
+    }
+    state_path = Path(ctx.output_dir) / "pipeline_state.json"
+    state_path.write_text(
+        json.dumps(state, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return state_path
+
+
+def _load_pipeline_state(state_path: Path) -> tuple[Context, str]:
+    """Load pipeline state from a file (EP9).
+
+    Returns ``(context, completed_step)``. The context's ``services``
+    field is auto-filled with ``SilentConsole`` by the model_validator —
+    callers should assign a real console if interactive output is needed.
+    """
+    import json
+    data = json.loads(state_path.read_text(encoding="utf-8"))
+    completed_step = data["completed_step"]
+    ctx = Context(**data["context"])
+    return ctx, completed_step
+
+
+def _next_step_after(completed_step: str) -> Optional[str]:
+    """Return the name of the step after *completed_step*, or None if last."""
+    for i, step in enumerate(STEPS):
+        if step.__name__ == completed_step and i + 1 < len(STEPS):
+            return STEPS[i + 1].__name__
+    return None
+
+
 def run_pipeline(
     ctx: Context,
     *,
     controller: Optional[RunController] = None,
+    start_step: Optional[str] = None,
 ) -> Context:
     """Execute the 15-step pipeline against *ctx*.
 
@@ -304,10 +350,17 @@ def run_pipeline(
     passes a ``GradioController`` so the user can request a cooperative
     cancel at step boundaries.
 
+    ``start_step`` (EP9): when set, skip all steps before this step name.
+    Used by ``mn resume`` to avoid re-running already-completed steps.
+
     ``PipelineCancelled`` raises before ``_check_strict``, so ``--strict``
     never trips on cancellation. Cancel is a distinct terminal path —
     it is NOT a soft-step warning and does NOT set status fields to
     ``failed``.
+
+    ``PipelinePaused`` (EP9) raises after a step completes when
+    ``ctx.metadata["pause_at"]`` matches the step name. The pipeline
+    state is serialized before raising so ``mn resume`` can continue.
     """
     console = ctx.services.console
     workflow_steps: Optional[Dict[str, bool]] = ctx.metadata.get("workflow_steps")
@@ -321,8 +374,18 @@ def run_pipeline(
 
     total_start = time.time()
 
+    # EP9: When resuming, skip steps before start_step
+    _resume_started = start_step is None
+
     for step in STEPS:
         name = step.__name__
+
+        # EP9: Skip already-completed steps when resuming
+        if not _resume_started:
+            if name == start_step:
+                _resume_started = True
+            else:
+                continue
 
         check_cancelled(controller)
 
@@ -419,6 +482,19 @@ def run_pipeline(
         # ── Render step result ───────────────────────────────
         _render_step_result(ctx, name, elapsed, console)
         _check_strict(ctx, name)
+
+        # ── EP9: Pause-at check ─────────────────────────────
+        # If the user requested a pause after this step, serialize state
+        # and raise PipelinePaused so the CLI can inform the user.
+        pause_at = ctx.metadata.get("pause_at")
+        if pause_at and pause_at == name:
+            state_path = _save_pipeline_state(ctx, name)
+            console.inline_warn(
+                f"Pipeline paused after '{name}'. "
+                f"State saved to {state_path.name}. "
+                f"Resume with: mn resume --state \"{state_path}\""
+            )
+            raise PipelinePaused(name)
 
         # ── Reset step_state for next iteration ──────────────
         ctx.step_state = StepState()
