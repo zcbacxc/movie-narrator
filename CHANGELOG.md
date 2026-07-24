@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.24] - 2026-07-24
+
+### Added (EP3 — Top-K rerank with order-backtrack reuse penalty)
+
+- **EP3 top-K rerank** (`pipeline/match.py`): new `_greedy_topk_assign()` replaces the previous top-1 embedding assignment. For each narration segment, computes top-K candidate scenes via `_cosine_topk()` (O(n) argpartition + sort K winners), then picks the candidate with the highest *adjusted* score — where scenes used in the last `reuse_window` segments get a `reuse_penalty` deduction. This lets a lower-ranked but unused scene win over a recently-used top-1, breaking the "same scene back-to-back" pattern without forcing a hard diversity swap (#80).
+- **`MatchedClip.source` expanded** (`models.py`): Literal now includes `"embedding_topk"` (top-K ran) and `"embedding_top1"` (top-K disabled, k ≤ 1), in addition to the existing `"embedding"`, `"heuristic"`, `"scene"`, `"fallback"` (#80).
+- **2 new params**: `match_topk` (default 5, 0/1 = top-1 mode) + `match_topk_reuse_penalty` (default 0.15) added to whitelist across all 4 files (`schema.py`, `merge.py`, `load.py`, `runner.py`) (#80).
+- **EP3 audit fields** (`match_summary.topk` + `match_summary.source_counts`): `topk.{k, reuse_penalty, topk_count, top1_count}` records the rerank configuration and how many segments used top-K vs top-1. `source_counts.{embedding_topk, embedding_top1}` breaks down the embedding sub-path (#80).
+- **9 new EP3 tests** (`tests/test_match.py`): reuse penalty swap, disabled top-1 mode, zero-penalty no-swap, audit fields (topk + top1), `_cosine_topk` unit (sorted descending, k exceeds candidates, empty matrix), `_greedy_topk_assign` unit (#80).
+
+### L2 Hand-Test G2 (2026-07-24)
+
+EP3 cross-movie validation on second feature film (西虹市首富, 4.45 GB comedy):
+
+| Verification | G1 (飞驰人生3) | G2 (西虹市首富) | Result |
+|---|---|---|---|
+| `embedding_topk` count | 18/18 | 18/18 | ✅ 100% top-K path |
+| `top1_count` (degraded) | 0 | 0 | ✅ no top-1 fallback |
+| `heuristic_count` | 0 | 0 | ✅ no heuristic fallback |
+| `qa_report.ok` | true | true | ✅ no P0 defects |
+| `degraded_reason` | null | null | ✅ no degradation |
+| `footage_coverage.ratio` | 1.0 | 1.0 | ✅ full coverage |
+
+L2 exit §12.2 §1 "≥2 样片两轮连续无 P0" achieved. See [`docs/checklists/L2_HANDTEST_G2_20260724.md`](docs/checklists/L2_HANDTEST_G2_20260724.md) for full report.
+
 ## [0.4.23] - 2026-07-23
 
 ### Added (Performance contract closure + audit cleanup)

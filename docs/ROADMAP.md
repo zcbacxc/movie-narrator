@@ -178,6 +178,17 @@ The Web UI is rebuilt from a Gradio single-file app into a decoupled **FastAPI +
 - [x] L2 automated E2E smoke tests: CI-runnable pipeline contract verification
 - [x] CI smoke assertions for preset sentence count (R4 regression guard)
 
+### v0.4.24 EP3 — Top-K Rerank + L2 Cross-Movie Validation
+
+> 2 PRs landed (#80, #81). EP3 top-K rerank with order-backtrack reuse penalty replaces top-1 embedding assignment, letting unused lower-ranked scenes win over recently-used top-1. L2 exit §12.2 §1 achieved with G1 + G2 cross-movie validation.
+
+- [x] **EP3 top-K rerank** — `_greedy_topk_assign()` + `_cosine_topk()` (O(n) argpartition), reuse penalty for recently used scenes (#80)
+- [x] **`MatchedClip.source` expanded** — `"embedding_topk"` / `"embedding_top1"` added to Literal type (#80)
+- [x] **2 new params** — `match_topk` (default 5) + `match_topk_reuse_penalty` (default 0.15), 4-file whitelist sync (#80)
+- [x] **EP3 audit fields** — `match_summary.topk.{k, reuse_penalty, topk_count, top1_count}` + `source_counts.{embedding_topk, embedding_top1}` (#80)
+- [x] **9 new EP3 tests** — reuse penalty swap, top-1 mode, zero-penalty, audit fields, `_cosine_topk` + `_greedy_topk_assign` unit tests (#80)
+- [x] **L2 G2 hand-test passed** — 西虹市首富 (4.45 GB comedy): `embedding_topk=18/18`, `qa_report.ok=true`, `degraded_reason=null` (#81)
+
 ### v0.4.23 Performance Contract Closure
 
 > 1 PR landed (#79). Closes §13.2 performance contract group (ST-07/08/09 + AQ-07) + §13.3 audit cleanup (MS-10/AQ-10, AQ-08/ST-10 verified).

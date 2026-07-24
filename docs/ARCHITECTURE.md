@@ -206,7 +206,9 @@ Full schema (21 fields + 4 back-compat fields):
 | `captioning` | {used, usable_label_ratio, cached, language, model} | WhisperX captioning status |
 | `embedding_model` | str | embedding model name used |
 | `degraded_reason` | str \| null | "fake_captions" / "all_heuristic" / null |
-| `diversity` | null | reserved for EP3 |
+| `diversity` | {swaps, swaps_log, window, max_reuse} | WP3 diversity post-processing audit (v0.4.20+, see v0.4.20 audit table) |
+| `timeline` | {mode, act_weights, segments_per_act} | EP1 act-weighted timeline audit (v0.4.22+, see v0.4.22 audit table) |
+| `topk` | {k, reuse_penalty, topk_count, top1_count} | EP3 top-K rerank audit (v0.4.24+, see v0.4.24 audit table) |
 | **— back-compat —** | | |
 | `total` | int | = segments (legacy consumers) |
 | `embedding` | int | = source_counts.embedding (legacy consumers) |
@@ -289,6 +291,23 @@ segment's end. This is preferable to a 100ms flash on screen.
 **`timeline.act_weights` is null (not absent) when uniform mode** — the field always exists so downstream consumers can branch on `mode` without checking key presence.
 
 **Weighted acts fallback**: when `match_timeline_mode="weighted_acts"` but `< 8 scenes` or `< 4 segments`, the mode silently falls back to `uniform` and `timeline.mode` reflects `"uniform"`. This ensures the feature never breaks on short videos.
+
+### v0.4.24 audit fields (EP3 top-K rerank)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `match_summary.source_counts.embedding_topk` | int | Count of segments matched via top-K rerank path (v0.4.24+) |
+| `match_summary.source_counts.embedding_top1` | int | Count of segments matched via top-1 fallback (topk ≤ 1) (v0.4.24+) |
+| `match_summary.topk.k` | int | The `match_topk` value used (default 5); 0/1 = top-1 mode (v0.4.24+) |
+| `match_summary.topk.reuse_penalty` | float | Score deduction applied to recently-used scenes (default 0.15) (v0.4.24+) |
+| `match_summary.topk.topk_count` | int | Number of segments that used top-K rerank (v0.4.24+) |
+| `match_summary.topk.top1_count` | int | Number of segments that fell back to top-1 (v0.4.24+) |
+
+**`source_counts.embedding`** is the sum of `embedding_topk` + `embedding_top1` — back-compat for existing consumers. The `embedding_topk` / `embedding_top1` split is the EP3-specific breakdown.
+
+**`MatchedClip.source`** values: `"embedding_topk"` (top-K ran, k > 1), `"embedding_top1"` (top-K disabled, k ≤ 1), `"heuristic"` (low-score fallback or no captions), `"scene"` (no embedding model), `"fallback"` (no scenes). The legacy `"embedding"` value is no longer assigned to new clips but remains in the Literal for back-compat.
+
+**Reuse penalty mechanics**: when a scene was used in the last `reuse_window` (default 3) segments, its raw cosine score gets a `reuse_penalty` deduction before greedy selection. This lets a lower-ranked but unused candidate win over a recently-used top-1, without forcing a hard diversity swap. The penalty only applies within the top-K candidate pool — it does not affect the raw score stored in `MatchedClip.score`.
 
 ### v0.4.23 audit fields (performance contract)
 
