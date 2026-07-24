@@ -10,7 +10,7 @@ import threading
 from contextlib import nullcontext
 from typing import Tuple
 
-from ..utils.console import BaseConsole
+from ..contract import BaseConsole
 
 
 class WebSocketConsole(BaseConsole):

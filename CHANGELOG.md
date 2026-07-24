@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.25] - 2026-07-24
+
+### Added (Contract layer — stable API boundary)
+
+- **`contract.py`** (new): single import surface that web_api and future consumers depend on. Re-exports 13 symbols from 4 internal modules (`pipeline.runner`, `pipeline.errors`, `utils.console`, `utils.sanitize`) + defines `PipelineResult` protocol (`runtime_checkable`) formalizing the implicit `Context` duck-typing previously used by web_api (#82).
+- **18 new contract tests** (`tests/test_contract.py`): re-export identity (13 tests), `__all__` completeness (2 tests), `PipelineResult` protocol satisfaction (6 tests), web_api import isolation (1 test) (#82).
+
+### Changed
+
+- **`web_api/console.py`**: `from ..utils.console` → `from ..contract` (#82).
+- **`web_api/tasks.py`**: `from ..utils.sanitize` + `from ..pipeline.errors` + `from ..pipeline.runner` → unified `from ..contract` (#82).
+- **`web_api/utils.py`**: `collect_artifacts` ctx parameter documented as `PipelineResult` protocol (#82).
+- **`web_api/form.py`**: `form_to_context_args` docstring documents `PARAM_WHITELIST` contract constraint (#82).
+
 ## [0.4.24] - 2026-07-24
 
 ### Added (EP3 — Top-K rerank with order-backtrack reuse penalty)
