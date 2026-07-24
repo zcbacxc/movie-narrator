@@ -41,6 +41,11 @@ class JobParams(BaseModel):
     # ── Vision (EP8) ──
     # "none" (default) | "stub" | future providers (http_vlm, blip, etc.)
     vision_captioner: Optional[str] = None
+    # ── WP6: scene filtering ──
+    # intro skip, dark frame drop, highlight window (all opt-in, default off)
+    match_skip_intro_sec: Optional[float] = None  # drop scenes ending before this offset (default 0)
+    match_drop_dark_luma: Optional[float] = None  # mean luma threshold for dark frame drop (default 0 = disabled; try 16-30)
+    match_source_window: Optional[list] = None  # [start_ratio, end_ratio] highlight window (default [0.0, 1.0])
     # ── BGM ──
     bgm_gain_db: Optional[float] = None
     bgm_duck_db: Optional[float] = None
