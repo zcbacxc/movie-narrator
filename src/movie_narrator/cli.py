@@ -166,6 +166,11 @@ def create(
         None, "--output-dir", "-o",
         help="输出目录(默认 output/<电影名>) / Output directory (default: output/<movie>)",
     ),
+    pause_at: Optional[str] = typer.Option(
+        None, "--pause-at",
+        help="在指定步骤后暂停(人在环 EP9) / Pause after this step name "
+             "(e.g. match_clips, generate_script). Resume with: mn resume --state <path>",
+    ),
 ):
     """生成解说短视频 — 从电影名到成片一站式产出.
 
@@ -278,9 +283,22 @@ def create(
         narration_preset=resolved.narration_preset or narration_preset,
     )
     controller = InteractiveCLIController() if retry else None
+
+    # EP9: Store pause-at request in context metadata
+    if pause_at:
+        ctx.metadata["pause_at"] = pause_at
+
     try:
         ctx = run_pipeline(ctx, controller=controller)
     except Exception as e:
+        # EP9: PipelinePaused — state saved, inform user how to resume
+        from .pipeline.errors import PipelinePaused
+        if isinstance(e, PipelinePaused):
+            typer.echo(
+                f"\n⏸ Pipeline paused after '{e.completed_step}'. "
+                f"Resume with: mn resume --state \"{Path(ctx.output_dir) / 'pipeline_state.json'}\""
+            )
+            raise typer.Exit(code=0)
         # PreflightError gets a targeted remediation hint.
         from .pipeline.preflight import PreflightError
         if isinstance(e, PreflightError):
@@ -302,6 +320,69 @@ def create(
     for hint in _format_degradation_hints(ctx):
         typer.echo(f"  ⚠ {hint}", err=True)
     typer.echo(f"{ctx.video_path}")
+
+
+@app.command()
+def resume(
+    state: str = typer.Option(..., "--state", help="pipeline_state.json 路径 / Path to pipeline state file"),
+    retry: bool = typer.Option(False, "--retry", help="硬步骤失败时交互重试 / Enable interactive retry on hard step failure"),
+):
+    """恢复暂停的管线 (EP9) — 从上次暂停点继续执行.
+
+    \b
+    用法 / Usage:
+        mn resume --state output/movie/pipeline_state.json
+    """
+    from .pipeline.runner import _load_pipeline_state, _next_step_after, run_pipeline
+    from .pipeline.errors import PipelinePaused
+    from .pipeline.preflight import PreflightError
+    from .utils.console import build_console
+
+    state_path = Path(state)
+    if not state_path.is_file():
+        typer.echo(f"State file not found: {state}", err=True)
+        raise typer.Exit(code=1)
+
+    ctx, completed_step = _load_pipeline_state(state_path)
+
+    # Re-inject a real console (serialized state has SilentConsole)
+    from .models import Services
+    ctx.services = Services(console=build_console(Path(ctx.output_dir)))
+
+    # Determine the step to start from (the step AFTER the completed one)
+    start_step = _next_step_after(completed_step)
+    if start_step is None:
+        typer.echo(
+            f"Pipeline already completed (last step: {completed_step}). "
+            f"Nothing to resume."
+        )
+        raise typer.Exit(code=0)
+
+    console = ctx.services.console
+    console.debug(f"Resuming from step '{start_step}' (completed: {completed_step})")
+
+    controller = InteractiveCLIController() if retry else None
+    try:
+        ctx = run_pipeline(ctx, controller=controller, start_step=start_step)
+    except Exception as e:
+        if isinstance(e, PipelinePaused):
+            typer.echo(
+                f"\n⏸ Pipeline paused after '{e.completed_step}'. "
+                f"Resume with: mn resume --state \"{Path(ctx.output_dir) / 'pipeline_state.json'}\""
+            )
+            raise typer.Exit(code=0)
+        if isinstance(e, PreflightError):
+            typer.echo(str(e), err=True)
+            raise typer.Exit(code=1)
+        raise typer.Exit(code=1)
+
+    if ctx.metadata.get("script_degraded"):
+        typer.echo(
+            "⚠ 警告：旁白为占位内容——LLM 不可达。请检查 LLM 连接后重试。",
+            err=True,
+        )
+    if ctx.video_path:
+        typer.echo(f"{ctx.video_path}")
 
 
 @app.command()

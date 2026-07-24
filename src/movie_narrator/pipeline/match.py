@@ -864,6 +864,37 @@ def _match_clips_impl(
 
             scene_captions = _build_scene_captions(scenes, transcript)
 
+            # ── EP8: Vision captioner integration ───────────────
+            # When vision_captioner is configured, use visual scene
+            # descriptions to supplement or replace audio-transcript
+            # captions. The stub returns the same placeholder format
+            # as _build_scene_label (is_fake=True), so behavior is
+            # unchanged. Real providers (BLIP, LLaVA) will produce
+            # semantic descriptions (is_fake=False) that unlock
+            # embedding re-rank even without WhisperX transcripts.
+            vision_provider = ctx.metadata.get("vision_captioner", "none")
+            if vision_provider != "none":
+                try:
+                    from ..vision import get_vision_captioner
+                    captioner = get_vision_captioner(vision_provider)
+                    vision_labels = captioner.caption_scenes(
+                        scenes, ctx.source_video_path
+                    )
+                    is_stub = vision_provider == "stub"
+                    scene_captions = [
+                        (label, is_stub) for label in vision_labels
+                    ]
+                    ctx.services.console.debug(
+                        f"  EP8 vision captioner ({vision_provider}): "
+                        f"{len(scene_captions)} captions, "
+                        f"{'stub placeholders' if is_stub else 'real descriptions'}"
+                    )
+                except Exception as ve:
+                    ctx.services.console.debug(
+                        f"  EP8 vision captioner failed ({ve}); "
+                        f"using audio-transcript captions"
+                    )
+
             # ── MS-02: Truth in match (Q-M1) ──────────────
             # Detect fake captions (placeholder labels without real transcript).
             # If too many scenes have fake captions, embedding re-rank is

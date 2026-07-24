@@ -43,6 +43,26 @@ class PipelineCancelled(RuntimeError):
     """
 
 
+class PipelinePaused(RuntimeError):
+    """Pipeline paused at a step boundary for human-in-the-loop (EP9).
+
+    Raised by ``run_pipeline`` when ``ctx.metadata["pause_at"]`` matches
+    the step that just completed. The pipeline state is serialized to
+    ``pipeline_state.json`` in the output directory before raising.
+
+    Callers **must** catch this before bare ``except Exception``.
+    ``mn resume`` deserializes the state and re-enters ``run_pipeline``
+    starting from the next step.
+
+    Attributes:
+        completed_step: name of the step that just finished.
+    """
+
+    def __init__(self, completed_step: str):
+        self.completed_step = completed_step
+        super().__init__(f"pipeline paused after step: {completed_step}")
+
+
 class RunController(Protocol):
     """Protocol for cooperative pipeline cancellation.
 
