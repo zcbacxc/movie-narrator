@@ -80,6 +80,12 @@ def form_to_context_args(data: FormData) -> Dict[str, Any]:
     Advanced params with ``None`` values are **not** injected into
     ``params`` — this lets Settings (``.env`` / ``MN_*``) defaults
     take effect. Only non-empty form values override Settings.
+
+    The ``params`` keys must be a subset of ``PARAM_WHITELIST`` (imported
+    from ``movie_narrator.contract``). This function only injects keys
+    that are known to be in the whitelist; any new param key added here
+    must also be added to ``PARAM_WHITELIST`` in
+    ``movie_narrator/pipeline/runner.py``.
     """
     params: Dict[str, Any] = {}
     if data.scene_threshold is not None:
