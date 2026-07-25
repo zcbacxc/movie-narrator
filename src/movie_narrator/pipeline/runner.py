@@ -14,6 +14,7 @@ from .errors import PipelineCancelled, PipelinePaused, PipelineStrictError, RunC
 from .export_clips import export_clips
 from .match import match_clips
 from .preflight import PreflightError, run_preflight
+from .registry import step_registry
 from .research import research_plot
 from .resolve import resolve_video
 from .scenes import detect_scenes
@@ -24,84 +25,74 @@ from .translate import translate_subtitles
 from .tts import generate_voice
 from .render import render_video
 from .qa import validate_deliverable
+from ..workflow.schema import JobParams
 
-# ── Step metadata (module-level constants) ──────────────────
-# Single source of truth: a soft step whose exception is caught by the runner
-# (rendered as ⚠ + continue) instead of being re-raised as a hard failure.
-
-# Complete whitelist of param keys that build_context accepts from
-# JobParams / preset params.  This is the SINGLE SOURCE OF TRUTH —
+# ── Unified parameter schema (single source of truth) ──────
+# PARAM_WHITELIST is derived from JobParams model fields, eliminating
+# the drift between the hardcoded frozenset and the Pydantic model.
 # presets/base.py:ALLOWED_PARAM_KEYS is a validated subset of this.
-PARAM_WHITELIST: frozenset[str] = frozenset({
-    "scene_threshold", "scene_frame_skip", "match_min_score",
-    "match_speed_clamp_min", "match_speed_clamp_max",
-    "scene_merge_min_duration", "match_drop_scene_min_duration",
-    "match_diversity_window", "match_max_scene_reuse",
-    "match_timeline_mode", "match_act_weights",
-    "match_topk", "match_topk_reuse_penalty",
-    "embedding_model_name",
-    "vision_captioner",  # EP8: "none" (default) | "stub" | future providers
-    "bgm_gain_db", "bgm_duck_db", "bgm_normalize", "audio_target_dbfs", "bgm_loudnorm",
-    "tts_pause_ms",
-    "tts_max_concurrent", "tts_audio_format", "tts_audio_bitrate",
-    "translate_source_lang", "translate_provider", "translate_retries",
-    "translate_chunk_chars", "translate_chunk_size",
-    "research_provider",
-    "whisperx_device", "whisperx_model", "whisperx_language",
-    "align_backend",
-    "render_fps", "render_video_codec", "render_audio_codec", "render_threads",
-    "render_bg_color", "render_font_size", "render_output_name", "render_ffmpeg_timeout",
-    "render_fit_mode", "render_crf", "render_preset", "render_faststart",
-    "render_subtitle_position", "render_subtitle_max_width_ratio",
-    "render_subtitle_bottom_margin_ratio",
-    "render_require_footage", "render_min_footage_coverage",
-    "render_profile", "render_title_card_sec",
-    "render_cover_export", "render_vertical_safe_area",
-    "qa_enabled", "qa_max_silence_db", "qa_min_duration_ratio", "qa_max_duration_ratio",
-    "prompt_target_sentences", "prompt_target_segment_duration", "prompt_max_chars_per_sentence", "prompt_hook_seconds",
-    "hook_templates", "set_pieces",
-    "async_timeout", "async_max_workers",
-    "video_sizes",
-})
 
-SOFT_STATUS_STEPS = {
-    "research_plot",
-    "align_audio",
-    "detect_scenes",
-    "match_clips",
-    "mix_bgm",
-    "export_clips",
-    "translate_subtitles",
+PARAM_WHITELIST: frozenset[str] = frozenset(JobParams.model_fields.keys())
+
+# ── Register built-in steps in the StepRegistry ────────────
+# Each step is registered with its metadata (soft/hard, status_field,
+# consequence message). External plugins register via @register_step.
+# The registry preserves registration order for built-in steps and
+# supports after=/before= hints for plugin step insertion.
+
+_BUILTIN_STEP_META = {
+    # name: (func, soft, status_field, consequence)
+    "resolve_video":       (resolve_video,       False, None, ""),
+    "prepare_assets":      (prepare_assets,      False, None, ""),
+    "research_plot":       (research_plot,       True,  "research",
+        "research unavailable — script will use generic plot description"),
+    "generate_script":     (generate_script,     False, None, ""),
+    "export_script_md":    (export_script_md,    False, None, ""),
+    "generate_voice":      (generate_voice,      False, None, ""),
+    "align_audio":         (align_audio,         True,  "align",
+        "audio alignment skipped — subtitle timestamps may drift from actual speech"),
+    "detect_scenes":       (detect_scenes,       True,  "scene",
+        "scene detection skipped — clips will use fixed-duration segments"),
+    "match_clips":         (match_clips,         True,  "match",
+        "clip matching skipped — segments mapped to sequential clips without embedding search"),
+    "mix_bgm":             (mix_bgm,             True,  "bgm",
+        "BGM mixing failed — final video will have narration audio only, no background music"),
+    "translate_subtitles": (translate_subtitles, True,  "translate",
+        "translation failed — only original-language subtitles will be available"),
+    "generate_subtitle":   (generate_subtitle,   False, None, ""),
+    "render_video":        (render_video,        False, None, ""),
+    "validate_deliverable":(validate_deliverable,False, None, ""),
+    "export_clips":        (export_clips,        True,  "export",
+        "clip export skipped — no standalone clip files will be produced"),
 }
 
-# Human-readable consequence messages for soft-step degradation.
-# When a soft step fails or is skipped, this map provides a concise
-# explanation of what the user should expect in the final output.
-SOFT_STEP_CONSEQUENCES: Dict[str, str] = {
-    "research_plot": "research unavailable — script will use generic plot description",
-    "align_audio": "audio alignment skipped — subtitle timestamps may drift from actual speech",
-    "detect_scenes": "scene detection skipped — clips will use fixed-duration segments",
-    "match_clips": "clip matching skipped — segments mapped to sequential clips without embedding search",
-    "mix_bgm": "BGM mixing failed — final video will have narration audio only, no background music",
-    "export_clips": "clip export skipped — no standalone clip files will be produced",
-    "translate_subtitles": "translation failed — only original-language subtitles will be available",
-}
+for _name, (_func, _soft, _field, _consequence) in _BUILTIN_STEP_META.items():
+    if not step_registry.contains(_name):
+        step_registry.register(
+            _name, _func,
+            soft=_soft,
+            status_field=_field,
+            consequence=_consequence,
+        )
 
-# Map soft step name → PipelineStatus field name. Steps not in this map
-# (e.g. resolve_video, generate_script, render_video) do not write to
-# PipelineStatus because a hard failure there aborts the pipeline anyway.
+# ── Derived constants (backward-compatible with existing code) ──
+
+STEPS = step_registry.ordered_steps()
+
+SOFT_STATUS_STEPS: set[str] = step_registry.soft_step_names()
+
 STATUS_FIELD_FOR_STEP: Dict[str, str] = {
-    "research_plot": "research",
-    "align_audio": "align",
-    "detect_scenes": "scene",
-    "match_clips": "match",
-    "mix_bgm": "bgm",
-    "export_clips": "export",
-    "translate_subtitles": "translate",
+    name: step_registry.status_field_for(name)
+    for name in SOFT_STATUS_STEPS
+    if step_registry.status_field_for(name) is not None
+}
+
+SOFT_STEP_CONSEQUENCES: Dict[str, str] = {
+    name: step_registry.consequence_for(name)
+    for name in SOFT_STATUS_STEPS
 }
 
 # Safety: every soft step must have a status field mapping.
-# A typo in either dict would silently break status tracking.
 assert SOFT_STATUS_STEPS == set(STATUS_FIELD_FOR_STEP), (
     "SOFT_STATUS_STEPS and STATUS_FIELD_FOR_STEP keys must match"
 )
@@ -109,7 +100,6 @@ assert SOFT_STATUS_STEPS == set(STATUS_FIELD_FOR_STEP), (
 # Short alias mapping for workflow_steps keys (spec §9 back-compat).
 # Allows users to write `{"scene": False}` in addition to the
 # function-name key `{"detect_scenes": False}`.
-# WP1: expanded from 1 alias to full coverage for all SOFT_STATUS_STEPS.
 _SHORT_TO_STEP: Dict[str, str] = {
     "research": "research_plot",
     "align": "align_audio",
@@ -139,26 +129,6 @@ def _step_enabled(workflow_steps: Optional[Dict[str, bool]], step_name: str) -> 
         if full == step_name and workflow_steps.get(short) is False:
             return False
     return True
-
-STEPS = [
-    resolve_video,
-    prepare_assets,
-    research_plot,
-    generate_script,
-    export_script_md,
-    generate_voice,
-    align_audio,
-    detect_scenes,
-    match_clips,
-    mix_bgm,
-    # Multi-language subtitle (v0.3) — soft step before generate_subtitle.
-    # Produces ctx.translated_texts; downstream formatter writes three SRTs.
-    translate_subtitles,
-    generate_subtitle,
-    render_video,
-    validate_deliverable,
-    export_clips,
-]
 
 
 # ── Context construction (shared by CLI and Web) ───────────
