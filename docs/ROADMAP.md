@@ -53,265 +53,76 @@ Soft pipeline steps (research, align, scene detect, scene match, BGM, clip expor
 - [x] YAML-based job configuration (`mn create --config`)
 - [x] Console / structured-step-state logging refactor (`ctx.services.console`, `StepState`)
 - [x] Multi-language subtitle support (`--subtitle-lang` / `--subtitle-mode`; LLM translation with retry-then-soft-degrade; three-file SRT output)
-- [x] Web UI (Gradio local browser app via `mn web`; requires `[web]` extra) — *superseded by the FastAPI + React refactor in v0.4.10, see below*
+- [x] Web UI (Gradio local browser app via `mn web`; requires `[web]` extra) — *superseded by the FastAPI + React refactor in v0.4.x, see below*
 
 ### v0.3 New CLI flags
 
 - `--subtitle-lang` — Target language tag (`en`, `ja`, `zh-TW`, ...); empty = feature off
 - `--subtitle-mode` — Overlay mode: `original` / `translated` / `bilingual` (default `original`)
 
-### v0.3.5 Web UI (Gradio — legacy)
-
-- `mn web` — Launch local Gradio browser app (requires `pip install "movie-narrator[web]"`)
-- Cooperative cancel at step boundaries (Cancel button in UI)
-- Form fields mirror CLI options; advanced params follow "empty = no override" rule (Settings defaults apply)
-- Uploads go to `mn_web_*` temp dirs, never pollute `output/`
-
-> **Note**: This Gradio-based Web UI is **legacy** and was superseded by the FastAPI + React refactor shipped in **v0.4.10** (see *v0.4.10 WebUI Refactor* below). The `web/` package was removed from the tree in **v0.4.12**.
-
 ## v0.4.x — TTS Abstraction & Infrastructure
 
-- [x] TTS provider abstraction (`TTSProvider` protocol, `BaseTTSProvider`, `EdgeTTSProvider`, `OpenAITTSProvider`, `MimoTTSProvider`)
+> 28 patch releases (v0.4.0 – v0.4.27). Major themes: TTS provider abstraction, config system overhaul, WebUI refactor (Gradio → FastAPI + React), core engine production quality, L2 readiness & hand-test passed, match intelligence (EP1/EP2/EP3), effect portfolio (EP4/EP5/EP6), extensibility (EP8/EP9), and contract layer. Per-release details in [CHANGELOG.md](../CHANGELOG.md).
+
+### Infrastructure
+
+- [x] TTS provider abstraction (`TTSProvider` protocol; Edge / OpenAI / MiMo providers)
 - [x] Provider selection via `MN_TTS_PROVIDER` (`edge` / `openai` / `mimo`)
-- [x] OpenAI TTS support (sync SDK via `asyncio.to_thread`; voice whitelist; credential fallback to `MN_LLM_API_KEY`)
-- [x] MiMo TTS support (3 models: named voice, voice clone, voice design; wav→mp3 conversion; style prompt)
 - [x] Cache key upgrade (sha256, 7 dimensions, two-level fan-out, per-provider version map)
-- [x] CI temp-file isolation (silent audio never enters cache)
-- [x] `is_ci()` single source of truth for CI detection
-- [x] `ConfigError` cross-cutting error class
+- [x] Config system overhaul — strict `.env` / `job.yaml` boundary (24 infra fields / 48+ pipeline params)
 - [x] MoviePy 1.x → 2.x upgrade (Python 3.13+ compatibility)
 - [x] Preflight LLM/TTS validation before pipeline execution
 - [x] Step-level retry mechanism (`--retry` flag, `StepAction` enum)
 - [x] Auto-create `~/.movie-narrator/.env` on first run
-- [x] `export_clips` direct ffmpeg subprocess (design choice)
 
-### v0.4.7 Config system overhaul
+### Web UI
 
-- [x] Strict env/yaml boundary: `.env` = 24 LLM + TTS infrastructure fields only; `job.yaml` = 52 pipeline behavior params
-- [x] YAML auto-discovery: `--config` not passed → `cwd/job.yaml` → packaged example → none
-- [x] `.env.example` and `job.example.yaml` as single sources of truth (no code constants module)
-- [x] All 48 YAML params properly connected through `runner.py` → `ctx.metadata` → pipeline steps
-- [x] Fixed `translate_chunk_chars/size` silently ignored (never copied to `ctx.metadata`)
-- [x] Fixed `export_clips` codecs hardcoded (now uses `ctx.metadata` → inline literal)
-- [x] Fixed `scene_frame_skip` missing from runner copy loop
+- [x] Gradio → FastAPI + React SPA refactor (`web_api/` package, Vite + TypeScript + shadcn/ui)
+- [x] WebSocket real-time progress (`/ws/jobs/{id}` streams `Console.snapshot()`)
+- [x] pip-installable WebUI packaging (SPA bundled in wheel)
+- [x] Legacy Gradio `web/` package removed
 
-### v0.4.10 WebUI Refactor
+### Core Engine Quality
 
-The Web UI is rebuilt from a Gradio single-file app into a decoupled **FastAPI + React SPA** stack. The legacy `web/` (Gradio) package was removed from the tree in v0.4.12.
-
-- [x] **FastAPI backend** — new `src/movie_narrator/web_api/` package (11 modules: `server.py`, `routes.py`, `ws.py`, `tasks.py`, `console.py`, `controller.py`, `form.py`, `models.py`, `utils.py`, `__init__.py`)
-- [x] **React 18 SPA** — new `webui/` project (Vite + TypeScript); FastAPI serves the built bundle as static assets, so `mn web` is a single process
-- [x] **WebSocket real-time progress** — `/ws/jobs/{id}` streams `Console.snapshot()` + status deltas; replaces the old 200ms Gradio polling generator
-- [x] **`[web]` extra changed** — dropped `gradio`; now `fastapi` + `uvicorn` + `python-multipart`
-- [x] **`mn web` port** — moved from `7860` (Gradio default) → `8760`
-- [x] **Frontend stack** — Vite + TypeScript + shadcn/ui + Tailwind CSS
-
-### v0.4.11 WebUI packaging (pip-installable)
-
-> `v0.4.10` shipped the rewrite in git but the SPA was missing from the PyPI wheel. **0.4.11** closes that gap.
-
-- [x] Vite `outDir` → `src/movie_narrator/web_api/static/`; package-data `static/**`
-- [x] `server.py` serves package-relative `static/` (works after `pip install`)
-- [x] Track `webui/package.json` + `package-lock.json` + `tsconfig.json` (root `*.json` gitignore exceptions)
-- [x] CI `webui` job + Publish `npm ci && npm run build` before `python -m build`
-- [x] Publish asserts wheel contains `static/index.html` + hashed JS/CSS
-
-> See `docs/ARCHITECTURE.md` → *Web UI Layer* for the request/WebSocket flow and the `web_api/` module table.
-
-### v0.4.12 Remove Legacy Gradio
-
-- [x] Deleted `src/movie_narrator/web/` (9 files)
-- [x] Removed `gradio` from `[full]` extra
-- [x] Migrated tests: `test_web_form.py` → `web_api.form`, `test_pipeline_cancel.py` → `TaskController`
-- [x] Deleted `test_web_console.py`, `test_web_controller.py` (covered by `test_web_api.py`)
-
-### v0.4.13 Core Engine Production Quality
-
-- [x] Post-render deliverable QA step (`validate_deliverable`) — hard step after `render_video`; ffprobe + ffmpeg fallback; CI skips by default, local runs enable
-- [x] Audio normalize + BGM ducking (`utils/audio_mix.py`) — windowed envelope with attack/release smoothing; skip path normalizes narration
-- [x] Video cover/contain layout (`utils/video_layout.py`) — source footage fitted to canvas; render defaults to `cover`
-- [x] Bottom-safe subtitle layout — `text_image.create_text_image` with CJK wrapping + ellipsis; render always draws overlays (bottom by default)
-- [x] Deliverable QA probes (`utils/deliverable_qa.py`) — structured `QAReport` / `QAIssue`
-- [x] Match defaults tightened — clamp 0.85–1.25, merge 2.0s, drop tiny scenes <0.4s
+- [x] Post-render deliverable QA step (`validate_deliverable` — ffprobe + ffmpeg fallback)
+- [x] Audio normalize + BGM ducking with attack/release smoothing
+- [x] Video cover/contain layout; bottom-safe subtitle layout (CJK wrapping + backdrop bar)
 - [x] Render encode quality — CRF 18, preset `slow`, `+faststart`
-- [x] 15 new `JobParams` fields plumbed (render fit/encode/subtitle, BGM duck/normalize, QA, match drop) — actual count: render_fit_mode, render_crf, render_preset, render_faststart, render_subtitle_position, render_subtitle_max_width_ratio, render_subtitle_bottom_margin_ratio, qa_enabled, qa_max_silence_db, qa_min_duration_ratio, qa_max_duration_ratio, match_drop_scene_min_duration, bgm_duck_db, bgm_normalize, audio_target_dbfs
-- [x] Pipeline 14 → 15 steps; frontend `PIPELINE_STEPS` / `STEP_LABELS` synced
+- [x] Narration preset system (3 built-in: `douyin-fast`, `mainstream-dry`, `bilibili-long`)
+- [x] Two-phase script generation (beats → expansion) with dynamic sentence count
+- [x] Performance contract closure (TTS cache atomic write, style_prompt in cache key, numpy duck rewrite)
 
-### v0.4.14 Publishable Bottom Subtitle
+### L2 Readiness & Validation
 
-- [x] Semi-transparent black backdrop bar (65% alpha, 16px/12px padding) behind bottom subtitle text — matches short-video recap style
-- [x] Thicker stroke (2px → 4px) for legibility on bright footage
-- [x] Bug fix: empty wrapped list early return; per-line height re-measurement via `textbbox`
-- [x] Cross-platform test threshold (60% → 50%) for Linux CI font metrics
+- [x] `match_summary` full schema (21+ fields) in `metadata.json` for L2 jq queries
+- [x] Degradation visibility — `_degraded_steps` + CLI summary for all soft-step failures
+- [x] faster-whisper backend (Windows CPU compatibility; unlocks embedding re-rank without WhisperX)
+- [x] L2 hand-test passed — O1-O10 100% (G1 满江红 + G3 飞驰人生3, `embedding_ratio=1.00`, `degraded_steps=[]`)
+- [x] L2 G2 cross-movie validation — 西虹市首富 (`embedding_topk=18/18`, `qa_report.ok=true`, `degraded_reason=null`)
+- [x] L2+ hand-test toolkit (checklist + `compare_runs.py` + SOP)
 
-### v0.4.15 Narration Preset System (Stage 0.5)
+### Match Intelligence
 
-- [x] Pluggable `Preset` Protocol with closed-vocabulary validation (`ALLOWED_PARAM_KEYS` + `ALLOWED_PROMPT_TAGS`)
-- [x] Three built-in presets: `douyin-fast` (default), `mainstream-dry`, `bilibili-long`
-- [x] CLI `--narration-preset` / `-p` flag + `mn preset` list/show command
-- [x] YAML `narration_preset` top-level field + Web API `FormData.narration_preset`
-- [x] Prompt shaping via closed-vocabulary tags (cadence / register / connectors)
-- [x] Single-source `PARAM_WHITELIST` frozenset (runner.py) — eliminates dual-maintained whitelist
-- [x] Hand-test verified: prompt tags produce perceptible style differences
-- [x] Known limitation fixed in v0.4.16: two-phase generation enforces `prompt_target_sentences`
-- [ ] Stage 2 (future): SPI discover via `entry_points` + opt-in local folder scan
+- [x] EP1 act-weighted timeline partitioning (4-act dramatic pacing, `match_timeline_mode="weighted_acts"`)
+- [x] EP3 top-K rerank with order-backtrack reuse penalty (`match_topk` + `match_topk_reuse_penalty`)
+- [x] EP2 beat time anchor (structured beats with `act` + `approx_ratio`, time-anchored heuristic)
+- [x] Diversity post-processing (sliding-window scene reuse limit)
+- [x] Footage coverage gate (warn-only when below `render_min_footage_coverage`)
 
-### v0.4.16 Two-Phase Script Generation + CLI/Config Improvements
+### Effect Portfolio
 
-- [x] Two-phase script generation: Phase 1 (plot beats, low temp) → Phase 2 (expansion, moderate temp) → fallback trim
-- [x] `prompt_target_sentences` now enforceable (was ignored by LLM in v0.4.15)
-- [x] First-run config notice: `ensure_user_config()` prints one-time message to stderr
-- [x] CLI help: `no_args_is_help=True`, `rich_markup_mode="rich"`, bilingual (中文/English) help
-- [x] `-h` conflict resolved (web command `--host` no longer binds `-h`)
-- [x] Phase 1 None/empty beat filtering + Phase 2 empty text filtering
-- [x] TTS per-segment retry (3 attempts) — single failure no longer kills batch
-- [x] Research step retry (was zero retry, now matches script.py pattern)
-- [x] Degradation warnings: `SOFT_STEP_CONSEQUENCES` + pipeline-end summary
-- [x] Retry failure debug logging
+- [x] EP4 hook templates & set pieces (genre-appropriate scroll-stoppers + named-scene injection)
+- [x] EP5 title card overlay + cover.jpg export + vertical safe area (9:16 subtitle margin tightening)
+- [x] EP6 duck curve & RMS-based loudness normalization
 
-### v0.4.17 Dynamic Sentence Count + L2 E2E Tests
+### Extensibility & Pipeline
 
-- [x] Dynamic sentence count by duration (方案 B): `n = round(duration / prompt_target_segment_duration)`
-- [x] New preset field `prompt_target_segment_duration` (douyin=3.3s, mainstream=5.0s, bilibili=7.5s)
-- [x] max_chars corrected based on R5b real TTS data (3.8 chars/sec): mainstream 18→22, bilibili 22→32
-- [x] `script_target_count` metadata for debugging (distinguishes requested vs actual count)
-- [x] L2 automated E2E smoke tests: CI-runnable pipeline contract verification
-- [x] CI smoke assertions for preset sentence count (R4 regression guard)
+- [x] EP8 VisionCaptioner abstraction (`vision/` package; stub + `http_vlm` OpenAI-compatible provider)
+- [x] EP9 pause/resume (`--pause-at` + `mn resume` + `pipeline_state.json` serialization)
+- [x] Contract layer (`contract.py` — stable API boundary between web_api and core engine)
+- [x] Stage E productization (CLI match summary + RS-07/08/09 render fixes)
 
-### v0.4.26 Stage E + Effect Uplift + EP8/EP9
-
-> 3 PRs landed (#83, #84, #85). Completes Stage E productization (E.5 CLI summary + RS-07/08/09 render fixes), Effect Portfolio EP2/EP4/EP5/EP6, EP8 VisionCaptioner abstraction, and EP9 human-in-the-loop pause/resume.
-
-- [x] **E.5 CLI match summary** — one-line match summary at pipeline end (segments, emb/heur ratio, score, degradation) (#83)
-- [x] **RS-07/08/09 render fixes** — segment duration floor, mux timeout whitelist, tmp directory cleanup (#83)
-- [x] **EP4 hook templates & set pieces** — genre-appropriate hook sentence templates + named-scene injection into beats (#84)
-- [x] **EP2 beat time anchor** — structured beats with `act` + `approx_ratio`, time-anchored heuristic matching (#84)
-- [x] **EP5 title card overlay** — `render_title_card_sec` with centered movie name + fade in/out (#84)
-- [x] **EP6 duck curve & loudnorm** — proportional duck depth + RMS-based loudness normalization (#84)
-- [x] **EP8 VisionCaptioner abstraction** — `vision/` package with ABC + stub + factory; stub labels flagged as fake (#85)
-- [x] **EP9 pause/resume** — `--pause-at` CLI + `mn resume` + `pipeline_state.json` serialization (#85)
-- [x] **5 new params** — `vision_captioner`, `bgm_loudnorm`, `hook_templates`, `set_pieces`, `render_title_card_sec` (4-file whitelist sync) (#83, #84, #85)
-- [x] **39 new tests** — 15 vision + 24 pause/resume (#85)
-- [x] **EP5 remaining** — cover.jpg export (V6) + vertical safe area presets (V5) (#87)
-- [x] **L2+ hand test** — verify EP2/EP4/EP5/EP6 effect on G1/G2 samples (#86)
-
-### v0.4.27 EP5 Completion + L2+ Hand-Test Materials
-
-> 2 PRs landed (#86, #87). Completes EP5 (cover.jpg export + vertical safe area for 9:16) and ships L2+ hand-test toolkit (checklist + run comparison script + SOP). Last checkpoint before L2 real-film validation gate.
-
-- [x] **Cover.jpg export** — `render_cover_export` exports highest-score frame with movie title overlay; non-blocking on failure (#87)
-- [x] **Vertical safe area** — `render_vertical_safe_area` auto-tightens subtitle margins for 9:16 (bottom_margin ≥ 0.15, max_width ≤ 0.82) (#87)
-- [x] **5-file param sync** — `render_cover_export` + `render_vertical_safe_area` across schema/base/load/merge/runner (#87)
-- [x] **Preset injection** — `douyin-fast` and `bilibili-long` enable cover export + vertical safe area by default (#87)
-- [x] **21 new tests** — cover logic, vertical clamping, preset injection, whitelist coverage (#87)
-- [x] **L2+ checklist** — EP-specific objective gates + subjective bonus items (#86)
-- [x] **Run comparison tool** — `compare_runs.py` for metadata.json A/B diff (#86)
-- [x] **L2+ SOP** — step-by-step execution procedure with pass/fail criteria (#86)
-
-### v0.4.25 Contract Layer — Stable API Boundary
-
-> 1 PR landed (#82). Introduces `contract.py` as the single import surface between web_api and the core engine. Formalizes implicit `Context` duck-typing via `PipelineResult` protocol. Prepares the natural package boundary for future repository split.
-
-- [x] **`contract.py`** — re-exports 13 symbols (BaseConsole, Console, SilentConsole, PipelineCancelled, PipelineStrictError, RunController, StepAction, check_cancelled, PARAM_WHITELIST, build_context, run_pipeline, sanitize_filename) from 4 internal modules (#82)
-- [x] **`PipelineResult` protocol** — `runtime_checkable` Protocol formalizing 5 Context attributes (video_path, audio_path, clips_dir, output_dir, subtitle_paths) previously duck-typed by web_api (#82)
-- [x] **web_api import unification** — console.py, tasks.py, utils.py, form.py all import from `..contract` instead of reaching into internal modules (#82)
-- [x] **18 new contract tests** — re-export identity, __all__ completeness, protocol satisfaction, import isolation (#82)
-
-### v0.4.24 EP3 — Top-K Rerank + L2 Cross-Movie Validation
-
-> 2 PRs landed (#80, #81). EP3 top-K rerank with order-backtrack reuse penalty replaces top-1 embedding assignment, letting unused lower-ranked scenes win over recently-used top-1. L2 exit §12.2 §1 achieved with G1 + G2 cross-movie validation.
-
-- [x] **EP3 top-K rerank** — `_greedy_topk_assign()` + `_cosine_topk()` (O(n) argpartition), reuse penalty for recently used scenes (#80)
-- [x] **`MatchedClip.source` expanded** — `"embedding_topk"` / `"embedding_top1"` added to Literal type (#80)
-- [x] **2 new params** — `match_topk` (default 5) + `match_topk_reuse_penalty` (default 0.15), 4-file whitelist sync (#80)
-- [x] **EP3 audit fields** — `match_summary.topk.{k, reuse_penalty, topk_count, top1_count}` + `source_counts.{embedding_topk, embedding_top1}` (#80)
-- [x] **9 new EP3 tests** — reuse penalty swap, top-1 mode, zero-penalty, audit fields, `_cosine_topk` + `_greedy_topk_assign` unit tests (#80)
-- [x] **L2 G2 hand-test passed** — 西虹市首富 (4.45 GB comedy): `embedding_topk=18/18`, `qa_report.ok=true`, `degraded_reason=null` (#81)
-
-### v0.4.23 Performance Contract Closure
-
-> 1 PR landed (#79). Closes §13.2 performance contract group (ST-07/08/09 + AQ-07) + §13.3 audit cleanup (MS-10/AQ-10, AQ-08/ST-10 verified).
-
-- [x] **ST-07 TTS cache atomic write** — `.partial` → `os.replace()`, corrupt cache auto-recovery (#79)
-- [x] **ST-08 style_prompt in TTSCacheKey** — replaces `pause_ms`, schema version 2 → 3 (#79)
-- [x] **ST-09 Phase1 max_tokens scaling** — `max(research_max_tokens, target_count * 60)` prevents truncation (#79)
-- [x] **AQ-07 duck_bgm numpy rewrite** — O(n²) → O(n), 300s ~53s → <2s (#79)
-- [x] **MS-10 min_score comment** — "丢弃" → "回退 heuristic" (#79)
-- [x] **AQ-10 bgm_error metadata** — `mix_bgm` failure writes `ctx.metadata["bgm_error"]` (#79)
-- [x] **AQ-08 empty ASR status** — verified already `skipped`, not `success`
-- [x] **ST-10 CI mock segments** — verified dynamic `range(n)`, not fixed
-
-### v0.4.22 EP1 — Act-Weighted Timeline Partitioning
-
-> 1 PR landed (#78). Highest-value visual quality improvement in Stage D: transforms match from flat proportional mapping to dramatic four-act pacing.
-
-- [x] **EP1 act-weighted match** — `match_timeline_mode="weighted_acts"` partitions scenes into 4 time buckets, allocates segments by weight `[0.15, 0.25, 0.40, 0.20]` (#78)
-- [x] **3 match helpers** — `_partition_scenes_by_act` / `_assign_segments_to_acts` / `_get_act_candidate_indices` (#78)
-- [x] **Heuristic + embedding act-constrained** — both paths restrict candidates to act bucket ± overflow (#78)
-- [x] **Timeline audit** — `match_summary.timeline.{mode, act_weights, segments_per_act}` (#78)
-- [x] **O(n²) → O(n) optimization** — pre-computed `act_seg_map` dict (#78)
-- [x] **18 new tests** — 3 unit classes + 6 integration tests, 495 total passed (#78)
-- [x] **User code review passed** — gating, fallbacks, whitelist sync, fancy indexing safety
-
-### v0.4.21 Stage D Remaining — Pause Feedback + Tail Protection + Draft Profile
-
-> 1 PR landed (#77). Completes WP5 (duration feedback), ST-06 (tail trim), WP7 (draft profile). AQ-02 verified already implemented.
-
-- [x] **WP5 duration pause feedback** — auto-reduce pause_ms when narration exceeds target by >15%, write `duration_metrics` audit (#77)
-- [x] **ST-06 tail climax protection** — `_trim_segments` locks last segment in addition to first 3 hooks (#77)
-- [x] **WP7 draft profile** — `render_profile: draft` overrides crf=28/preset=ultrafast for fast iteration (#77)
-- [x] **AQ-02 soft-step degraded** — verified F3 patch already covers soft-step catch path, no change needed
-- [x] **Full test suite verified** — 499 passed, 1 skipped, 0 failed (user-verified)
-
-### v0.4.20 Stage D Quality Consolidation
-
-> 8 PRs landed in this release (#69–#76). Focus: visual quality guardrails (WP3 diversity, WP5 truncation), system stability (WP4 footage coverage, AQ-04 audio normalization), audit visibility (swaps_log, script_truncated), param whitelist sync, and test isolation fixes.
-
-- [x] **WP3 diversity post-processing** — `_apply_diversity()` with sliding-window scene reuse limit (`match_diversity_window` + `match_max_scene_reuse`) (#70)
-- [x] **WP5 max_chars hard truncation** — `_truncate_to_max_chars()` enforces `prompt_max_chars_per_sentence` after LLM expansion, preferring punctuation breaks (#70)
-- [x] **WP4 footage coverage gate** — `metadata.footage_coverage.ratio` + warn-only `_degraded_steps` flag when coverage below `render_min_footage_coverage` (#69)
-- [x] **AQ-04 `ensure_final_audio()`** — unified BGM normalization across all 4 exit points, idempotent guard (#69)
-- [x] **WP3 swaps_log audit** — `match_summary.diversity.swaps_log` records each swap `{segment_index, old_scene, new_scene}` (#71)
-- [x] **WP5 truncation audit** — `metadata.script_truncated` records `{count, max_chars, details}` (#71)
-- [x] **Param whitelist sync** — 12 params realigned across `schema.py` / `merge.py` / `load.py` / `runner.py` (#72)
-- [x] **Test isolation fixes** — `.env` pollution (`_env_file=None`), faster_whisper probe patching (dual `_align_backend.probe`), lru_cache settings clear (#73, #74, #76)
-- [x] **Audit integration tests** — 4 CI tests replacing 50-min handtest, verify swaps_log trigger + script_truncated schema (#75)
-- [x] **L2+ hand-test passed** — PR #72 whitelist + PR #71 audit schema verified end-to-end (2026-07-23)
-
-### v0.4.19 faster-whisper Backend + L2 Hand-Test Passed
-
-> 6 PRs landed in this release. Focus: resolve WhisperX CPU compatibility blocker with environment-adaptive faster-whisper backend, unlock O10 (embedding_ratio > 0), close L2 hand-test.
-
-- [x] **faster-whisper backend** with `select_align_backend()` — environment-adaptive: GPU/Linux CPU → whisperx (word-level), Windows CPU → faster_whisper (no k2-fsa dependency)
-- [x] **`align_backend` param** in `job.yaml` for explicit override
-- [x] **match.py faster-whisper fallback** — second WhisperX call site (`_transcribe_video_audio`) also gets faster-whisper, unlocking O10
-- [x] **`_remap_segments()` + `_detect_drift()` extraction** — eliminates ~45 lines of duplicated code between WhisperX and faster-whisper paths
-- [x] **`status.align` semantics documented** — `success` for faster-whisper (not `failed`), `align_fallback` flag carries segment-level signal
-- [x] **CI trigger fix** — feature/hotfix pushes no longer trigger CI (only main + PR), eliminating duplicate runs
-- [x] **`collect_artifacts` clips** — per-segment `.mp4` clips now in artifact list
-- [x] **3 stale remote branches deleted** — `feature/core-engine-production-quality`, `feature/docs-sync-with-code`, `release/v0.4.11`
-- [x] **L2 hand-test passed** — O1-O10 100% achieved (G1 满江红 + G3 飞驰人生3, `embedding_ratio=1.00`, `degraded_steps=[]`)
-
-### v0.4.18 Core Engine Hardening (L2-ready observability + degradation visibility)
-
-> 8 PRs landed in this release. Focus: make degradation visible instead of silent, harden the match/align boundaries, surface F4 / C1 / MS-* bugs as metadata for L2 hand-tests.
-
-- [x] **`match_summary` full schema (21 fields + 4 back-compat)** in `metadata.json` for L2 O9/O10 jq queries
-- [x] **`align_backward_skipped` metadata** — segments that kept TTS estimates because the monotonic clamp would have crushed them to 100ms (F4)
-- [x] **Runner `_degraded_steps` for non-exception paths** — soft steps that catch exceptions and set `status='failed'` + `step_state.result=WARNING` (e.g. `align_fallback`) now appear in the CLI summary
-- [x] **CI concurrency**: stale runs cancelled on PR amend + force-push; main pushes run to completion
-- [x] **`docs/ARCHITECTURE.md`**: canonical `match_summary` schema table
-- [x] **C1**: `align_fallback` now sets `status.align='failed'` (was silently `'success'`)
-- [x] **F4**: align backward-jump >50% of original duration → keep TTS estimate, don't clamp to 100ms
-- [x] **MS-01**: 0-scene `ContentDetector` fallback synthesizes one full-length Scene + `scene_detection_degraded`
-- [x] **MS-02**: fake caption detection via explicit `is_fake` flag (no more `label.startswith("scene ")` heuristic)
-- [x] **AQ-01**: single-segment WhisperX with drift >50% is rejected
-- [x] **AQ-05**: `volume_unknown` fail-closed when `volumedetect` fails
-- [x] **M1**: align comment corrected to reflect F3 runner upgrade (not `_degraded_steps`)
-- [x] **B3**: 100ms segment floor rationale documented
-- [x] **B5**: silent `try/except: pass` blocks now `console.debug()` (scenes.py + runner.py)
-
-### v0.4 Environment variables
+### Environment Variables
 
 - `MN_TTS_PROVIDER` — `edge` (default), `openai`, or `mimo`
 - `MN_DEFAULT_VOICE` — Default voice identifier for the selected TTS provider; each provider interprets this string (Edge: `zh-CN-YunxiNeural`, OpenAI: `alloy`, MiMo: voice name / file path / description depending on model)
@@ -323,26 +134,15 @@ The Web UI is rebuilt from a Gradio single-file app into a decoupled **FastAPI +
 - `MN_MIMO_BASE_URL` — MiMo base URL (default `https://api.xiaomimimo.com/v1`)
 - `MN_MIMO_STYLE_PROMPT` — Style description for `mimo-v2.5-tts` user message (default empty)
 
-### v0.4.7 env/yaml boundary (config system overhaul)
+### Config boundary (`.env` / `job.yaml`)
 
-Strict separation: `.env` contains ONLY LLM + TTS infrastructure (24 fields); `job.yaml` contains ALL pipeline behavior (48 params).
+Strict separation: `.env` contains ONLY LLM + TTS infrastructure (24 fields); `job.yaml` contains ALL pipeline behavior (48+ params). See [`.env.example`](../.env.example) and [`job.example.yaml`](../examples/job.example.yaml) as single sources of truth.
 
-**`.env` (Settings) — 24 fields:** See [`.env.example`](../.env.example)
+**`.env` (Settings) — 24 fields:**
 - LLM (14): `MN_LLM_BASE_URL`, `MN_LLM_API_KEY`, `MN_LLM_MODEL`, `MN_LLM_TIMEOUT`, `MN_SCRIPT_TEMPERATURE`, `MN_SCRIPT_EXPAND_TEMPERATURE`, `MN_SCRIPT_MAX_TOKENS`, `MN_SCRIPT_RETRIES`, `MN_SCRIPT_RETRY_DELAY`, `MN_RESEARCH_TEMPERATURE`, `MN_RESEARCH_MAX_TOKENS`, `MN_RESEARCH_RETRIES`, `MN_RESEARCH_RETRY_DELAY`, `MN_TRANSLATE_MAX_TOKENS`
 - TTS (10): `MN_DEFAULT_VOICE`, `MN_TTS_PROVIDER`, `MN_TTS_CACHE_MAX_MB`, `MN_OPENAI_TTS_*`(3), `MN_MIMO_*`(4)
 
-**`job.yaml` (params) — 48 keys:** See [`job.example.yaml`](../examples/job.example.yaml)
-- Scene: `scene_threshold`, `scene_frame_skip`
-- Match: `match_min_score`, `match_speed_clamp_min/max`, `scene_merge_min_duration`, `match_drop_scene_min_duration`, `embedding_model_name`
-- BGM: `bgm_gain_db`, `bgm_duck_db`, `bgm_normalize`, `audio_target_dbfs`
-- TTS pacing: `tts_pause_ms`, `tts_max_concurrent`, `tts_audio_format`, `tts_audio_bitrate`
-- Translate: `translate_source_lang`, `translate_provider`, `translate_retries`, `translate_chunk_chars`, `translate_chunk_size`
-- Research: `research_provider`
-- WhisperX: `whisperx_device/model/language`
-- Render: `render_fps/video_codec/audio_codec/threads/bg_color/font_size/output_name/ffmpeg_timeout`, `render_fit_mode/crf/preset/faststart`, `render_subtitle_position/max_width_ratio/bottom_margin_ratio`
-- QA: `qa_enabled`, `qa_max_silence_db`, `qa_min_duration_ratio`, `qa_max_duration_ratio`
-- Async: `async_timeout`, `async_max_workers`
-- Video: `video_sizes`
+**`job.yaml` (params) — 48+ keys:** See [`job.example.yaml`](../examples/job.example.yaml) for the full list (Scene, Match, BGM, TTS pacing, Translate, Research, WhisperX, Render, QA, Async, Video sizes, Prompt shaping, Effect portfolio, Vision).
 
 ### Provider env-var naming convention
 
