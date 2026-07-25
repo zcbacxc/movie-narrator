@@ -830,12 +830,17 @@ def _match_clips_impl(
     st_ok, st_hint = probe("sentence_transformers")
     if st_ok and len(scenes) > 1:
         try:
-            # Try WhisperX scene captioning first
+            # Try scene captioning via WhisperX (word-level alignment) or
+            # faster-whisper (CTranslate2, works on Windows CPU). The
+            # _transcribe_video_audio helper tries WhisperX first and falls
+            # back to faster-whisper on import/runtime failure.
             transcript = None
             wx_ok, wx_hint = probe("whisperx")
-            if not wx_ok:
+            fw_ok, fw_hint = probe("faster_whisper")
+            if not (wx_ok or fw_ok):
                 ctx.services.console.inline_warn(
-                    f"WhisperX not available ({wx_hint}); using fallback scene labels. "
+                    f"Neither WhisperX nor faster-whisper is available "
+                    f"({wx_hint}; {fw_hint}); using fallback scene labels. "
                     f"Install with: pip install 'movie-narrator[ml]'"
                 )
             elif ctx.source_video_path:
@@ -843,7 +848,8 @@ def _match_clips_impl(
                 wx_model = ctx.metadata.get("whisperx_model", "medium")
                 wx_lang = ctx.metadata.get("whisperx_language", "zh")
                 ctx.services.console.debug(
-                    f"  WhisperX scene captioning: device={wx_device} model={wx_model} lang={wx_lang}"
+                    f"  scene captioning: device={wx_device} model={wx_model} lang={wx_lang} "
+                    f"(whisperx={wx_ok}, faster_whisper={fw_ok})"
                 )
                 transcript = _transcribe_video_audio(
                     ctx.source_video_path,
@@ -859,7 +865,7 @@ def _match_clips_impl(
                     )
                 else:
                     ctx.services.console.inline_warn(
-                        "WhisperX transcription returned no results; using fallback scene labels"
+                        "scene transcription returned no results; using fallback scene labels"
                     )
 
             scene_captions = _build_scene_captions(scenes, transcript)

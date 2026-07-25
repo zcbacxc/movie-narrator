@@ -300,6 +300,143 @@ duck 曲线为代码内实现（比例闪避），无法从 metadata 直接验�
 | X2 | EP9 pause/resume | 若测 `--pause-at script`，验证 `pipeline_state.json` 写出 + `mn resume` 可续 | 未测 |
 | X3 | 9:16 竖屏 | G3 样片覆盖竖屏安全区（EP5 补完后） | 未测 (本轮 G1/G2 均为 16:9) |
 | X4 | mainstream-dry preset | 验证 EP 参数在非 douyin-fast preset 下的行为 | 未测 |
+| X5 | S6 真实 caption 补测 | 在 faster-whisper 可用环境跑一轮真实 caption 的 L2 手测，获取可信 S6 分数（EP8 触发条件前置） | ✅ **完成** — 见下方 X5 详细报告 |
+
+---
+
+## X5 — S6 真实 caption 补测（EP8 触发条件验证）
+
+> **目的**: 在 WhisperX 不可用、改用 faster-whisper fallback 的环境下，验证 `match_clips`
+> 能否生成真实 scene captions 并触发 embedding re-rank 路径，从而获取**可信 S6 分数**，
+> 判定 EP8 触发条件（`G1/G2 上 S6 仍 ≤1`）是否成立。
+>
+> **背景**: G1/G2 v0.4.27 baseline 跑片受 Windows CPU 限制（WhisperX k2-fsa 缺失），
+> scene captioning 走 fake-caption guard 触发 heuristic fallback，captions_fake=true，
+> S6 仅给 2 分（环境豁免）。本补测解锁真实 caption 路径以确认 S6 真实分数。
+
+### 测试环境
+
+```text
+日期:          2026-07-25
+git SHA / 版本: 2d25092 / v0.4.27
+Python:        3.13.14 (venv D:/tmp/mn-venv-3.13/, [media]+[ml] extras)
+WhisperX:      不可用 (k2-fsa 缺失，Windows CPU 限制)
+faster-whisper: 1.2.1 (int8 量化, CPU 模式, model_size=small)
+sentence-transformers: 5.6.0 (paraphrase-multilingual-MiniLM-L12-v2)
+测试片源:      G2 西虹市首富.mp4 (118 min, 4.15 GB)
+测试脚本:      test_realcap_match.py (driver: D:\tmp\driver_realcap.py)
+输出目录:      output/l2-plus-g2-realcap-test/
+```
+
+### 测试方法
+
+1. 加载 G2 v0.4.27 baseline 的 `scenes.json` (2177 scenes) + `metadata.json` (18 timed_segments)
+2. 构建 minimal Context，注入 baseline 的 `beats_meta` (EP2 时间锚)
+3. 设置 `ctx.status.scene = "success"` 以跳过 scene disabled 早返
+4. 调用 `match_clips`，触发 faster-whisper 转录完整视频音轨（118 min）
+5. 转录完成后，构建 scene captions，运行 embedding re-rank
+6. 对比 baseline (fake captions) 与 realcap (real captions) 的 match_summary
+7. 推导 S6 分数，判定 EP8 触发条件
+
+### 执行结果
+
+```text
+总耗时:        2296.1s (~38.4 min)
+  - faster-whisper 转录: ~37 min (118 min 视频 on CPU int8)
+  - embedding re-rank + 匹配: ~30s
+match_clips 状态: success
+产出物:
+  - transcript_e4c5b9ec_small_zh.json (cached transcript, 68 segments)
+  - matches.json (18 matched clips)
+  - metadata_realcap.json (full match_summary)
+```
+
+### match_summary 对比（baseline fake-captions vs realcap real-captions）
+
+| 指标 | baseline (fake) | realcap (real) | 备注 |
+|------|-----------------|----------------|------|
+| `captions_fake` | true | **false** | 真实 captions 已生成 |
+| `captioning.used` | false | **true** | faster-whisper 转录路径生效 |
+| `captioning.usable_label_ratio` | 0.0 | **0.8344** | 83.44% scenes 有真实转录 |
+| `captioning.cached` | false | false | 首次转录，已写入 cache |
+| `source_counts.heuristic` | 18 | **0** | 0% heuristic fallback |
+| `source_counts.embedding` | 0 | **18** | 100% embedding match |
+| `source_counts.embedding_topk` | 0 | 18 | 全部走 top-K (k=5) |
+| `source_counts.embedding_top1` | 0 | 0 | — |
+| `heuristic_ratio` | 1.0 | **0.0** | 完全脱离 heuristic |
+| `embedding_ratio` | 0.0 | **1.0** | 100% embedding 路径 |
+| `score.avg` | None | **0.6235** | 平均余弦相似度 |
+| `score.min` | None | 0.4704 | 最低（seg=17） |
+| `score.max` | None | 0.7675 | 最高（seg=6） |
+| `raw_score.n` | None | 18 | 全部 18 段有真实分数 |
+| `low_score_fallback_count` | 0 | 0 | 无低分回退 |
+| `diversity.swaps` | 0 | 0 | 无 reuse 冲突 |
+| `degraded_reason` | fake_captions | **null** | 无降级 |
+| `timeline.mode` | beat_anchor | uniform | 注¹ |
+| `timeline.beat_anchor` | true | false | 注¹ |
+
+> 注¹: standalone 重跑 `match_clips` 未注入完整管线上下文（EP2 beat_anchor 元数据
+> 在 baseline 跑片时由 `generate_script` + `match_clips` 联合生成）。本补测仅验证
+> S6 维度（语义相关性），EP2 时间锚的验证以 baseline 跑片数据为准（O11 已通过）。
+
+### Spot-check（前 3 段 matched clips）
+
+| seg | 旁白文本 | scene | score | source |
+|-----|---------|-------|-------|--------|
+| 0 | 你敢信？踢丢点球竟成首富？ | 613 | 0.677 | embedding_topk |
+| 1 | 陌生律师甩他十亿花完合同！ | 1115 | 0.633 | embedding_topk |
+| 2 | 他 smirk：这钱也太好赚了 | 368 | 0.658 | embedding_topk |
+
+### S6 分数推导
+
+测试脚本 `test_realcap_match.py` 自动推导的 S6 分数为 **2**（reason: "uncertain — kept S6=2"）。
+
+**该推导逻辑存在 BUG**：脚本将 `source_counts.embedding + embedding_topk + embedding_top1`
+相加作为 `emb_count`，但 `embedding_topk` 与 `embedding_top1` 是 `embedding` 的**子集细分**
+（标注 embedding 路径下的具体变体），不应叠加。
+
+| 字段 | 含义 | 实测值 |
+|------|------|--------|
+| `source_counts.embedding` | 走 embedding 路径的段数（总数） | 18 |
+| `source_counts.embedding_topk` | 其中走 top-K 变体的段数（子集） | 18 |
+| `source_counts.embedding_top1` | 其中走 top-1 变体的段数（子集） | 0 |
+
+正确算法：`emb_count = source_counts.embedding = 18`，等于 `total = 18`，触发 `emb_count == total` 分支。
+
+**修正后 S6 分数: 3**（full embedding match，超过 L2+ 阈值）
+
+| S6 分数 | 含义 | 触发条件 |
+|---------|------|----------|
+| 1 | 真实 caption 但仍 100% heuristic | EP8 触发条件成立 |
+| 2 | 部分 embedding 匹配 / 环境豁免 | EP8 触发条件不成立 |
+| 3 | 完全 embedding 匹配 | EP8 触发条件不成立（**当前**） |
+
+### EP8 触发条件判定
+
+依据 `QUALITY_UPLIFT_METHODS §3.3 EP8 触发条件`:
+
+| 条件 | 实际 | 满足? |
+|------|------|-------|
+| EP1-EP4 已上线 | v0.4.27 全部生效（O11/O12 + 已上线） | ✓ |
+| G1/G2 上 S6 仍 ≤1 | realcap 后 S6=3，远高于 1 | ✗ |
+
+**结论: EP8 触发条件不成立**
+
+embedding-based matching 在真实 caption 环境下工作良好：
+- 100% embedding 路径（embedding_ratio=1.0）
+- 0% heuristic fallback（heuristic_ratio=0.0）
+- 0% low_score_fallback（所有 18 段 score ≥ min_score=0.25）
+- 平均余弦相似度 0.6235（在 0.47~0.77 区间，分布合理）
+
+当前**无需引入 VLM 决策**（EP8 触发条件未达成），embedding re-rank 已能产出可信匹配。
+
+### 测试脚本 S6 推导 BUG 记录（待修）
+
+- **位置**: `test_realcap_match.py:207-209`
+- **问题**: `emb_count = embedding + embedding_topk + embedding_top1` 双计了 topk/top1
+- **修复建议**: `emb_count = source_counts.embedding`（topk/top1 是 embedding 的子集细分）
+- **影响**: 仅影响测试脚本自动评分，不影响管线行为
+- **状态**: 待修（test script only，不阻塞 L2+ 验证结论）
 
 ---
 
@@ -339,6 +476,19 @@ P0 缺陷 ID: 无
 | 两者都 FAIL | ❌ EP 特性有系统性问题 | 不适用 |
 
 **最终结论**: ✅ **L2+ 验证 PASS** — v0.4.27 (git 2d25092) EP2/EP4/EP5/EP6 在 G1+G2 双片上验证通过。
+
+### S6 补测结论（X5）
+
+| 维度 | 结果 |
+|------|------|
+| S6 真实 caption 路径 | ✅ faster-whisper fallback 生效（WhisperX 不可用时） |
+| S6 可信分数 | **3**（full embedding match，修正测试脚本双计 bug 后） |
+| EP8 触发条件 | ✗ 不成立（S6=3 > 1） |
+| 结论 | **当前无需引入 VLM 决策**；embedding re-rank 已能产出可信匹配 |
+
+> G1/G2 v0.4.27 baseline 跑片受 Windows CPU 限制走 fake-caption guard（captions_fake=true，
+> S6=2 环境豁免）。X5 补测在 faster-whisper 可用环境下解锁真实 caption 路径，确认 S6=3，
+> 为 EP8 触发条件评估提供了可信证据。
 
 ---
 
@@ -413,3 +563,19 @@ P0 缺陷 ID: 无
 | EP4 | script.md 第 1 句含 "你敢信？" 钩子模板 | ✅ | ✅ |
 | EP5 | log: "EP5 title card: <电影名> (1.0s)"; cover.jpg 存在 | ✅ | ✅ |
 | EP6 | mean_volume ∈ [-16, -12] dB; bgm_loudnorm=true | ✅ (-14.6) | ✅ (-14.7) |
+
+### S6 真实 caption 补测（X5）— G2 realcap 数据
+
+| 维度 | baseline (fake) | realcap (real) |
+|------|-----------------|----------------|
+| 测试时间 | 2026-07-25 (15:25) | 2026-07-25 (20:23–21:01, ~38.4 min) |
+| `captions_fake` | true | **false** |
+| `captioning.used` | false | **true** (faster-whisper int8 CPU) |
+| `usable_label_ratio` | 0.0 | **0.8344** |
+| `embedding_ratio` | 0.0 | **1.0** |
+| `heuristic_ratio` | 1.0 | **0.0** |
+| `score.avg` | None | **0.6235** |
+| `low_score_fallback_count` | 0 | 0 |
+| **S6 分数** | 2 (env exemption) | **3** (full embedding match) |
+| EP8 触发条件 | 未评估（缺真实 caption） | ✗ 不成立（S6=3 > 1） |
+| 测试脚本 S6 推导 bug | — | 已记录（双计 embedding_topk，待修） |
