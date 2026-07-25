@@ -38,6 +38,9 @@ class JobParams(BaseModel):
     match_topk: Optional[int] = None  # EP3: top-K rerank (default 5, 0/1 = top-1)
     match_topk_reuse_penalty: Optional[float] = None  # EP3: score deduction for recently used scenes (default 0.15)
     embedding_model_name: Optional[str] = None
+    # ── Vision (EP8) ──
+    # "none" (default) | "stub" | future providers (http_vlm, blip, etc.)
+    vision_captioner: Optional[str] = None
     # ── BGM ──
     bgm_gain_db: Optional[float] = None
     bgm_duck_db: Optional[float] = None

@@ -1,12 +1,29 @@
 """Factory: settings → VisionCaptioner instance (EP8).
 
-Currently only returns the StubVisionCaptioner. When real vision
-providers (BLIP, LLaVA, etc.) are implemented, they will be
-dispatched here based on settings/configuration.
+Uses the :data:`vision_registry` to dispatch provider creation.
+Built-in provider (stub) is registered at import time. External
+plugins can register additional providers (blip, llava, http_vlm,
+etc.) via :func:`register_vision`.
 """
 
+from ..providers import vision_registry
 from .protocol import VisionCaptioner
-from .stub import StubVisionCaptioner
+
+
+# ── Register built-in Vision providers ────────────────────
+
+
+def _make_stub(**kwargs) -> VisionCaptioner:
+    from .stub import StubVisionCaptioner
+    return StubVisionCaptioner()
+
+
+# Register only if not already registered (handles reload scenarios).
+if not vision_registry.contains("stub"):
+    vision_registry.register("stub", _make_stub)
+
+
+# ── Public factory function ───────────────────────────────
 
 
 def get_vision_captioner(
@@ -15,10 +32,12 @@ def get_vision_captioner(
 ) -> VisionCaptioner:
     """Return a VisionCaptioner instance.
 
+    Looks up the provider name in :data:`vision_registry` first.
+    Falls back to the old if/elif chain for backward compatibility.
+
     Args:
-        provider: "stub" (default) — returns StubVisionCaptioner.
-            Future: "blip", "llava", etc.
-        **kwargs: provider-specific configuration.
+        provider: Provider name (e.g. "stub", "http_vlm").
+        **kwargs: Provider-specific configuration.
 
     Returns:
         A VisionCaptioner instance.
@@ -26,15 +45,15 @@ def get_vision_captioner(
     Raises:
         ValueError: when the provider is unknown.
     """
-    if provider == "stub":
-        return StubVisionCaptioner()
+    # Registry path (preferred)
+    if vision_registry.contains(provider):
+        return vision_registry.create(provider, **kwargs)
 
-    # Future providers will be dispatched here:
-    # elif provider == "blip":
-    #     from .blip import BlipVisionCaptioner
-    #     return BlipVisionCaptioner(**kwargs)
+    # Legacy fallback
+    if provider == "stub":
+        return _make_stub(**kwargs)
 
     raise ValueError(
         f"Unsupported vision captioner provider: {provider!r}. "
-        f"Supported: ['stub']"
+        f"Registered: {vision_registry.names()}"
     )
