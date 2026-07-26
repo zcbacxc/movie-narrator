@@ -82,7 +82,7 @@ The external web package owns the full FastAPI + React stack and consumes the co
 
 ```text
 React SPA (in movie-narrator-web) — form / progress / artifacts view
-    ▼   REST (POST /api/jobs)  +  WebSocket (/ws/jobs/{id})
+    ▼   REST (POST /api/tasks)  +  WebSocket (/ws/task/{task_id})
 FastAPI app (in movie-narrator-web) — uvicorn on :8760
     ▼
 contract.py (core repo — stable API boundary, CONTRACT_VERSION = (0, 5, 0))

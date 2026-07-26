@@ -78,7 +78,7 @@ run_pipeline(...) # STEPS 顺序不变
 
 ```text
 React SPA（位于 movie-narrator-web）— 表单 / 进度 / 产物视图
-    ▼   REST (POST /api/jobs)  +  WebSocket (/ws/jobs/{id})
+    ▼   REST (POST /api/tasks)  +  WebSocket (/ws/task/{task_id})
 FastAPI app（位于 movie-narrator-web）— uvicorn 监听 :8760
     ▼
 contract.py（核心 repo — 稳定 API 边界，CONTRACT_VERSION = (0, 5, 0)）
