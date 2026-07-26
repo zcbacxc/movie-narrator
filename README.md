@@ -261,7 +261,7 @@ mn create --movie "飞驰人生" --duration 60
 
 ### Full reference
 
-See [`.env.example`](.env.example) for the complete list of all 24 environment variables (LLM + TTS infrastructure only). All pipeline behavior is configured via [`examples/job.example.yaml`](examples/job.example.yaml) — 48 params keys covering scene detection, match, render, translate, BGM, WhisperX, async, and video sizes.
+See [`.env.example`](.env.example) for the complete list of all environment variables (LLM + TTS infrastructure only). All pipeline behavior is configured via [`examples/job.example.yaml`](examples/job.example.yaml) — params keys covering scene detection, match, render, translate, BGM, WhisperX, async, and video sizes.
 
 ### LLM Provider Guides
 
@@ -466,7 +466,7 @@ movie-narrator/
 - [x] Step-level retry mechanism (`--retry` flag, `StepAction` enum)
 - [x] Auto-create `~/.movie-narrator/.env` on first run
 - [x] `export_clips` direct ffmpeg subprocess (design choice, not workaround)
-- [x] Config system overhaul: strict env/yaml boundary — `.env` (Settings) contains 21 LLM + TTS infrastructure fields only; `job.yaml` (params) contains all 32 pipeline behavior keys; YAML auto-discovery (`--config` not passed → `cwd/job.yaml` → packaged example); `.env.example` and `job.example.yaml` are the single sources of truth; no code constants module — inline literals match example files
+- [x] Config system overhaul: strict env/yaml boundary — `.env` (Settings) contains LLM + TTS infrastructure fields only; `job.yaml` (params) contains all pipeline behavior keys; YAML auto-discovery (`--config` not passed → `cwd/job.yaml` → packaged example); `.env.example` and `job.example.yaml` are the single sources of truth; no code constants module — inline literals match example files
 
 ### v0.5.x — Ecosystem
 
@@ -479,6 +479,8 @@ movie-narrator/
 - [x] Out-of-tree example plugin (`examples/plugins/watermark/`) (#92)
 - [x] WP6 scene filtering — intro skip, dark frame detection, highlight window (#93)
 - [x] WebUI split — `movie-narrator-web` standalone repo, core engine is now pure CLI (#94, #95)
+- [x] M4 — Provider migration: LLM/Research registries, protocol validation for TTS/Vision (#98)
+- [x] M5 — Community & packaging: CLI plugin commands, plugin template, `check_version()`, packaging guide (#99)
 
 > SDK and Plugin API are designed together — both must stabilize in the same release.
 
