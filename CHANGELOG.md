@@ -44,7 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 
 - Core `pyproject.toml`: removed `fastapi`, `uvicorn`, `python-multipart` from dependencies. Web extras removed — web is now a separate repo/package (#94).
-- `conftest.py`: cleaned up `collect_ignore` — removed `packages`, `webui`, `node_modules` entries (no longer present in core repo) (#94).
+- `conftest.py`: cleaned up `collect_ignore` — removed `packages`, `node_modules` entries; `webui` retained to guard against phantom directories left on developer machines after the monorepo split (#94).
 - `.gitignore`: removed `packages/web/`-specific entries (web code lives in separate repo) (#94).
 - `src/movie_narrator/__init__.py`: added `list_presets`, `get_preset`, and `CONTRACT_VERSION` to public exports (#91, #94).
 

@@ -67,41 +67,52 @@ run_pipeline(...) # STEPS order unchanged
 
 ## Web UI Layer
 
-> Since v0.4.10 the Web UI is a **FastAPI + React SPA** architecture (served on port 8760 via `mn web`). The legacy Gradio UI (`src/movie_narrator/web/`) was removed in v0.4.12.
+> **The Web UI is now a separate project.** Since the monorepo split, the FastAPI + React SPA stack lives in an external repository: [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web). The core repo (`movie-narrator`) no longer ships `web_api/` or `webui/` directories — it is a pure CLI engine. Install and run the Web UI as an independent package:
+>
+> ```bash
+> pip install movie-narrator-web
+> mn-web            # launches the FastAPI + React SPA (port 8760)
+> ```
+>
+> The legacy Gradio UI (`src/movie_narrator/web/`) was removed back in v0.4.12; the FastAPI + React SPA that replaced it was carved out into `movie-narrator-web` during the repo split. There is no longer a `mn web` command or `[web]` extra in the core package — `fastapi`, `uvicorn`, and `python-multipart` are no longer dependencies of `movie-narrator`.
+
+### Architecture — external package `movie-narrator-web`
+
+The external web package owns the full FastAPI + React stack and consumes the core engine **only** through the contract surface defined in `contract.py`:
 
 ```text
-React SPA (webui/) — form / progress / artifacts view
+React SPA (in movie-narrator-web) — form / progress / artifacts view
     ▼   REST (POST /api/jobs)  +  WebSocket (/ws/jobs/{id})
-FastAPI app (web_api/server.py) — uvicorn on :8760
+FastAPI app (in movie-narrator-web) — uvicorn on :8760
     ▼
-routes.py (form → build_context kwargs)   ws.py (stream console snapshots)
+contract.py (core repo — stable API boundary, CONTRACT_VERSION = (0, 5, 0))
     ▼
 build_context(..., services=Services(console=BufferedConsole))
     ▼
-run_pipeline(ctx, controller=RunController)   ← background task (tasks.py)
+run_pipeline(ctx, controller=RunController)   ← background task (in movie-narrator-web)
     ▼
 TaskManager streams console snapshots over WebSocket → React renders live progress
 ```
 
-The React SPA is built by Vite into static assets that FastAPI serves directly, so the single `mn web` process owns both the API and the frontend bundle — no separate frontend server is required in production.
+The React SPA is built by Vite into static assets that FastAPI serves directly, so the single `mn-web` process owns both the API and the frontend bundle — no separate frontend server is required in production. Internal modules of the web package (`server.py`, `routes.py`, `ws.py`, `tasks.py`, `console.py`, `controller.py`, `form.py`, `models.py`, `utils.py`) are documented in the `movie-narrator-web` repository; they are intentionally not described here.
 
-### Key design rules
+### Key design rules (contract guarantees the external web package must honor)
 
-- **No second implementation**: Web calls `build_context` + `run_pipeline` — the same functions CLI uses
+- **No second implementation**: the web package calls `build_context` + `run_pipeline` — the same functions the CLI uses
 - **Cancel is runtime-only**: `RunController` / `PipelineCancelled` never enter `Context`, `PipelineStatus`, or `metadata.json`. Cancel is a distinct terminal path (not warn, not error, does not trip `--strict`)
 - **empty = no override**: form fields left blank do NOT inject into `params` — Settings (`.env` / `MN_*`) defaults apply
-- **Uploads to a stable dir**: uploaded files go to `output/_uploads` (FastAPI), never to ad-hoc `mn_web_*` temp dirs or the `output/` movie folder
-- **Single-job per task**: re-entrancy guard via `TaskManager` (FastAPI) per task id, replacing the old `gr.State`-based `WebRun` session state
+- **Uploads to a stable dir**: uploaded files go to `output/_uploads`, never to ad-hoc `mn_web_*` temp dirs or the `output/` movie folder
+- **Single-job per task**: re-entrancy guard per task id inside the web package's `TaskManager`, replacing the old `gr.State`-based `WebRun` session state
 
-### Modules — `contract.py` (stable API boundary)
+### Modules — `contract.py` (stable API boundary, the only import surface for `movie-narrator-web`)
 
-The `contract.py` module is the **single import surface** that web_api and future consumers depend on. It re-exports symbols from 4 internal modules and defines the `PipelineResult` protocol, without moving any code:
+The `contract.py` module is the **single import surface** that the external `movie-narrator-web` package (and any future consumer) depends on. It re-exports symbols from 4 internal modules and defines the `PipelineResult` protocol, without moving any code. The contract version is pinned via `CONTRACT_VERSION = (0, 5, 0)` — the web package checks this at import time to refuse mismatched engine versions.
 
 ```text
-web_api/*  →  contract.py  →  pipeline/runner.py (build_context, run_pipeline, PARAM_WHITELIST)
-                          →  pipeline/errors.py (PipelineCancelled, RunController, StepAction, ...)
-                          →  utils/console.py (BaseConsole, Console, SilentConsole)
-                          →  utils/sanitize.py (sanitize_filename)
+movie-narrator-web  →  contract.py  →  pipeline/runner.py (build_context, run_pipeline, PARAM_WHITELIST)
+                                  →  pipeline/errors.py (PipelineCancelled, RunController, StepAction, ...)
+                                  →  utils/console.py (BaseConsole, Console, SilentConsole)
+                                  →  utils/sanitize.py (sanitize_filename)
 ```
 
 | Symbol | Source | Purpose |
@@ -113,21 +124,7 @@ web_api/*  →  contract.py  →  pipeline/runner.py (build_context, run_pipelin
 | `PipelineCancelled` / `PipelineStrictError` | pipeline/errors.py | Pipeline terminal exceptions |
 | `RunController` / `StepAction` / `check_cancelled` | pipeline/errors.py | Cooperative cancel + retry protocol |
 | `sanitize_filename` | utils/sanitize.py | Cross-platform filename sanitization |
-
-### Modules — `web_api/` (FastAPI backend, default)
-
-| Module | Responsibility |
-|--------|---------------|
-| `web_api/server.py` | FastAPI app factory, static SPA mounting, `launch_web()` uvicorn entry |
-| `web_api/routes.py` | REST endpoints — job submit/cancel, artifact listing, form validation |
-| `web_api/ws.py` | WebSocket handler — streams `Console.snapshot()` + status deltas to the SPA |
-| `web_api/tasks.py` | `TaskManager` — per-task run state, background pipeline execution, cancellation |
-| `web_api/console.py` | Thread-safe buffered console (`threading.Lock`) consumed by the WebSocket loop |
-| `web_api/controller.py` | `RunController` — cooperative cancel flag (`threading.Event`) |
-| `web_api/form.py` | `FormData` model, `validate_form()`, `form_to_context_args()` |
-| `web_api/models.py` | Pydantic request/response schemas, run status enums |
-| `web_api/utils.py` | Upload handling (`output/_uploads`), `collect_artifacts()`, filename sanitization |
-| `web_api/__init__.py` | Package init |
+| `CONTRACT_VERSION` | contract.py | `(0, 5, 0)` — version the external `movie-narrator-web` package checks against at import time |
 
 ### Modules — `vision/` (Visual scene captioning, v0.4.26+)
 
@@ -407,7 +404,7 @@ segment's end. This is preferable to a 100ms flash on screen.
 - **New VisionCaptioner provider**: implement `VisionCaptioner` ABC in `vision/`, register in `vision/factory.py`. See `vision/stub.py` for reference. Match logic auto-detects fake vs real captions via `is_stub` flag.
 - **Pipeline pause/resume**: `--pause-at script|match` pauses after the step; `mn resume <output_dir>` continues. State serialized to `pipeline_state.json`.
 - **New CLI command**: add `@app.command()` in `cli.py`.
-- **Frontend / WebUI**: the React SPA lives in `webui/` (Vite + TypeScript + shadcn/ui + Tailwind CSS). Add a route/component under `webui/src/`, talk to the backend through the REST endpoints in `web_api/routes.py` and the WebSocket in `web_api/ws.py`. During development run `cd webui && npm run dev` (Vite dev server proxies API calls to FastAPI on :8760); ship changes by rebuilding the bundle (`npm run build`) so FastAPI serves the updated static assets. See `docs/CONTRIBUTING.md` → *Frontend Development*.
+- **Frontend / WebUI**: the React SPA and FastAPI backend now live in the external repo [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web) (Vite + TypeScript + shadcn/ui + Tailwind CSS, served on port 8760 via the `mn-web` command). To extend the web layer, work inside that repository — the core `movie-narrator` repo no longer ships `web_api/` or `webui/`, and there is no `mn web` command or `[web]` extra here. Any new engine capability the web package needs must be exposed through `contract.py` (bump `CONTRACT_VERSION` accordingly). See `docs/CONTRIBUTING.md` → *Frontend Development*.
 
 ## Key Design Decisions
 

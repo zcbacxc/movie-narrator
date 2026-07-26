@@ -21,7 +21,7 @@ Movie Narrator 是一个开源工具包，可通过简单命令自动生成带�
 - 🔊 文字转语音解说（默认使用 Edge-TTS）
 - 💬 自动生成 SRT 字幕文件
 - 🌐 多语言字幕（`--subtitle-lang en` 通过 LLM 翻译解说文案，输出 `subtitle.<lang>.srt` + `subtitle.bilingual.srt`）
-- 🖥️ Web UI（`mn web` — 本地 FastAPI + React 浏览器应用，支持表单输入、协作式取消、产物下载，通过 WebSocket 实时推送进度）
+- 🖥️ Web UI — 由独立的 [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web) 包提供（FastAPI + React 浏览器应用，支持表单输入、协作式取消、产物下载，通过 WebSocket 实时推送进度）
 - 🎞️ 使用 MoviePy 和 FFmpeg 渲染视频
 - 📝 脚本 Markdown 导出（`script.md`）
 - 🎵 背景音乐集成（BGM 混音）
@@ -98,8 +98,8 @@ pip install "movie-narrator[media]"
 # WhisperX + 语义搜索（需要 PyTorch，Python < 3.14）
 pip install "movie-narrator[ml]"
 
-# Web UI（FastAPI + React）
-pip install "movie-narrator[web]"
+# Web UI（FastAPI + React）— 独立包
+pip install movie-narrator-web
 
 # 全部
 pip install "movie-narrator[full]"
@@ -189,28 +189,17 @@ mn create --movie "Inception" --subtitle-lang en
 
 ### Web UI
 
+Web UI 现已拆分为独立包。安装并启动：
+
 ```bash
-# 安装 web 扩展
-pip install "movie-narrator[web]"
+# 安装独立的 Web UI 包
+pip install movie-narrator-web
 
 # 启动本地浏览器应用（默认：http://127.0.0.1:8760）
-mn web
-
-# 自定义主机和端口
-mn web --host 0.0.0.0 --port 8080
-
-# 生产模式：先构建前端，再由 mn web 提供服务
-cd webui && npm install && npm run build
-mn web  # 提供 web_api/static/ + API，地址 http://127.0.0.1:8760
-
-# 开发模式：两个终端
-mn web --reload                    # FastAPI 运行在 :8760
-cd webui && npm run dev            # Vite 开发服务器运行在 :5173（代理 API）
+mn-web
 ```
 
-Web UI 提供表单界面，覆盖所有 CLI 参数：电影名、风格、时长、音色、比例、视频/BGM 上传、字幕设置、高级参数。Cancel 按钮支持在步骤边界协作式取消。所有终态（成功/失败/取消）均可下载已生成的产物（视频、字幕、脚本、元数据）。
-
-**空值 = 不覆盖**：高级表单字段留空时不会覆盖 Settings（`.env` / `MN_*`）默认值，只有显式填写时才生效。
+完整使用说明（自定义主机/端口、生产构建、开发模式、表单字段、产物下载等）请参见 [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web) 仓库。
 
 ### 离线演示（无需 LLM）
 
@@ -390,24 +379,6 @@ movie-narrator/
 │   │   ├── optional_deps.py # 可选依赖探测
 │   │   ├── prompts.py       # 提示词模板
 │   │   └── retention.py     # 日志文件保留策略
-│   └── web_api/                 # FastAPI + WebSocket 后端（默认 Web UI；需安装 [web] extra）
-│       ├── __init__.py          # 延迟导出 launch_web_api
-│       ├── __main__.py          # python -m movie_narrator.web_api
-│       ├── server.py            # FastAPI 应用工厂（CORS、静态挂载、ws 路由）
-│       ├── routes.py            # REST API 端点（create / status / cancel / artifacts）
-│       ├── ws.py                # WebSocket 端点（实时进度 + 日志）
-│       ├── tasks.py             # TaskManager（后台任务生命周期）
-│       ├── form.py              # FormData + validate_form + form_to_context_args
-│       ├── console.py           # WebSocketConsole（线程安全广播）
-│       ├── controller.py        # RunController（协作式取消标志）
-│       ├── models.py            # RunStatus 枚举 + WebRun 会话状态
-│       └── utils.py             # 上传处理 + collect_artifacts + 文件名清洗
-├── webui/                       # React 18 + Vite + TypeScript 前端（默认 Web UI）
-│   ├── package.json             # React 18 + Vite + TypeScript + Tailwind
-│   ├── vite.config.ts           # 开发代理 → :8760，构建 → dist/
-│   ├── index.html               # Vite 入口
-│   ├── src/                     # React 应用（App.tsx、components/、hooks/、lib/、types/、styles/）
-│   └── dist/                    # 生产构建产物（由 mn web 提供服务）
 ├── tests/
 │   ├── test_context.py
 │   ├── test_settings.py
@@ -429,9 +400,6 @@ movie-narrator/
 │   ├── test_translate.py
 │   ├── test_json_parser.py
 │   ├── test_pipeline_cancel.py
-│   ├── test_web_console.py
-│   ├── test_web_controller.py
-│   ├── test_web_form.py
 │   └── test_workflow_steps.py
 ├── docs/
 ├── assets/
@@ -470,11 +438,11 @@ movie-narrator/
 - [x] YAML 任务配置文件（`mn create --config`）
 - [x] 控制台 / 结构化 StepState 日志重构（`ctx.services.console`、`StepState`）
 - [x] 多语言字幕（`--subtitle-lang` / `--subtitle-mode`；LLM 翻译 + 重试软降级；输出 `subtitle.<lang>.srt` + `subtitle.bilingual.srt`）
-- [x] Web UI（Gradio 本地浏览器应用，`mn web`；协作式取消；需安装 `[web]` extra）（v0.4.10：重构为 FastAPI + React）
+- [x] Web UI（Gradio 本地浏览器应用，`mn web`；协作式取消；需安装 `[web]` extra）（v0.4.10：重构为 FastAPI + React；后续拆分为独立 repo [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web)）
 
 ### v0.4.x — TTS 抽象与基础设施 ✅
 
-- [x] Web UI 重写：Gradio → FastAPI + React 18 + WebSocket（v0.4.10）
+- [x] Web UI 重写：Gradio → FastAPI + React 18 + WebSocket（v0.4.10；后续拆分为独立 repo [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web)）
 - [x] TTS Provider 抽象（`TTSProvider` 协议、Edge + OpenAI + MiMo 后端）
 - [x] 通过 `MN_TTS_PROVIDER` 选择后端（`edge` / `openai` / `mimo`）
 - [x] OpenAI TTS 支持（voice 白名单、凭证回退、延迟 SDK 导入）

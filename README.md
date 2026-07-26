@@ -21,7 +21,7 @@ Movie Narrator is an open-source toolkit that automatically generates movie reca
 - 🔊 Text-to-Speech narration (Edge-TTS by default)
 - 💬 Automatic SRT subtitle generation
 - 🌐 Multi-language subtitles (`--subtitle-lang en` translates narration cues via LLM and writes `subtitle.<lang>.srt` + `subtitle.bilingual.srt`)
-- 🖥️ Web UI (`mn web` — local FastAPI + React browser app with form inputs, cooperative cancel, artifact download, and real-time progress via WebSocket)
+- 🖥️ Web UI — provided by the separate [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web) package (FastAPI + React browser app with form inputs, cooperative cancel, artifact download, and real-time progress via WebSocket)
 - 🎞️ Video rendering with MoviePy and FFmpeg
 - 📝 Script markdown export (`script.md`)
 - 🎵 Background music integration (BGM)
@@ -98,8 +98,8 @@ pip install "movie-narrator[media]"
 # WhisperX + semantic search (requires PyTorch; Python < 3.14)
 pip install "movie-narrator[ml]"
 
-# Web UI (FastAPI + React)
-pip install "movie-narrator[web]"
+# Web UI (FastAPI + React) — separate package
+pip install movie-narrator-web
 
 # Everything
 pip install "movie-narrator[full]"
@@ -191,28 +191,17 @@ Setting `subtitle_mode=translated|bilingual` without `subtitle_lang` raises `Job
 
 ### Web UI
 
+The Web UI is now a separate package. Install and launch it with:
+
 ```bash
-# Install with web extra
-pip install "movie-narrator[web]"
+# Install the standalone Web UI package
+pip install movie-narrator-web
 
 # Launch local browser app (default: http://127.0.0.1:8760)
-mn web
-
-# Or with custom host/port
-mn web --host 0.0.0.0 --port 8080
-
-# Production: build frontend, then mn web serves it
-cd webui && npm install && npm run build
-mn web  # serves web_api/static/ + API on http://127.0.0.1:8760
-
-# Development: two terminals
-mn web --reload                    # FastAPI on :8760
-cd webui && npm run dev            # Vite dev server on :5173 (proxies API)
+mn-web
 ```
 
-The Web UI provides a form-based interface to all CLI options: movie name, style, duration, voice, format, video/BGM upload, subtitle settings, and advanced params. A Cancel button allows cooperative cancellation at step boundaries. Artifacts (video, subtitles, script, metadata) are available for download at all terminal states — including after cancellation.
-
-**empty = no override**: Advanced form fields left blank do NOT override Settings (`.env` / `MN_*`) defaults. Only fill a field if you want to explicitly override.
+For full usage details (custom host/port, production build, development mode, form fields, and artifact download), see the [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web) repository.
 
 ### Offline Demo (No LLM Required)
 
@@ -395,24 +384,6 @@ movie-narrator/
 │   │   ├── audio_mix.py     # Audio normalize + BGM ducking (pydub)
 │   │   ├── deliverable_qa.py # ffprobe/ffmpeg media probing + QA rules
 │   │   └── video_layout.py  # Cover/contain crop+resize geometry
-│   └── web_api/                 # FastAPI + WebSocket backend (default Web UI; requires [web] extra)
-│       ├── __init__.py          # lazy launch_web_api export
-│       ├── __main__.py          # python -m movie_narrator.web_api
-│       ├── server.py            # FastAPI app factory (CORS, static mount, ws route)
-│       ├── routes.py            # REST API endpoints (create / status / cancel / artifacts)
-│       ├── ws.py                # WebSocket endpoint (real-time progress + logs)
-│       ├── tasks.py             # TaskManager (background task lifecycle)
-│       ├── form.py              # FormData + validate_form + form_to_context_args
-│       ├── console.py           # WebSocketConsole (thread-safe broadcast)
-│       ├── controller.py        # RunController (cooperative cancel flag)
-│       ├── models.py            # RunStatus enum + WebRun per-session state
-│       └── utils.py             # upload handling + collect_artifacts + sanitize_filename
-├── webui/                       # React 18 + Vite + TypeScript frontend (default Web UI)
-│   ├── package.json             # React 18 + Vite + TypeScript + Tailwind
-│   ├── vite.config.ts           # dev proxy → :8760, build → dist/
-│   ├── index.html               # Vite entry
-│   ├── src/                     # React app (App.tsx, components/, hooks/, lib/, types/, styles/)
-│   └── dist/                    # production build output (served by mn web)
 ├── tests/
 │   ├── test_context.py
 │   ├── test_settings.py
@@ -434,9 +405,6 @@ movie-narrator/
 │   ├── test_translate.py
 │   ├── test_json_parser.py
 │   ├── test_pipeline_cancel.py
-│   ├── test_web_console.py
-│   ├── test_web_controller.py
-│   ├── test_web_form.py
 │   ├── test_workflow_steps.py
 │   ├── test_audio_mix.py
 │   ├── test_deliverable_qa.py
@@ -480,11 +448,11 @@ movie-narrator/
 - [x] YAML-based job configuration (`mn create --config`)
 - [x] Console / structured-step-state logging refactor (`ctx.services.console`, `StepState`)
 - [x] Multi-language subtitle support (`--subtitle-lang` / `--subtitle-mode`; LLM translation with retry-then-soft-degrade; `subtitle.<lang>.srt` + `subtitle.bilingual.srt` outputs)
-- [x] Web UI (Gradio local browser app via `mn web`; cooperative cancel; requires `[web]` extra) (v0.4.10: refactored to FastAPI + React)
+- [x] Web UI (Gradio local browser app via `mn web`; cooperative cancel; requires `[web]` extra) (v0.4.10: refactored to FastAPI + React; later split into independent repo [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web))
 
 ### v0.4.x — TTS Abstraction & Infrastructure ✅
 
-- [x] Web UI rewrite: Gradio → FastAPI + React 18 + WebSocket (v0.4.10)
+- [x] Web UI rewrite: Gradio → FastAPI + React 18 + WebSocket (v0.4.10; later split into independent repo [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web))
 - [x] TTS provider abstraction (`TTSProvider` protocol, Edge + OpenAI + MiMo backends)
 - [x] Provider selection via `MN_TTS_PROVIDER` (`edge` / `openai` / `mimo`)
 - [x] OpenAI TTS support (voice whitelist, credential fallback, lazy SDK import)

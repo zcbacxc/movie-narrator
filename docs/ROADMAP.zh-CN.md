@@ -34,7 +34,7 @@
 - [x] 基于 YAML 的 job 配置（`mn create --config`）
 - [x] 控制台 / 结构化步骤状态日志重构（`ctx.services.console`、`StepState`）
 - [x] 多语言字幕支持（`--subtitle-lang` / `--subtitle-mode`；LLM 翻译，重试 → 软降级；三文件 SRT 输出）
-- [x] Web UI（Gradio；在 v0.4.x 由 FastAPI + React 重构后取代）
+- [x] Web UI（Gradio；在 v0.4.x 由 FastAPI + React 重构后取代；随后拆分为独立 repo [movie-narrator-web](https://github.com/zcbacxc/movie-narrator-web)）
 
 ## v0.4.x — TTS 抽象与基础设施
 
@@ -51,9 +51,11 @@
 
 ### Web UI
 
+> 以下 Web UI 工作随后已拆分为独立 repo [movie-narrator-web](https://github.com/zcbacxc/movie-narrator-web)。核心 repo 不再包含 `web_api/` 或 `webui/`；以独立包形式安装 Web UI：`pip install movie-narrator-web`，通过 `mn-web` 启动。
+
 - [x] Gradio → FastAPI + React SPA 重构（Vite + TypeScript + shadcn/ui）
 - [x] WebSocket 实时进度推送（`/ws/jobs/{id}`）
-- [x] pip 可安装的 WebUI 打包（SPA 打入 wheel）
+- [x] pip 可安装的 WebUI 打包 —— 现由独立的 `movie-narrator-web` repo 发布（`pip install movie-narrator-web`，命令 `mn-web`）
 
 ### 核心引擎质量
 
@@ -92,7 +94,7 @@
 
 - [x] EP8 VisionCaptioner 抽象（`vision/` 包；stub + `http_vlm` OpenAI 兼容 provider）
 - [x] EP9 暂停/恢复（`--pause-at` + `mn resume` + `pipeline_state.json`）
-- [x] 契约层（`contract.py` —— web_api 与核心引擎之间的稳定 API 边界）
+- [x] 契约层（`contract.py` —— 稳定 API 边界；现由外部 [movie-narrator-web](https://github.com/zcbacxc/movie-narrator-web) 包消费，`CONTRACT_VERSION = (0, 5, 0)`）
 - [x] Stage E 产品化（CLI 匹配摘要 + RS-07/08/09 渲染修复）
 
 ## v0.5.x — 生态
@@ -112,4 +114,4 @@
 - [ ] 远程推理（offload LLM / TTS / 渲染到云 worker）
 - [ ] 分布式渲染（将视频段分散到多节点）
 - [ ] 任务队列（异步 job 提交、进度轮询、重试）
-- [ ] Web 服务部署（REST API、鉴权、多租户）
+- [ ] Web 服务部署（REST API、鉴权、多租户）—— 注：Web UI 本身现已是独立包（[movie-narrator-web](https://github.com/zcbacxc/movie-narrator-web)）；本条目关注云端部署/托管，而非 UI 代码库

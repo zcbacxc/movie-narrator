@@ -63,46 +63,64 @@ run_pipeline(...) # STEPS 顺序不变
 
 ## Web UI 层
 
-> 自 v0.4.10 起，Web UI 采用 **FastAPI + React SPA** 架构（通过 `mn web` 启动，端口 8760）。旧的 Gradio UI（`src/movie_narrator/web/`）已在 v0.4.12 移除。
+> **Web UI 现已是独立项目。** 自 monorepo 拆分起，FastAPI + React SPA 技术栈位于外部仓库：[`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web)。核心 repo（`movie-narrator`）不再包含 `web_api/` 或 `webui/` 目录 —— 它是纯 CLI 引擎。以独立包的形式安装并运行 Web UI：
+>
+> ```bash
+> pip install movie-narrator-web
+> mn-web            # 启动 FastAPI + React SPA（端口 8760）
+> ```
+>
+> 旧的 Gradio UI（`src/movie_narrator/web/`）早在 v0.4.12 已被移除；接替它的 FastAPI + React SPA 在 repo 拆分时被剥离到 `movie-narrator-web`。核心包中不再有 `mn web` 命令或 `[web]` extra —— `fastapi`、`uvicorn`、`python-multipart` 不再是 `movie-narrator` 的依赖。
+
+### 架构 —— 外部包 `movie-narrator-web`
+
+外部 web 包完整持有 FastAPI + React 技术栈，**只**通过 `contract.py` 定义的契约面消费核心引擎：
 
 ```text
-React SPA (webui/) — 表单 / 进度 / 产物视图
+React SPA（位于 movie-narrator-web）— 表单 / 进度 / 产物视图
     ▼   REST (POST /api/jobs)  +  WebSocket (/ws/jobs/{id})
-FastAPI app (web_api/server.py) — uvicorn 监听 :8760
+FastAPI app（位于 movie-narrator-web）— uvicorn 监听 :8760
     ▼
-routes.py (表单 → build_context kwargs)   ws.py (推送控制台 snapshot)
+contract.py（核心 repo — 稳定 API 边界，CONTRACT_VERSION = (0, 5, 0)）
     ▼
 build_context(..., services=Services(console=BufferedConsole))
     ▼
-run_pipeline(ctx, controller=RunController)   ← 后台任务 (tasks.py)
+run_pipeline(ctx, controller=RunController)   ← 后台任务（位于 movie-narrator-web）
     ▼
 TaskManager 通过 WebSocket 推送控制台 snapshot → React 实时渲染进度
 ```
 
-React SPA 由 Vite 打包产出静态资源，FastAPI 直接托管；因此单个 `mn web` 进程同时拥有 API 与前端 bundle —— 生产环境不需要独立的前端服务器。
+React SPA 由 Vite 打包产出静态资源，FastAPI 直接托管；因此单个 `mn-web` 进程同时拥有 API 与前端 bundle —— 生产环境不需要独立的前端服务器。web 包的内部模块（`server.py`、`routes.py`、`ws.py`、`tasks.py`、`console.py`、`controller.py`、`form.py`、`models.py`、`utils.py`）在 `movie-narrator-web` 仓库中有文档说明，本文档不再赘述。
 
-### 关键设计规则
+### 关键设计规则（契约对 web 包的约束）
 
-- **不写第二份实现**：Web 调用 `build_context` + `run_pipeline`，与 CLI 完全使用同一套函数
+- **不写第二份实现**：web 包调用 `build_context` + `run_pipeline`，与 CLI 完全使用同一套函数
 - **取消是运行时的专属路径**：`RunController` / `PipelineCancelled` 永远不进入 `Context`、`PipelineStatus` 或 `metadata.json`。取消是一种独立的终态路径（非 warning、非 error、不会触发 `--strict`）
 - **空字段不覆盖**：表单留空的字段不会注入 `params` —— 直接采用 Settings（`.env` / `MN_*`）默认值
-- **上传文件落到稳定目录**：上传文件落到 `output/_uploads`（FastAPI 一侧），绝不写到随机的 `mn_web_*` 临时目录或 `output/<movie>` 文件夹
-- **单任务独占**：`TaskManager` 中对每个 task id 维持 re-entrancy 守卫，取代旧的 `gr.State` 方式 `WebRun` 会话状态
+- **上传文件落到稳定目录**：上传文件落到 `output/_uploads`，绝不写到随机的 `mn_web_*` 临时目录或 `output/<movie>` 文件夹
+- **单任务独占**：web 包的 `TaskManager` 中对每个 task id 维持 re-entrancy 守卫，取代旧的 `gr.State` 方式 `WebRun` 会话状态
 
-### 模块 — `web_api/`（FastAPI 后端，默认）
+### 模块 —— `contract.py`（稳定 API 边界，`movie-narrator-web` 唯一的导入面）
 
-| 模块 | 职责 |
-|------|------|
-| `web_api/server.py` | FastAPI app 工厂、静态 SPA 挂载、`launch_web()` uvicorn 入口 |
-| `web_api/routes.py` | REST 端点 —— job 提交/取消、产物列表、表单校验 |
-| `web_api/ws.py` | WebSocket 处理 —— 向 SPA 推送 `Console.snapshot()` 与 status 增量 |
-| `web_api/tasks.py` | `TaskManager` —— 每个 task 的运行状态、后台流水线执行、取消 |
-| `web_api/console.py` | 线程安全的缓冲控制台（`threading.Lock`），由 WebSocket 循环消费 |
-| `web_api/controller.py` | `RunController` —— 协作式取消标志（`threading.Event`） |
-| `web_api/form.py` | `FormData` 模型、`validate_form()`、`form_to_context_args()` |
-| `web_api/models.py` | Pydantic 请求/响应 schema、运行状态枚举 |
-| `web_api/utils.py` | 上传处理（`output/_uploads`）、`collect_artifacts()`、文件名清洗 |
-| `web_api/__init__.py` | 包初始化 |
+`contract.py` 模块是外部 `movie-narrator-web` 包（以及任何未来消费者）依赖的 **唯一导入面**。它从 4 个内部模块 re-export 符号，并定义 `PipelineResult` protocol，不移动任何代码。契约版本通过 `CONTRACT_VERSION = (0, 5, 0)` 固定 —— web 包在 import 时校验，拒绝不匹配的引擎版本。
+
+```text
+movie-narrator-web  →  contract.py  →  pipeline/runner.py (build_context, run_pipeline, PARAM_WHITELIST)
+                                  →  pipeline/errors.py (PipelineCancelled, RunController, StepAction, ...)
+                                  →  utils/console.py (BaseConsole, Console, SilentConsole)
+                                  →  utils/sanitize.py (sanitize_filename)
+```
+
+| Symbol | Source | Purpose |
+|--------|--------|---------|
+| `PipelineResult` | contract.py（新增） | `runtime_checkable` Protocol —— 形式化 5 个 Context 属性（video_path, audio_path, clips_dir, output_dir, subtitle_paths） |
+| `PARAM_WHITELIST` | pipeline/runner.py | 约 60 个允许的参数键 —— 表单与引擎同步的唯一真理来源 |
+| `build_context` / `run_pipeline` | pipeline/runner.py | 引擎入口 |
+| `BaseConsole` / `Console` / `SilentConsole` | utils/console.py | 输出抽象 protocol + 基类 |
+| `PipelineCancelled` / `PipelineStrictError` | pipeline/errors.py | 流水线终态异常 |
+| `RunController` / `StepAction` / `check_cancelled` | pipeline/errors.py | 协作式取消 + 重试 protocol |
+| `sanitize_filename` | utils/sanitize.py | 跨平台文件名清洗 |
+| `CONTRACT_VERSION` | contract.py | `(0, 5, 0)` —— 外部 `movie-narrator-web` 包在 import 时校验的版本号 |
 
 ## TTS 抽象层
 
@@ -227,7 +245,7 @@ output/<movie>/
 - **新增流水线步骤**：在 `pipeline/runner.py` 的 `STEPS` 末尾追加。函数签名必须是 `(ctx: Context) -> Context`
 - **替换 TTS / 渲染器 / LLM**：直接替换 `pipeline/tts.py`、`pipeline/render.py` 或 `utils/llm.py`，保留步骤函数签名即可
 - **新增 CLI 命令**：在 `cli.py` 加 `@app.command()`
-- **前端 / WebUI**：React SPA 位于 `webui/`（Vite + TypeScript + shadcn/ui + Tailwind CSS）。在 `webui/src/` 下加路由/组件，通过 `web_api/routes.py` 中的 REST 端点以及 `web_api/ws.py` 中的 WebSocket 与后端通信。开发期运行 `cd webui && npm run dev`（Vite dev server 将 API 请求代理到 :8760 的 FastAPI）；发布前重新构建 bundle（`npm run build`），FastAPI 即可托管更新后的静态资源。见 `docs/CONTRIBUTING.md` → *Frontend Development*
+- **前端 / WebUI**：React SPA 与 FastAPI 后端现位于外部 repo [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web)（Vite + TypeScript + shadcn/ui + Tailwind CSS，通过 `mn-web` 命令在端口 8760 启动）。要扩展 web 层，请在该仓库内工作 —— 核心 `movie-narrator` repo 不再包含 `web_api/` 或 `webui/`，也没有 `mn web` 命令或 `[web]` extra。web 包需要的任何新引擎能力都必须通过 `contract.py` 暴露（并相应升级 `CONTRACT_VERSION`）。见 `docs/CONTRIBUTING.md` → *Frontend Development*
 
 ## 关键设计决策
 
