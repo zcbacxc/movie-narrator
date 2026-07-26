@@ -80,7 +80,16 @@ class StepState:
 
 @dataclass
 class Services:
+    """Container for infrastructure services injected into the pipeline.
+
+    Plugins can access ``ctx.services.logger`` to emit structured log
+    messages without importing a specific logging framework. The logger
+    field accepts any object with ``info``, ``warning``, and ``error``
+    methods (duck-typed), defaulting to ``None`` when not configured.
+    """
+
     console: Console
+    logger: Optional[Any] = None
 
 
 class ScriptSegment(BaseModel):

@@ -49,7 +49,7 @@ from .pipeline.runner import PARAM_WHITELIST, build_context, run_pipeline
 
 # ── Re-exports: models ─────────────────────────────────────
 
-from .models import Context
+from .models import Context, Services
 
 # ── Re-exports: registries ─────────────────────────────────
 
@@ -175,6 +175,13 @@ def load_plugin(plugin: Plugin) -> None:
     plugin.register(PluginContext.default())
 
 
+# ── Plugin discovery (entry_points) ───────────────────────
+# Imported at the bottom of the module to avoid circular import:
+# plugin_loader imports from contract (Plugin, load_plugin), so we
+# import it after those symbols are defined.
+# The actual import is done lazily below to keep the top-level
+# contract module clean.
+
 # ── Public API ─────────────────────────────────────────────
 
 __all__ = [
@@ -198,6 +205,7 @@ __all__ = [
     "PipelineResult",
     # Models
     "Context",
+    "Services",
     # Registries
     "StepRegistry",
     "ProviderRegistry",
@@ -214,6 +222,8 @@ __all__ = [
     "PluginContext",
     "Plugin",
     "load_plugin",
+    "discover_plugins",
+    "list_available_plugins",
 ]
 
 
@@ -221,3 +231,11 @@ __all__ = [
 # utils/console.py imports from utils/log.py and utils/retention.py,
 # which are safe but we keep the import explicit for contract clarity.
 from .utils.console import SilentConsole  # noqa: E402
+
+# Plugin discovery is imported here (not at top) to avoid circular import:
+# plugin_loader imports from contract (Plugin, load_plugin), so we import
+# it after those symbols are defined.
+from .plugin_loader import (  # noqa: E402
+    discover_plugins,
+    list_available_plugins,
+)
