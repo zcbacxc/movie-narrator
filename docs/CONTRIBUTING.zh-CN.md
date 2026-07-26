@@ -11,26 +11,15 @@ cd movie-narrator
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -e ".[dev]"
-
-# 前端（用于 WebUI 开发）
-cd webui && npm install && cd ..
 ```
+
+> **Web UI 在独立仓库中开发。** FastAPI + React 技术栈现位于 [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web)；本核心 repo 是纯 CLI 引擎，不含 `web_api/` 或 `webui/` 目录。如需参与 Web UI 开发，请克隆该仓库并遵循其贡献指南。
 
 ## 运行测试
 
 ```bash
 pytest -v
 ```
-
-### 前端校验
-
-当你改动 `webui/` 目录下的任何文件时，请确认 SPA 仍然能通过类型检查并构建成功：
-
-```bash
-cd webui && npm run build
-```
-
-该命令会先后执行 `tsc`（TypeScript 类型检查）和 Vite 生产构建。只有构建干净的 bundle 才能被 FastAPI 服务。
 
 ## 项目结构
 
@@ -39,44 +28,20 @@ movie-narrator/
 ├── src/movie_narrator/
 │   ├── pipeline/        # 15 步 pipeline、preflight、tts/render/match 等 step 模块
 │   ├── tts/             # TTS provider 抽象层（edge、openai、mimo、factory、cache）
-│   ├── web_api/         # FastAPI + WebSocket 后端（默认 WebUI，端口 8760）
 │   ├── utils/           # llm.py、errors.py、共享辅助
 │   ├── models.py        # Context、PipelineStatus、StepState 等
-│   ├── cli.py           # `mn` Typer 入口（create、web、version 等）
+│   ├── cli.py           # `mn` Typer 入口（create、version 等）
 │   └── workflow.py      # job.yaml 加载与合并（JobConfig、merge_job）
-├── webui/               # React 18 SPA — Vite + TypeScript + shadcn/ui + Tailwind
 ├── tests/               # pytest 套件（单元 + 烟雾测试）
 ├── docs/                # ARCHITECTURE、ROADMAP、CONTRIBUTING、specs/
 └── examples/            # job.example.yaml
 ```
 
-WebUI 由两部分组成：`src/movie_narrator/web_api/`（Python 后端）和 `webui/`（React 前端）。生产环境下 FastAPI 直接服务由 Vite 构建出来的 bundle，因此并不需要单独的 frontend server。
+Web UI 在独立仓库 [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web) 中开发；它只通过 `contract.py` 定义的契约面消费核心引擎。本 repo 不含 `web_api/` 或 `webui/` 目录树。
 
-## 前端开发
+## 如何贡献 Web UI
 
-### 开发模式（两个终端）
-
-开发期间需要同时跑 API 和 Vite 开发服务器，这样才能享受热更新：
-
-```bash
-# 终端 1 — FastAPI 后端（API 服务在 :8760）
-mn web
-
-# 终端 2 — Vite 开发服务器（HMR；把 /api 和 /ws 代理到 :8760）
-cd webui && npm run dev
-```
-
-打开终端 2 打印出来的 Vite URL 即可访问。Vite 开发服务器会把 REST 和 WebSocket 请求代理到 FastAPI 后端，这样 SPA 与真实 API 通信时不需要每次都重新打包。
-
-### 生产构建
-
-在发布前端改动之前，请重新打包 bundle，让 FastAPI 服务的静态资源保持最新：
-
-```bash
-cd webui && npm run build
-```
-
-构建成功后，仅靠 `mn web` 一条命令就能同时提供 API 和最新构建的 SPA，无需启动第二个进程。
+Web UI（FastAPI + React 18 SPA，安装 `pip install movie-narrator-web` 后通过独立的 `mn-web` 命令启动）位于其专属仓库：[`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web)。前端与 web 后端的改动 —— 包括 `npm install` / `npm run dev` / `npm run build` 等流程 —— 都应在该仓库进行，而非本核心 repo。本 repo 仅维护 web 包所依赖的稳定 `contract.py` API 面。
 
 ## 代码风格
 

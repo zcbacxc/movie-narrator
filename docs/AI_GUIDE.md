@@ -21,8 +21,10 @@ pip install -e ".[dev]"
 # 可选扩展（按需安装）
 pip install "movie-narrator[media]"   # 场景检测（PySceneDetect）
 pip install "movie-narrator[ml]"      # WhisperX + 语义搜索
-pip install "movie-narrator[web]"     # Web UI（FastAPI + React）
 pip install "movie-narrator[full]"    # 全部
+
+# Web UI（独立包，不在核心 repo 中）
+pip install movie-narrator-web        # FastAPI + React 浏览器应用，启动命令 mn-web
 ```
 
 **外部依赖**: FFmpeg（`ffmpeg -version` 验证）
@@ -74,8 +76,8 @@ mn create --movie "飞驰人生" --narration-preset mainstream-dry
 # 离线演示（跳过 LLM 和 TTS，生成静音音频）
 CI=1 mn create --movie "Demo" --duration 10
 
-# Web UI
-mn web
+# Web UI（独立包，不在核心 repo 中）
+# pip install movie-narrator-web && mn-web   # 启动 FastAPI + React SPA（端口 8760）
 
 # 查看版本
 mn version
@@ -114,8 +116,10 @@ src/movie_narrator/
 ├── workflow/            # YAML 配置加载与合并
 ├── presets/             # 解说风格预设（douyin-fast / mainstream-dry / bilibili-long）
 ├── utils/               # 工具函数（llm、font、json_parser 等）
-└── web_api/             # FastAPI + WebSocket 后端（Web UI）
+└── contract.py          # 核心 API 边界（web 包通过它消费引擎，见 movie-narrator-web）
 ```
+
+> Web UI（FastAPI + React SPA）位于独立仓库 [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web)，通过 `pip install movie-narrator-web` 安装、`mn-web` 启动。核心 repo 不含 `web_api/` 或 `webui/` 目录。
 
 ## 关键设计
 

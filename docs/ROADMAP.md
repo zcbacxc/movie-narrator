@@ -34,7 +34,7 @@
 - [x] YAML-based job configuration (`mn create --config`)
 - [x] Console / structured-step-state logging refactor (`ctx.services.console`, `StepState`)
 - [x] Multi-language subtitle support (`--subtitle-lang` / `--subtitle-mode`; LLM translation with retry-then-soft-degrade; three-file SRT output)
-- [x] Web UI (Gradio; superseded by v0.4.x FastAPI + React refactor)
+- [x] Web UI (Gradio; superseded by v0.4.x FastAPI + React refactor; subsequently split into the independent repo [movie-narrator-web](https://github.com/zcbacxc/movie-narrator-web))
 
 ## v0.4.x — TTS Abstraction & Infrastructure
 
@@ -51,9 +51,11 @@
 
 ### Web UI
 
+> The Web UI work below has since been split into the independent repository [movie-narrator-web](https://github.com/zcbacxc/movie-narrator-web). The core repo no longer ships `web_api/` or `webui/`; install the Web UI separately via `pip install movie-narrator-web` and launch it with `mn-web`.
+
 - [x] Gradio → FastAPI + React SPA refactor (Vite + TypeScript + shadcn/ui)
 - [x] WebSocket real-time progress (`/ws/jobs/{id}`)
-- [x] pip-installable WebUI packaging (SPA bundled in wheel)
+- [x] pip-installable WebUI packaging — now shipped from the separate `movie-narrator-web` repo (`pip install movie-narrator-web`, command `mn-web`)
 
 ### Core Engine Quality
 
@@ -92,7 +94,7 @@
 
 - [x] EP8 VisionCaptioner abstraction (`vision/` package; stub + `http_vlm` OpenAI-compatible provider)
 - [x] EP9 pause/resume (`--pause-at` + `mn resume` + `pipeline_state.json`)
-- [x] Contract layer (`contract.py` — stable API boundary between web_api and core engine)
+- [x] Contract layer (`contract.py` — stable API boundary; now the surface consumed by the external [movie-narrator-web](https://github.com/zcbacxc/movie-narrator-web) package, `CONTRACT_VERSION = (0, 5, 0)`)
 - [x] Stage E productization (CLI match summary + RS-07/08/09 render fixes)
 
 ## v0.5.x — Ecosystem
@@ -112,4 +114,4 @@
 - [ ] Remote inference (offload LLM / TTS / rendering to cloud workers)
 - [ ] Distributed rendering (split video segments across nodes)
 - [ ] Task queue (async job submission, progress polling, retry)
-- [ ] Web service deployment (REST API, authentication, multi-tenant)
+- [ ] Web service deployment (REST API, authentication, multi-tenant) — note: the Web UI itself is now an independent package ([movie-narrator-web](https://github.com/zcbacxc/movie-narrator-web)); this item covers cloud deployment/hosting concerns, not the UI codebase

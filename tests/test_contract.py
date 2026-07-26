@@ -162,17 +162,17 @@ class TestPipelineResult:
 
 
 class TestContractIsolation:
-    """web_api can import everything it needs from contract alone."""
+    """External consumers (movie-narrator-web) can import everything they need from contract alone."""
 
-    def test_web_api_needs_only_contract(self):
-        """The symbols that web_api uses are all in the contract module.
+    def test_web_package_needs_only_contract(self):
+        """The symbols that movie-narrator-web uses are all in the contract module.
 
         This is a static check — it verifies that the set of names
-        web_api previously imported from internal modules is a subset
+        the web package imports from internal modules is a subset
         of what contract provides.
         """
-        # Names web_api needs (from console.py, tasks.py, utils.py, form.py)
-        web_api_needed = {
+        # Names the web package needs (console.py, tasks.py, utils.py, form.py)
+        web_needed = {
             "BaseConsole",
             "Console",
             "PipelineCancelled",
@@ -182,7 +182,7 @@ class TestContractIsolation:
             "PARAM_WHITELIST",
         }
         contract_provided = set(contract.__all__)
-        assert web_api_needed.issubset(contract_provided), (
-            f"web_api needs {web_api_needed - contract_provided} "
+        assert web_needed.issubset(contract_provided), (
+            f"web package needs {web_needed - contract_provided} "
             f"which are not in contract.__all__"
         )
