@@ -48,6 +48,29 @@ from typing import Any, Callable, Dict, Optional, Protocol, runtime_checkable
 #   PATCH — bug fixes, doc changes (no API surface change)
 CONTRACT_VERSION: tuple[int, int, int] = (0, 5, 1)
 
+
+def check_version(required: tuple[int, int, int]) -> None:
+    """Verify that the installed core engine meets a minimum contract version.
+
+    Intended for use by external consumers (web package, plugins) at
+    import time::
+
+        from movie_narrator.contract import check_version
+        check_version((0, 5, 1))
+
+    Args:
+        required: Minimum required ``(major, minor, patch)`` tuple.
+
+    Raises:
+        ImportError: if ``CONTRACT_VERSION < required``.
+    """
+    if CONTRACT_VERSION < required:
+        raise ImportError(
+            f"movie-narrator contract version {CONTRACT_VERSION} is below "
+            f"the required {required}. Please upgrade: "
+            f"pip install -U movie-narrator"
+        )
+
 # ── Re-exports: console abstraction ────────────────────────
 
 from .utils.console import BaseConsole, Console
@@ -215,6 +238,7 @@ def load_plugin(plugin: Plugin) -> None:
 __all__ = [
     # Contract version
     "CONTRACT_VERSION",
+    "check_version",
     # Console
     "BaseConsole",
     "Console",

@@ -139,6 +139,21 @@ class ProviderRegistry:
         """Check if a provider name is registered."""
         return name in self._factories
 
+    def info(self) -> List[Dict[str, Any]]:
+        """Return a list of dicts describing each registered provider.
+
+        Each dict contains the provider name, category, and whether
+        protocol validation is enabled.
+        """
+        return [
+            {
+                "name": name,
+                "category": self._category,
+                "protocol_validated": self._protocol is not None,
+            }
+            for name in self._factories
+        ]
+
     def clear(self) -> None:
         """Remove all registered factories. For testing only."""
         self._factories.clear()

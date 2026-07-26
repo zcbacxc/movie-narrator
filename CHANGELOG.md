@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.2] - 2026-07-26
+
+### Added (M5 — Community & Packaging)
+
+- **CLI plugin commands** (`cli.py`): `mn plugin list` (entry_points discovery), `mn plugin discover` (load all plugins), `mn plugin registries` (show all registered steps and providers), `mn plugin version` (show CONTRACT_VERSION).
+- **Plugin template** (`examples/plugins/template/`): minimal copy-and-go template with README quick-start guide, demonstrating step registration, provider registration, and version checking.
+- **`check_version()` helper** (`contract.py`): import-time version validation for external consumers. Raises `ImportError` with a clear upgrade message when `CONTRACT_VERSION < required`.
+- **`ProviderRegistry.info()` method** (`providers/registry.py`): returns structured metadata (name, category, protocol_validated) for each registered provider.
+- **Packaging guide** (`docs/PACKAGING.md`): versioning conventions, entry point declarations, CLI plugin commands, publishing workflow for core engine and third-party plugins.
+
+### Changed
+
+- `contract.py`: added `check_version` to `__all__` and public exports.
+- `__init__.py`: added `check_version` to SDK surface.
+- `ROADMAP.md` / `ROADMAP.zh-CN.md`: added M5 section.
+
 ## [0.5.1] - 2026-07-26
 
 ### Added (M4 — Provider Migration)
