@@ -4,9 +4,9 @@ Verifies that ``check_cancelled`` raises ``PipelineCancelled`` when
 the controller flag is set, and that ``controller=None`` (CLI mode)
 never fires the check.
 
-TaskController-specific tests live in the web package
-(``packages/web/tests/test_controller.py``) since TaskController moved
-to ``movie_narrator_web`` during the WebUI split.
+TaskController-specific tests live in the movie-narrator-web repo
+(``tests/test_controller.py``) since TaskController moved to
+``movie_narrator_web`` during the WebUI split.
 """
 
 from __future__ import annotations

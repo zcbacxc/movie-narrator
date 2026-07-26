@@ -8,25 +8,44 @@ defines the plugin extension points (``Step``, ``Plugin``,
 
 By centralizing the contract here:
 
-- web_api imports ``from ..contract import ...`` instead of reaching
-  into internal modules (``..pipeline.runner``, ``..pipeline.errors``,
-  ``..utils.console``, ``..utils.sanitize``).
+- web_api imports ``from movie_narrator.contract import ...`` instead
+  of reaching into internal modules.
 - ``PARAM_WHITELIST`` is accessible without importing the full runner
   module, eliminating the highest drift-risk coupling point.
 - External plugins import ``from movie_narrator import register_step,
   register_tts, register_vision, Context`` to extend the engine.
-- When the project is eventually split into separate repositories,
-  this module becomes the natural package boundary.
+- This module is the natural package boundary between the core engine
+  repo (``movie-narrator``) and the web UI repo (``movie-narrator-web``).
 
 Nothing is *moved* from its current location — this module only
 re-exports. Internal modules keep their definitions for backward
 compatibility with existing CLI and test code.
+
+Contract versioning (semver):
+    ``CONTRACT_VERSION`` follows semantic versioning. External consumers
+    (e.g. ``movie-narrator-web``) should check this version to verify
+    compatibility at import time::
+
+        from movie_narrator.contract import CONTRACT_VERSION
+        assert CONTRACT_VERSION >= (0, 5, 0), "requires contract >= 0.5.0"
+
+    - MAJOR: breaking removals or signature changes to exported symbols
+    - MINOR: new exports added (backward compatible)
+    - PATCH: bug fixes / doc changes (no API surface change)
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional, Protocol, runtime_checkable
+
+# ── Contract version (semver) ──────────────────────────────
+# External consumers (movie-narrator-web, third-party plugins) depend
+# on this version to verify API compatibility. Bump according to:
+#   MAJOR — breaking changes to exported symbols or signatures
+#   MINOR — new exports added (backward compatible)
+#   PATCH — bug fixes, doc changes (no API surface change)
+CONTRACT_VERSION: tuple[int, int, int] = (0, 5, 0)
 
 # ── Re-exports: console abstraction ────────────────────────
 
@@ -185,6 +204,8 @@ def load_plugin(plugin: Plugin) -> None:
 # ── Public API ─────────────────────────────────────────────
 
 __all__ = [
+    # Contract version
+    "CONTRACT_VERSION",
     # Console
     "BaseConsole",
     "Console",

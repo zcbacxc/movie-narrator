@@ -32,21 +32,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Highlight window** (`pipeline/scene_filter.py`): configurable time-window-based scene prioritization — bias scene selection toward user-specified highlight ranges (#93).
 - **5-file param sync** — `scene_skip_intro`, `scene_dark_threshold`, `scene_highlight_window` added to `schema.py`, `base.py`, `load.py`, `merge.py`, `runner.py` PARAM_WHITELIST (#93).
 
-#### WebUI split — Package separation
+#### WebUI split — Dual repository separation
 
-- **`movie-narrator-web` package** (`packages/web/`): WebUI (FastAPI + React) extracted into a separate installable package. Core engine no longer bundles web dependencies (`fastapi`, `uvicorn`, `python-multipart`) (#94).
+- **`movie-narrator-web` standalone repo** ([github.com/zcbacxc/movie-narrator-web](https://github.com/zcbacxc/movie-narrator-web)): WebUI (FastAPI + React) extracted into a separate GitHub repository and PyPI package. Core engine is now a pure CLI package with no web dependencies (#94).
 - **`mn-web` entry point**: standalone launcher for the web UI — `pip install movie-narrator-web` + `mn-web` starts the server (#94).
-- **CI split** (`.github/workflows/ci-web.yml`): dedicated CI workflow for the web package — frontend build + Python web tests run independently from core CI (#94).
+- **Contract versioning** (`contract.py`): `CONTRACT_VERSION = (0, 5, 0)` semver tuple added. External consumers (movie-narrator-web, plugins) can verify API compatibility at import time (#94).
 - **Version alignment**: web package version tracks core engine version (both 0.5.0). Web package declares `movie-narrator>=0.5.0` as dependency (#94).
 - **Contract layer preserved**: `contract.py` re-exports `list_presets` and `get_preset` so the web package imports only from the stable public API (#94).
-- **Test split**: `TaskController` tests moved to `packages/web/tests/test_controller.py`; core `test_pipeline_cancel.py` retains only `check_cancelled` mechanism tests (#94).
+- **Test split**: `TaskController` tests moved to the web repo; core `test_pipeline_cancel.py` retains only `check_cancelled` mechanism tests (#94).
 
 ### Changed
 
-- Core `pyproject.toml`: removed `fastapi`, `uvicorn`, `python-multipart` from dependencies. Web extras removed — web is now a separate package (#94).
-- `.gitignore`: added `packages/web/src/movie_narrator_web/static/` (built frontend, not committed) and re-include rules for web package config JSON files (#94).
-- `vite.config.ts`: build output directory updated to `packages/web/src/movie_narrator_web/static` for pip package data inclusion (#94).
-- `src/movie_narrator/__init__.py`: added `list_presets` and `get_preset` to public exports (#91, #94).
+- Core `pyproject.toml`: removed `fastapi`, `uvicorn`, `python-multipart` from dependencies. Web extras removed — web is now a separate repo/package (#94).
+- `conftest.py`: cleaned up `collect_ignore` — removed `packages`, `webui`, `node_modules` entries (no longer present in core repo) (#94).
+- `.gitignore`: removed `packages/web/`-specific entries (web code lives in separate repo) (#94).
+- `src/movie_narrator/__init__.py`: added `list_presets`, `get_preset`, and `CONTRACT_VERSION` to public exports (#91, #94).
 
 ### Fixed
 

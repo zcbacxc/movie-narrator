@@ -63,4 +63,3 @@ include = ["movie_narrator*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-norecursedirs = ["webui", "packages", "node_modules"]
