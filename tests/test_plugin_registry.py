@@ -24,8 +24,12 @@ from movie_narrator.providers import (
     ProviderRegistry,
     tts_registry,
     vision_registry,
+    llm_registry,
+    research_registry,
     register_tts,
     register_vision,
+    register_llm,
+    register_research,
 )
 from movie_narrator.contract import (
     Plugin,
@@ -437,6 +441,38 @@ class TestGlobalVisionRegistry:
         assert isinstance(provider, VisionCaptioner)
 
 
+class TestGlobalLlmRegistry:
+    """The global llm_registry (M4)."""
+
+    def test_openai_registered_after_import(self):
+        # Import the module to trigger registration
+        import movie_narrator.utils.llm  # noqa: F401
+        assert "openai" in llm_registry.names()
+
+    def test_registry_category(self):
+        assert llm_registry._category == "llm"
+
+    def test_registry_no_protocol(self):
+        """LLM registry does not set a protocol (factories return context managers)."""
+        assert llm_registry._protocol is None
+
+
+class TestGlobalResearchRegistry:
+    """The global research_registry (M4)."""
+
+    def test_llm_registered_after_import(self):
+        # Import the module to trigger registration
+        import movie_narrator.pipeline.research  # noqa: F401
+        assert "llm" in research_registry.names()
+
+    def test_registry_category(self):
+        assert research_registry._category == "research"
+
+    def test_registry_no_protocol(self):
+        """Research registry does not set a protocol (factories return ResearchInfo)."""
+        assert research_registry._protocol is None
+
+
 # ── Plugin system tests ───────────────────────────────────
 
 
@@ -479,6 +515,8 @@ class TestPluginProtocol:
         assert ctx.steps is step_registry
         assert ctx.tts is tts_registry
         assert ctx.vision is vision_registry
+        assert ctx.llm is llm_registry
+        assert ctx.research is research_registry
 
 
 class TestPluginStepInsertion:
@@ -602,6 +640,24 @@ class TestSDKSurface:
     def test_register_vision_exported(self):
         from movie_narrator import register_vision
         assert callable(register_vision)
+
+    def test_register_llm_exported(self):
+        from movie_narrator import register_llm
+        assert callable(register_llm)
+
+    def test_register_research_exported(self):
+        from movie_narrator import register_research
+        assert callable(register_research)
+
+    def test_llm_registry_exported(self):
+        from movie_narrator import llm_registry as exported
+        from movie_narrator.providers import llm_registry
+        assert exported is llm_registry
+
+    def test_research_registry_exported(self):
+        from movie_narrator import research_registry as exported
+        from movie_narrator.providers import research_registry
+        assert exported is research_registry
 
     def test_context_exported(self):
         from movie_narrator import Context as ExportedContext

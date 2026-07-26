@@ -4,6 +4,7 @@ from time import sleep
 
 from ..config import get_settings
 from ..models import Context, ResearchInfo, StepResult
+from ..providers import research_registry, register_research
 from ..utils.json_parser import extract_json
 from ..utils.llm import get_llm_client
 
@@ -35,6 +36,36 @@ def _write_envelope(output_dir: Path, status: str, error: str | None, research: 
     return path
 
 
+# ── Built-in "llm" research provider ─────────────────────
+
+
+@register_research("llm")
+def _research_via_llm(ctx: Context, settings) -> ResearchInfo:
+    """Fetch movie research data via LLM chat completion."""
+    with get_llm_client() as llm:
+        prompt = RESEARCH_PROMPT.format(movie=ctx.movie_name)
+        response = llm.client.chat.completions.create(
+            model=llm.model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=settings.research_temperature,
+            max_tokens=settings.research_max_tokens,
+        )
+        raw = response.choices[0].message.content or ""
+        data = extract_json(raw)
+
+        return ResearchInfo(
+            title=data.get("title", ctx.movie_name),
+            year=data.get("year"),
+            summary=data.get("summary", ""),
+            genres=data.get("genres", []),
+            cast=data.get("cast", []),
+            keywords=data.get("keywords", []),
+        )
+
+
+# ── Pipeline step ────────────────────────────────────────
+
+
 def research_plot(ctx: Context) -> Context:
     if not ctx.metadata.get("research_enabled"):
         ctx.status.research = "skipped"
@@ -45,7 +76,7 @@ def research_plot(ctx: Context) -> Context:
     provider = ctx.metadata.get("research_provider", "llm")
     output_dir = Path(ctx.output_dir)
 
-    if provider != "llm":
+    if not research_registry.contains(provider):
         err = f"unknown provider: {provider}"
         ctx.step_state.result = StepResult.WARNING
         ctx.step_state.message = err
@@ -59,28 +90,11 @@ def research_plot(ctx: Context) -> Context:
 
     for attempt in range(settings.research_retries):
         try:
-            with get_llm_client() as llm:
-                prompt = RESEARCH_PROMPT.format(movie=ctx.movie_name)
-                response = llm.client.chat.completions.create(
-                    model=llm.model,
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=settings.research_temperature,
-                    max_tokens=settings.research_max_tokens,
-                )
-                raw = response.choices[0].message.content or ""
-                data = extract_json(raw)
-
-                ctx.research = ResearchInfo(
-                    title=data.get("title", ctx.movie_name),
-                    year=data.get("year"),
-                    summary=data.get("summary", ""),
-                    genres=data.get("genres", []),
-                    cast=data.get("cast", []),
-                    keywords=data.get("keywords", []),
-                )
-                _write_envelope(output_dir, "success", None, ctx.research.model_dump())
-                ctx.status.research = "success"
-                return ctx
+            info = research_registry.create(provider, ctx, settings)
+            ctx.research = info
+            _write_envelope(output_dir, "success", None, ctx.research.model_dump())
+            ctx.status.research = "success"
+            return ctx
         except Exception as e:
             last_err = e
             if attempt < settings.research_retries - 1:

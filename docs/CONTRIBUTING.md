@@ -30,13 +30,13 @@ movie-narrator/
 │   ├── pipeline/scene_filter.py  # WP6 scene filtering (intro skip, dark frame, highlight window)
 │   ├── pipeline/registry.py      # StepRegistry integration with runner
 │   ├── tts/             # TTS provider abstraction (edge, openai, mimo, factory, cache)
-│   ├── providers/       # ProviderRegistry (register_tts, register_vision, tts_registry, vision_registry)
-│   ├── vision/          # VisionCaptioner abstraction (stub + http_vlm)
+│   ├── providers/       # ProviderRegistry (register_tts, register_vision, register_llm, register_research)
+│   ├── vision/          # VisionCaptioner abstraction (stub, extensible via Plugin API)
 │   ├── presets/         # Narration presets (douyin-fast, mainstream-dry, bilibili-long)
 │   ├── utils/           # llm.py, errors.py, shared helpers
 │   ├── plugin_loader.py # Plugin discovery via entry_points, StepRegistry, Plugin protocol
 │   ├── models.py        # Context, PipelineStatus, StepState, Services, ...
-│   ├── contract.py      # Stable API boundary (CONTRACT_VERSION = (0, 5, 0))
+│   ├── contract.py      # Stable API boundary (CONTRACT_VERSION = (0, 5, 1))
 │   ├── cli.py           # `mn` Typer entry points (create, version, ...)
 │   └── workflow.py      # job.yaml load/merge (JobConfig, merge_job)
 ├── tests/               # pytest suite (unit + smoke)

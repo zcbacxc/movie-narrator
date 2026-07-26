@@ -4,11 +4,6 @@ Uses the :data:`tts_registry` to dispatch provider creation.
 Built-in providers (edge, openai, mimo) are registered at import
 time below. External plugins can register additional providers
 via :func:`register_tts`.
-
-Backward compatibility: if a provider name is not in the registry,
-the old if/elif chain is tried as a fallback. This ensures existing
-code that depends on ``TTSProviderType`` continues to work during
-the transition period.
 """
 
 from ..config import Settings, TTSProviderType
@@ -44,6 +39,10 @@ for _name, _factory in [
     if not tts_registry.contains(_name):
         tts_registry.register(_name, _factory)
 
+# Enable protocol validation: create() will TypeError if a factory
+# returns something that is not a TTSProvider instance.
+tts_registry.set_protocol(TTSProvider)
+
 
 # ── Public factory function ───────────────────────────────
 
@@ -51,10 +50,7 @@ for _name, _factory in [
 def get_tts_provider(settings: Settings) -> TTSProvider:
     """Return a TTSProvider instance for the configured provider.
 
-    Looks up the provider name in :data:`tts_registry` first.
-    Falls back to the enum-based if/elif chain for backward
-    compatibility with any code that might register custom
-    TTSProviderType values without updating the registry.
+    Looks up the provider name in :data:`tts_registry`.
 
     Raises:
         ConfigError: when the provider is unsupported.
@@ -65,17 +61,8 @@ def get_tts_provider(settings: Settings) -> TTSProvider:
         else str(settings.tts_provider)
     )
 
-    # Registry path (preferred)
     if tts_registry.contains(provider_name):
         return tts_registry.create(provider_name, settings)
-
-    # Legacy fallback (should not be reached for built-in providers)
-    if settings.tts_provider is TTSProviderType.EDGE:
-        return _make_edge(settings)
-    elif settings.tts_provider is TTSProviderType.OPENAI:
-        return _make_openai(settings)
-    elif settings.tts_provider is TTSProviderType.MIMO:
-        return _make_mimo(settings)
 
     raise ConfigError(
         f"Unsupported TTS provider: {settings.tts_provider!r}. "

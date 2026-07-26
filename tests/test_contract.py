@@ -118,8 +118,10 @@ class TestAllCompleteness:
             "CONTRACT_VERSION",
             "StepRegistry", "step_registry",
             "ProviderRegistry", "tts_registry", "vision_registry",
+            "llm_registry", "research_registry",
             "register_step", "step",
             "register_tts", "register_vision",
+            "register_llm", "register_research",
             "Plugin", "PluginContext",
             "load_plugin", "discover_plugins", "list_available_plugins",
             "Step",
@@ -208,8 +210,8 @@ class TestContractVersion:
     """CONTRACT_VERSION is the stable API boundary for external consumers."""
 
     def test_contract_version_value(self):
-        """CONTRACT_VERSION is (0, 5, 0)."""
-        assert CONTRACT_VERSION == (0, 5, 0)
+        """CONTRACT_VERSION is (0, 5, 1) — bumped for M4 LLM/Research registry additions."""
+        assert CONTRACT_VERSION == (0, 5, 1)
 
     def test_contract_version_is_tuple(self):
         """CONTRACT_VERSION is a 3-tuple of ints (semver)."""
@@ -231,8 +233,10 @@ class TestSDKSymbolExports:
     @pytest.mark.parametrize("name", [
         "StepRegistry", "step_registry",
         "ProviderRegistry", "tts_registry", "vision_registry",
+        "llm_registry", "research_registry",
         "register_step", "step",
         "register_tts", "register_vision",
+        "register_llm", "register_research",
         "Plugin", "PluginContext",
         "load_plugin", "discover_plugins", "list_available_plugins",
         "Step",
@@ -271,6 +275,26 @@ class TestSDKSymbolExports:
         """register_vision is the same function as in providers.registry."""
         from movie_narrator.providers.registry import register_vision as _register_vision
         assert contract.register_vision is _register_vision
+
+    def test_llm_registry_is_global_instance(self):
+        """llm_registry is the global ProviderRegistry instance for LLM."""
+        from movie_narrator.providers.registry import llm_registry as _llm_registry
+        assert contract.llm_registry is _llm_registry
+
+    def test_research_registry_is_global_instance(self):
+        """research_registry is the global ProviderRegistry instance for research."""
+        from movie_narrator.providers.registry import research_registry as _research_registry
+        assert contract.research_registry is _research_registry
+
+    def test_register_llm_identity(self):
+        """register_llm is the same function as in providers.registry."""
+        from movie_narrator.providers.registry import register_llm as _register_llm
+        assert contract.register_llm is _register_llm
+
+    def test_register_research_identity(self):
+        """register_research is the same function as in providers.registry."""
+        from movie_narrator.providers.registry import register_research as _register_research
+        assert contract.register_research is _register_research
 
     def test_load_plugin_identity(self):
         """load_plugin is the same function as in plugin_loader."""

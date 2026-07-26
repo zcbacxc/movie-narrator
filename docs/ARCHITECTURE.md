@@ -85,7 +85,7 @@ React SPA (in movie-narrator-web) — form / progress / artifacts view
     ▼   REST (POST /api/tasks)  +  WebSocket (/ws/task/{task_id})
 FastAPI app (in movie-narrator-web) — uvicorn on :8760
     ▼
-contract.py (core repo — stable API boundary, CONTRACT_VERSION = (0, 5, 0))
+contract.py (core repo — stable API boundary, CONTRACT_VERSION = (0, 5, 1))
     ▼
 build_context(..., services=Services(console=BufferedConsole))
     ▼
@@ -106,7 +106,7 @@ The React SPA is built by Vite into static assets that FastAPI serves directly, 
 
 ### Modules — `contract.py` (stable API boundary, the only import surface for `movie-narrator-web`)
 
-The `contract.py` module is the **single import surface** that the external `movie-narrator-web` package (and any future consumer) depends on. It re-exports symbols from 4 internal modules and defines the `PipelineResult` protocol, without moving any code. The contract version is pinned via `CONTRACT_VERSION = (0, 5, 0)` — the web package checks this at import time to refuse mismatched engine versions.
+The `contract.py` module is the **single import surface** that the external `movie-narrator-web` package (and any future consumer) depends on. It re-exports symbols from 4 internal modules and defines the `PipelineResult` protocol, without moving any code. The contract version is pinned via `CONTRACT_VERSION = (0, 5, 1)` — the web package checks this at import time to refuse mismatched engine versions.
 
 ```text
 movie-narrator-web  →  contract.py  →  pipeline/runner.py (build_context, run_pipeline, PARAM_WHITELIST)
@@ -124,12 +124,12 @@ movie-narrator-web  →  contract.py  →  pipeline/runner.py (build_context, ru
 | `PipelineCancelled` / `PipelineStrictError` | pipeline/errors.py | Pipeline terminal exceptions |
 | `RunController` / `StepAction` / `check_cancelled` | pipeline/errors.py | Cooperative cancel + retry protocol |
 | `sanitize_filename` | utils/sanitize.py | Cross-platform filename sanitization |
-| `CONTRACT_VERSION` | contract.py | `(0, 5, 0)` — version the external `movie-narrator-web` package checks against at import time |
+| `CONTRACT_VERSION` | contract.py | `(0, 5, 1)` — version the external `movie-narrator-web` package checks against at import time |
 | `StepRegistry` / `step_registry` | plugin_loader.py | Central registry for pipeline step plugins; `step_registry` is the global instance |
-| `ProviderRegistry` / `tts_registry` / `vision_registry` | providers/registry.py | Provider registration system for TTS, vision, and future provider types |
+| `ProviderRegistry` / `tts_registry` / `vision_registry` / `llm_registry` / `research_registry` | providers/registry.py | Provider registration system for TTS, vision, LLM, and research providers |
 | `register_step` / `step` | plugin_loader.py | Decorator-based step registration (`@register_step("name", ...)` or `@step("name")`) |
-| `register_tts` / `register_vision` | providers/registry.py | Decorator-based provider registration for TTS and vision providers |
-| `Plugin` / `PluginContext` | plugin_loader.py | `Plugin` protocol (`name` + `register(ctx)`) and `PluginContext` (holds `steps`, `tts`, `vision`, `services`) |
+| `register_tts` / `register_vision` / `register_llm` / `register_research` | providers/registry.py | Decorator-based provider registration for TTS, vision, LLM, and research providers |
+| `Plugin` / `PluginContext` | plugin_loader.py | `Plugin` protocol (`name` + `register(ctx)`) and `PluginContext` (holds `steps`, `tts`, `vision`, `llm`, `research`) |
 | `load_plugin` / `discover_plugins` / `list_available_plugins` | plugin_loader.py | Manual plugin loading, entry_points auto-discovery, and plugin listing |
 | `Step` | plugin_loader.py | Dataclass describing a registered step (name, func, soft, before, after) |
 | `list_presets` / `get_preset` | presets/ | Public SDK exports for narration preset introspection |
@@ -410,7 +410,7 @@ segment's end. This is preferable to a 100ms flash on screen.
 - **New pipeline step (recommended)**: use `@register_step("name", ...)` decorator via the Plugin API. The step is auto-discovered if packaged as an entry_points plugin, or can be loaded manually via `load_plugin()`. See `examples/plugins/watermark/` for a reference implementation.
 - **New pipeline step (legacy)**: append directly to `STEPS` in `pipeline/runner.py`. Signature must be `(ctx: Context) -> Context`.
 - **Swap TTS/renderer/LLM**: replace `pipeline/tts.py`, `pipeline/render.py`, or `utils/llm.py` while keeping the step function signature.
-- **New TTS/Vision provider (recommended)**: use `@register_tts("name")` or `@register_vision("name")` decorator via the Provider Registry. The provider is auto-discovered if packaged as an entry_points plugin.
+- **New TTS/Vision/LLM/Research provider (recommended)**: use `@register_tts("name")`, `@register_vision("name")`, `@register_llm("name")`, or `@register_research("name")` decorator via the Provider Registry. The provider is auto-discovered if packaged as an entry_points plugin.
 - **New VisionCaptioner provider (legacy)**: implement `VisionCaptioner` ABC in `vision/`, register in `vision/factory.py`. See `vision/stub.py` for reference. Match logic auto-detects fake vs real captions via `is_stub` flag.
 - **Pipeline pause/resume**: `--pause-at script|match` pauses after the step; `mn resume <output_dir>` continues. State serialized to `pipeline_state.json`.
 - **New CLI command**: add `@app.command()` in `cli.py`.
@@ -425,7 +425,7 @@ Third-party package (pyproject.toml entry_points)
     ▼
 discover_plugins() — importlib.metadata entry_points("movie_narrator.plugins")
     ▼
-Plugin.register(ctx: PluginContext) — calls @register_step / @register_tts / @register_vision
+Plugin.register(ctx: PluginContext) — calls @register_step / @register_tts / @register_vision / @register_llm / @register_research
     ▼
 StepRegistry / ProviderRegistry — central registries
     ▼
@@ -437,7 +437,7 @@ runner.py — inserts registered steps into STEPS at before/after positions
 | Module | Responsibility |
 |--------|---------------|
 | `plugin_loader.py` | `StepRegistry`, `Plugin` protocol, `PluginContext`, `load_plugin()`, `discover_plugins()`, `list_available_plugins()` |
-| `providers/registry.py` | `ProviderRegistry`, `register_tts`, `register_vision`, `tts_registry`, `vision_registry` |
+| `providers/registry.py` | `ProviderRegistry`, `register_tts`, `register_vision`, `register_llm`, `register_research`, `tts_registry`, `vision_registry`, `llm_registry`, `research_registry` |
 | `presets/` | Narration preset system (`list_presets()`, `get_preset()`) |
 
 ### Plugin protocol

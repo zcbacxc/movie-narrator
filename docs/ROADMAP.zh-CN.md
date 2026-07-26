@@ -92,9 +92,9 @@
 
 ### 可扩展性与流水线
 
-- [x] EP8 VisionCaptioner 抽象（`vision/` 包；stub + `http_vlm` OpenAI 兼容 provider）
+- [x] EP8 VisionCaptioner 抽象（`vision/` 包；stub provider，通过 Plugin API 可扩展）
 - [x] EP9 暂停/恢复（`--pause-at` + `mn resume` + `pipeline_state.json`）
-- [x] 契约层（`contract.py` —— 稳定 API 边界；现由外部 [movie-narrator-web](https://github.com/zcbacxc/movie-narrator-web) 包消费，`CONTRACT_VERSION = (0, 5, 0)`）
+- [x] 契约层（`contract.py` —— 稳定 API 边界；现由外部 [movie-narrator-web](https://github.com/zcbacxc/movie-narrator-web) 包消费，`CONTRACT_VERSION = (0, 5, 1)`）
 - [x] Stage E 产品化（CLI 匹配摘要 + RS-07/08/09 渲染修复）
 
 ## v0.5.x — 生态
@@ -128,6 +128,16 @@
 - [x] WebUI（FastAPI + React）拆分为独立 repo [movie-narrator-web](https://github.com/zcbacxc/movie-narrator-web)
 - [x] 核心引擎现为纯 CLI 包，无 web 依赖
 - [x] 契约版本号（`CONTRACT_VERSION = (0, 5, 0)`），支持导入时兼容性检查
+
+### M4 — Provider 迁移
+
+- [x] LLM 注册表（`llm_registry`）—— `utils/llm.py` 迁移到注册表模式，内置 `openai` provider
+- [x] Research 注册表（`research_registry`）—— `pipeline/research.py` 迁移到注册表模式，内置 `llm` provider
+- [x] TTS/Vision 工厂清理 legacy fallback —— 移除死代码，仅通过注册表分发
+- [x] Protocol 校验 —— `tts_registry` 和 `vision_registry` 在 `create()` 时强制 ABC 一致性
+- [x] `PluginContext` 扩展 `llm` 和 `research` 字段
+- [x] `CONTRACT_VERSION` 升至 `(0, 5, 1)` —— 向后兼容（仅新增导出）
+- [x] SDK 导出：`register_llm`、`register_research`、`llm_registry`、`research_registry` 加入 `contract.py` 和 `__init__.py`
 
 > **设计备注**：SDK 与 Plugin API 是一起设计的 —— SDK 是 Plugin API 的主要使用者，所以两者必须在同一次发布稳定下来，避免兼容性压力。
 
