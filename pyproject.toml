@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "movie-narrator"
-version = "0.4.27"
+version = "0.5.0"
 description = "Generate narrated movie recap videos from a single prompt."
 readme = "README.md"
 license = {text = "AGPL-3.0"}
@@ -41,17 +41,11 @@ ml = [
     'faster-whisper>=1.0; python_version < "3.14"',
     'sentence-transformers>=3.0; python_version < "3.14"',
 ]
-web = [
-    "fastapi>=0.104.0",
-    "uvicorn[standard]>=0.24.0",
-    "python-multipart>=0.0.6",
-]
 full = [
     "scenedetect>=0.6",
     'whisperx>=3.0; python_version < "3.14"',
     'faster-whisper>=1.0; python_version < "3.14"',
     'sentence-transformers>=3.0; python_version < "3.14"',
-    "movie-narrator[web]",
 ]
 dev = ["pytest>=8.0"]
 
@@ -67,5 +61,5 @@ mn = "movie_narrator.cli:app"
 where = ["src"]
 include = ["movie_narrator*"]
 
-[tool.setuptools.package-data]
-"movie_narrator.web_api" = ["static/**"]
+[tool.pytest.ini_options]
+testpaths = ["tests"]

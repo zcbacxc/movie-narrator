@@ -587,14 +587,3 @@ def preset(
         typer.echo("Prompt tags:")
         for key in sorted(p.tag_dict):
             typer.echo(f"  {key:<40} {p.tag_dict[key]}")
-
-
-@app.command()
-def web(
-    host: str = typer.Option("127.0.0.1", "--host", help="绑定地址 / Bind host"),
-    port: int = typer.Option(8760, "--port", help="绑定端口 / Bind port"),
-    reload: bool = typer.Option(False, "--reload", help="文件变更时自动重载 / Auto-reload on file changes"),
-):
-    """启动 Web UI (FastAPI + React) / Launch the Web UI."""
-    from .web_api import launch_web_api
-    launch_web_api(host=host, port=port, reload=reload)

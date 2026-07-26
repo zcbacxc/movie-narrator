@@ -15,6 +15,7 @@ __version__ = version("movie-narrator")
 # module path.
 
 from .contract import (  # noqa: F401
+    CONTRACT_VERSION,
     Context,
     Plugin,
     PluginContext,
@@ -24,7 +25,9 @@ from .contract import (  # noqa: F401
     StepRegistry,
     build_context,
     discover_plugins,
+    get_preset,
     list_available_plugins,
+    list_presets,
     load_plugin,
     register_step,
     register_tts,
