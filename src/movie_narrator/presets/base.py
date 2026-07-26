@@ -38,6 +38,10 @@ ALLOWED_PARAM_KEYS: frozenset[str] = frozenset({
     "scene_merge_min_duration",
     "match_drop_scene_min_duration",
     "match_min_score",
+    # WP6: scene filtering
+    "match_skip_intro_sec",
+    "match_drop_dark_luma",
+    "match_source_window",
     # BGM
     "bgm_gain_db",
     "bgm_duck_db",

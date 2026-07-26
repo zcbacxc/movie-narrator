@@ -676,6 +676,48 @@ def _match_clips_impl(
             for i, s in enumerate(scenes):
                 s.index = i
 
+    # ── WP6: Scene filtering (intro skip + dark frame + highlight window) ──
+    # All three are opt-in via job params. Order: intro → dark → window.
+    # Each filter is independently toggleable; defaults preserve existing
+    # behavior (no filtering when params are absent or zero).
+    from .scene_filter import (
+        apply_source_window,
+        filter_dark_scenes,
+        filter_intro_scenes,
+    )
+
+    skip_intro = ctx.metadata.get("match_skip_intro_sec", 0.0)
+    if skip_intro > 0:
+        scenes, intro_dropped = filter_intro_scenes(scenes, skip_intro)
+        if intro_dropped:
+            ctx.services.console.debug(
+                f"  WP6 intro skip: dropped {intro_dropped} scenes "
+                f"(end <= {skip_intro}s) → {len(scenes)} remaining"
+            )
+            ctx.metadata["wp6_intro_dropped"] = intro_dropped
+
+    dark_luma = ctx.metadata.get("match_drop_dark_luma", 0.0)
+    if dark_luma > 0:
+        scenes, dark_dropped = filter_dark_scenes(
+            scenes, ctx.source_video_path, dark_luma
+        )
+        if dark_dropped:
+            ctx.services.console.debug(
+                f"  WP6 dark drop: removed {dark_dropped} scenes "
+                f"(luma < {dark_luma}) → {len(scenes)} remaining"
+            )
+            ctx.metadata["wp6_dark_dropped"] = dark_dropped
+
+    source_window = ctx.metadata.get("match_source_window")
+    if source_window:
+        scenes, win_dropped = apply_source_window(scenes, source_window)
+        if win_dropped:
+            ctx.services.console.debug(
+                f"  WP6 highlight window {source_window}: "
+                f"dropped {win_dropped} scenes → {len(scenes)} remaining"
+            )
+            ctx.metadata["wp6_window_dropped"] = win_dropped
+
     # Compute total scene span
     scene_start = min(s.start for s in scenes)
     scene_end = max(s.end for s in scenes)
