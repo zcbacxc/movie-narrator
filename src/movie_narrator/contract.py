@@ -13,7 +13,8 @@ By centralizing the contract here:
 - ``PARAM_WHITELIST`` is accessible without importing the full runner
   module, eliminating the highest drift-risk coupling point.
 - External plugins import ``from movie_narrator import register_step,
-  register_tts, register_vision, Context`` to extend the engine.
+  register_tts, register_vision, register_llm, register_research, Context``
+  to extend the engine.
 - This module is the natural package boundary between the core engine
   repo (``movie-narrator``) and the web UI repo (``movie-narrator-web``).
 
@@ -45,7 +46,7 @@ from typing import Any, Callable, Dict, Optional, Protocol, runtime_checkable
 #   MAJOR — breaking changes to exported symbols or signatures
 #   MINOR — new exports added (backward compatible)
 #   PATCH — bug fixes, doc changes (no API surface change)
-CONTRACT_VERSION: tuple[int, int, int] = (0, 5, 0)
+CONTRACT_VERSION: tuple[int, int, int] = (0, 5, 1)
 
 # ── Re-exports: console abstraction ────────────────────────
 
@@ -75,8 +76,12 @@ from .models import Context, Services
 from .pipeline.registry import StepRegistry, register_step, step, step_registry
 from .providers import (
     ProviderRegistry,
+    llm_registry,
+    register_llm,
+    register_research,
     register_tts,
     register_vision,
+    research_registry,
     tts_registry,
     vision_registry,
 )
@@ -136,6 +141,8 @@ class PluginContext:
     steps: StepRegistry
     tts: ProviderRegistry
     vision: ProviderRegistry
+    llm: ProviderRegistry
+    research: ProviderRegistry
 
     @classmethod
     def default(cls) -> "PluginContext":
@@ -144,6 +151,8 @@ class PluginContext:
             steps=step_registry,
             tts=tts_registry,
             vision=vision_registry,
+            llm=llm_registry,
+            research=research_registry,
         )
 
 
@@ -177,8 +186,8 @@ def load_plugin(plugin: Plugin) -> None:
     """Register a plugin with the global registries.
 
     Calls ``plugin.register(PluginContext.default())``, giving the
-    plugin access to ``step_registry``, ``tts_registry``, and
-    ``vision_registry``.
+    plugin access to ``step_registry``, ``tts_registry``,
+    ``vision_registry``, ``llm_registry``, and ``research_registry``.
 
     Args:
         plugin: An object implementing the :class:`Plugin` protocol.
@@ -233,10 +242,14 @@ __all__ = [
     "step_registry",
     "tts_registry",
     "vision_registry",
+    "llm_registry",
+    "research_registry",
     # Registration decorators
     "register_step",
     "register_tts",
     "register_vision",
+    "register_llm",
+    "register_research",
     "step",  # alias for register_step
     # Plugin system
     "Step",

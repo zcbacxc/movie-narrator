@@ -107,6 +107,7 @@ class Settings(BaseSettings):
     is configured via job.yaml params — see ``examples/job.example.yaml`` for defaults.
     """
     # ── LLM ──
+    llm_provider: str = "openai"  # registered LLM provider name (see llm_registry)
     llm_base_url: str = "http://localhost:11434/v1"
     llm_api_key: str = "ollama"
     llm_model: str = "qwen2.5:7b"

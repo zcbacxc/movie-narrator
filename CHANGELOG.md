@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.1] - 2026-07-26
+
+### Added (M4 — Provider Migration)
+
+- **LLM registry** (`llm_registry`): `utils/llm.py` migrated to the registry pattern. Built-in `openai` provider registered via `@register_llm("openai")`. External plugins can now register custom LLM providers through the Plugin API.
+- **Research registry** (`research_registry`): `pipeline/research.py` migrated to the registry pattern. Built-in `llm` provider registered via `@register_research("llm")`. External plugins can register custom research backends.
+- **Protocol validation**: `tts_registry` and `vision_registry` now enforce ABC conformance at `create()` time — factories returning non-`TTSProvider` / non-`VisionCaptioner` instances raise `TypeError`.
+- **`PluginContext` extension**: `PluginContext` now includes `llm` and `research` fields, giving plugins access to all four provider registries.
+- **SDK exports**: `register_llm`, `register_research`, `llm_registry`, `research_registry` added to `contract.py` and `__init__.py`.
+- **`CONTRACT_VERSION` bumped** to `(0, 5, 1)` — backward compatible (new exports only, no removals or signature changes).
+- **`llm_provider` setting** added to `config.py` — allows selecting LLM provider by name (default: `"openai"`).
+
+### Changed
+
+- `tts/factory.py`: removed legacy fallback code — provider dispatch is now registry-only.
+- `vision/factory.py`: removed legacy fallback code — provider dispatch is now registry-only.
+- `providers/registry.py`: added `set_protocol()` method for deferred protocol binding (avoids circular imports); added `contains()` method to `ProviderRegistry`.
+- `providers/__init__.py`: exports `llm_registry`, `research_registry`, `register_llm`, `register_research`.
+- `workflow/schema.py`: updated `vision_captioner` comment to reflect plugin-based providers.
+
+### Documentation
+
+- Updated `ROADMAP.md` / `ROADMAP.zh-CN.md`: added M4 section.
+- Updated `ARCHITECTURE.md` / `ARCHITECTURE.zh-CN.md`: provider registry table now includes LLM/Research; extension points updated.
+- Updated `CONTRIBUTING.md` / `CONTRIBUTING.zh-CN.md`: directory tree reflects new provider registrations.
+- Updated `AI_GUIDE.md`: directory tree and contract version updated.
+- Fixed `http_vlm` references across all docs — `http_vlm` was never merged; vision providers are now extensible via Plugin API.
+
 ## [0.5.0] - 2026-07-26
 
 ### Added (v0.5 Ecosystem — Plugin API, SDK, Scene Filter, WebUI Split)

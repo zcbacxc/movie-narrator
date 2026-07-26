@@ -103,7 +103,7 @@ src/movie_narrator/
 ├── cli.py               # Typer CLI 入口（mn 命令）
 ├── config.py            # Settings（pydantic-settings，MN_* 环境变量）
 ├── models.py            # Context、PipelineStatus、StepState、Services 等数据模型
-├── contract.py          # 稳定 API 边界（CONTRACT_VERSION = (0, 5, 0)，web 包通过它消费引擎）
+├── contract.py          # 稳定 API 边界（CONTRACT_VERSION = (0, 5, 1)，web 包通过它消费引擎）
 ├── plugin_loader.py     # 插件发现（entry_points）、StepRegistry、Plugin protocol、PluginContext
 ├── pipeline/
 │   ├── runner.py        # 15 步流水线编排（STEPS 列表 + build_context）
@@ -117,8 +117,8 @@ src/movie_narrator/
 │   ├── qa.py            # 成片质检（ffprobe）
 │   └── errors.py        # PipelineStrictError, PipelineCancelled, StepAction
 ├── tts/                 # TTS 抽象层（edge / openai / mimo）
-├── providers/           # ProviderRegistry（register_tts、register_vision）
-├── vision/              # VisionCaptioner 抽象（stub + http_vlm）
+├── providers/           # ProviderRegistry（register_tts、register_vision、register_llm、register_research）
+├── vision/              # VisionCaptioner 抽象（stub，通过 Plugin API 可扩展）
 ├── workflow/            # YAML 配置加载与合并
 ├── presets/             # 解说风格预设（douyin-fast / mainstream-dry / bilibili-long）
 └── utils/               # 工具函数（llm、font、json_parser 等）

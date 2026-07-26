@@ -7,6 +7,7 @@ __version__ = version("movie-narrator")
 #
 #   from movie_narrator import register_step, Context
 #   from movie_narrator import register_tts, register_vision
+#   from movie_narrator import register_llm, register_research
 #   from movie_narrator import Plugin, PluginContext, load_plugin
 #   from movie_narrator import discover_plugins  # entry_points discovery
 #
@@ -32,9 +33,13 @@ from .contract import (  # noqa: F401
     register_step,
     register_tts,
     register_vision,
+    register_llm,
+    register_research,
     run_pipeline,
     step,
     step_registry,
     tts_registry,
     vision_registry,
+    llm_registry,
+    research_registry,
 )

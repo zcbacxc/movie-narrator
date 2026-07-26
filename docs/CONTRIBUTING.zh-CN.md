@@ -30,13 +30,13 @@ movie-narrator/
 │   ├── pipeline/scene_filter.py  # WP6 场景过滤（片头跳过、黑帧检测、高亮窗口）
 │   ├── pipeline/registry.py      # StepRegistry 与 runner 集成
 │   ├── tts/             # TTS provider 抽象层（edge、openai、mimo、factory、cache）
-│   ├── providers/       # ProviderRegistry（register_tts、register_vision、tts_registry、vision_registry）
-│   ├── vision/          # VisionCaptioner 抽象（stub + http_vlm）
+│   ├── providers/       # ProviderRegistry（register_tts、register_vision、register_llm、register_research）
+│   ├── vision/          # VisionCaptioner 抽象（stub，通过 Plugin API 可扩展）
 │   ├── presets/         # 解说预设（douyin-fast、mainstream-dry、bilibili-long）
 │   ├── utils/           # llm.py、errors.py、共享辅助
 │   ├── plugin_loader.py # 插件发现（entry_points）、StepRegistry、Plugin protocol
 │   ├── models.py        # Context、PipelineStatus、StepState、Services 等
-│   ├── contract.py      # 稳定 API 边界（CONTRACT_VERSION = (0, 5, 0)）
+│   ├── contract.py      # 稳定 API 边界（CONTRACT_VERSION = (0, 5, 1)）
 │   ├── cli.py           # `mn` Typer 入口（create、version 等）
 │   └── workflow.py      # job.yaml 加载与合并（JobConfig、merge_job）
 ├── tests/               # pytest 套件（单元 + 烟雾测试）

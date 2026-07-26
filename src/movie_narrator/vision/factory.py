@@ -2,8 +2,7 @@
 
 Uses the :data:`vision_registry` to dispatch provider creation.
 Built-in provider (stub) is registered at import time. External
-plugins can register additional providers (blip, llava, http_vlm,
-etc.) via :func:`register_vision`.
+plugins can register additional providers via :func:`register_vision`.
 """
 
 from ..providers import vision_registry
@@ -22,6 +21,10 @@ def _make_stub(**kwargs) -> VisionCaptioner:
 if not vision_registry.contains("stub"):
     vision_registry.register("stub", _make_stub)
 
+# Enable protocol validation: create() will TypeError if a factory
+# returns something that is not a VisionCaptioner instance.
+vision_registry.set_protocol(VisionCaptioner)
+
 
 # ── Public factory function ───────────────────────────────
 
@@ -32,11 +35,10 @@ def get_vision_captioner(
 ) -> VisionCaptioner:
     """Return a VisionCaptioner instance.
 
-    Looks up the provider name in :data:`vision_registry` first.
-    Falls back to the old if/elif chain for backward compatibility.
+    Looks up the provider name in :data:`vision_registry`.
 
     Args:
-        provider: Provider name (e.g. "stub", "http_vlm").
+        provider: Provider name (e.g. "stub", or plugin-registered names).
         **kwargs: Provider-specific configuration.
 
     Returns:
@@ -45,13 +47,8 @@ def get_vision_captioner(
     Raises:
         ValueError: when the provider is unknown.
     """
-    # Registry path (preferred)
     if vision_registry.contains(provider):
         return vision_registry.create(provider, **kwargs)
-
-    # Legacy fallback
-    if provider == "stub":
-        return _make_stub(**kwargs)
 
     raise ValueError(
         f"Unsupported vision captioner provider: {provider!r}. "

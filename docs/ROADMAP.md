@@ -92,9 +92,9 @@
 
 ### Extensibility & Pipeline
 
-- [x] EP8 VisionCaptioner abstraction (`vision/` package; stub + `http_vlm` OpenAI-compatible provider)
+- [x] EP8 VisionCaptioner abstraction (`vision/` package; stub provider, extensible via Plugin API)
 - [x] EP9 pause/resume (`--pause-at` + `mn resume` + `pipeline_state.json`)
-- [x] Contract layer (`contract.py` — stable API boundary; now the surface consumed by the external [movie-narrator-web](https://github.com/zcbacxc/movie-narrator-web) package, `CONTRACT_VERSION = (0, 5, 0)`)
+- [x] Contract layer (`contract.py` — stable API boundary; now the surface consumed by the external [movie-narrator-web](https://github.com/zcbacxc/movie-narrator-web) package, `CONTRACT_VERSION = (0, 5, 1)`)
 - [x] Stage E productization (CLI match summary + RS-07/08/09 render fixes)
 
 ## v0.5.x — Ecosystem
@@ -128,6 +128,16 @@
 - [x] WebUI (FastAPI + React) extracted into standalone repo [movie-narrator-web](https://github.com/zcbacxc/movie-narrator-web)
 - [x] Core engine is now a pure CLI package with no web dependencies
 - [x] Contract versioning (`CONTRACT_VERSION = (0, 5, 0)`) for import-time compatibility checks
+
+### M4 — Provider migration
+
+- [x] LLM registry (`llm_registry`) — `utils/llm.py` migrated to registry pattern with built-in `openai` provider
+- [x] Research registry (`research_registry`) — `pipeline/research.py` migrated to registry pattern with built-in `llm` provider
+- [x] TTS/Vision factory legacy fallback cleanup — removed dead code, registry-only dispatch
+- [x] Protocol validation — `tts_registry` and `vision_registry` enforce ABC conformance at `create()` time
+- [x] `PluginContext` extended with `llm` and `research` fields
+- [x] `CONTRACT_VERSION` bumped to `(0, 5, 1)` — backward compatible (new exports only)
+- [x] SDK exports: `register_llm`, `register_research`, `llm_registry`, `research_registry` added to `contract.py` and `__init__.py`
 
 > **Design note**: SDK and Plugin API are designed together — the SDK is the primary consumer of the Plugin API, so both must stabilize in the same release to avoid compatibility pressure.
 

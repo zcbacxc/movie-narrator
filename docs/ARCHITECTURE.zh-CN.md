@@ -81,7 +81,7 @@ React SPA（位于 movie-narrator-web）— 表单 / 进度 / 产物视图
     ▼   REST (POST /api/tasks)  +  WebSocket (/ws/task/{task_id})
 FastAPI app（位于 movie-narrator-web）— uvicorn 监听 :8760
     ▼
-contract.py（核心 repo — 稳定 API 边界，CONTRACT_VERSION = (0, 5, 0)）
+contract.py（核心 repo — 稳定 API 边界，CONTRACT_VERSION = (0, 5, 1)）
     ▼
 build_context(..., services=Services(console=BufferedConsole))
     ▼
@@ -102,7 +102,7 @@ React SPA 由 Vite 打包产出静态资源，FastAPI 直接托管；因此单�
 
 ### 模块 —— `contract.py`（稳定 API 边界，`movie-narrator-web` 唯一的导入面）
 
-`contract.py` 模块是外部 `movie-narrator-web` 包（以及任何未来消费者）依赖的 **唯一导入面**。它从 4 个内部模块 re-export 符号，并定义 `PipelineResult` protocol，不移动任何代码。契约版本通过 `CONTRACT_VERSION = (0, 5, 0)` 固定 —— web 包在 import 时校验，拒绝不匹配的引擎版本。
+`contract.py` 模块是外部 `movie-narrator-web` 包（以及任何未来消费者）依赖的 **唯一导入面**。它从 4 个内部模块 re-export 符号，并定义 `PipelineResult` protocol，不移动任何代码。契约版本通过 `CONTRACT_VERSION = (0, 5, 1)` 固定 —— web 包在 import 时校验，拒绝不匹配的引擎版本。
 
 ```text
 movie-narrator-web  →  contract.py  →  pipeline/runner.py (build_context, run_pipeline, PARAM_WHITELIST)
@@ -120,12 +120,12 @@ movie-narrator-web  →  contract.py  →  pipeline/runner.py (build_context, ru
 | `PipelineCancelled` / `PipelineStrictError` | pipeline/errors.py | 流水线终态异常 |
 | `RunController` / `StepAction` / `check_cancelled` | pipeline/errors.py | 协作式取消 + 重试 protocol |
 | `sanitize_filename` | utils/sanitize.py | 跨平台文件名清洗 |
-| `CONTRACT_VERSION` | contract.py | `(0, 5, 0)` —— 外部 `movie-narrator-web` 包在 import 时校验的版本号 |
+| `CONTRACT_VERSION` | contract.py | `(0, 5, 1)` —— 外部 `movie-narrator-web` 包在 import 时校验的版本号 |
 | `StepRegistry` / `step_registry` | plugin_loader.py | 流水线步骤插件中央注册表；`step_registry` 是全局实例 |
-| `ProviderRegistry` / `tts_registry` / `vision_registry` | providers/registry.py | TTS、vision 及未来 provider 类型的注册系统 |
+| `ProviderRegistry` / `tts_registry` / `vision_registry` / `llm_registry` / `research_registry` | providers/registry.py | TTS、vision、LLM、research provider 的注册系统 |
 | `register_step` / `step` | plugin_loader.py | 装饰器式步骤注册（`@register_step("name", ...)` 或 `@step("name")`） |
-| `register_tts` / `register_vision` | providers/registry.py | 装饰器式 TTS 和 vision provider 注册 |
-| `Plugin` / `PluginContext` | plugin_loader.py | `Plugin` protocol（`name` + `register(ctx)`）和 `PluginContext`（持有 `steps`、`tts`、`vision`、`services`） |
+| `register_tts` / `register_vision` / `register_llm` / `register_research` | providers/registry.py | 装饰器式 TTS、vision、LLM、research provider 注册 |
+| `Plugin` / `PluginContext` | plugin_loader.py | `Plugin` protocol（`name` + `register(ctx)`）和 `PluginContext`（持有 `steps`、`tts`、`vision`、`llm`、`research`） |
 | `load_plugin` / `discover_plugins` / `list_available_plugins` | plugin_loader.py | 手动插件加载、entry_points 自动发现、插件列表 |
 | `Step` | plugin_loader.py | 描述已注册步骤的 dataclass（name, func, soft, before, after） |
 | `list_presets` / `get_preset` | presets/ | SDK 公开导出，用于解说预设内省 |
@@ -253,7 +253,7 @@ output/<movie>/
 - **新增流水线步骤（推荐）**：通过插件 API 使用 `@register_step("name", ...)` 装饰器注册。若打包为 entry_points 插件则自动发现，也可通过 `load_plugin()` 手动加载。参考实现见 `examples/plugins/watermark/`。
 - **新增流水线步骤（旧方式）**：直接在 `pipeline/runner.py` 的 `STEPS` 末尾追加。函数签名必须是 `(ctx: Context) -> Context`。
 - **替换 TTS / 渲染器 / LLM**：直接替换 `pipeline/tts.py`、`pipeline/render.py` 或 `utils/llm.py`，保留步骤函数签名即可
-- **新增 TTS / Vision provider（推荐）**：通过 Provider Registry 使用 `@register_tts("name")` 或 `@register_vision("name")` 装饰器注册。若打包为 entry_points 插件则自动发现。
+- **新增 TTS / Vision / LLM / Research provider（推荐）**：通过 Provider Registry 使用 `@register_tts("name")`、`@register_vision("name")`、`@register_llm("name")` 或 `@register_research("name")` 装饰器注册。若打包为 entry_points 插件则自动发现。
 - **新增 VisionCaptioner provider（旧方式）**：在 `vision/` 中实现 `VisionCaptioner` ABC，在 `vision/factory.py` 注册。参考 `vision/stub.py`。匹配逻辑通过 `is_stub` 标志自动区分 fake 与真实字幕。
 - **流水线暂停 / 恢复**：`--pause-at script|match` 在指定步骤后暂停；`mn resume <output_dir>` 继续。状态序列化到 `pipeline_state.json`。
 - **新增 CLI 命令**：在 `cli.py` 加 `@app.command()`
@@ -268,7 +268,7 @@ output/<movie>/
     ▼
 discover_plugins() — importlib.metadata entry_points("movie_narrator.plugins")
     ▼
-Plugin.register(ctx: PluginContext) — 调用 @register_step / @register_tts / @register_vision
+Plugin.register(ctx: PluginContext) — 调用 @register_step / @register_tts / @register_vision / @register_llm / @register_research
     ▼
 StepRegistry / ProviderRegistry — 中央注册表
     ▼
@@ -280,7 +280,7 @@ runner.py — 将已注册步骤插入 STEPS 的 before/after 位置
 | 模块 | 职责 |
 |------|------|
 | `plugin_loader.py` | `StepRegistry`、`Plugin` protocol、`PluginContext`、`load_plugin()`、`discover_plugins()`、`list_available_plugins()` |
-| `providers/registry.py` | `ProviderRegistry`、`register_tts`、`register_vision`、`tts_registry`、`vision_registry` |
+| `providers/registry.py` | `ProviderRegistry`、`register_tts`、`register_vision`、`register_llm`、`register_research`、`tts_registry`、`vision_registry`、`llm_registry`、`research_registry` |
 | `presets/` | 解说预设系统（`list_presets()`、`get_preset()`） |
 
 ### Plugin protocol

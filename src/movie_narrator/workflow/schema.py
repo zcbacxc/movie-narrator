@@ -39,7 +39,7 @@ class JobParams(BaseModel):
     match_topk_reuse_penalty: Optional[float] = None  # EP3: score deduction for recently used scenes (default 0.15)
     embedding_model_name: Optional[str] = None
     # ── Vision (EP8) ──
-    # "none" (default) | "stub" | future providers (http_vlm, blip, etc.)
+    # "none" (default) | "stub" | plugin-registered providers (via register_vision)
     vision_captioner: Optional[str] = None
     # ── WP6: scene filtering ──
     # intro skip, dark frame drop, highlight window (all opt-in, default off)
