@@ -139,6 +139,14 @@
 - [x] `CONTRACT_VERSION` bumped to `(0, 5, 1)` — backward compatible (new exports only)
 - [x] SDK exports: `register_llm`, `register_research`, `llm_registry`, `research_registry` added to `contract.py` and `__init__.py`
 
+### M5 — Community & packaging
+
+- [x] CLI plugin commands (`mn plugin list|discover|registries|version`)
+- [x] Plugin template (`examples/plugins/template/`) with README quick-start guide
+- [x] `check_version()` helper for import-time version validation by external consumers
+- [x] `ProviderRegistry.info()` method for structured provider metadata
+- [x] Packaging guide (`docs/PACKAGING.md`) — versioning, entry points, publishing workflow
+
 > **Design note**: SDK and Plugin API are designed together — the SDK is the primary consumer of the Plugin API, so both must stabilize in the same release to avoid compatibility pressure.
 
 ## v0.6.x — Cloud

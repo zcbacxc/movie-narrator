@@ -139,6 +139,14 @@
 - [x] `CONTRACT_VERSION` 升至 `(0, 5, 1)` —— 向后兼容（仅新增导出）
 - [x] SDK 导出：`register_llm`、`register_research`、`llm_registry`、`research_registry` 加入 `contract.py` 和 `__init__.py`
 
+### M5 — 社区与打包
+
+- [x] CLI 插件命令（`mn plugin list|discover|registries|version`）
+- [x] 插件模板（`examples/plugins/template/`）含 README 快速上手指南
+- [x] `check_version()` 辅助函数，供外部消费者在 import 时校验版本
+- [x] `ProviderRegistry.info()` 方法，返回结构化 provider 元数据
+- [x] 打包指南（`docs/PACKAGING.md`）—— 版本号、entry points、发布流程
+
 > **设计备注**：SDK 与 Plugin API 是一起设计的 —— SDK 是 Plugin API 的主要使用者，所以两者必须在同一次发布稳定下来，避免兼容性压力。
 
 ## v0.6.x — Cloud

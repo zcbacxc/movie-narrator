@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "movie-narrator-PLUGIN_NAME"
+version = "0.1.0"
+description = "PLUGIN_DESCRIPTION"
+requires-python = ">=3.10"
+dependencies = [
+    "movie-narrator>=0.5.1",
+]
+
+[project.entry-points."movie_narrator.plugins"]
+PLUGIN_NAME = "PLUGIN_PACKAGE:PLUGIN_CLASS"
+
+[tool.setuptools.packages.find]
+where = ["."]

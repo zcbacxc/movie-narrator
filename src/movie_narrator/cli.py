@@ -536,6 +536,104 @@ def clips(
 
 
 @app.command()
+def plugin(
+    action: str = typer.Argument(
+        ..., help="list | discover | registries | version"
+    ),
+):
+    """Plugin system commands — list, discover, inspect registries.
+
+    \b
+    用法 / Usage:
+        mn plugin list          # 列出已安装的 entry_points 插件
+        mn plugin discover      # 发现并加载所有插件
+        mn plugin registries    # 显示所有注册表中的 provider/step
+        mn plugin version       # 显示 CONTRACT_VERSION
+    """
+    if action == "list":
+        from .plugin_loader import list_available_plugins
+        plugins = list_available_plugins()
+        if not plugins:
+            typer.echo("No plugins found via entry_points.")
+            typer.echo("")
+            typer.echo("Plugins are discovered via the 'movie_narrator.plugins'")
+            typer.echo("entry point group. Install a plugin package to see it here.")
+            return
+        typer.echo(f"Available plugins ({len(plugins)}):")
+        for name in sorted(plugins):
+            typer.echo(f"  {name}")
+
+    elif action == "discover":
+        from .plugin_loader import discover_plugins
+        results = discover_plugins()
+        if not results:
+            typer.echo("No plugins found to discover.")
+            return
+        succeeded = [r for r in results if r.success]
+        failed = [r for r in results if not r.success]
+        typer.echo(f"Discovery complete: {len(succeeded)} succeeded, {len(failed)} failed")
+        for r in succeeded:
+            typer.echo(f"  [OK] {r.name}")
+        for r in failed:
+            typer.echo(f"  [FAIL] {r.name}: {r.error}", err=True)
+
+    elif action == "registries":
+        # Import factory modules to ensure built-in providers are registered
+        import movie_narrator.tts.factory  # noqa: F401
+        import movie_narrator.vision.factory  # noqa: F401
+        import movie_narrator.utils.llm  # noqa: F401
+        import movie_narrator.pipeline.research  # noqa: F401
+
+        from .pipeline.registry import step_registry
+        from .providers import (
+            tts_registry, vision_registry,
+            llm_registry, research_registry,
+        )
+
+        typer.echo("=== Step Registry ===")
+        for info in step_registry.info():
+            soft_tag = " (soft)" if info["soft"] else ""
+            after_tag = f" after={info['insert_after']}" if info["insert_after"] else ""
+            before_tag = f" before={info['insert_before']}" if info["insert_before"] else ""
+            typer.echo(f"  {info['name']:<25}{soft_tag}{after_tag}{before_tag}")
+
+        typer.echo("")
+        typer.echo("=== TTS Registry ===")
+        for info in tts_registry.info():
+            proto = " [protocol]" if info["protocol_validated"] else ""
+            typer.echo(f"  {info['name']:<25}{proto}")
+
+        typer.echo("")
+        typer.echo("=== Vision Registry ===")
+        for info in vision_registry.info():
+            proto = " [protocol]" if info["protocol_validated"] else ""
+            typer.echo(f"  {info['name']:<25}{proto}")
+
+        typer.echo("")
+        typer.echo("=== LLM Registry ===")
+        for info in llm_registry.info():
+            proto = " [protocol]" if info["protocol_validated"] else ""
+            typer.echo(f"  {info['name']:<25}{proto}")
+
+        typer.echo("")
+        typer.echo("=== Research Registry ===")
+        for info in research_registry.info():
+            proto = " [protocol]" if info["protocol_validated"] else ""
+            typer.echo(f"  {info['name']:<25}{proto}")
+
+    elif action == "version":
+        from .contract import CONTRACT_VERSION
+        typer.echo(f"CONTRACT_VERSION = {CONTRACT_VERSION}")
+        typer.echo(f"  semver: {'.'.join(str(v) for v in CONTRACT_VERSION)}")
+
+    else:
+        raise typer.BadParameter(
+            f"Unknown action: {action!r}. Use: list | discover | registries | version",
+            param_hint="action",
+        )
+
+
+@app.command()
 def version():
     """显示版本号 / Show version."""
     typer.echo(f"movie-narrator v{__version__}")
