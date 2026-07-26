@@ -12,9 +12,7 @@ Covers:
 from __future__ import annotations
 
 import logging
-from dataclasses import FrozenInstanceError
 from unittest.mock import MagicMock, patch
-from importlib.metadata import EntryPoint
 
 import pytest
 
@@ -34,14 +32,35 @@ from movie_narrator.utils.console import SilentConsole
 # ── Helpers ───────────────────────────────────────────────
 
 
-def _make_fake_entry_point(name: str, obj) -> EntryPoint:
-    """Create a fake EntryPoint that loads *obj*."""
-    # EntryPoint is a namedtuple-like in 3.10+, but we use the
-    # real class with load() patched.
-    ep = EntryPoint(name=name, group=ENTRY_POINT_GROUP, value="fake:Fake")
-    # Monkey-patch load to return our object
+def _make_fake_entry_point(name: str, obj) -> MagicMock:
+    """Create a fake EntryPoint that loads *obj*.
+
+    Uses ``MagicMock`` instead of the real ``EntryPoint`` class because
+    ``EntryPoint`` became a frozen dataclass in Python 3.11+, making its
+    attributes immutable. ``MagicMock`` provides the same duck-typed
+    interface (``.name``, ``.group``, ``.load()``) that
+    ``_load_entry_point`` and ``discover_plugins`` rely on.
+    """
+    ep = MagicMock()
+    ep.name = name
+    ep.group = ENTRY_POINT_GROUP
+    ep.value = "fake:Fake"
     ep.load = MagicMock(return_value=obj)
     return ep
+
+
+@pytest.fixture(autouse=True)
+def _clean_step_registry():
+    """Auto-cleanup: remove any steps registered during a test.
+
+    Prevents test pollution when a test fails mid-way after calling
+    ``load_plugin()`` but before its explicit cleanup runs.
+    """
+    before = set(step_registry.names())
+    yield
+    after = set(step_registry.names())
+    for name in after - before:
+        step_registry.unregister(name)
 
 
 class FakePlugin:
