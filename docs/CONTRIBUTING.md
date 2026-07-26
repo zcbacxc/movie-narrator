@@ -37,11 +37,11 @@ movie-narrator/
 │   ├── plugin_loader.py # Plugin discovery via entry_points, StepRegistry, Plugin protocol
 │   ├── models.py        # Context, PipelineStatus, StepState, Services, ...
 │   ├── contract.py      # Stable API boundary (CONTRACT_VERSION = (0, 5, 1))
-│   ├── cli.py           # `mn` Typer entry points (create, version, ...)
-│   └── workflow.py      # job.yaml load/merge (JobConfig, merge_job)
+│   ├── cli.py           # `mn` Typer entry points (create, version, plugin, ...)
+│   └── workflow/        # job.yaml load/merge (schema.py, load.py, merge.py, errors.py)
 ├── tests/               # pytest suite (unit + smoke)
-├── docs/                # ARCHITECTURE, ROADMAP, CONTRIBUTING, specs/
-└── examples/            # job.example.yaml, plugins/watermark/
+├── docs/                # ARCHITECTURE, ROADMAP, CONTRIBUTING, PACKAGING, specs/
+└── examples/            # job.example.yaml, plugins/watermark/, plugins/template/
 ```
 
 The Web UI is developed in a separate repository ([`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web)); it consumes the core engine only through the contract surface defined in `contract.py`. There is no `web_api/` or `webui/` tree in this repo.
@@ -112,9 +112,11 @@ See `examples/plugins/watermark/` for a complete reference implementation.
 Plugins extend the pipeline with custom steps and providers:
 
 1. **Implement the Plugin protocol**: create a class with a `name` property and a `register(ctx: PluginContext)` method
-2. **Register steps/providers**: inside `register()`, call `ctx.steps.register(...)`, `ctx.tts.register(...)`, or `ctx.vision.register(...)`
+2. **Register steps/providers**: inside `register()`, call `ctx.steps.register(...)`, `ctx.tts.register(...)`, `ctx.vision.register(...)`, `ctx.llm.register(...)`, or `ctx.research.register(...)`
 3. **Declare entry point**: add `[project.entry-points."movie_narrator.plugins"]` to your `pyproject.toml`
 4. **Use services**: access `ctx.services.logger` for structured logging (M2)
 5. **Test**: verify your plugin loads via `discover_plugins()` and `list_available_plugins()`
 
 Reference implementation: `examples/plugins/watermark/`
+
+For plugin packaging, versioning, and PyPI publishing, see [PACKAGING.md](PACKAGING.md).
