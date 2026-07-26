@@ -27,14 +27,21 @@ pytest -v
 movie-narrator/
 ├── src/movie_narrator/
 │   ├── pipeline/        # 15-step runner, preflight, tts/render/match/... step modules
+│   ├── pipeline/scene_filter.py  # WP6 scene filtering (intro skip, dark frame, highlight window)
+│   ├── pipeline/registry.py      # StepRegistry integration with runner
 │   ├── tts/             # TTS provider abstraction (edge, openai, mimo, factory, cache)
+│   ├── providers/       # ProviderRegistry (register_tts, register_vision, tts_registry, vision_registry)
+│   ├── vision/          # VisionCaptioner abstraction (stub + http_vlm)
+│   ├── presets/         # Narration presets (douyin-fast, mainstream-dry, bilibili-long)
 │   ├── utils/           # llm.py, errors.py, shared helpers
-│   ├── models.py        # Context, PipelineStatus, StepState, ...
+│   ├── plugin_loader.py # Plugin discovery via entry_points, StepRegistry, Plugin protocol
+│   ├── models.py        # Context, PipelineStatus, StepState, Services, ...
+│   ├── contract.py      # Stable API boundary (CONTRACT_VERSION = (0, 5, 0))
 │   ├── cli.py           # `mn` Typer entry points (create, version, ...)
 │   └── workflow.py      # job.yaml load/merge (JobConfig, merge_job)
 ├── tests/               # pytest suite (unit + smoke)
 ├── docs/                # ARCHITECTURE, ROADMAP, CONTRIBUTING, specs/
-└── examples/            # job.example.yaml
+└── examples/            # job.example.yaml, plugins/watermark/
 ```
 
 The Web UI is developed in a separate repository ([`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web)); it consumes the core engine only through the contract surface defined in `contract.py`. There is no `web_api/` or `webui/` tree in this repo.
@@ -70,6 +77,23 @@ The Web UI (FastAPI + React 18 SPA, launched via the standalone `mn-web` command
 
 ## Adding a New Pipeline Step
 
+### Recommended: Plugin API (v0.5+)
+
+Use the `@register_step` decorator to add steps without modifying the runner:
+
+1. Create a Python package with your step function `def my_step(ctx: Context) -> Context`
+2. Use `@register_step("my_step", soft=True, after="render_video")` to register it
+3. Declare an entry point in your `pyproject.toml`:
+   ```toml
+   [project.entry-points."movie_narrator.plugins"]
+   my_plugin = "my_package:MyPlugin"
+   ```
+4. The step is auto-discovered when your package is installed
+
+See `examples/plugins/watermark/` for a complete reference implementation.
+
+### Legacy: Direct STEPS modification
+
 1. Add a module under `src/movie_narrator/pipeline/` exposing
    `def <step_name>(ctx: Context) -> Context`
 2. For soft steps, set `ctx.status.<field>`, `ctx.step_state` (with
@@ -82,3 +106,15 @@ The Web UI (FastAPI + React 18 SPA, launched via the standalone `mn-web` command
    `disabled`, except `translate` which defaults to `skipped`)
 5. Add tests under `tests/test_<step>.py` covering the decision matrix
    (disabled / skipped / success / failure) and CLI/YAML integration
+
+## Developing a Plugin
+
+Plugins extend the pipeline with custom steps and providers:
+
+1. **Implement the Plugin protocol**: create a class with a `name` property and a `register(ctx: PluginContext)` method
+2. **Register steps/providers**: inside `register()`, call `ctx.steps.register(...)`, `ctx.tts.register(...)`, or `ctx.vision.register(...)`
+3. **Declare entry point**: add `[project.entry-points."movie_narrator.plugins"]` to your `pyproject.toml`
+4. **Use services**: access `ctx.services.logger` for structured logging (M2)
+5. **Test**: verify your plugin loads via `discover_plugins()` and `list_available_plugins()`
+
+Reference implementation: `examples/plugins/watermark/`

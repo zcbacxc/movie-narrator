@@ -54,7 +54,7 @@
 > 以下 Web UI 工作随后已拆分为独立 repo [movie-narrator-web](https://github.com/zcbacxc/movie-narrator-web)。核心 repo 不再包含 `web_api/` 或 `webui/`；以独立包形式安装 Web UI：`pip install movie-narrator-web`，通过 `mn-web` 启动。
 
 - [x] Gradio → FastAPI + React SPA 重构（Vite + TypeScript + shadcn/ui）
-- [x] WebSocket 实时进度推送（`/ws/jobs/{id}`）
+- [x] WebSocket 实时进度推送（`/ws/task/{task_id}`）
 - [x] pip 可安装的 WebUI 打包 —— 现由独立的 `movie-narrator-web` repo 发布（`pip install movie-narrator-web`，命令 `mn-web`）
 
 ### 核心引擎质量
@@ -101,11 +101,33 @@
 
 > **目标**：在 Cloud 功能依赖之前，先冻结公开 API 表面（Pipeline、Workflow、Plugin、SDK）。
 
-- [ ] 自定义流水线步骤的 Plugin API（步骤注册、生命周期钩子、依赖声明）
-- [ ] 编程式使用的 Python SDK（`from movie_narrator import ...`）
-- [ ] 自定义流水线步骤的注册（`@register_step`）
-- [ ] 第三方 provider 扩展（TTS、LLM、资料 backend，通过 Plugin API）
-- [ ] 社区扩展发现与打包约定
+### M1 — 插件注册基础设施 (#91)
+
+- [x] 自定义流水线步骤的 Plugin API（步骤注册、生命周期钩子、依赖声明）
+- [x] StepRegistry + ProviderRegistry，支持 `@register_step` / `@register_provider` 装饰器
+- [x] UnifiedParamSchema —— `PARAM_WHITELIST` 由 `JobParams` 模型字段自动派生
+- [x] SDK 公开导出（`list_presets`、`get_preset`）在 `contract.py` 和 `__init__.py` 中
+
+### M2 — SDK 冻结 (#92)
+
+- [x] 编程式使用的 Python SDK（`from movie_narrator import ...`）
+- [x] 自定义流水线步骤的注册（`@register_step`）
+- [x] 通过 `importlib.metadata` entry points 发现插件（`movie_narrator.plugins` 组）
+- [x] 第三方 provider 扩展（TTS、LLM、资料 backend，通过 Plugin API）
+- [x] `Services.logger` 可选字段，供插件结构化日志使用
+- [x] 树外示例插件（`examples/plugins/watermark/`）
+
+### WP6 — 场景过滤 (#93)
+
+- [x] 片头跳过 —— 通过亮度 + 运动分析自动检测并跳过 intro/logo 序列
+- [x] 黑帧检测 —— 过滤浪费解说预算的近黑帧
+- [x] 高亮窗口 —— 可配置的基于时间窗口的场景优先级
+
+### WebUI 拆分 —— 双仓库分离 (#94, #95)
+
+- [x] WebUI（FastAPI + React）拆分为独立 repo [movie-narrator-web](https://github.com/zcbacxc/movie-narrator-web)
+- [x] 核心引擎现为纯 CLI 包，无 web 依赖
+- [x] 契约版本号（`CONTRACT_VERSION = (0, 5, 0)`），支持导入时兼容性检查
 
 > **设计备注**：SDK 与 Plugin API 是一起设计的 —— SDK 是 Plugin API 的主要使用者，所以两者必须在同一次发布稳定下来，避免兼容性压力。
 

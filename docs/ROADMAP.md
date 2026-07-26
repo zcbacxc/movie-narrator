@@ -54,7 +54,7 @@
 > The Web UI work below has since been split into the independent repository [movie-narrator-web](https://github.com/zcbacxc/movie-narrator-web). The core repo no longer ships `web_api/` or `webui/`; install the Web UI separately via `pip install movie-narrator-web` and launch it with `mn-web`.
 
 - [x] Gradio → FastAPI + React SPA refactor (Vite + TypeScript + shadcn/ui)
-- [x] WebSocket real-time progress (`/ws/jobs/{id}`)
+- [x] WebSocket real-time progress (`/ws/task/{task_id}`)
 - [x] pip-installable WebUI packaging — now shipped from the separate `movie-narrator-web` repo (`pip install movie-narrator-web`, command `mn-web`)
 
 ### Core Engine Quality
@@ -101,11 +101,33 @@
 
 > **Goal**: Freeze the public API surface (Pipeline, Workflow, Plugin, SDK) before Cloud features depend on it.
 
-- [ ] Plugin API for custom pipeline steps (step registration, lifecycle hooks, dependency declaration)
-- [ ] Python SDK for programmatic usage (`from movie_narrator import ...`)
-- [ ] Custom pipeline step registration (`@register_step`)
-- [ ] Third-party provider extensions (TTS, LLM, research backends via Plugin API)
-- [ ] Community extension discovery and packaging conventions
+### M1 — Plugin registry infrastructure (#91)
+
+- [x] Plugin API for custom pipeline steps (step registration, lifecycle hooks, dependency declaration)
+- [x] StepRegistry + ProviderRegistry with `@register_step` / `@register_provider` decorators
+- [x] UnifiedParamSchema — `PARAM_WHITELIST` auto-derived from `JobParams` model fields
+- [x] SDK surface exports (`list_presets`, `get_preset`) in `contract.py` and `__init__.py`
+
+### M2 — SDK freeze (#92)
+
+- [x] Python SDK for programmatic usage (`from movie_narrator import ...`)
+- [x] Custom pipeline step registration (`@register_step`)
+- [x] Plugin discovery via `importlib.metadata` entry points (`movie_narrator.plugins` group)
+- [x] Third-party provider extensions (TTS, LLM, research backends via Plugin API)
+- [x] `Services.logger` optional field for structured logging in plugins
+- [x] Out-of-tree example plugin (`examples/plugins/watermark/`)
+
+### WP6 — Scene filtering (#93)
+
+- [x] Intro skip — auto-detect and skip intro/logo sequences via luminance + motion analysis
+- [x] Dark frame detection — filter near-black frames that waste narration budget
+- [x] Highlight window — configurable time-window-based scene prioritization
+
+### WebUI split — Dual repository separation (#94, #95)
+
+- [x] WebUI (FastAPI + React) extracted into standalone repo [movie-narrator-web](https://github.com/zcbacxc/movie-narrator-web)
+- [x] Core engine is now a pure CLI package with no web dependencies
+- [x] Contract versioning (`CONTRACT_VERSION = (0, 5, 0)`) for import-time compatibility checks
 
 > **Design note**: SDK and Plugin API are designed together — the SDK is the primary consumer of the Plugin API, so both must stabilize in the same release to avoid compatibility pressure.
 

@@ -458,15 +458,17 @@ movie-narrator/
 - [x] `export_clips` 直调 ffmpeg 子进程（设计选择，非临时方案）
 - [x] 配置系统全面重构：严格 env/yaml 边界 — `.env`（Settings）仅含 21 个 LLM + TTS 基础配置字段；`job.yaml`（params）含全部 32 个流水线行为键；YAML 自动发现（未传 `--config` → `cwd/job.yaml` → 打包示例）；`.env.example` 和 `job.example.yaml` 作为单一真相源；无代码常量模块——内联字面量与示例文件一致
 
-### v0.5.x — 生态系统（规划中）
+### v0.5.x — 生态系统
 
 > **目标**：在 Cloud 功能依赖之前，冻结公开 API 表面（Pipeline、Workflow、Plugin、SDK）。
 
-- [ ] 插件 API（自定义流水线步骤：步骤注册、生命周期钩子、依赖声明）
-- [ ] Python SDK（`from movie_narrator import ...`）
-- [ ] 自定义步骤注册（`@register_step`）
-- [ ] 第三方 Provider 扩展（TTS、LLM、研究后端，通过插件 API）
-- [ ] 社区扩展发现与打包规范
+- [x] 插件 API —— StepRegistry + ProviderRegistry，支持 `@register_step` / `@register_provider` 装饰器 (#91)
+- [x] Python SDK —— `from movie_narrator import ...`，稳定的 `contract.py` 接口 (#92)
+- [x] 通过 `importlib.metadata` entry points 发现插件（`movie_narrator.plugins` 组）(#92)
+- [x] `Services.logger` 供插件结构化日志使用 (#92)
+- [x] 树外示例插件（`examples/plugins/watermark/`）(#92)
+- [x] WP6 场景过滤 —— 片头跳过、黑帧检测、高亮窗口 (#93)
+- [x] WebUI 拆分 —— `movie-narrator-web` 独立仓库，核心引擎现为纯 CLI (#94, #95)
 
 > SDK 与 Plugin API 一起设计——两者必须在同一版本中稳定。
 
