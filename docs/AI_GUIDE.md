@@ -102,9 +102,13 @@ CI=1 mn create --movie "CI-Test" --style "测试" --duration 10 --keep-cache
 src/movie_narrator/
 ├── cli.py               # Typer CLI 入口（mn 命令）
 ├── config.py            # Settings（pydantic-settings，MN_* 环境变量）
-├── models.py            # Context、PipelineStatus、StepState 等数据模型
+├── models.py            # Context、PipelineStatus、StepState、Services 等数据模型
+├── contract.py          # 稳定 API 边界（CONTRACT_VERSION = (0, 5, 0)，web 包通过它消费引擎）
+├── plugin_loader.py     # 插件发现（entry_points）、StepRegistry、Plugin protocol、PluginContext
 ├── pipeline/
 │   ├── runner.py        # 15 步流水线编排（STEPS 列表 + build_context）
+│   ├── registry.py      # StepRegistry 与 runner 集成
+│   ├── scene_filter.py  # WP6 场景过滤（片头跳过、黑帧检测、高亮窗口）
 │   ├── resolve.py       # 源视频查找
 │   ├── script.py        # LLM 脚本生成（两阶段：beats → expansion）
 │   ├── tts.py           # TTS 编排（缓存 + 并发）
@@ -113,10 +117,11 @@ src/movie_narrator/
 │   ├── qa.py            # 成片质检（ffprobe）
 │   └── errors.py        # PipelineStrictError, PipelineCancelled, StepAction
 ├── tts/                 # TTS 抽象层（edge / openai / mimo）
+├── providers/           # ProviderRegistry（register_tts、register_vision）
+├── vision/              # VisionCaptioner 抽象（stub + http_vlm）
 ├── workflow/            # YAML 配置加载与合并
 ├── presets/             # 解说风格预设（douyin-fast / mainstream-dry / bilibili-long）
-├── utils/               # 工具函数（llm、font、json_parser 等）
-└── contract.py          # 核心 API 边界（web 包通过它消费引擎，见 movie-narrator-web）
+└── utils/               # 工具函数（llm、font、json_parser 等）
 ```
 
 > Web UI（FastAPI + React SPA）位于独立仓库 [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web)，通过 `pip install movie-narrator-web` 安装、`mn-web` 启动。核心 repo 不含 `web_api/` 或 `webui/` 目录。
@@ -133,6 +138,19 @@ src/movie_narrator/
 | env/yaml boundary | `.env` = LLM + TTS 凭证（24 项）；`job.yaml` = 行为参数（52 项） |
 
 ## 添加新 Pipeline 步骤
+
+### 推荐：插件 API（v0.5+）
+
+使用 `@register_step` 装饰器添加步骤，无需修改 runner：
+
+1. 创建步骤函数 `def my_step(ctx: Context) -> Context`
+2. 使用 `@register_step("my_step", soft=True, after="render_video")` 注册
+3. 在 `pyproject.toml` 中声明 entry point：`[project.entry-points."movie_narrator.plugins"]`
+4. 安装后自动发现
+
+参考实现：`examples/plugins/watermark/`
+
+### 旧方式：直接修改 STEPS
 
 1. 在 `src/movie_narrator/pipeline/` 新建模块，暴露 `def step_name(ctx: Context) -> Context`
 2. 软步骤：设置 `ctx.status.<field>` + `ctx.step_state`，失败时追加 `metadata.warnings`

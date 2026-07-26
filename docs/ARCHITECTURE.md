@@ -60,7 +60,7 @@ run_pipeline(...) # STEPS order unchanged
 - Soft steps honor `metadata["workflow_steps"][<field>] is False` → `status.<field> = "disabled"`
 - Params whitelist (48 keys: scene_threshold, scene_frame_skip, match_min_score, match_speed_clamp_min/max, scene_merge_min_duration, match_drop_scene_min_duration, embedding_model_name, bgm_gain_db, bgm_duck_db, bgm_normalize, audio_target_dbfs, tts_pause_ms, tts_max_concurrent, tts_audio_format, tts_audio_bitrate, translate_source_lang, translate_provider, translate_retries, translate_chunk_chars, translate_chunk_size, research_provider, whisperx_device/model/language, render_fps/video_codec/audio_codec/threads/bg_color/font_size/output_name/ffmpeg_timeout, render_fit_mode/crf/preset/faststart, render_subtitle_position/max_width_ratio/bottom_margin_ratio, qa_enabled/qa_max_silence_db/qa_min_duration_ratio/qa_max_duration_ratio, prompt_target_sentences/prompt_target_segment_duration/prompt_max_chars_per_sentence/prompt_hook_seconds, async_timeout, async_max_workers, video_sizes) land in `ctx.metadata` via `build_context` copy loop
 - Multi-language subtitle top-level keys: `subtitle_lang`, `subtitle_mode` (validated in `JobConfig` — `subtitle_mode ∈ {translated, bilingual}` without `subtitle_lang` raises `JobConfigError` at merge time)
-- `STEPS` remains the single source of step order; no DAG / plugins in v0.3
+- `STEPS` remains the single source of step order; since v0.5, custom steps can be added via `@register_step` plugin API (see Plugin System section below)
 - YAML auto-discovery: `--config` not passed → `cwd/job.yaml` → packaged `examples/job.example.yaml` → none
 - `.env.example` is the single source of truth for first-run config (read by `ensure_user_config()`, not a divergent inline template)
 - Strict env/yaml boundary: `.env` (Settings) = 24 LLM + TTS infrastructure fields only; `job.yaml` (params) = 48 pipeline behavior keys; no code constants module — inline literals match example files
@@ -125,6 +125,14 @@ movie-narrator-web  →  contract.py  →  pipeline/runner.py (build_context, ru
 | `RunController` / `StepAction` / `check_cancelled` | pipeline/errors.py | Cooperative cancel + retry protocol |
 | `sanitize_filename` | utils/sanitize.py | Cross-platform filename sanitization |
 | `CONTRACT_VERSION` | contract.py | `(0, 5, 0)` — version the external `movie-narrator-web` package checks against at import time |
+| `StepRegistry` / `step_registry` | plugin_loader.py | Central registry for pipeline step plugins; `step_registry` is the global instance |
+| `ProviderRegistry` / `tts_registry` / `vision_registry` | providers/registry.py | Provider registration system for TTS, vision, and future provider types |
+| `register_step` / `step` | plugin_loader.py | Decorator-based step registration (`@register_step("name", ...)` or `@step("name")`) |
+| `register_tts` / `register_vision` | providers/registry.py | Decorator-based provider registration for TTS and vision providers |
+| `Plugin` / `PluginContext` | plugin_loader.py | `Plugin` protocol (`name` + `register(ctx)`) and `PluginContext` (holds `steps`, `tts`, `vision`, `services`) |
+| `load_plugin` / `discover_plugins` / `list_available_plugins` | plugin_loader.py | Manual plugin loading, entry_points auto-discovery, and plugin listing |
+| `Step` | plugin_loader.py | Dataclass describing a registered step (name, func, soft, before, after) |
+| `list_presets` / `get_preset` | presets/ | Public SDK exports for narration preset introspection |
 
 ### Modules — `vision/` (Visual scene captioning, v0.4.26+)
 
@@ -399,12 +407,67 @@ segment's end. This is preferable to a 100ms flash on screen.
 
 ## Extension Points
 
-- **New pipeline step**: append to `STEPS` in `pipeline/runner.py`. Signature must be `(ctx: Context) -> Context`.
+- **New pipeline step (recommended)**: use `@register_step("name", ...)` decorator via the Plugin API. The step is auto-discovered if packaged as an entry_points plugin, or can be loaded manually via `load_plugin()`. See `examples/plugins/watermark/` for a reference implementation.
+- **New pipeline step (legacy)**: append directly to `STEPS` in `pipeline/runner.py`. Signature must be `(ctx: Context) -> Context`.
 - **Swap TTS/renderer/LLM**: replace `pipeline/tts.py`, `pipeline/render.py`, or `utils/llm.py` while keeping the step function signature.
-- **New VisionCaptioner provider**: implement `VisionCaptioner` ABC in `vision/`, register in `vision/factory.py`. See `vision/stub.py` for reference. Match logic auto-detects fake vs real captions via `is_stub` flag.
+- **New TTS/Vision provider (recommended)**: use `@register_tts("name")` or `@register_vision("name")` decorator via the Provider Registry. The provider is auto-discovered if packaged as an entry_points plugin.
+- **New VisionCaptioner provider (legacy)**: implement `VisionCaptioner` ABC in `vision/`, register in `vision/factory.py`. See `vision/stub.py` for reference. Match logic auto-detects fake vs real captions via `is_stub` flag.
 - **Pipeline pause/resume**: `--pause-at script|match` pauses after the step; `mn resume <output_dir>` continues. State serialized to `pipeline_state.json`.
 - **New CLI command**: add `@app.command()` in `cli.py`.
 - **Frontend / WebUI**: the React SPA and FastAPI backend now live in the external repo [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web) (Vite + TypeScript + shadcn/ui + Tailwind CSS, served on port 8760 via the `mn-web` command). To extend the web layer, work inside that repository — the core `movie-narrator` repo no longer ships `web_api/` or `webui/`, and there is no `mn web` command or `[web]` extra here. Any new engine capability the web package needs must be exposed through `contract.py` (bump `CONTRACT_VERSION` accordingly). See `docs/CONTRIBUTING.md` → *Frontend Development*.
+
+## Plugin System (v0.5+)
+
+The Plugin API (M1/M2) provides a stable extension mechanism for adding custom pipeline steps and providers without forking the core engine:
+
+```text
+Third-party package (pyproject.toml entry_points)
+    ▼
+discover_plugins() — importlib.metadata entry_points("movie_narrator.plugins")
+    ▼
+Plugin.register(ctx: PluginContext) — calls @register_step / @register_tts / @register_vision
+    ▼
+StepRegistry / ProviderRegistry — central registries
+    ▼
+runner.py — inserts registered steps into STEPS at before/after positions
+```
+
+### Key modules
+
+| Module | Responsibility |
+|--------|---------------|
+| `plugin_loader.py` | `StepRegistry`, `Plugin` protocol, `PluginContext`, `load_plugin()`, `discover_plugins()`, `list_available_plugins()` |
+| `providers/registry.py` | `ProviderRegistry`, `register_tts`, `register_vision`, `tts_registry`, `vision_registry` |
+| `presets/` | Narration preset system (`list_presets()`, `get_preset()`) |
+
+### Plugin protocol
+
+A plugin is any object with a `name` property and a `register(ctx: PluginContext)` method:
+
+```python
+from movie_narrator import PluginContext, register_step
+
+class MyPlugin:
+    name = "my-plugin"
+
+    def register(self, ctx: PluginContext) -> None:
+        ctx.steps.register("my_step", my_func, soft=True, after="render_video")
+        ctx.services.logger.info("My plugin registered")
+```
+
+Plugins are discovered via `importlib.metadata` entry points under the `movie_narrator.plugins` group. See `examples/plugins/watermark/` for a complete reference implementation.
+
+## WP6 — Scene Filtering (v0.5+)
+
+The `pipeline/scene_filter.py` module provides three scene-filtering features that improve narration quality by removing non-content segments and biasing selection toward highlights:
+
+| Feature | Param | Description |
+|---------|-------|-------------|
+| **Intro skip** | `scene_skip_intro` | Auto-detects and skips intro/logo sequences at the start of videos using luminance and motion analysis |
+| **Dark frame detection** | `scene_dark_threshold` | Filters near-black frames (below luminance threshold) that would waste narration budget on non-content segments |
+| **Highlight window** | `scene_highlight_window` | Configurable time-window-based scene prioritization — bias scene selection toward user-specified highlight ranges |
+
+These params are added to `PARAM_WHITELIST` via the UnifiedParamSchema and flow through the standard `build_context` → `ctx.metadata` path.
 
 ## Key Design Decisions
 

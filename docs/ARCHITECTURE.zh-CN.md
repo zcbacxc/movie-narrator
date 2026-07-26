@@ -56,7 +56,7 @@ run_pipeline(...) # STEPS 顺序不变
 - 软步骤遵守 `metadata["workflow_steps"][<field>] is False` → `status.<field> = "disabled"`
 - 在 `ctx.metadata` 中通过 `build_context` 拷贝循环注入的参数白名单（48 个键：scene_threshold, scene_frame_skip, match_min_score, match_speed_clamp_min/max, scene_merge_min_duration, match_drop_scene_min_duration, embedding_model_name, bgm_gain_db, bgm_duck_db, bgm_normalize, audio_target_dbfs, tts_pause_ms, tts_max_concurrent, tts_audio_format, tts_audio_bitrate, translate_source_lang, translate_provider, translate_retries, translate_chunk_chars, translate_chunk_size, research_provider, whisperx_device/model/language, render_fps/video_codec/audio_codec/threads/bg_color/font_size/output_name/ffmpeg_timeout, render_fit_mode/crf/preset/faststart, render_subtitle_position/max_width_ratio/bottom_margin_ratio, qa_enabled/qa_max_silence_db/qa_min_duration_ratio/qa_max_duration_ratio, prompt_target_sentences/prompt_target_segment_duration/prompt_max_chars_per_sentence/prompt_hook_seconds, async_timeout, async_max_workers, video_sizes）
 - 多语言字幕顶层键：`subtitle_lang`、`subtitle_mode`（在 `JobConfig` 中校验 —— 设置 `subtitle_mode ∈ {translated, bilingual}` 但缺 `subtitle_lang` 时会在 merge 阶段抛 `JobConfigError`）
-- `STEPS` 仍是步骤顺序的唯一来源；v0.3 没有 DAG / 插件机制
+- `STEPS` 仍是步骤顺序的唯一来源；自 v0.5 起，可通过 `@register_step` 插件 API 添加自定义步骤（见下方插件系统章节）
 - YAML 自动发现：未传 `--config` 时按 `cwd/job.yaml` → 随包 `examples/job.example.yaml` → 缺省 顺序查找
 - `.env.example` 是首次运行配置的真理源头（由 `ensure_user_config()` 读取，避免内联模板漂移）
 - 严格的 env/yaml 边界：`.env`（Settings）= 24 个 LLM + TTS 基础设施字段；`job.yaml`（params）= 48 个流水线行为键；无代码常量模块 —— 内联字面值与示例文件保持一致
@@ -121,6 +121,14 @@ movie-narrator-web  →  contract.py  →  pipeline/runner.py (build_context, ru
 | `RunController` / `StepAction` / `check_cancelled` | pipeline/errors.py | 协作式取消 + 重试 protocol |
 | `sanitize_filename` | utils/sanitize.py | 跨平台文件名清洗 |
 | `CONTRACT_VERSION` | contract.py | `(0, 5, 0)` —— 外部 `movie-narrator-web` 包在 import 时校验的版本号 |
+| `StepRegistry` / `step_registry` | plugin_loader.py | 流水线步骤插件中央注册表；`step_registry` 是全局实例 |
+| `ProviderRegistry` / `tts_registry` / `vision_registry` | providers/registry.py | TTS、vision 及未来 provider 类型的注册系统 |
+| `register_step` / `step` | plugin_loader.py | 装饰器式步骤注册（`@register_step("name", ...)` 或 `@step("name")`） |
+| `register_tts` / `register_vision` | providers/registry.py | 装饰器式 TTS 和 vision provider 注册 |
+| `Plugin` / `PluginContext` | plugin_loader.py | `Plugin` protocol（`name` + `register(ctx)`）和 `PluginContext`（持有 `steps`、`tts`、`vision`、`services`） |
+| `load_plugin` / `discover_plugins` / `list_available_plugins` | plugin_loader.py | 手动插件加载、entry_points 自动发现、插件列表 |
+| `Step` | plugin_loader.py | 描述已注册步骤的 dataclass（name, func, soft, before, after） |
+| `list_presets` / `get_preset` | presets/ | SDK 公开导出，用于解说预设内省 |
 
 ## TTS 抽象层
 
@@ -242,10 +250,67 @@ output/<movie>/
 
 ## 扩展点
 
-- **新增流水线步骤**：在 `pipeline/runner.py` 的 `STEPS` 末尾追加。函数签名必须是 `(ctx: Context) -> Context`
+- **新增流水线步骤（推荐）**：通过插件 API 使用 `@register_step("name", ...)` 装饰器注册。若打包为 entry_points 插件则自动发现，也可通过 `load_plugin()` 手动加载。参考实现见 `examples/plugins/watermark/`。
+- **新增流水线步骤（旧方式）**：直接在 `pipeline/runner.py` 的 `STEPS` 末尾追加。函数签名必须是 `(ctx: Context) -> Context`。
 - **替换 TTS / 渲染器 / LLM**：直接替换 `pipeline/tts.py`、`pipeline/render.py` 或 `utils/llm.py`，保留步骤函数签名即可
+- **新增 TTS / Vision provider（推荐）**：通过 Provider Registry 使用 `@register_tts("name")` 或 `@register_vision("name")` 装饰器注册。若打包为 entry_points 插件则自动发现。
+- **新增 VisionCaptioner provider（旧方式）**：在 `vision/` 中实现 `VisionCaptioner` ABC，在 `vision/factory.py` 注册。参考 `vision/stub.py`。匹配逻辑通过 `is_stub` 标志自动区分 fake 与真实字幕。
+- **流水线暂停 / 恢复**：`--pause-at script|match` 在指定步骤后暂停；`mn resume <output_dir>` 继续。状态序列化到 `pipeline_state.json`。
 - **新增 CLI 命令**：在 `cli.py` 加 `@app.command()`
 - **前端 / WebUI**：React SPA 与 FastAPI 后端现位于外部 repo [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web)（Vite + TypeScript + shadcn/ui + Tailwind CSS，通过 `mn-web` 命令在端口 8760 启动）。要扩展 web 层，请在该仓库内工作 —— 核心 `movie-narrator` repo 不再包含 `web_api/` 或 `webui/`，也没有 `mn web` 命令或 `[web]` extra。web 包需要的任何新引擎能力都必须通过 `contract.py` 暴露（并相应升级 `CONTRACT_VERSION`）。见 `docs/CONTRIBUTING.md` → *Frontend Development*
+
+## 插件系统（v0.5+）
+
+插件 API（M1/M2）提供了稳定的扩展机制，无需 fork 核心引擎即可添加自定义流水线步骤和 provider：
+
+```text
+第三方包（pyproject.toml entry_points）
+    ▼
+discover_plugins() — importlib.metadata entry_points("movie_narrator.plugins")
+    ▼
+Plugin.register(ctx: PluginContext) — 调用 @register_step / @register_tts / @register_vision
+    ▼
+StepRegistry / ProviderRegistry — 中央注册表
+    ▼
+runner.py — 将已注册步骤插入 STEPS 的 before/after 位置
+```
+
+### 关键模块
+
+| 模块 | 职责 |
+|------|------|
+| `plugin_loader.py` | `StepRegistry`、`Plugin` protocol、`PluginContext`、`load_plugin()`、`discover_plugins()`、`list_available_plugins()` |
+| `providers/registry.py` | `ProviderRegistry`、`register_tts`、`register_vision`、`tts_registry`、`vision_registry` |
+| `presets/` | 解说预设系统（`list_presets()`、`get_preset()`） |
+
+### Plugin protocol
+
+插件是任何具有 `name` 属性和 `register(ctx: PluginContext)` 方法的对象：
+
+```python
+from movie_narrator import PluginContext, register_step
+
+class MyPlugin:
+    name = "my-plugin"
+
+    def register(self, ctx: PluginContext) -> None:
+        ctx.steps.register("my_step", my_func, soft=True, after="render_video")
+        ctx.services.logger.info("My plugin registered")
+```
+
+插件通过 `importlib.metadata` entry points 的 `movie_narrator.plugins` 组自动发现。完整参考实现见 `examples/plugins/watermark/`。
+
+## WP6 — 场景过滤（v0.5+）
+
+`pipeline/scene_filter.py` 模块提供三个场景过滤功能，通过移除非内容片段和偏向高亮区域来提升解说质量：
+
+| 功能 | 参数 | 说明 |
+|------|------|------|
+| **片头跳过** | `scene_skip_intro` | 通过亮度和运动分析自动检测并跳过视频开头的 intro/logo 序列 |
+| **黑帧检测** | `scene_dark_threshold` | 过滤低于亮度阈值的近黑帧，避免浪费解说预算在非内容片段上 |
+| **高亮窗口** | `scene_highlight_window` | 可配置的基于时间窗口的场景优先级 —— 偏向用户指定的高亮范围的场景选择 |
+
+这些参数通过 UnifiedParamSchema 添加到 `PARAM_WHITELIST`，并经由标准 `build_context` → `ctx.metadata` 路径传递。
 
 ## 关键设计决策
 

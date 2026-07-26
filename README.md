@@ -468,15 +468,17 @@ movie-narrator/
 - [x] `export_clips` direct ffmpeg subprocess (design choice, not workaround)
 - [x] Config system overhaul: strict env/yaml boundary — `.env` (Settings) contains 21 LLM + TTS infrastructure fields only; `job.yaml` (params) contains all 32 pipeline behavior keys; YAML auto-discovery (`--config` not passed → `cwd/job.yaml` → packaged example); `.env.example` and `job.example.yaml` are the single sources of truth; no code constants module — inline literals match example files
 
-### v0.5.x — Ecosystem (Planned)
+### v0.5.x — Ecosystem
 
 > **Goal**: Freeze the public API surface (Pipeline, Workflow, Plugin, SDK) before Cloud features depend on it.
 
-- [ ] Plugin API for custom pipeline steps (step registration, lifecycle hooks, dependency declaration)
-- [ ] Python SDK for programmatic usage (`from movie_narrator import ...`)
-- [ ] Custom pipeline step registration (`@register_step`)
-- [ ] Third-party provider extensions (TTS, LLM, research backends via Plugin API)
-- [ ] Community extension discovery and packaging conventions
+- [x] Plugin API — StepRegistry + ProviderRegistry with `@register_step` / `@register_provider` decorators (#91)
+- [x] Python SDK — `from movie_narrator import ...` with stable `contract.py` surface (#92)
+- [x] Plugin discovery via `importlib.metadata` entry points (`movie_narrator.plugins` group) (#92)
+- [x] `Services.logger` for structured logging in plugins (#92)
+- [x] Out-of-tree example plugin (`examples/plugins/watermark/`) (#92)
+- [x] WP6 scene filtering — intro skip, dark frame detection, highlight window (#93)
+- [x] WebUI split — `movie-narrator-web` standalone repo, core engine is now pure CLI (#94, #95)
 
 > SDK and Plugin API are designed together — both must stabilize in the same release.
 

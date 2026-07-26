@@ -19,10 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 #### M2 — SDK freeze (#92)
 
-- **Plugin discovery via entry_points** (`plugin_loader.py`): automatic discovery of installed plugins through Python `importlib.metadata` entry points under the `movie_narrator.steps` and `movie_narrator.providers` groups (#92).
+- **Plugin discovery via entry_points** (`plugin_loader.py`): automatic discovery of installed plugins through Python `importlib.metadata` entry points under the `movie_narrator.plugins` group (#92).
 - **Services extension** (`models.py`): `Services` model now includes optional `logger` field for structured logging in plugins. `SilentConsole` remains the fallback when not provided (#92).
-- **Out-of-tree example plugin** (`examples/example_plugin/`): reference implementation showing step + provider registration, entry point declaration, and plugin lifecycle (#92).
-- **SDK compatibility docs** (`docs/sdk/`): plugin development guide, API reference, and compatibility matrix (#92).
+- **Out-of-tree example plugin** (`examples/plugins/watermark/`): reference implementation showing step + provider registration, entry point declaration, and plugin lifecycle (#92).
+- **SDK examples** (`examples/plugins/watermark/`): plugin development reference included in the example plugin README, covering `@register_step`, `@register_tts`, `Plugin` protocol, and entry point declaration (#92).
 - **EntryPoint immutability fix**: tests updated to use `MagicMock` for `EntryPoint` on Python 3.11+ where `EntryPoint` objects became immutable (#92).
 
 #### WP6 — Scene filtering (#93)

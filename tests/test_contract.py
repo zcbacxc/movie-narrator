@@ -5,6 +5,8 @@ Verifies that:
 - Re-exported objects are identical to their source (same object)
 - PipelineResult protocol is satisfied by Context
 - The contract __all__ matches the actual exports
+- CONTRACT_VERSION is correct (v0.5+)
+- M1/M2 SDK symbols are re-exported correctly (v0.5+)
 """
 
 from __future__ import annotations
@@ -18,6 +20,7 @@ from movie_narrator import contract
 from movie_narrator.contract import (
     BaseConsole,
     Console,
+    CONTRACT_VERSION,
     PARAM_WHITELIST,
     PipelineCancelled,
     PipelineResult,
@@ -111,6 +114,16 @@ class TestAllCompleteness:
             "RunController", "StepAction", "check_cancelled",
             "PARAM_WHITELIST", "build_context", "run_pipeline",
             "sanitize_filename", "PipelineResult",
+            # M1/M2 symbols (v0.5+)
+            "CONTRACT_VERSION",
+            "StepRegistry", "step_registry",
+            "ProviderRegistry", "tts_registry", "vision_registry",
+            "register_step", "step",
+            "register_tts", "register_vision",
+            "Plugin", "PluginContext",
+            "load_plugin", "discover_plugins", "list_available_plugins",
+            "Step",
+            "list_presets", "get_preset",
         }
         assert expected.issubset(set(contract.__all__))
 
@@ -186,3 +199,93 @@ class TestContractIsolation:
             f"web package needs {web_needed - contract_provided} "
             f"which are not in contract.__all__"
         )
+
+
+# ── CONTRACT_VERSION (v0.5+) ──────────────────────────────
+
+
+class TestContractVersion:
+    """CONTRACT_VERSION is the stable API boundary for external consumers."""
+
+    def test_contract_version_value(self):
+        """CONTRACT_VERSION is (0, 5, 0)."""
+        assert CONTRACT_VERSION == (0, 5, 0)
+
+    def test_contract_version_is_tuple(self):
+        """CONTRACT_VERSION is a 3-tuple of ints (semver)."""
+        assert isinstance(CONTRACT_VERSION, tuple)
+        assert len(CONTRACT_VERSION) == 3
+        assert all(isinstance(v, int) for v in CONTRACT_VERSION)
+
+    def test_contract_version_in_all(self):
+        """CONTRACT_VERSION is in __all__."""
+        assert "CONTRACT_VERSION" in contract.__all__
+
+
+# ── M1/M2 SDK symbol re-exports (v0.5+) ───────────────────
+
+
+class TestSDKSymbolExports:
+    """M1/M2 SDK symbols are accessible from the contract module."""
+
+    @pytest.mark.parametrize("name", [
+        "StepRegistry", "step_registry",
+        "ProviderRegistry", "tts_registry", "vision_registry",
+        "register_step", "step",
+        "register_tts", "register_vision",
+        "Plugin", "PluginContext",
+        "load_plugin", "discover_plugins", "list_available_plugins",
+        "Step",
+        "list_presets", "get_preset",
+    ])
+    def test_symbol_accessible(self, name):
+        """Each M1/M2 symbol is accessible on the contract module."""
+        assert hasattr(contract, name), f"{name!r} not accessible from contract module"
+
+    def test_step_registry_is_global_instance(self):
+        """step_registry is the global StepRegistry instance."""
+        from movie_narrator.pipeline.registry import step_registry as _step_registry
+        assert contract.step_registry is _step_registry
+
+    def test_tts_registry_is_global_instance(self):
+        """tts_registry is the global ProviderRegistry instance for TTS."""
+        from movie_narrator.providers.registry import tts_registry as _tts_registry
+        assert contract.tts_registry is _tts_registry
+
+    def test_vision_registry_is_global_instance(self):
+        """vision_registry is the global ProviderRegistry instance for vision."""
+        from movie_narrator.providers.registry import vision_registry as _vision_registry
+        assert contract.vision_registry is _vision_registry
+
+    def test_register_step_identity(self):
+        """register_step is the same function as in pipeline.registry."""
+        from movie_narrator.pipeline.registry import register_step as _register_step
+        assert contract.register_step is _register_step
+
+    def test_register_tts_identity(self):
+        """register_tts is the same function as in providers.registry."""
+        from movie_narrator.providers.registry import register_tts as _register_tts
+        assert contract.register_tts is _register_tts
+
+    def test_register_vision_identity(self):
+        """register_vision is the same function as in providers.registry."""
+        from movie_narrator.providers.registry import register_vision as _register_vision
+        assert contract.register_vision is _register_vision
+
+    def test_load_plugin_identity(self):
+        """load_plugin is the same function as in plugin_loader."""
+        from movie_narrator.plugin_loader import load_plugin as _load_plugin
+        assert contract.load_plugin is _load_plugin
+
+    def test_discover_plugins_identity(self):
+        """discover_plugins is the same function as in plugin_loader."""
+        from movie_narrator.plugin_loader import discover_plugins as _discover_plugins
+        assert contract.discover_plugins is _discover_plugins
+
+    def test_list_presets_callable(self):
+        """list_presets is callable from contract."""
+        assert callable(contract.list_presets)
+
+    def test_get_preset_callable(self):
+        """get_preset is callable from contract."""
+        assert callable(contract.get_preset)
