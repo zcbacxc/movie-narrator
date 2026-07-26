@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "movie-narrator-research-wiki"
+version = "0.1.0"
+description = "Example plugin for movie-narrator: Wikipedia-based research provider."
+requires-python = ">=3.10"
+
+[project.entry-points."movie_narrator.plugins"]
+research-wiki = "movie_narrator_research_wiki:WikiResearchPlugin"
+
+[tool.setuptools.packages.find]
+where = ["."]

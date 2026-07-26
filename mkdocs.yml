@@ -1,0 +1,58 @@
+site_name: movie-narrator
+site_description: Generate narrated movie recap videos from a single prompt.
+site_url: https://github.com/zcbacxc/movie-narrator
+repo_url: https://github.com/zcbacxc/movie-narrator
+repo_name: zcbacxc/movie-narrator
+edit_uri: edit/main/docs/
+
+theme:
+  name: readthedocs
+  highlightjs: true
+  hljs_languages:
+    - python
+    - yaml
+    - bash
+    - toml
+
+nav:
+  - Home: index.md
+  - Quickstart: QUICKSTART.md
+  - Plugin Development: PLUGIN_DEVELOPMENT.md
+  - Architecture: ARCHITECTURE.md
+  - Roadmap: ROADMAP.md
+  - Contributing: CONTRIBUTING.md
+  - Packaging: PACKAGING.md
+  - LLM Providers: LLM_PROVIDERS.md
+  - SDK Reference:
+      - Contract: sdk/contract.md
+      - Models: sdk/models.md
+      - Registries: sdk/registries.md
+      - Pipeline: sdk/pipeline.md
+      - TTS: sdk/tts.md
+      - Presets: sdk/presets.md
+
+plugins:
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: false
+            show_root_heading: true
+            show_signature_annotations: true
+            separate_signature: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            members_order: source
+            filters:
+              - "!^_"
+              - "!^__"
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - toc:
+      permalink: true
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.superfences

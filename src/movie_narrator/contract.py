@@ -92,7 +92,7 @@ from .pipeline.runner import PARAM_WHITELIST, build_context, run_pipeline
 
 # ── Re-exports: models ─────────────────────────────────────
 
-from .models import Context, Services
+from .models import Context, ResearchInfo, Services
 
 # ── Re-exports: registries ─────────────────────────────────
 
@@ -259,6 +259,7 @@ __all__ = [
     "PipelineResult",
     # Models
     "Context",
+    "ResearchInfo",
     "Services",
     # Registries
     "StepRegistry",

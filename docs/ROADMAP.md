@@ -149,6 +149,16 @@
 
 > **Design note**: SDK and Plugin API are designed together — the SDK is the primary consumer of the Plugin API, so both must stabilize in the same release to avoid compatibility pressure.
 
+### v0.5.3 — Hardening
+
+- [x] SDK API reference (`mkdocs.yml` + `docs/sdk/` — auto-generated from docstrings via mkdocstrings)
+- [x] Performance benchmark script (`benchmarks/profile_pipeline.py` — per-step profiling in CI mode)
+- [x] Quickstart guide (`docs/QUICKSTART.md` — end-to-end plugin tutorial)
+- [x] Research provider example (`examples/plugins/research-wiki/` — Wikipedia API-based research provider)
+- [x] `ResearchInfo` added to SDK exports (`contract.py` + `__init__.py`)
+- [x] `PLUGIN_DEVELOPMENT.md` updated with LLM and Research provider sections
+- [x] `docs` optional dependency group (mkdocs + mkdocstrings)
+
 ## v0.6.x — Cloud
 
 - [ ] Remote inference (offload LLM / TTS / rendering to cloud workers)

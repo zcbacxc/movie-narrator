@@ -22,6 +22,7 @@ from .contract import (  # noqa: F401
     Plugin,
     PluginContext,
     ProviderRegistry,
+    ResearchInfo,
     Services,
     Step,
     StepRegistry,
