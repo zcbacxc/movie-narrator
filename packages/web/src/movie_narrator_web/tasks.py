@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Dict, Optional
 
-from ..contract import PipelineCancelled, sanitize_filename
+from movie_narrator.contract import PipelineCancelled, sanitize_filename
 from .console import WebSocketConsole
 from .controller import TaskController
 from .form import form_to_context_args, validate_form
@@ -102,7 +102,7 @@ class TaskManager:
         info.console.clear()
 
         try:
-            from ..contract import build_context, run_pipeline
+            from movie_narrator.contract import build_context, run_pipeline
 
             kwargs = form_to_context_args(form_data)
             kwargs["output_dir"] = str(output_dir)

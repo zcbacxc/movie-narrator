@@ -1,4 +1,4 @@
-"""Tests for src/movie_narrator/web_api/ — core modules.
+﻿"""Tests for packages/web/src/movie_narrator_web/ — core modules.
 
 Covers WebSocketConsole, TaskController, TaskManager, pydantic models,
 form validation, and utility functions.  These modules do not depend
@@ -15,13 +15,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from movie_narrator.pipeline.errors import PipelineCancelled
-from movie_narrator.web_api.console import WebSocketConsole
-from movie_narrator.web_api.controller import TaskController
-from movie_narrator.web_api.form import FormData, validate_form
-from movie_narrator.web_api.models import TaskCreateRequest
-from movie_narrator.web_api.tasks import TaskInfo, TaskManager
-from movie_narrator.web_api.utils import collect_artifacts, zip_artifacts
+from movie_narrator.contract import PipelineCancelled
+from movie_narrator_web.console import WebSocketConsole
+from movie_narrator_web.controller import TaskController
+from movie_narrator_web.form import FormData, validate_form
+from movie_narrator_web.models import TaskCreateRequest
+from movie_narrator_web.tasks import TaskInfo, TaskManager
+from movie_narrator_web.utils import collect_artifacts, zip_artifacts
 
 
 # ── Helpers ────────────────────────────────────────────────
@@ -412,7 +412,7 @@ def test_zip_artifacts(tmp_path):
 
 def test_save_upload_strips_path_traversal(tmp_path):
     """save_upload must strip directory components from filename."""
-    from movie_narrator.web_api.utils import save_upload
+    from movie_narrator_web.utils import save_upload
     from io import BytesIO
 
     class FakeUpload:
@@ -432,7 +432,7 @@ def test_save_upload_strips_path_traversal(tmp_path):
 
 def test_save_upload_normal_filename(tmp_path):
     """save_upload works correctly with a normal filename."""
-    from movie_narrator.web_api.utils import save_upload
+    from movie_narrator_web.utils import save_upload
     from io import BytesIO
 
     class FakeUpload:
@@ -456,7 +456,7 @@ def test_task_info_no_current_step_field():
     to_status_dict(), so the field is unnecessary.
     """
     import inspect
-    from movie_narrator.web_api.tasks import TaskInfo
+    from movie_narrator_web.tasks import TaskInfo
 
     src = inspect.getsource(TaskInfo.__init__)
     assert "current_step" not in src, "TaskInfo.__init__ should not set current_step"
@@ -464,7 +464,7 @@ def test_task_info_no_current_step_field():
 
 def test_task_manager_no_update_step():
     """TaskManager should not have update_step method (dead code removed)."""
-    from movie_narrator.web_api.tasks import TaskManager
+    from movie_narrator_web.tasks import TaskManager
 
     assert not hasattr(TaskManager, "update_step"), \
         "TaskManager.update_step was dead code and should be removed"
@@ -475,7 +475,7 @@ def test_task_manager_no_update_step():
 
 def test_save_upload_rejects_bad_extension(tmp_path):
     """save_upload rejects files with non-whitelisted extensions."""
-    from movie_narrator.web_api.utils import save_upload, UploadError, VIDEO_EXTENSIONS
+    from movie_narrator_web.utils import save_upload, UploadError, VIDEO_EXTENSIONS
     from io import BytesIO
 
     class FakeUpload:
@@ -491,7 +491,7 @@ def test_save_upload_rejects_bad_extension(tmp_path):
 
 def test_save_upload_accepts_whitelisted_extension(tmp_path):
     """save_upload accepts files with whitelisted extensions."""
-    from movie_narrator.web_api.utils import save_upload, VIDEO_EXTENSIONS
+    from movie_narrator_web.utils import save_upload, VIDEO_EXTENSIONS
     from io import BytesIO
 
     class FakeUpload:
@@ -505,7 +505,7 @@ def test_save_upload_accepts_whitelisted_extension(tmp_path):
 
 def test_save_upload_rejects_oversized_file(tmp_path):
     """save_upload rejects files exceeding max_size and deletes partial."""
-    from movie_narrator.web_api.utils import save_upload, UploadError
+    from movie_narrator_web.utils import save_upload, UploadError
     from io import BytesIO
 
     # Create 5MB of data, limit to 1MB
@@ -524,7 +524,7 @@ def test_save_upload_rejects_oversized_file(tmp_path):
 
 def test_save_upload_streaming_under_limit(tmp_path):
     """save_upload succeeds when file is under the size limit."""
-    from movie_narrator.web_api.utils import save_upload
+    from movie_narrator_web.utils import save_upload
     from io import BytesIO
 
     # 512KB data, 1MB limit
@@ -545,7 +545,7 @@ def test_save_upload_streaming_under_limit(tmp_path):
 
 def test_save_upload_extension_case_insensitive(tmp_path):
     """Extension check is case-insensitive."""
-    from movie_narrator.web_api.utils import save_upload, VIDEO_EXTENSIONS
+    from movie_narrator_web.utils import save_upload, VIDEO_EXTENSIONS
     from io import BytesIO
 
     class FakeUpload:
@@ -558,7 +558,7 @@ def test_save_upload_extension_case_insensitive(tmp_path):
 
 def test_cleanup_uploads_best_effort(tmp_path):
     """cleanup_uploads removes matching files, ignores missing."""
-    from movie_narrator.web_api.utils import cleanup_uploads
+    from movie_narrator_web.utils import cleanup_uploads
 
     # Create some files
     (tmp_path / "video_test123.mp4").write_bytes(b"v")
@@ -578,13 +578,13 @@ def test_cleanup_uploads_best_effort(tmp_path):
 
 def test_cleanup_uploads_empty_dir(tmp_path):
     """cleanup_uploads on empty directory doesn't raise."""
-    from movie_narrator.web_api.utils import cleanup_uploads
+    from movie_narrator_web.utils import cleanup_uploads
     cleanup_uploads(tmp_path, "nonexistent")  # should not raise
 
 
 def test_upload_error_status_codes():
     """UploadError carries correct HTTP status codes."""
-    from movie_narrator.web_api.utils import UploadError
+    from movie_narrator_web.utils import UploadError
 
     size_err = UploadError("too large", status_code=413)
     assert size_err.status_code == 413

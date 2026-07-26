@@ -10,7 +10,7 @@ import threading
 from contextlib import nullcontext
 from typing import Tuple
 
-from ..contract import BaseConsole
+from movie_narrator.contract import BaseConsole
 
 
 class WebSocketConsole(BaseConsole):

@@ -224,6 +224,9 @@ __all__ = [
     "load_plugin",
     "discover_plugins",
     "list_available_plugins",
+    # Presets (re-exported for web package and external consumers)
+    "list_presets",
+    "get_preset",
 ]
 
 
@@ -239,3 +242,8 @@ from .plugin_loader import (  # noqa: E402
     discover_plugins,
     list_available_plugins,
 )
+
+# Presets are imported here (not at top) to avoid circular import:
+# presets modules import from models and config, which are safe but we
+# keep the import explicit for contract clarity.
+from .presets import get_preset, list_presets  # noqa: E402

@@ -10,7 +10,7 @@ export default defineConfig({
   build: {
     // Output to package static directory so FastAPI serves it in production
     // and pip install includes it as package data.
-    outDir: path.resolve(__dirname, "../src/movie_narrator/web_api/static"),
+    outDir: path.resolve(__dirname, "../src/movie_narrator_web/static"),
     emptyOutDir: true,
   },
   server: {

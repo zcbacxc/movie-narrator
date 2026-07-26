@@ -1,4 +1,4 @@
-"""python -m movie_narrator.web_api — launch the web API server."""
+"""python -m movie_narrator_web — launch the web API server."""
 
 from . import launch_web_api
 

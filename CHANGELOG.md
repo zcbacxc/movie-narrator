@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-07-26
+
+### Added (v0.5 Ecosystem — Plugin API, SDK, Scene Filter, WebUI Split)
+
+#### M1 — Plugin registry infrastructure (#91)
+
+- **StepRegistry** (`plugin_loader.py`): central registry for pipeline step plugins with decorator-based registration (`@register_step`). Enables third-party steps to extend the pipeline without forking (#91).
+- **ProviderRegistry** (`providers/registry.py`): unified provider registration system with `@register_provider` decorator. Supports TTS, LLM, and research provider extensions (#91).
+- **UnifiedParamSchema** (`schema.py`): single source of truth for job parameters — `PARAM_WHITELIST` is now auto-derived from `JobParams` model fields, eliminating manual sync across 4 files (#91).
+- **SDK surface** (`contract.py`, `__init__.py`): public API exports (`list_presets`, `get_preset`) for external consumers and the web package (#91).
+- **58 tests** covering registry operations, param schema derivation, and SDK contract (#91).
+
+#### M2 — SDK freeze (#92)
+
+- **Plugin discovery via entry_points** (`plugin_loader.py`): automatic discovery of installed plugins through Python `importlib.metadata` entry points under the `movie_narrator.steps` and `movie_narrator.providers` groups (#92).
+- **Services extension** (`models.py`): `Services` model now includes optional `logger` field for structured logging in plugins. `SilentConsole` remains the fallback when not provided (#92).
+- **Out-of-tree example plugin** (`examples/example_plugin/`): reference implementation showing step + provider registration, entry point declaration, and plugin lifecycle (#92).
+- **SDK compatibility docs** (`docs/sdk/`): plugin development guide, API reference, and compatibility matrix (#92).
+- **EntryPoint immutability fix**: tests updated to use `MagicMock` for `EntryPoint` on Python 3.11+ where `EntryPoint` objects became immutable (#92).
+
+#### WP6 — Scene filtering (#93)
+
+- **Intro skip** (`pipeline/scene_filter.py`): automatically detects and skips intro/logo sequences at the start of videos using luminance and motion analysis (#93).
+- **Dark frame detection** (`pipeline/scene_filter.py`): filters out near-black frames that would waste narration budget on non-content segments (#93).
+- **Highlight window** (`pipeline/scene_filter.py`): configurable time-window-based scene prioritization — bias scene selection toward user-specified highlight ranges (#93).
+- **5-file param sync** — `scene_skip_intro`, `scene_dark_threshold`, `scene_highlight_window` added to `schema.py`, `base.py`, `load.py`, `merge.py`, `runner.py` PARAM_WHITELIST (#93).
+
+#### WebUI split — Package separation
+
+- **`movie-narrator-web` package** (`packages/web/`): WebUI (FastAPI + React) extracted into a separate installable package. Core engine no longer bundles web dependencies (`fastapi`, `uvicorn`, `python-multipart`) (#94).
+- **`mn-web` entry point**: standalone launcher for the web UI — `pip install movie-narrator-web` + `mn-web` starts the server (#94).
+- **CI split** (`.github/workflows/ci-web.yml`): dedicated CI workflow for the web package — frontend build + Python web tests run independently from core CI (#94).
+- **Version alignment**: web package version tracks core engine version (both 0.5.0). Web package declares `movie-narrator>=0.5.0` as dependency (#94).
+- **Contract layer preserved**: `contract.py` re-exports `list_presets` and `get_preset` so the web package imports only from the stable public API (#94).
+- **Test split**: `TaskController` tests moved to `packages/web/tests/test_controller.py`; core `test_pipeline_cancel.py` retains only `check_cancelled` mechanism tests (#94).
+
+### Changed
+
+- Core `pyproject.toml`: removed `fastapi`, `uvicorn`, `python-multipart` from dependencies. Web extras removed — web is now a separate package (#94).
+- `.gitignore`: added `packages/web/src/movie_narrator_web/static/` (built frontend, not committed) and re-include rules for web package config JSON files (#94).
+- `vite.config.ts`: build output directory updated to `packages/web/src/movie_narrator_web/static` for pip package data inclusion (#94).
+- `src/movie_narrator/__init__.py`: added `list_presets` and `get_preset` to public exports (#91, #94).
+
+### Fixed
+
+- **faster-whisper fallback** (`pipeline/align.py`): S6 L2+ hand-test revealed WhisperX unavailable in some environments — faster-whisper fallback now enabled for scene captioning (d48cb09).
+- **S6 test script cleanup**: one-off realcap test script removed (a86bc18).
+
 ## [0.4.27] - 2026-07-25
 
 ### Added (EP5 completion + L2+ hand-test materials)
