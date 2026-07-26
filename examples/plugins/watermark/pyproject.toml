@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "movie-narrator-watermark"
+version = "0.1.0"
+description = "Example plugin for movie-narrator: adds a watermark overlay step."
+requires-python = ">=3.10"
+
+[project.entry-points."movie_narrator.plugins"]
+watermark = "movie_narrator_watermark:WatermarkPlugin"
+
+[tool.setuptools.packages.find]
+where = ["."]

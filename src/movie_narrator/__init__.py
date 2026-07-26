@@ -8,6 +8,7 @@ __version__ = version("movie-narrator")
 #   from movie_narrator import register_step, Context
 #   from movie_narrator import register_tts, register_vision
 #   from movie_narrator import Plugin, PluginContext, load_plugin
+#   from movie_narrator import discover_plugins  # entry_points discovery
 #
 # The contract module is the single import surface. We re-export
 # here for convenience so plugins don't need to know the internal
@@ -18,9 +19,12 @@ from .contract import (  # noqa: F401
     Plugin,
     PluginContext,
     ProviderRegistry,
+    Services,
     Step,
     StepRegistry,
     build_context,
+    discover_plugins,
+    list_available_plugins,
     load_plugin,
     register_step,
     register_tts,
