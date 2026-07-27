@@ -323,6 +323,119 @@ def create(
 
 
 @app.command()
+def race(
+    movie: Optional[str] = typer.Option(None, "--movie", "-m", help="电影名称 / Movie name"),
+    style: str = typer.Option("热血搞笑", "--style", "-s", help="解说风格 / Narration style"),
+    duration: int = typer.Option(60, "--duration", "-d", help="目标时长(秒) / Target duration (seconds)"),
+    voice: Optional[str] = typer.Option(None, "--voice", "-v", help="TTS 语音 / TTS voice (Edge TTS)"),
+    format: str = typer.Option("16:9", "--format", "-f", help="视频格式 16:9 或 9:16 / Video format"),
+    video: Optional[str] = typer.Option(None, "--video", help="源视频文件路径 / Source movie file path"),
+    library_dir: Optional[str] = typer.Option(None, "--library-dir", help="影视库目录 / Movie library directory"),
+    research: Optional[bool] = typer.Option(None, "--research/--no-research", help="启用剧情研究 / Enable plot research"),
+    bgm: Optional[str] = typer.Option(None, "--bgm", help="背景音乐文件 / Background music file"),
+    no_bgm: bool = typer.Option(False, "--no-bgm", help="禁用 BGM / Disable BGM"),
+    config: Optional[str] = typer.Option(None, "--config", help="job YAML 配置路径 / Path to job YAML config"),
+    candidates: int = typer.Option(3, "--candidates", "-n", help="候选数量(1-6) / Number of candidates (1-6)"),
+    presets: Optional[str] = typer.Option(
+        None, "--presets",
+        help="自定义预设列表(逗号分隔) / Custom presets (comma-separated, e.g. douyin-fast,mainstream-dry)",
+    ),
+    auto_pick: bool = typer.Option(
+        False, "--auto-pick",
+        help="自动选优并复制到输出根目录 / Auto-pick best and copy to output root",
+    ),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", "-o",
+        help="输出目录(默认 output/<电影名>_race) / Output directory",
+    ),
+):
+    """多候选赛马 (Q-P2) — 同输入跑 N 套变体,打分选优.
+
+    \b
+    每个候选使用不同的 preset x match 种子组合,跑完后按
+    match 质量/时长拟合/多样性/场景覆盖率 综合打分,
+    输出排名表供人工或自动选择.
+
+    \b
+    用法 / Usage:
+        mn race -m 满江红 --video movie.mp4
+        mn race -m 满江红 --video movie.mp4 -n 3 --auto-pick
+        mn race -m 满江红 --presets douyin-fast,mainstream-dry,bilibili-long
+    """
+    from .race import (
+        generate_candidates,
+        run_race,
+        format_race_report,
+        save_race_report,
+    )
+
+    if movie is None and config is None:
+        raise typer.BadParameter(
+            "movie is required (set --movie or config.movie)",
+            param_hint="--movie",
+        )
+
+    # Resolve config (same logic as `mn create`)
+    config_path = None
+    if config is not None:
+        config_path = str(Path(config))
+        if not Path(config_path).is_file():
+            raise typer.BadParameter(
+                f"config not found: {config_path}",
+                param_hint="--config",
+            )
+
+    out_base = (
+        Path(output_dir)
+        if output_dir
+        else Path("output") / f"{_sanitize_filename(movie)}_race"
+    )
+    out_base.mkdir(parents=True, exist_ok=True)
+
+    # Parse custom presets
+    preset_list = None
+    if presets:
+        preset_list = [p.strip() for p in presets.split(",") if p.strip()]
+        candidates = len(preset_list)
+
+    candidate_configs = generate_candidates(n=candidates, presets=preset_list)
+
+    typer.echo(f"Starting race with {len(candidate_configs)} candidates...")
+    typer.echo(f"Output base: {out_base}")
+    typer.echo("")
+
+    results = run_race(
+        candidate_configs,
+        movie=movie or "",
+        style=style,
+        duration=duration,
+        voice=voice,
+        format=format,
+        output_base=out_base,
+        video=video,
+        library_dir=library_dir,
+        research=research,
+        bgm=bgm,
+        no_bgm=no_bgm,
+        config_path=config_path,
+        auto_pick=auto_pick,
+    )
+
+    report = format_race_report(results)
+    typer.echo(report)
+
+    # Save JSON report
+    report_path = out_base / "race_report.json"
+    save_race_report(results, report_path)
+    typer.echo(f"\nReport saved to: {report_path}")
+
+    if results and results[0].error is None:
+        typer.echo(f"\nBest candidate: {results[0].config.label}")
+        if results[0].video_path:
+            typer.echo(f"Video: {results[0].video_path}")
+
+
+@app.command()
 def resume(
     state: str = typer.Option(..., "--state", help="pipeline_state.json 路径 / Path to pipeline state file"),
     retry: bool = typer.Option(False, "--retry", help="硬步骤失败时交互重试 / Enable interactive retry on hard step failure"),
