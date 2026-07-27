@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.4] - 2026-07-27
+
+### Added (v0.5.4 — Quality Uplift)
+
+- **VLM caption provider** (`vision/vlm.py`, Q-M5): real visual scene descriptions via cloud VLM API (GPT-4o, Qwen-VL, etc.). Extracts keyframes from each scene midpoint, sends to OpenAI-compatible vision API, and returns concise captions that unlock embedding re-rank in `match.py`. Gracefully handles individual scene failures with fallback labels. Configured via `MN_VLM_*` environment variables; registered as `"vlm"` provider in `vision_registry`.
+- **Multi-candidate horse race** (`race.py` + `mn race` CLI command, Q-P2): runs N variations of the same input with different presets, scores each candidate by pacing density, footage coverage, and duration alignment, then ranks and optionally auto-picks the best. Supports custom preset lists and `--auto-pick` to copy the winner to the output root.
+- **Reference video imitation** (`imitate.py` + `mn imitate` CLI command, Q-P7): analyzes a viral narration video's sentence density, cut density, and pacing, then auto-generates a temporary preset and runs the standard pipeline to produce a same-style new narration. Supports `--analyze-only` mode for reference analysis without generation.
+- **Layer 0 runbook** (`examples/l2/RUNBOOK.md`, Q-X1~X6): zero-code quality improvement guide covering preset selection, match tuning, render quality, and degradation diagnostics. Includes auxiliary tools for batch comparison and metric extraction.
+
+### Changed
+
+- `cli.py`: added `race` and `imitate` CLI commands.
+- `vision/factory.py`: registered `"vlm"` provider in `vision_registry` at import time.
+- `ROADMAP.md` / `ROADMAP.zh-CN.md`: added v0.5.4 Quality Uplift section.
+- `.env.example`: added `MN_VLM_*` environment variable documentation.
+- `examples/job.example.yaml`: documented `vision_captioner` param.
+- `README.md`: added `mn race` and `mn imitate` command examples.
+
+### Notes
+
+- `CONTRACT_VERSION` remains `(0, 5, 1)` — no new SDK exports; Q-M5/Q-P2/Q-P7 are CLI-level features, not SDK surface additions.
+- All 779 tests pass (23 skipped in CI mode, 0 failures).
+
 ## [0.5.3] - 2026-07-27
 
 ### Added (v0.5.3 — Hardening)

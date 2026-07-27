@@ -136,6 +136,11 @@ params:
   # ---- 调研 ----
   research_provider: llm    # 调研后端（目前仅支持 llm）
 
+  # ---- 视觉描述（Q-M5）----
+  # vision_captioner: vlm    # none（默认）| stub（占位标签）| vlm（云端 VLM API，需配置 MN_VLM_* 环境变量）
+  # vlm provider 会从每个场景中点提取关键帧，发送给 OpenAI 兼容的视觉 API（GPT-4o/Qwen-VL 等）
+  # 返回真实视觉描述，解锁 match.py 中的 embedding re-rank 功能
+
   # ---- WhisperX（需 [ml] 额外依赖）----
   # whisperx_device: cpu      # cpu | cuda
   # whisperx_model: medium    # tiny|base|small|medium|large
