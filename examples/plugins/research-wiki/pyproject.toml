@@ -7,6 +7,10 @@ name = "movie-narrator-research-wiki"
 version = "0.1.0"
 description = "Example plugin for movie-narrator: Wikipedia-based research provider."
 requires-python = ">=3.10"
+dependencies = [
+    "movie-narrator>=0.5.1",
+    "requests>=2.0",
+]
 
 [project.entry-points."movie_narrator.plugins"]
 research-wiki = "movie_narrator_research_wiki:WikiResearchPlugin"

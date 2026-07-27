@@ -166,6 +166,17 @@
 - [x] Reference video imitation (`imitate.py` + `mn imitate` CLI — extract style from viral narration, Q-P7)
 - [x] Layer 0 runbook (`examples/l2/RUNBOOK.md` — zero-code quality improvement guide, Q-X1~X6)
 
+### v0.5.5 — Logging Improvements
+
+- [x] Configurable log levels (`--log-level DEBUG|INFO|WARNING|ERROR` on `mn create`/`resume`/`imitate`)
+- [x] Verbose console mode (`--verbose` flag for real-time debug output)
+- [x] RotatingFileHandler (10MB, 5 backups) preventing unbounded log growth
+- [x] JSON format logging option for structured log aggregation (ELK/Loki)
+- [x] Run ID correlation (8-char ID in log prefix + metadata.json)
+- [x] Sub-step timing (`step_timing` for LLM/TTS/ffmpeg call profiling)
+- [x] Services.logger integration (AppLogger auto-injected for plugin use)
+- [x] Docs/examples alignment with v0.5.4 project state
+
 ## v0.6.x — Cloud
 
 - [ ] Remote inference (offload LLM / TTS / rendering to cloud workers)

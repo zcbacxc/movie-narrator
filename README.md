@@ -512,6 +512,9 @@ movie-narrator/
 - [x] WebUI split — `movie-narrator-web` standalone repo, core engine is now pure CLI (#94, #95)
 - [x] M4 — Provider migration: LLM/Research registries, protocol validation for TTS/Vision (#98)
 - [x] M5 — Community & packaging: CLI plugin commands, plugin template, `check_version()`, packaging guide (#99)
+- [x] v0.5.3 — Hardening: SDK API docs, benchmark script, Quickstart guide, research plugin example
+- [x] v0.5.4 — Quality Uplift: VLM caption provider, multi-candidate horse race, reference video imitation, L2 runbook
+- [x] v0.5.5 — Logging Improvements: `--log-level`/`--verbose` CLI options, RotatingFileHandler, JSON logs, run ID, step timing
 
 > SDK and Plugin API are designed together — both must stabilize in the same release.
 

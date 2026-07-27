@@ -83,7 +83,7 @@ CI=1 mn create --movie "Demo" --duration 10
 mn version
 ```
 
-### 日志系统 (v0.5.4+)
+### 日志系统 (v0.5.5+)
 
 - `--log-level DEBUG|INFO|WARNING|ERROR`：控制文件日志级别（默认 DEBUG）
 - `--verbose`：在控制台显示 DEBUG 级别日志

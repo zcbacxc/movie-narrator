@@ -141,4 +141,6 @@ mn create --config examples/job.example.yaml --movie "其他电影" --no-clips
 # | --subtitle-lang    | 目标语言标签 (en/ja/zh-TW...)；空=关闭 | - |
 # | --subtitle-mode    | 字幕模式 (original/translated/bilingual) | original |
 # | --narration-preset, -p | 解说风格预设 (douyin-fast/mainstream-dry/bilibili-long) | douyin-fast |
+# | --log-level        | 文件日志级别 (DEBUG/INFO/WARNING/ERROR) | DEBUG |
+# | --verbose          | 控制台显示 DEBUG 级别日志 | false |
 # | --config           | YAML 配置文件路径 | 自动发现 |

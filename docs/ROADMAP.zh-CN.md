@@ -166,6 +166,17 @@
 - [x] 参考片模仿（`imitate.py` + `mn imitate` CLI —— 从爆款解说提取风格生成同风格新片，Q-P7）
 - [x] Layer 0 runbook（`examples/l2/RUNBOOK.md` —— 零代码质量提升指南，Q-X1~X6）
 
+### v0.5.5 — 日志改进
+
+- [x] 可配置日志级别（`--log-level DEBUG|INFO|WARNING|ERROR`，适用于 `mn create`/`resume`/`imitate`）
+- [x] 详细控制台模式（`--verbose` 标志，实时输出 DEBUG 级别日志）
+- [x] RotatingFileHandler（10MB 轮转，5 个备份，防止日志无限增长）
+- [x] JSON 格式日志（可选结构化 JSON 日志，适用于 ELK/Loki 聚合）
+- [x] Run ID 关联（8 字符 ID 前缀 + metadata.json，便于交叉关联日志文件）
+- [x] 子步骤计时（`step_timing`，用于 LLM/TTS/ffmpeg 调用性能分析）
+- [x] Services.logger 集成（AppLogger 自动注入，供插件使用结构化日志）
+- [x] 文档与示例对齐 v0.5.4 项目状态
+
 ## v0.6.x — Cloud
 
 - [ ] 远程推理（offload LLM / TTS / 渲染到云 worker）

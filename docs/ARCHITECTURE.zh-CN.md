@@ -326,4 +326,4 @@ class MyPlugin:
 | `--strict` 标志 | 把软步骤失败升级为硬错误（CI 或生产环境用） |
 | 渲染时 `usable_clips` 过滤 | 忽略意外的 `source="fallback"` 行（构造时的默认） |
 
-<!-- Updated to sync with ARCHITECTURE.md through v0.5.4 -->
+<!-- Updated to sync with ARCHITECTURE.md through v0.5.5 -->
