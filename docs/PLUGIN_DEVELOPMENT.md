@@ -78,9 +78,15 @@ The public SDK is importable from `movie_narrator`:
 | `register_step` | Decorator to register a pipeline step |
 | `register_tts` | Decorator to register a TTS provider factory |
 | `register_vision` | Decorator to register a Vision captioner factory |
+| `register_llm` | Decorator to register an LLM provider factory |
+| `register_research` | Decorator to register a research provider factory |
 | `step_registry` | Global step registry instance |
 | `tts_registry` | Global TTS provider registry instance |
 | `vision_registry` | Global Vision provider registry instance |
+| `llm_registry` | Global LLM provider registry instance |
+| `research_registry` | Global research provider registry instance |
+| `ResearchInfo` | Model returned by research providers |
+| `check_version` | Import-time contract version validation |
 
 ## Pipeline Steps
 
@@ -161,6 +167,60 @@ The factory receives keyword arguments and must return an object
 satisfying the `VisionCaptioner` protocol (with `caption_frame` and
 `caption_scenes` methods).
 
+## LLM Providers
+
+```python
+from contextlib import contextmanager
+from movie_narrator import register_llm
+
+@register_llm("anthropic")
+def make_anthropic():
+    @contextmanager
+    def _cm():
+        from .anthropic_client import AnthropicLLMClient
+        yield AnthropicLLMClient(model="claude-3-opus", api_key=...)
+    return _cm()
+```
+
+The factory takes no arguments and must return a **context manager**
+that yields an `LLMClient`-compatible object (with `.client` and
+`.model` attributes). The context manager pattern ensures proper
+resource cleanup.
+
+Select the provider via `llm_provider` in `.env` or settings.
+
+## Research Providers
+
+```python
+from movie_narrator import Context, ResearchInfo, register_research
+
+@register_research("web_search")
+def make_web_search(ctx: Context, settings) -> ResearchInfo:
+    # Fetch from your data source (API, database, web scraper, etc.)
+    return ResearchInfo(
+        title=ctx.movie_name,
+        year=2024,
+        summary="A custom summary from my provider.",
+        genres=["Action", "Drama"],
+        cast=["Actor 1", "Actor 2"],
+        keywords=["keyword1", "keyword2"],
+    )
+```
+
+The factory receives `(ctx, settings)` and must return a `ResearchInfo`
+instance. The pipeline's `research_plot` step calls this factory and
+writes the result to `research.json`.
+
+Select the provider in your job config:
+
+```yaml
+params:
+  research_provider: web_search
+```
+
+See `examples/plugins/research-wiki/` for a complete reference
+implementation using Wikipedia's REST API.
+
 ## Services
 
 The `Services` container provides infrastructure to steps:
@@ -204,12 +264,14 @@ The entry point value can be:
 ### What's stable in v0.5
 
 - The `Plugin` protocol (`name` + `register(ctx)`)
-- The `PluginContext` interface (`steps`, `tts`, `vision`)
+- The `PluginContext` interface (`steps`, `tts`, `vision`, `llm`, `research`)
 - `register_step` decorator signature
-- `register_tts` / `register_vision` decorator signatures
+- `register_tts` / `register_vision` / `register_llm` / `register_research` decorator signatures
 - Built-in step names and execution order
 - `discover_plugins()` / `load_plugin()` function signatures
 - `Services` field names (`console`, `logger`)
+- `ResearchInfo` model fields (`title`, `year`, `summary`, `genres`, `cast`, `keywords`)
+- `check_version()` function for import-time compatibility validation
 
 ### What may change in v0.6+
 

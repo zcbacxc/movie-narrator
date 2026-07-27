@@ -149,6 +149,16 @@
 
 > **设计备注**：SDK 与 Plugin API 是一起设计的 —— SDK 是 Plugin API 的主要使用者，所以两者必须在同一次发布稳定下来，避免兼容性压力。
 
+### v0.5.3 — Hardening
+
+- [x] SDK API 参考（`mkdocs.yml` + `docs/sdk/` —— 通过 mkdocstrings 从 docstring 自动生成）
+- [x] 性能基准脚本（`benchmarks/profile_pipeline.py` —— CI 模式下逐步骤 profiling）
+- [x] Quickstart 指南（`docs/QUICKSTART.md` —— 端到端插件开发教程）
+- [x] Research provider 示例（`examples/plugins/research-wiki/` —— 基于 Wikipedia API 的调研 provider）
+- [x] `ResearchInfo` 加入 SDK 导出（`contract.py` + `__init__.py`）
+- [x] `PLUGIN_DEVELOPMENT.md` 补全 LLM 和 Research provider 章节
+- [x] `docs` 可选依赖组（mkdocs + mkdocstrings）
+
 ## v0.6.x — Cloud
 
 - [ ] 远程推理（offload LLM / TTS / 渲染到云 worker）

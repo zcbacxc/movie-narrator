@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.3] - 2026-07-27
+
+### Added (v0.5.3 — Hardening)
+
+- **SDK API reference** (`mkdocs.yml` + `docs/sdk/`): mkdocs + mkdocstrings configuration for auto-generating API documentation from source docstrings. SDK reference pages cover `contract.py`, `models.py`, `providers/registry.py`, `pipeline/runner.py`, `tts/`, and `presets/`.
+- **Performance benchmark** (`benchmarks/profile_pipeline.py`): per-step profiling script that runs the full 15-step pipeline in CI mode (mock LLM + silent TTS) and reports timing for each step. Supports multiple runs with averaging and JSON output.
+- **Quickstart guide** (`docs/QUICKSTART.md`): end-to-end plugin development tutorial covering package creation, installation, testing, all four extension types (step/TTS/LLM/research), and PyPI publishing.
+- **Research provider example** (`examples/plugins/research-wiki/`): out-of-tree plugin demonstrating `@register_research` with a Wikipedia REST API-based research provider. Includes comparison table with the built-in `llm` provider.
+- **`ResearchInfo` SDK export**: `ResearchInfo` model added to the public SDK surface (`contract.py` + `__init__.py`), enabling research providers to import it directly from `movie_narrator`.
+- **`docs` optional dependency** (`pyproject.toml`): `pip install movie-narrator[docs]` installs mkdocs + mkdocstrings for local doc building.
+
+### Changed
+
+- `docs/PLUGIN_DEVELOPMENT.md`: added LLM Providers and Research Providers sections with code examples; updated SDK Surface table with `register_llm`, `register_research`, `llm_registry`, `research_registry`, `ResearchInfo`, and `check_version`; updated stability guarantees to include LLM/Research interfaces.
+- `docs/ROADMAP.md`: added v0.5.3 Hardening section.
+
 ## [0.5.2] - 2026-07-26
 
 ### Added (M5 — Community & Packaging)
