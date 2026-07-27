@@ -39,3 +39,6 @@ superpowers/
 
 # Local-only docs (not for public repo)
 docs-nocommit/
+
+# Stale webui/ ghost entry (NTFS MFT artifact; dir deleted, split to movie-narrator-web)
+webui/

@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.5] - 2026-07-27
+
+### Added (v0.5.5 — Logging Improvements)
+
+- **Configurable log levels** (`--log-level DEBUG|INFO|WARNING|ERROR`): new CLI option on `mn create`, `mn resume`, and `mn imitate` commands to control file logging verbosity (default: DEBUG).
+- **Verbose console mode** (`--verbose`): new CLI flag that mirrors DEBUG-level log messages to the console for real-time debugging.
+- **RotatingFileHandler**: log files now rotate at 10MB with 5 backups, preventing unbounded log growth.
+- **JSON format logging**: optional structured JSON log lines (`json_format=True` in `build_console`) for ELK/Loki aggregation.
+- **Run ID correlation**: each pipeline run generates a short 8-char run ID, prepended to log messages and stored in `metadata.json` for cross-referencing log files.
+- **Sub-step timing** (`step_timing`): context manager that logs elapsed time for external API calls — LLM plot beats/expansion, TTS batch synthesis, ffmpeg mux, and LLM research.
+- **Services.logger integration**: `AppLogger` instance auto-injected into `ctx.services.logger`, enabling plugins to emit structured log messages without importing a logging framework.
+- **error() defaults to `exc_info=True`**: tracebacks are always captured on errors, eliminating silent stack trace loss.
+
+### Changed
+
+- `utils/log.py`: rewrote `AppLogger` with `RotatingFileHandler`, `_JsonFormatter`, `_TextFormatter` (run_id prefix), and configurable level.
+- `utils/console.py`: `build_console` accepts `log_level`/`verbose`/`json_format`/`run_id` parameters; `PlainConsole.debug` prints to console in verbose mode.
+- `pipeline/runner.py`: `build_context` passes log config to `build_console`; `Services.logger` wired to `AppLogger`.
+- `pipeline/script.py`, `pipeline/research.py`, `pipeline/tts.py`, `pipeline/render.py`: added `step_timing` around external calls.
+- `utils/metadata_export.py`: `run_id` field added to `metadata.json`.
+- `docs/AI_GUIDE.md`: added logging system section; fixed TTS cache key description (`pause_ms` → `style_prompt`).
+- `docs/ARCHITECTURE.zh-CN.md`: synced with English version (diversity fields, align diagnostics, cache key).
+- `docs/CONTRIBUTING.zh-CN.md`: fixed project structure (`workflow.py` → `workflow/` directory).
+- `docs/QUICKSTART.md`: updated version reference to 0.5.5.
+- `docs/ROADMAP.md` / `ROADMAP.zh-CN.md`: fixed `@register_provider` → specific decorator names.
+- `examples/cli-usage.sh`: removed deprecated `mn web`; added `--log-level`/`--verbose` examples.
+- `examples/l2/README.md`: updated WP1 limitations (short keys now effective).
+- `examples/l2/job.l2.douyin.no_align.yaml`: deleted (temporary diagnostic, v0.4.27 issue resolved).
+- `examples/l2/tools/llm_check.py`: fixed dependency description.
+- `.gitignore`: replaced `docs/规划/` with `docs-nocommit/` for local-only docs.
+
+### Notes
+
+- `CONTRACT_VERSION` remains `(0, 5, 1)` — no SDK surface changes.
+- All 779 tests pass (23 skipped in CI mode, 0 failures).
+
 ## [0.5.4] - 2026-07-27
 
 ### Added (v0.5.4 — Quality Uplift)
