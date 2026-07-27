@@ -8,6 +8,7 @@ from tqdm.asyncio import tqdm_asyncio
 from ..config import get_settings, TTSProviderType
 from ..models import Context, TimedSegment
 from ..utils.async_utils import run_async
+from ..utils.console import step_timing
 from ..tts import TTSCacheKey, get_tts_provider, is_ci
 from ..tts.cache import (
     cache_path_for,
@@ -142,7 +143,8 @@ def generate_voice(ctx: Context) -> Context:
             unit="seg",
         )
 
-    results = run_async(_run_all())
+    with step_timing(console, "tts_batch_synthesize"):
+        results = run_async(_run_all())
 
     combined, timed_segments = _build_audio(
         results, ctx.segments, pause_ms

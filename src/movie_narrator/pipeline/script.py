@@ -3,6 +3,7 @@ import re
 
 from ..config import get_settings
 from ..models import Context, ScriptSegment
+from ..utils.console import step_timing
 from ..utils.prompts import BEATS_PROMPT, EXPAND_PROMPT, build_cadence_hint, build_set_pieces_hint, build_hook_hint
 from ..utils.llm import get_llm_client
 from ..utils.json_parser import extract_json
@@ -308,10 +309,12 @@ def generate_script(ctx: Context) -> Context:
                     n = 18
 
                 # Phase 1: extract plot beats
-                beats = _generate_plot_beats(ctx, settings, llm, n)
+                with step_timing(ctx.services.console, "llm_plot_beats"):
+                    beats = _generate_plot_beats(ctx, settings, llm, n)
 
                 # Phase 2: expand beats into narration segments
-                segments = _expand_beats_to_script(ctx, settings, llm, beats, n)
+                with step_timing(ctx.services.console, "llm_expand_script"):
+                    segments = _expand_beats_to_script(ctx, settings, llm, beats, n)
 
                 # Fallback: trim to exactly n if LLM overshot
                 segments = _trim_segments(segments, n)

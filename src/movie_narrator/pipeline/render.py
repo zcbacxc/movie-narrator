@@ -8,6 +8,7 @@ from PIL import Image, ImageDraw, ImageFilter
 from proglog import TqdmProgressBarLogger
 
 from ..models import Context, MatchedClip, StepResult, TimedSegment
+from ..utils.console import step_timing
 from ..utils.metadata_export import build_metadata_json
 from ..utils.text_image import create_text_image as _create_text_image
 from ..utils.video_layout import compute_fit_box
@@ -419,14 +420,15 @@ def render_video(ctx: Context) -> Context:
     mux_cmd.append(str(video_path))
 
     try:
-        proc = subprocess.run(
-            mux_cmd,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=ctx.metadata.get("render_ffmpeg_timeout", _DEFAULT_MUX_TIMEOUT),
-        )
+        with step_timing(ctx.services.console, "ffmpeg_mux"):
+            proc = subprocess.run(
+                mux_cmd,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=ctx.metadata.get("render_ffmpeg_timeout", _DEFAULT_MUX_TIMEOUT),
+            )
         if proc.returncode != 0:
             raise RuntimeError(
                 f"ffmpeg mux failed (exit={proc.returncode}): {proc.stderr}"

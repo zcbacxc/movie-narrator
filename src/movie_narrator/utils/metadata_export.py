@@ -16,6 +16,7 @@ def build_metadata_json(ctx: Context) -> Dict[str, Any]:
     }
     meta: Dict[str, Any] = {
         "version": ctx.metadata.get("version", __version__),
+        "run_id": ctx.metadata.get("run_id"),
         "movie_name": ctx.movie_name,
         "source_video": ctx.source_video_path,
         "video_path": ctx.video_path,

@@ -1,3 +1,4 @@
+import logging
 import time
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -157,6 +158,9 @@ def build_context(
     subtitle_mode: Optional[str] = None,
     services: Optional[Services] = None,
     narration_preset: Optional[str] = None,
+    log_level: int = logging.DEBUG,
+    verbose: bool = False,
+    json_format: bool = False,
 ) -> Context:
     """Assemble a :class:`Context` ready for :func:`run_pipeline`.
 
@@ -186,7 +190,16 @@ def build_context(
         bgm_request = "none"
 
     if services is None:
-        services = Services(console=build_console(output_dir))
+        console = build_console(
+            output_dir,
+            log_level=log_level,
+            verbose=verbose,
+            json_format=json_format,
+        )
+        services = Services(
+            console=console,
+            logger=getattr(console, "_log", None),
+        )
 
     ctx = Context(
         movie_name=movie,
@@ -337,6 +350,13 @@ def run_pipeline(
     """
     console = ctx.services.console
     workflow_steps: Optional[Dict[str, bool]] = ctx.metadata.get("workflow_steps")
+
+    # ── Run ID for log correlation ──────────────────────
+    # Extracted from the console (set by build_console). Stored in
+    # metadata so metadata.json can cross-reference log files.
+    run_id = getattr(console, "_run_id", None)
+    if run_id:
+        ctx.metadata["run_id"] = run_id
 
     # ── Preflight: fail fast if LLM / TTS is not usable ────
     # Avoids silent degradation to mock content when services are down.
