@@ -17,9 +17,17 @@ def _make_stub(**kwargs) -> VisionCaptioner:
     return StubVisionCaptioner()
 
 
+def _make_vlm(**kwargs) -> VisionCaptioner:
+    from .vlm import VLMCaptioner
+    return VLMCaptioner(**kwargs)
+
+
 # Register only if not already registered (handles reload scenarios).
 if not vision_registry.contains("stub"):
     vision_registry.register("stub", _make_stub)
+
+if not vision_registry.contains("vlm"):
+    vision_registry.register("vlm", _make_vlm)
 
 # Enable protocol validation: create() will TypeError if a factory
 # returns something that is not a VisionCaptioner instance.

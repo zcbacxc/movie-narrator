@@ -73,6 +73,7 @@ narration_preset: ""        # douyin-fast | mainstream-dry | bilibili-long
 #          match_diversity_window / match_max_scene_reuse
 #          match_timeline_mode / match_act_weights
 #          match_topk / match_topk_reuse_penalty
+  #   视觉: vision_captioner
 #   BGM:  bgm_gain_db / bgm_duck_db / bgm_normalize / audio_target_dbfs
 #   TTS:  tts_pause_ms / tts_max_concurrent / tts_audio_format / tts_audio_bitrate
 #   翻译: translate_source_lang / translate_provider / translate_retries
