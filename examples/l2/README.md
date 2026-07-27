@@ -82,10 +82,15 @@ mn create \
 
 > 常比改代码更赚 — 先检查这些再跑片。
 
-1. **源片**：优先官方预告/高光混剪；正片至少 720p+音轨
-2. **LLM**：脚本阶段尽量强模；弱模只适合工程测
-3. **BGM**：人声频段别太抢；BPM 中高更适合抖音
-4. **卖点**：`--style` 写清「只讲反转」比「热血搞笑」泛称更好
-5. **时长**：先 60s 打磨，再 120s
-6. **语言**：英语片设 `whisperx_language: en`
-7. **发布**：标题重写钩子，不要只写片名
+完整版见 [RUNBOOK.md](./RUNBOOK.md)，覆盖 Q-X1~X6 全部六个旁路方法 + 辅助工具。
+
+速查：
+
+1. **源片**（Q-X1）：优先官方预告/高光混剪；正片至少 720p+音轨 — `python tools/source_check.py <video>`
+2. **LLM**（Q-X2）：脚本阶段尽量强模；弱模只适合工程测 — `python tools/llm_check.py`
+3. **BGM**（Q-X3）：人声频段别太抢；BPM 中高更适合抖音 — `python tools/bgm_analyze.py <bgm>`
+4. **片种分流**（Q-X4）：不同类型用不同 preset — `python tools/genre_advisor.py --genre 动作`
+5. **卖点**（Q-X5）：`--style` 写清「只讲反转」比「热血搞笑」泛称更好
+6. **时长**：先 60s 打磨，再 120s
+7. **语言**：英语片设 `whisperx_language: en`
+8. **发布**（Q-X6）：标题重写钩子，不要只写片名
