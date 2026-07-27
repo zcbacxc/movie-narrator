@@ -5,6 +5,7 @@ from time import sleep
 from ..config import get_settings
 from ..models import Context, ResearchInfo, StepResult
 from ..providers import research_registry, register_research
+from ..utils.console import step_timing
 from ..utils.json_parser import extract_json
 from ..utils.llm import get_llm_client
 
@@ -44,12 +45,13 @@ def _research_via_llm(ctx: Context, settings) -> ResearchInfo:
     """Fetch movie research data via LLM chat completion."""
     with get_llm_client() as llm:
         prompt = RESEARCH_PROMPT.format(movie=ctx.movie_name)
-        response = llm.client.chat.completions.create(
-            model=llm.model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=settings.research_temperature,
-            max_tokens=settings.research_max_tokens,
-        )
+        with step_timing(ctx.services.console, "llm_research"):
+            response = llm.client.chat.completions.create(
+                model=llm.model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=settings.research_temperature,
+                max_tokens=settings.research_max_tokens,
+            )
         raw = response.choices[0].message.content or ""
         data = extract_json(raw)
 

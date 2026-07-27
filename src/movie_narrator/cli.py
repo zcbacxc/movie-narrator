@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -171,6 +172,14 @@ def create(
         help="在指定步骤后暂停(人在环 EP9) / Pause after this step name "
              "(e.g. match_clips, generate_script). Resume with: mn resume --state <path>",
     ),
+    log_level: str = typer.Option(
+        "DEBUG", "--log-level",
+        help="日志级别 DEBUG|INFO|WARNING|ERROR / Log level (default: DEBUG)",
+    ),
+    verbose: bool = typer.Option(
+        False, "--verbose",
+        help="在控制台显示 DEBUG 日志 / Show debug logs in console",
+    ),
 ):
     """生成解说短视频 — 从电影名到成片一站式产出.
 
@@ -260,6 +269,15 @@ def create(
     out_dir = Path(output_dir) if output_dir else Path("output") / _sanitize_filename(resolved.movie)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    # ── Log level resolution ──────────────────────────────
+    _LEVEL_MAP = {
+        "DEBUG": logging.DEBUG,
+        "INFO": logging.INFO,
+        "WARNING": logging.WARNING,
+        "ERROR": logging.ERROR,
+    }
+    _resolved_level = _LEVEL_MAP.get(log_level.upper(), logging.DEBUG)
+
     ctx = build_context(
         movie=resolved.movie,
         style=resolved.style,
@@ -281,6 +299,8 @@ def create(
         subtitle_lang=resolved.subtitle_lang,
         subtitle_mode=resolved.subtitle_mode,
         narration_preset=resolved.narration_preset or narration_preset,
+        log_level=_resolved_level,
+        verbose=verbose,
     )
     controller = InteractiveCLIController() if retry else None
 
@@ -466,6 +486,14 @@ def imitate(
         False, "--analyze-only",
         help="只分析参考片不生成 / Only analyze reference, don't generate",
     ),
+    log_level: str = typer.Option(
+        "DEBUG", "--log-level",
+        help="日志级别 DEBUG|INFO|WARNING|ERROR / Log level (default: DEBUG)",
+    ),
+    verbose: bool = typer.Option(
+        False, "--verbose",
+        help="在控制台显示 DEBUG 日志 / Show debug logs in console",
+    ),
 ):
     """参考片模仿 (Q-P7) — 从爆款解说提取风格,生成同风格新片.
 
@@ -529,6 +557,14 @@ def imitate(
     from .pipeline.errors import PipelinePaused
     from .pipeline.preflight import PreflightError
 
+    _LEVEL_MAP = {
+        "DEBUG": logging.DEBUG,
+        "INFO": logging.INFO,
+        "WARNING": logging.WARNING,
+        "ERROR": logging.ERROR,
+    }
+    _resolved_level = _LEVEL_MAP.get(log_level.upper(), logging.DEBUG)
+
     ctx = build_context(
         movie=movie,
         style=style,
@@ -549,6 +585,8 @@ def imitate(
         subtitle_lang=subtitle_lang,
         subtitle_mode=subtitle_mode,
         narration_preset=preset_name,
+        log_level=_resolved_level,
+        verbose=verbose,
     )
 
     controller = InteractiveCLIController() if retry else None
@@ -582,6 +620,14 @@ def imitate(
 def resume(
     state: str = typer.Option(..., "--state", help="pipeline_state.json 路径 / Path to pipeline state file"),
     retry: bool = typer.Option(False, "--retry", help="硬步骤失败时交互重试 / Enable interactive retry on hard step failure"),
+    log_level: str = typer.Option(
+        "DEBUG", "--log-level",
+        help="日志级别 DEBUG|INFO|WARNING|ERROR / Log level (default: DEBUG)",
+    ),
+    verbose: bool = typer.Option(
+        False, "--verbose",
+        help="在控制台显示 DEBUG 日志 / Show debug logs in console",
+    ),
 ):
     """恢复暂停的管线 (EP9) — 从上次暂停点继续执行.
 
@@ -601,9 +647,26 @@ def resume(
 
     ctx, completed_step = _load_pipeline_state(state_path)
 
+    # ── Log level resolution ──────────────────────────────
+    _LEVEL_MAP = {
+        "DEBUG": logging.DEBUG,
+        "INFO": logging.INFO,
+        "WARNING": logging.WARNING,
+        "ERROR": logging.ERROR,
+    }
+    _resolved_level = _LEVEL_MAP.get(log_level.upper(), logging.DEBUG)
+
     # Re-inject a real console (serialized state has SilentConsole)
     from .models import Services
-    ctx.services = Services(console=build_console(Path(ctx.output_dir)))
+    console = build_console(
+        Path(ctx.output_dir),
+        log_level=_resolved_level,
+        verbose=verbose,
+    )
+    ctx.services = Services(
+        console=console,
+        logger=getattr(console, "_log", None),
+    )
 
     # Determine the step to start from (the step AFTER the completed one)
     start_step = _next_step_after(completed_step)
