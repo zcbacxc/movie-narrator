@@ -21,6 +21,9 @@ Movie Narrator is an open-source toolkit that automatically generates movie reca
 - 🔊 Text-to-Speech narration (Edge-TTS by default)
 - 💬 Automatic SRT subtitle generation
 - 🌐 Multi-language subtitles (`--subtitle-lang en` translates narration cues via LLM and writes `subtitle.<lang>.srt` + `subtitle.bilingual.srt`)
+- 🏁 Multi-candidate horse race (`mn race` — run N variations, score, rank, auto-pick best)
+- 🎯 Reference video imitation (`mn imitate` — extract style from viral narration, generate same-style new video)
+- 👁️ VLM scene captioning (`vision_captioner: vlm` — real visual descriptions via cloud VLM API)
 - 🖥️ Web UI — provided by the separate [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web) package (FastAPI + React browser app with form inputs, cooperative cancel, artifact download, and real-time progress via WebSocket)
 - 🎞️ Video rendering with MoviePy and FFmpeg
 - 📝 Script markdown export (`script.md`)
@@ -188,6 +191,34 @@ When `--subtitle-lang` is set, `generate_subtitle` always writes three SRT files
 | `bilingual` | `subtitle.bilingual.srt` (same fallback) |
 
 Setting `subtitle_mode=translated|bilingual` without `subtitle_lang` raises `JobConfigError` at merge time. Failure policy: LLM retries `MN_TRANSLATE_RETRIES` times, then soft-degrades to filling the translation track with the original text and surfacing a warning.
+
+### Multi-candidate horse race (Q-P2)
+
+```bash
+# Run 3 variations with different presets, score and rank
+mn race --movie "飞驰人生" --video movie.mp4 --candidates 3
+
+# Custom presets + auto-pick the best
+mn race --movie "飞驰人生" --video movie.mp4 --presets douyin-fast,mainstream-dry,bilibili-long --auto-pick
+```
+
+Runs N variations of the same input with different presets, scores each by pacing density, footage coverage, and duration alignment, then ranks. Use `--auto-pick` to copy the winner to the output root.
+
+### Reference video imitation (Q-P7)
+
+```bash
+# Analyze a viral narration and generate a same-style new video
+mn imitate --reference viral_ref.mp4 --movie "飞驰人生" --video movie.mp4
+
+# Analyze only (no generation)
+mn imitate --reference viral_ref.mp4 --analyze-only
+```
+
+Extracts sentence density, cut density, and pacing from the reference video, auto-generates a temporary preset, then runs the standard pipeline to produce a same-style narration.
+
+### VLM scene captioning (Q-M5)
+
+Set `vision_captioner: vlm` in `job.yaml` params and configure `MN_VLM_*` env vars to enable real visual scene descriptions via cloud VLM API (GPT-4o, Qwen-VL, etc.). This unlocks embedding re-rank in scene matching for significantly better clip selection.
 
 ### Web UI
 

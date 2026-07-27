@@ -159,6 +159,13 @@
 - [x] `PLUGIN_DEVELOPMENT.md` updated with LLM and Research provider sections
 - [x] `docs` optional dependency group (mkdocs + mkdocstrings)
 
+### v0.5.4 — Quality Uplift
+
+- [x] VLM caption provider (`vision/vlm.py` — cloud VLM API for real visual scene descriptions, Q-M5)
+- [x] Multi-candidate horse race (`race.py` + `mn race` CLI — run N variations, score, rank, Q-P2)
+- [x] Reference video imitation (`imitate.py` + `mn imitate` CLI — extract style from viral narration, Q-P7)
+- [x] Layer 0 runbook (`examples/l2/RUNBOOK.md` — zero-code quality improvement guide, Q-X1~X6)
+
 ## v0.6.x — Cloud
 
 - [ ] Remote inference (offload LLM / TTS / rendering to cloud workers)

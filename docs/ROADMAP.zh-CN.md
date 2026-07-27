@@ -159,6 +159,13 @@
 - [x] `PLUGIN_DEVELOPMENT.md` 补全 LLM 和 Research provider 章节
 - [x] `docs` 可选依赖组（mkdocs + mkdocstrings）
 
+### v0.5.4 — 质量提升
+
+- [x] VLM caption provider（`vision/vlm.py` —— 云端 VLM API 生成真实视觉场景描述，Q-M5）
+- [x] 多候选赛马（`race.py` + `mn race` CLI —— 同输入跑 N 套变体，打分选优，Q-P2）
+- [x] 参考片模仿（`imitate.py` + `mn imitate` CLI —— 从爆款解说提取风格生成同风格新片，Q-P7）
+- [x] Layer 0 runbook（`examples/l2/RUNBOOK.md` —— 零代码质量提升指南，Q-X1~X6）
+
 ## v0.6.x — Cloud
 
 - [ ] 远程推理（offload LLM / TTS / 渲染到云 worker）
