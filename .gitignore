@@ -37,5 +37,5 @@ output/
 CLAUDE.md
 superpowers/
 
-# Local-only planning docs (not for public repo)
-docs/规划/
+# Local-only docs (not for public repo)
+docs-nocommit/
