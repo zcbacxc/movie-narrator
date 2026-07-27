@@ -81,6 +81,8 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
             "match_diversity_window", "match_max_scene_reuse",
             "match_timeline_mode", "match_act_weights",
             "match_topk", "match_topk_reuse_penalty",
+            # Vision (Q-M5: VLM caption provider)
+            "vision_captioner",
             # BGM + loudness
             "bgm_gain_db", "bgm_duck_db", "bgm_normalize", "audio_target_dbfs",
             # TTS pacing
