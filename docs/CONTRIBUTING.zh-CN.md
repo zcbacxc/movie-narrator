@@ -38,7 +38,7 @@ movie-narrator/
 │   ├── models.py        # Context、PipelineStatus、StepState、Services 等
 │   ├── contract.py      # 稳定 API 边界（CONTRACT_VERSION = (0, 5, 1)）
 │   ├── cli.py           # `mn` Typer 入口（create、version 等）
-│   └── workflow.py      # job.yaml 加载与合并（JobConfig、merge_job）
+│   └── workflow/        # job.yaml 加载与合并（schema.py、load.py、merge.py、errors.py）
 ├── tests/               # pytest 套件（单元 + 烟雾测试）
 ├── docs/                # ARCHITECTURE、ROADMAP、CONTRIBUTING、specs/
 └── examples/            # job.example.yaml、plugins/watermark/

@@ -104,7 +104,7 @@
 ### M1 — Plugin registry infrastructure (#91)
 
 - [x] Plugin API for custom pipeline steps (step registration, lifecycle hooks, dependency declaration)
-- [x] StepRegistry + ProviderRegistry with `@register_step` / `@register_provider` decorators
+- [x] StepRegistry + ProviderRegistry with `@register_step` / `@register_tts` / `@register_vision` / `@register_llm` / `@register_research` decorators
 - [x] UnifiedParamSchema — `PARAM_WHITELIST` auto-derived from `JobParams` model fields
 - [x] SDK surface exports (`list_presets`, `get_preset`) in `contract.py` and `__init__.py`
 

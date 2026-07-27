@@ -19,6 +19,12 @@ mn create --movie "飞驰人生" --voice "zh-CN-XiaoxiaoNeural" --format "9:16"
 # 保留 TTS 缓存（调试用）
 mn create --movie "飞驰人生" --keep-cache
 
+# Verbose logging (show debug in console)
+mn create -m 满江红 --video movie.mp4 --verbose
+
+# Set log level to INFO (less verbose file logs)
+mn create -m 满江红 --video movie.mp4 --log-level INFO
+
 # ============================================================
 # 源视频 / 电影库
 # ============================================================
@@ -98,14 +104,9 @@ mn imitate --reference viral_ref.mp4 --analyze-only
 # Web UI
 # ============================================================
 
-# 启动本地 Web UI（默认 http://127.0.0.1:8760）
-mn web
-
-# 自定义主机和端口
-mn web --host 0.0.0.0 --port 8080
-
-# 开发模式（文件变更自动重载）
-mn web --reload
+# Web UI has been moved to movie-narrator-web package
+# Install: pip install movie-narrator-web
+# Then run: mn-web
 
 # ============================================================
 # YAML 配置

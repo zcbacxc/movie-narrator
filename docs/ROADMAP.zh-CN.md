@@ -104,7 +104,7 @@
 ### M1 — 插件注册基础设施 (#91)
 
 - [x] 自定义流水线步骤的 Plugin API（步骤注册、生命周期钩子、依赖声明）
-- [x] StepRegistry + ProviderRegistry，支持 `@register_step` / `@register_provider` 装饰器
+- [x] StepRegistry + ProviderRegistry，支持 `@register_step` / `@register_tts` / `@register_vision` / `@register_llm` / `@register_research` 装饰器
 - [x] UnifiedParamSchema —— `PARAM_WHITELIST` 由 `JobParams` 模型字段自动派生
 - [x] SDK 公开导出（`list_presets`、`get_preset`）在 `contract.py` 和 `__init__.py` 中
 

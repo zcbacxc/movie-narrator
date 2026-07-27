@@ -83,6 +83,15 @@ CI=1 mn create --movie "Demo" --duration 10
 mn version
 ```
 
+### 日志系统 (v0.5.4+)
+
+- `--log-level DEBUG|INFO|WARNING|ERROR`：控制文件日志级别（默认 DEBUG）
+- `--verbose`：在控制台显示 DEBUG 级别日志
+- RotatingFileHandler：10MB 轮转，保留 5 份备份
+- `--log-level` 适用于 `mn create`、`mn resume`、`mn imitate` 命令
+- 每次运行生成 run_id，写入日志前缀和 metadata.json
+- step_timing：LLM/TTS/ffmpeg 关键调用点自动计时
+
 ## 测试
 
 ```bash
@@ -133,7 +142,7 @@ src/movie_narrator/
 | `Context` | 共享可变状态，在所有步骤间传递 |
 | `PipelineStatus` | 软步骤状态追踪（disabled / skipped / success / failed） |
 | Soft vs Hard steps | 软步骤失败可跳过（`--strict` 改为中止），硬步骤失败中止流水线 |
-| Content-addressable TTS cache | 7 维度 SHA256（schema_version, provider, provider_version, model, voice, text, pause_ms） |
+| Content-addressable TTS cache | 7 维度 SHA256（schema_version, provider, provider_version, model, voice, text, style_prompt） |
 | YAML auto-discovery | 未传 `--config` 时自动查找 `cwd/job.yaml` → 打包示例 |
 | env/yaml boundary | `.env` = LLM + TTS 凭证（24 项）；`job.yaml` = 行为参数（52 项） |
 

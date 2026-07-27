@@ -8,7 +8,7 @@
     python llm_check.py
     python llm_check.py --provider openai --model gpt-4o
 
-依赖: movie_narrator 包（或对应 LLM provider 的 Python SDK）
+依赖: 无外部依赖（仅使用标准库 urllib 直连 OpenAI 兼容 API）；需配置 .env 中的 MN_LLM_* 环境变量
 """
 
 from __future__ import annotations

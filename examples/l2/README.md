@@ -51,11 +51,8 @@ mn create \
 
 | 配置 | 生效条件 | 注意 |
 |------|---------|------|
-| `steps.research` | 有效（经 research_enabled 通路） | ✅ |
-| `steps.translate` | 有效（短键唯一可靠别名） | ✅ |
-| `steps.scene / match / align / bgm / export` | **WP1 前不生效** | 短键无别名 |
+| `steps.*` 短键 | WP1 后已生效 | research/align/scene/match/bgm/export/translate 均可在 steps 中使用 |
 | `bgm` 路径 | 必须 `--bgm` 或 YAML `bgm:` 传路径 | `steps.bgm: true` **不会**启用 BGM |
-| `prompt_target_segment_duration` | 只能经 preset 设置 | 写进 YAML `params:` 会 load 失败 |
 
 ### `samples.yaml`
 

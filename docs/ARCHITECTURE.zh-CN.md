@@ -227,7 +227,7 @@ output/<movie>/
 | `captioning` | {used, usable_label_ratio, cached, language, model} | WhisperX 字幕抽取状态 |
 | `embedding_model` | str | 使用的 embedding 模型名 |
 | `degraded_reason` | str \| null | "fake_captions" / "all_heuristic" / null |
-| `diversity` | null | 为 EP3 预留 |
+| `diversity` | {enabled, unique_scenes, max_reuse, repeat_pairs, swaps, swaps_log, window} | WP3 多样性后处理审计（v0.4.20+，见 v0.4.20 审计表） |
 | **— 兼容旧版 —** | | |
 | `total` | int | = segments（兼容老调用方） |
 | `embedding` | int | = source_counts.embedding（兼容老调用方） |
@@ -236,7 +236,7 @@ output/<movie>/
 
 `score` 与 `raw_score` 的关系：`score.avg` 只反映「命中良好」的 embedding 分数（被采纳）；`raw_score.avg` 包含「不好但已回退」的分数。若 `score.avg=0.85` 但 `low_score_fallback_count=5`，说明前 N 次命中准确，另有 5 次回退。
 
-### `metadata.json` → align 诊断（v0.4.18）
+### `metadata.json` → align 诊断（v0.4.18+）
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
@@ -245,6 +245,9 @@ output/<movie>/
 | `align_degraded` | bool | 对齐降级则为 True（包括回退、空 ASR、单段漂移） |
 | `align_segments` | int | WhisperX 返回的段数 |
 | `align_backward_skipped` | int | 因单调截断会被压成 100ms 而沿用 TTS 估计值的段数（F4） |
+| `align_backend_used` | str | 实际使用的后端："whisperx" / "faster_whisper" / "none"（v0.4.19+） |
+| `align_backend_reason` | str | 选择该后端的原因（v0.4.19+） |
+| `align_backend_attempted` | list | 回退前尝试失败的后端列表（v0.4.19+） |
 
 `align_backward_skipped > 0` 意味着这些段时间戳来自 TTS 估计（而非 WhisperX 对齐），因为某些 wx 段被映射到上一段结尾后很远的位置。这样处理优于在屏幕上闪一个 100ms 的字幕。
 
@@ -318,7 +321,9 @@ class MyPlugin:
 |------|------|
 | 扁平串联的 STEPS 列表 | 没有事件总线或 DI 容器；流程清晰、可直接审阅 |
 | 软/硬步骤切分 | 可选依赖（PySceneDetect、WhisperX）不会破坏核心流水线 |
-| 内容寻址 TTS 缓存 | 避免重复 API 调用；键包括 version + pause 配置 |
+| 内容寻址 TTS 缓存 | 避免重复 API 调用；键包括 version + style_prompt 配置 |
 | `PipelineStatus` 模型 | 每个软步骤的执行结果都可以在 `metadata.json` 中检查 |
 | `--strict` 标志 | 把软步骤失败升级为硬错误（CI 或生产环境用） |
 | 渲染时 `usable_clips` 过滤 | 忽略意外的 `source="fallback"` 行（构造时的默认） |
+
+<!-- Updated to sync with ARCHITECTURE.md through v0.5.4 -->
