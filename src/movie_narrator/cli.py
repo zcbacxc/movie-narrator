@@ -323,6 +323,149 @@ def create(
 
 
 @app.command()
+def imitate(
+    reference: str = typer.Option(
+        ..., "--reference", "-r",
+        help="参考视频路径 / Reference video path (viral narration to imitate)",
+    ),
+    movie: Optional[str] = typer.Option(None, "--movie", "-m", help="电影名称 / Movie name"),
+    style: str = typer.Option("热血搞笑", "--style", "-s", help="解说风格 / Narration style"),
+    duration: int = typer.Option(60, "--duration", "-d", help="目标时长(秒) / Target duration (seconds)"),
+    voice: Optional[str] = typer.Option(None, "--voice", "-v", help="TTS 语音 / TTS voice"),
+    format: str = typer.Option("16:9", "--format", "-f", help="视频格式 / Video format"),
+    keep_cache: bool = typer.Option(False, "--keep-cache", help="保留 TTS 缓存 / Keep TTS cache"),
+    video: Optional[str] = typer.Option(None, "--video", help="源视频文件路径 / Source movie file path"),
+    library_dir: Optional[str] = typer.Option(None, "--library-dir", help="影视库目录"),
+    research: Optional[bool] = typer.Option(None, "--research/--no-research", help="启用剧情研究"),
+    bgm: Optional[str] = typer.Option(None, "--bgm", help="背景音乐文件 / Background music file"),
+    no_bgm: bool = typer.Option(False, "--no-bgm", help="禁用 BGM / Disable BGM"),
+    no_clips: bool = typer.Option(False, "--no-clips", help="跳过片段导出 / Skip clips"),
+    strict: bool = typer.Option(False, "--strict", help="软步骤失败即中止 / Abort on soft step failure"),
+    retry: bool = typer.Option(False, "--retry", help="硬步骤失败时交互重试"),
+    config: Optional[str] = typer.Option(None, "--config", help="job YAML 配置路径"),
+    subtitle_lang: Optional[str] = typer.Option(None, "--subtitle-lang", help="目标语言标签"),
+    subtitle_mode: Optional[str] = typer.Option(None, "--subtitle-mode", help="字幕模式"),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", "-o",
+        help="输出目录(默认 output/<电影名>_imitate) / Output directory",
+    ),
+    analyze_only: bool = typer.Option(
+        False, "--analyze-only",
+        help="只分析参考片不生成 / Only analyze reference, don't generate",
+    ),
+):
+    """参考片模仿 (Q-P7) — 从爆款解说提取风格,生成同风格新片.
+
+    \b
+    分析参考视频的句密/切密/节奏,自动生成临时 preset,
+    然后用该 preset 跑标准管线生成新解说.
+
+    \b
+    用法 / Usage:
+        mn imitate -r viral_ref.mp4 -m 满江红 --video movie.mp4
+        mn imitate -r viral_ref.mp4 --analyze-only
+        mn imitate -r viral_ref.mp4 -m 满江红 --video movie.mp4 --auto-pick
+    """
+    from .imitate import (
+        analyze_reference,
+        metrics_to_params,
+        metrics_to_preset_name,
+        format_analysis_report,
+    )
+
+    if not Path(reference).is_file():
+        raise typer.BadParameter(
+            f"reference video not found: {reference}",
+            param_hint="--reference",
+        )
+
+    if movie is None and not analyze_only:
+        raise typer.BadParameter(
+            "movie is required (set --movie or use --analyze-only)",
+            param_hint="--movie",
+        )
+
+    # Analyze the reference video
+    out_dir = (
+        Path(output_dir)
+        if output_dir
+        else Path("output") / f"{_sanitize_filename(movie or 'reference')}_imitate"
+    )
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    typer.echo(f"Analyzing reference: {reference}")
+    metrics = analyze_reference(reference, output_dir=out_dir)
+    typer.echo("")
+
+    report = format_analysis_report(metrics)
+    typer.echo(report)
+
+    if analyze_only:
+        typer.echo(f"\nAnalysis saved to: {out_dir / 'reference_analysis.json'}")
+        return
+
+    # Generate params from metrics
+    params = metrics_to_params(metrics)
+    preset_name = metrics_to_preset_name(metrics)
+
+    typer.echo(f"\nUsing preset: {preset_name}")
+    typer.echo(f"Generated {len(params)} custom parameters")
+
+    # Build context and run pipeline
+    from .pipeline.runner import build_context, run_pipeline
+    from .pipeline.errors import PipelinePaused
+    from .pipeline.preflight import PreflightError
+
+    ctx = build_context(
+        movie=movie,
+        style=style,
+        duration=duration,
+        voice=voice,
+        format=format,
+        output_dir=out_dir,
+        keep_cache=keep_cache,
+        video=video,
+        library_dir=library_dir,
+        research=research,
+        bgm=bgm,
+        no_bgm=no_bgm,
+        no_clips=no_clips,
+        strict=strict,
+        params=params,
+        config_path=config,
+        subtitle_lang=subtitle_lang,
+        subtitle_mode=subtitle_mode,
+        narration_preset=preset_name,
+    )
+
+    controller = InteractiveCLIController() if retry else None
+
+    try:
+        ctx = run_pipeline(ctx, controller=controller)
+    except Exception as e:
+        if isinstance(e, PipelinePaused):
+            typer.echo(
+                f"\n⏸ Pipeline paused after '{e.completed_step}'. "
+                f"Resume with: mn resume --state \"{Path(ctx.output_dir) / 'pipeline_state.json'}\""
+            )
+            raise typer.Exit(code=0)
+        if isinstance(e, PreflightError):
+            typer.echo(str(e), err=True)
+            raise typer.Exit(code=1)
+        raise typer.Exit(code=1)
+
+    if ctx.metadata.get("script_degraded"):
+        typer.echo(
+            "⚠ 警告：旁白为占位内容——LLM 不可达。请检查 LLM 连接后重试。",
+            err=True,
+        )
+    match_line = _format_match_summary(ctx)
+    if match_line:
+        typer.echo(f"  {match_line}", err=True)
+    typer.echo(f"{ctx.video_path}")
+
+
+@app.command()
 def resume(
     state: str = typer.Option(..., "--state", help="pipeline_state.json 路径 / Path to pipeline state file"),
     retry: bool = typer.Option(False, "--retry", help="硬步骤失败时交互重试 / Enable interactive retry on hard step failure"),
