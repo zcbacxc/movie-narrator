@@ -36,3 +36,6 @@ output/
 .mimocode/
 CLAUDE.md
 superpowers/
+
+# WebUI (split to movie-narrator-web repo; suppress stale dir warning)
+webui/
