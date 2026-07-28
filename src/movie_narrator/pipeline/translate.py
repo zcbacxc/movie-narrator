@@ -27,6 +27,7 @@ from ..utils.json_parser import extract_json
 from ..utils.llm import get_llm_client
 from ..utils.prompts import TRANSLATE_PROMPT
 from ..utils.warnings import append_warning
+from ..workflow.errors import is_network_error
 
 # Default chunking thresholds. Tunable via params / Settings
 # (see multi-language-subtitle-design.md §6.2 — magic numbers explained).
@@ -174,19 +175,39 @@ def _translate_via_llm(
             for idx in chunk_indices:
                 result[idx] = texts[idx]
             # Surface the reason at the caller's metadata layer.
-            raise _ChunkFailure(chunk_indices=chunk_indices, reason=str(last_error))
+            # R2-NA-ORCH: flag transient network errors as retryable so the
+            # soft step can record it (audit/diagnostics in step_state).
+            raise _ChunkFailure(
+                chunk_indices=chunk_indices,
+                reason=str(last_error),
+                retryable=is_network_error(last_error),
+            )
 
     # All slots filled (either real or passthrough).
     return [r if r is not None else "" for r in result]
 
 
 class _ChunkFailure(Exception):
-    """Internal sentinel: a chunk failed after all retries."""
+    """Internal sentinel: a chunk failed after all retries.
 
-    def __init__(self, chunk_indices: List[int], reason: str) -> None:
+    R2-NA-ORCH: carries a ``retryable`` flag (default False) so the soft
+    step can record whether the failure was a transient network error.
+    ``translate_subtitles`` always soft-degrades, so the flag is used for
+    audit/diagnostics in ``step_state.step_retryable`` rather than to drive
+    the runner's retry/skip/abort prompt.
+    """
+
+    def __init__(
+        self,
+        chunk_indices: List[int],
+        reason: str,
+        *,
+        retryable: bool = False,
+    ) -> None:
         super().__init__(reason)
         self.chunk_indices = chunk_indices
         self.reason = reason
+        self.retryable = retryable
 
 
 def translate_subtitles(ctx: Context) -> Context:
@@ -218,7 +239,10 @@ def translate_subtitles(ctx: Context) -> Context:
         append_warning(ctx, f"translate provider {provider!r} is not supported")
         return ctx
 
-    source_lang = (ctx.metadata.get("translate_source_lang") or "zh-CN")
+    # R2-NA-LANG: use `lang` (single source of truth) as default source
+    # language for translation, falling back to "zh" for backward compat.
+    narration_lang = ctx.metadata.get("lang", "zh")
+    source_lang = (ctx.metadata.get("translate_source_lang") or narration_lang)
     ctx.metadata.setdefault("translate_source_lang", source_lang)
 
     texts = [seg.text for seg in ctx.timed_segments]
@@ -255,6 +279,10 @@ def translate_subtitles(ctx: Context) -> Context:
         ctx.status.translate = "failed"
         ctx.step_state.result = StepResult.WARNING
         ctx.step_state.message = cf.reason
+        # R2-NA-ORCH: record whether the failure was a transient network
+        # error (audit/diagnostics; translate is a soft step so it always
+        # degrades rather than offering interactive retry).
+        ctx.step_state.step_retryable = cf.retryable
         return ctx
     except Exception as e:  # noqa: BLE001
         # Total failure (e.g. no LLM endpoint at all). Soft-degrade
@@ -264,6 +292,7 @@ def translate_subtitles(ctx: Context) -> Context:
         ctx.status.translate = "failed"
         ctx.step_state.result = StepResult.WARNING
         ctx.step_state.message = str(e)
+        ctx.step_state.step_retryable = is_network_error(e)
         return ctx
 
     # Validate final alignment (defense-in-depth; should always hold).

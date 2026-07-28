@@ -4,10 +4,11 @@ import re
 from ..config import get_settings
 from ..models import Context, ScriptSegment
 from ..utils.console import step_timing
-from ..utils.prompts import BEATS_PROMPT, EXPAND_PROMPT, build_cadence_hint, build_set_pieces_hint, build_hook_hint
+from ..utils.prompts import BEATS_PROMPT, EXPAND_PROMPT, JUDGE_PROMPT, build_cadence_hint, build_set_pieces_hint, build_hook_hint, build_platform_tone_hint, build_language_hint, build_perspective_hint, build_judge_feedback_hint, NARRATIVE_PRINCIPLES, ANTI_AI_TONE
 from ..utils.llm import get_llm_client
 from ..utils.json_parser import extract_json
 from ..tts.base import is_ci
+from ..workflow.errors import is_network_error
 from time import sleep
 
 
@@ -92,6 +93,13 @@ def _trim_segments(segments: List[ScriptSegment], target: int) -> List[ScriptSeg
 
 # ── Phase 1: plot beat extraction ──────────────────────────
 
+# NA-M1-S3: rhythm_zone / emotion marking.
+# Generic dramatic-arc theory (hook -> rising -> peak -> settle) and a
+# small set of emotion tags. Used to validate LLM output; invalid values
+# silently fall back to None (same leniency as act / approx_ratio).
+_RHYTHM_ZONES = frozenset({"hook", "rising", "peak", "settle"})
+_EMOTIONS = frozenset({"suspense", "laughter", "intense", "calm", "twist"})
+
 
 def _generate_plot_beats(
     ctx: Context, settings, llm, target_count: int
@@ -108,12 +116,34 @@ def _generate_plot_beats(
             f"Genres: {', '.join(ctx.research.genres)}\n"
         )
 
+    # NA-M2-S1: Enrich the research context with structured movie card
+    # data (director / cast / genres) to anchor the LLM in verified facts
+    # and reduce hallucination. The card is optional — when absent the
+    # block is unchanged (backward compatible).
+    movie_card = ctx.metadata.get("movie_card")
+    if movie_card is not None:
+        card_parts = []
+        if movie_card.director:
+            card_parts.append(f"Director: {movie_card.director}")
+        if movie_card.cast:
+            card_parts.append(f"Cast: {', '.join(movie_card.cast)}")
+        if movie_card.genres:
+            card_parts.append(f"Genres: {', '.join(movie_card.genres)}")
+        if card_parts:
+            research_block += "\n" + "\n".join(card_parts) + "\n"
+        # Fall back to the card's set_pieces only when the caller has not
+        # already supplied explicit set_pieces via metadata.
+        if movie_card.set_pieces and not ctx.metadata.get("set_pieces"):
+            ctx.metadata["set_pieces"] = movie_card.set_pieces
+
     prompt = BEATS_PROMPT.format(
         movie=ctx.movie_name,
         style=ctx.style,
         research=research_block,
         target_count=target_count,
         set_pieces_hint=build_set_pieces_hint(ctx.metadata.get("set_pieces")),
+        narrative_principles=NARRATIVE_PRINCIPLES,
+        language_hint=build_language_hint(ctx.metadata.get("lang", "")),
     )
 
     # ST-09: Scale max_tokens by target_count to avoid truncation on
@@ -169,14 +199,23 @@ def _generate_plot_beats(
                     ratio = max(0.0, min(1.0, ratio))  # clamp to [0, 1]
             except (TypeError, ValueError):
                 ratio = None
+            # NA-M1-S3: parse rhythm_zone / emotion, validate against
+            # allowed values; fall back to None on invalid/missing input
+            # (same leniency as act / approx_ratio above).
+            rhythm_zone = b.get("rhythm_zone")
+            if not isinstance(rhythm_zone, str) or rhythm_zone not in _RHYTHM_ZONES:
+                rhythm_zone = None
+            emotion = b.get("emotion")
+            if not isinstance(emotion, str) or emotion not in _EMOTIONS:
+                emotion = None
             cleaned.append(text)
-            beats_meta.append({"text": text, "act": act, "approx_ratio": ratio})
+            beats_meta.append({"text": text, "act": act, "approx_ratio": ratio, "rhythm_zone": rhythm_zone, "emotion": emotion})
         else:
             text = str(b).strip()
             if not text or text.lower() == "none":
                 continue
             cleaned.append(text)
-            beats_meta.append({"text": text, "act": None, "approx_ratio": None})
+            beats_meta.append({"text": text, "act": None, "approx_ratio": None, "rhythm_zone": None, "emotion": None})
     if len(cleaned) != target_count:
         raise ValueError(
             f"Phase 1: after filtering None/empty beats, expected {target_count}, got {len(cleaned)}"
@@ -190,12 +229,17 @@ def _generate_plot_beats(
 
 
 def _expand_beats_to_script(
-    ctx: Context, settings, llm, beats: List[str], target_count: int
+    ctx: Context, settings, llm, beats: List[str], target_count: int,
+    prev_judge_scores: dict | None = None,
 ) -> List[ScriptSegment]:
     """Phase 2: Expand each beat into exactly one narration segment.
 
     Uses moderate temperature (script_expand_temperature) for style
     expression while keeping count controlled.
+
+    When ``prev_judge_scores`` is provided (retry attempt), a targeted
+    feedback hint is injected into the prompt so the LLM can fix the
+    specific problems identified by the judge.
     """
     tags = ctx.metadata.get("narration_preset_tags", {})
     max_chars = ctx.metadata.get("prompt_max_chars_per_sentence", 15)
@@ -218,6 +262,15 @@ def _expand_beats_to_script(
         max_chars=max_chars,
         hook_seconds=hook_seconds,
         hook_hint=build_hook_hint(ctx.metadata.get("hook_templates"), ctx.movie_name),
+        narrative_principles=NARRATIVE_PRINCIPLES,
+        anti_ai_tone=ANTI_AI_TONE,
+        platform_tone=build_platform_tone_hint(ctx.metadata.get("target_platform", "")),
+        language_hint=build_language_hint(ctx.metadata.get("lang", "")),
+        perspective_hint=build_perspective_hint(
+            ctx.metadata.get("narrator_perspective", ""),
+            ctx.metadata.get("focus_character", ""),
+        ),
+        judge_feedback=build_judge_feedback_hint(prev_judge_scores),
     )
 
     response = llm.client.chat.completions.create(
@@ -269,22 +322,124 @@ def _expand_beats_to_script(
     return segments
 
 
+# ── Phase 3: script self-check judge (NA-M1-S5) ──────────
+# A lightweight LLM quality gate that scores the expanded script on
+# three dimensions (hook, spoiler, accuracy) before it is accepted.
+# Generic quality-gate pattern, independently authored.
+
+# Default passing score returned in CI mode (no LLM call) or when the
+# judge itself fails — the pipeline must never break on the judge.
+_DEFAULT_PASS_SCORE = {
+    "hook_strength": 8,
+    "spoiler_level": 3,
+    "plot_accuracy": 9,
+    "verdict": "pass",
+    "issues": [],
+}
+
+
+def judge_script(
+    segments: List[ScriptSegment], movie_name: str, llm
+) -> dict:
+    """Judge the expanded script on three quality dimensions.
+
+    Evaluates ``hook_strength``, ``spoiler_level`` (lower is better),
+    and ``plot_accuracy`` (each 1-10), then derives a ``verdict`` of
+    ``"pass"`` or ``"retry"``.
+
+    In CI mode (``is_ci()``) the LLM is skipped and a default passing
+    score is returned so the full pipeline can be exercised without a
+    network round-trip.
+
+    Args:
+        segments: The expanded narration segments (pre-trim).
+        movie_name: Movie title for context in the judge prompt.
+        llm: An :class:`LLMClient` (has ``.client`` and ``.model``).
+
+    Returns:
+        A dict with keys ``hook_strength``, ``spoiler_level``,
+        ``plot_accuracy``, ``verdict``, and ``issues``.
+    """
+    # CI mode: skip the LLM call entirely (no network, no latency).
+    if is_ci():
+        return dict(_DEFAULT_PASS_SCORE)
+
+    # Format the segments into a numbered script block for the judge.
+    script_text = "\n".join(
+        f"{i + 1}. {s.text}" for i, s in enumerate(segments)
+    )
+
+    prompt = JUDGE_PROMPT.format(movie=movie_name, script=script_text)
+
+    # Low temperature + capped max_tokens for a fast, deterministic check.
+    response = llm.client.chat.completions.create(
+        model=llm.model,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.3,
+        max_tokens=256,
+    )
+    raw = response.choices[0].message.content or ""
+    scores = extract_json(raw)
+
+    # Normalise: ensure all expected keys exist with safe defaults so
+    # downstream code never KeyErrors on a malformed LLM response.
+    scores.setdefault("hook_strength", 0)
+    scores.setdefault("spoiler_level", 10)
+    scores.setdefault("plot_accuracy", 0)
+    if not isinstance(scores.get("issues"), list):
+        scores["issues"] = []
+    # Re-derive verdict from the scores to guarantee the decision rule
+    # is enforced regardless of what the LLM returned.
+    hook = scores.get("hook_strength", 0)
+    spoiler = scores.get("spoiler_level", 10)
+    accuracy = scores.get("plot_accuracy", 0)
+    scores["verdict"] = (
+        "pass"
+        if _is_int_ge(hook, 6) and _is_int_le(spoiler, 7) and _is_int_ge(accuracy, 6)
+        else "retry"
+    )
+    return scores
+
+
+def _is_int_ge(value, threshold: int) -> bool:
+    """True iff *value* coerces to an int >= *threshold*."""
+    try:
+        return int(value) >= threshold
+    except (TypeError, ValueError):
+        return False
+
+
+def _is_int_le(value, threshold: int) -> bool:
+    """True iff *value* coerces to an int <= *threshold*."""
+    try:
+        return int(value) <= threshold
+    except (TypeError, ValueError):
+        return False
+
+
 # ── Main entry point ───────────────────────────────────────
 
 
 def generate_script(ctx: Context) -> Context:
-    """Two-phase script generation: plot beats -> narration expansion -> trim.
+    """Two-phase script generation: plot beats -> narration expansion -> judge -> trim.
 
     Phase 1 extracts exactly N plot beats (low temperature, structured).
     Phase 2 expands each beat into one narration line (style tags applied).
+    Phase 3 (NA-M1-S5) judges the expanded script on hook/spoiler/accuracy;
+    a "retry" verdict re-runs the whole loop when retries remain.
     Fallback trim ensures exactly N segments even if LLM overshoots.
 
-    The retry loop wraps both phases together.  CI mode falls back to
+    The retry loop wraps all phases together.  CI mode falls back to
     mock content (same as v0.4.15).
     """
     settings = get_settings()
     base_count = ctx.metadata.get("prompt_target_sentences")
     seg_duration = ctx.metadata.get("prompt_target_segment_duration")
+
+    # NA-M1-S5+: Track judge scores across retry attempts so the feedback
+    # hint can be injected into the next retry's expand prompt, turning
+    # blind retries into targeted corrections.
+    prev_judge_scores: dict | None = None
 
     for attempt in range(settings.script_retries):
         try:
@@ -314,11 +469,58 @@ def generate_script(ctx: Context) -> Context:
 
                 # Phase 2: expand beats into narration segments
                 with step_timing(ctx.services.console, "llm_expand_script"):
-                    segments = _expand_beats_to_script(ctx, settings, llm, beats, n)
+                    segments = _expand_beats_to_script(
+                        ctx, settings, llm, beats, n,
+                        prev_judge_scores=prev_judge_scores,
+                    )
 
-                # Fallback: trim to exactly n if LLM overshot
+                # NA-M1-S5: Phase 3 — judge the expanded script (before trim).
+                # The judge is a lightweight quality gate; any failure is
+                # caught so it never breaks the pipeline (treat as pass).
+                try:
+                    with step_timing(ctx.services.console, "llm_judge_script"):
+                        judge_scores = judge_script(segments, ctx.movie_name, llm)
+                except Exception as judge_err:
+                    ctx.services.console.debug(
+                        f"  generate_script: judge failed, treating as pass: {judge_err}"
+                    )
+                    judge_scores = dict(_DEFAULT_PASS_SCORE)
+
+                ctx.metadata["script_judge"] = judge_scores
+
+                verdict = judge_scores.get("verdict", "pass")
+                if verdict == "pass":
+                    # Accepted — trim to target and return.
+                    segments = _trim_segments(segments, n)
+                    ctx.segments = segments
+                    ctx.metadata["script_source"] = "llm"
+                    ctx.metadata["script_phase"] = "two-phase"
+                    ctx.metadata["script_target_count"] = n
+                    ctx.metadata["script_beat_count"] = len(beats)
+                    ctx.metadata["script_segment_count"] = len(segments)
+                    return ctx
+
+                # verdict == "retry" — carry scores to next attempt so
+                # the expand prompt gets targeted feedback.
+                prev_judge_scores = judge_scores
+                issues = judge_scores.get("issues", [])
+                retries_left = settings.script_retries - 1 - attempt
+                if retries_left > 0:
+                    ctx.services.console.inline_warn(
+                        f"Script judge verdict=retry "
+                        f"(attempt {attempt + 1}/{settings.script_retries}): {issues}"
+                    )
+                    sleep(settings.script_retry_delay)
+                    continue
+
+                # All retries exhausted — use the last generated script
+                # with a warning so the pipeline can proceed.
+                ctx.services.console.inline_warn(
+                    f"Script judge verdict=retry after all "
+                    f"{settings.script_retries} attempts; using last script. "
+                    f"Issues: {issues}"
+                )
                 segments = _trim_segments(segments, n)
-
                 ctx.segments = segments
                 ctx.metadata["script_source"] = "llm"
                 ctx.metadata["script_phase"] = "two-phase"
@@ -350,10 +552,24 @@ def generate_script(ctx: Context) -> Context:
                     ctx.metadata["script_source"] = "ci_mock"
                     ctx.metadata["script_degraded"] = True
                     return ctx
-                raise RuntimeError(
+                # R2-NA-ORCH: classify the underlying failure. Network /
+                # timeout errors (ConnectionError, TimeoutError, openai
+                # APITimeoutError / APIConnectionError / RateLimitError) are
+                # transient → mark the wrapped exception retryable so the
+                # pipeline runner can offer interactive [R]etry/[S]kip/
+                # [A]bort when --retry is enabled, or suggest the flag when
+                # it is not. Config/logic errors (bad API key, malformed
+                # response, wrong beat count) stay non-retryable (False).
+                # A plain RuntimeError is kept (rather than swapping to
+                # ProviderError) so existing callers/tests that match on
+                # RuntimeError continue to work; the runner reads the flag
+                # via getattr(error, "retryable", False).
+                wrapped = RuntimeError(
                     f"LLM script generation failed after {settings.script_retries} attempts: {e}. "
                     f"Check your LLM configuration (MN_LLM_BASE_URL, MN_LLM_API_KEY, MN_LLM_MODEL) "
                     f"and network connectivity."
-                ) from e
+                )
+                wrapped.retryable = is_network_error(e)
+                raise wrapped from e
             sleep(settings.script_retry_delay)
     return ctx

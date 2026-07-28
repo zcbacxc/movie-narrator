@@ -156,10 +156,15 @@ def test_research_provider_from_metadata(tmp_path):
     ctx.metadata["research_provider"] = "tmdb"
     with patch("movie_narrator.pipeline.research.get_settings") as gs:
         gs.return_value.research_provider = "llm"
+        gs.return_value.research_retries = 1
+        gs.return_value.research_retry_delay = 0
+        gs.return_value.tmdb_api_key = None
+        gs.return_value.tmdb_base_url = "https://api.themoviedb.org/3"
+        gs.return_value.tmdb_language = "zh-CN"
         research_plot(ctx)
     assert ctx.status.research == "failed"
     envelope_error = (tmp_path / "research.json").read_text(encoding="utf-8")
-    assert "tmdb" in envelope_error
+    assert "tmdb" in envelope_error.lower()
 
 
 def test_match_min_score_from_metadata(tmp_path, monkeypatch):

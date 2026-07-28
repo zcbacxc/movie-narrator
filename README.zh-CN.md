@@ -21,6 +21,12 @@ Movie Narrator 是一个开源工具包，可通过简单命令自动生成带�
 - 🔊 文字转语音解说（默认使用 Edge-TTS）
 - 💬 自动生成 SRT 字幕文件
 - 🌐 多语言字幕（`--subtitle-lang en` 通过 LLM 翻译解说文案，输出 `subtitle.<lang>.srt` + `subtitle.bilingual.srt`）
+- 🏁 多候选赛马（`mn race` — 同输入跑 N 套变体，打分排名，自动选优）
+- 🎯 参考片模仿（`mn imitate` — 从爆款解说提取风格，生成同风格新片）
+- 👁️ VLM 视觉场景描述（`vision_captioner: vlm` — 通过云端 VLM API 生成真实视觉描述）
+- 🎭 解说视角（`--narrator-perspective` / `--focus-character` — 全知 / 角色 / 悬疑视角）
+- 🎨 渲染模板系统（`render_template` — 按 preset 自定义标题卡、水印、口号）
+- 🔍 TMDB 事实验证（`research_provider: tmdb` — 交叉验证电影卡片，降低幻觉）
 - 🖥️ Web UI — 由独立的 [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web) 包提供（FastAPI + React 浏览器应用，支持表单输入、协作式取消、产物下载，通过 WebSocket 实时推送进度）
 - 🎞️ 使用 MoviePy 和 FFmpeg 渲染视频
 - 📝 脚本 Markdown 导出（`script.md`）
@@ -140,7 +146,7 @@ mn create --movie "飞驰人生" --keep-cache
 mn create --movie "飞驰人生" --style "热血搞笑" --duration 60
 ```
 
-全部 18 个 CLI 参数及各场景用法示例（基础、视频/库、调研/BGM/片段、多语言字幕、解说预设、YAML 配置）请参考 [`examples/cli-usage.sh`](examples/cli-usage.sh)。主要参数：`--movie/-m`、`--style/-s`、`--duration/-d`、`--voice/-v`、`--format/-f`、`--video`、`--library-dir`、`--research`、`--bgm`、`--no-bgm`、`--no-clips`、`--strict`、`--keep-cache`、`--retry`、`--subtitle-lang`、`--subtitle-mode`、`--narration-preset/-p`、`--config`。
+全部 24 个 CLI 参数及各场景用法示例（基础、视频/库、调研/BGM/片段、多语言字幕、解说预设、视角、日志、YAML 配置）请参考 [`examples/cli-usage.sh`](examples/cli-usage.sh)。主要参数：`--movie/-m`、`--style/-s`、`--duration/-d`、`--voice/-v`、`--format/-f`、`--video`、`--library-dir`、`--research`、`--bgm`、`--no-bgm`、`--no-clips`、`--strict`、`--keep-cache`、`--retry`、`--subtitle-lang`、`--subtitle-mode`、`--narration-preset/-p`、`--narrator-perspective`、`--focus-character`、`--log-level`、`--verbose`、`--config`。
 
 ### Job YAML 配置
 
@@ -159,7 +165,7 @@ mn create --config examples/job.example.yaml --movie "其他电影" --no-clips
 
 这意味着新用户可以直接 `mn create --movie X` 而无需创建任何配置文件——示例 YAML 会自动提供默认的 steps/params。
 
-详细白名单请参考 [`examples/job.example.yaml`](examples/job.example.yaml)：软步骤开关（`steps:` 下的 `research` / `align` / `scene` / `match` / `bgm` / `export` / `translate`）、全部 48 个 `params:` 键（场景检测、匹配、BGM、TTS 速率、翻译、调研、WhisperX、渲染、异步、视频分辨率），以及多语言字幕顶层键 `subtitle_lang` / `subtitle_mode`。相对路径 `video` / `bgm` / `library_dir` 相对于 YAML 所在目录解析。LLM 凭据请保留在 `.env` / `MN_*` 环境变量中。
+详细白名单请参考 [`examples/job.example.yaml`](examples/job.example.yaml)：软步骤开关（`steps:` 下的 `research` / `align` / `scene` / `match` / `bgm` / `export` / `translate`）、全部 77 个 `params:` 键（场景检测、匹配、视觉、BGM、TTS 速率、翻译、调研、WhisperX、渲染、质检、文案塑形、异步、视频分辨率、平台、视角），以及多语言字幕顶层键 `subtitle_lang` / `subtitle_mode`。相对路径 `video` / `bgm` / `library_dir` 相对于 YAML 所在目录解析。LLM 凭据请保留在 `.env` / `MN_*` 环境变量中。
 
 ### 多语言字幕
 
@@ -456,7 +462,7 @@ movie-narrator/
 - [x] 步骤级重试机制（`--retry` 标志，`StepAction` 枚举）
 - [x] 首次运行自动创建 `~/.movie-narrator/.env`
 - [x] `export_clips` 直调 ffmpeg 子进程（设计选择，非临时方案）
-- [x] 配置系统全面重构：严格 env/yaml 边界 — `.env`（Settings）仅含 21 个 LLM + TTS 基础配置字段；`job.yaml`（params）含全部 32 个流水线行为键；YAML 自动发现（未传 `--config` → `cwd/job.yaml` → 打包示例）；`.env.example` 和 `job.example.yaml` 作为单一真相源；无代码常量模块——内联字面量与示例文件一致
+- [x] 配置系统全面重构：严格 env/yaml 边界 — `.env`（Settings）仅含 21 个 LLM + TTS 基础配置字段；`job.yaml`（params）含全部 77 个流水线行为键（v0.4.x 时为 32，后续版本持续扩展）；YAML 自动发现（未传 `--config` → `cwd/job.yaml` → 打包示例）；`.env.example` 和 `job.example.yaml` 作为单一真相源；无代码常量模块——内联字面量与示例文件一致
 
 ### v0.5.x — 生态系统
 

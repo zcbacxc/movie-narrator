@@ -28,6 +28,7 @@ _ALLOWED_TOP = (
     "subtitle_mode",
     "narration_preset",
     "align_backend",
+    "lang",  # R2-NA-LANG: top-level narration language
 )
 
 
@@ -106,6 +107,8 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
             "render_profile", "render_title_card_sec",
             "render_cover_export", "render_vertical_safe_area",
             "bgm_loudnorm",
+            # NA-M4-S1: BGM emotion-based selection metadata file
+            "bgm_metadata_path",
             # Deliverable QA
             "qa_enabled", "qa_max_silence_db",
             "qa_min_duration_ratio", "qa_max_duration_ratio",
@@ -118,6 +121,13 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
             "async_timeout", "async_max_workers",
             # Video sizes
             "video_sizes",
+            # NA-M1-S2 / R2-NA-LANG: platform + language
+            "target_platform", "lang",
+            # NA-M6-S1: render template styling
+            "render_template",
+            # NA-M1-S4: narrator perspective & character anchor
+            "narrator_perspective",
+            "focus_character",
         }
         for k in data["params"].keys():
             if k not in allowed_params:

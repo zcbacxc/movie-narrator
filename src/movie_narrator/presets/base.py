@@ -48,6 +48,8 @@ ALLOWED_PARAM_KEYS: frozenset[str] = frozenset({
     "bgm_normalize",
     "audio_target_dbfs",
     "bgm_loudnorm",
+    # NA-M4-S1: BGM emotion-based selection metadata file
+    "bgm_metadata_path",
     # Render / subtitle
     "render_subtitle_position",
     "render_subtitle_max_width_ratio",
@@ -76,6 +78,15 @@ ALLOWED_PARAM_KEYS: frozenset[str] = frozenset({
     "render_title_card_sec",
     "render_cover_export",
     "render_vertical_safe_area",
+    # NA-M1-S2: target platform for tone adaptation
+    "target_platform",
+    # R2-NA-LANG: narration language
+    "lang",
+    # NA-M6-S1: render template — per-preset styling dict
+    "render_template",
+    # NA-M1-S4: narrator perspective & character anchor
+    "narrator_perspective",
+    "focus_character",
 })
 
 # Safety: ALLOWED_PARAM_KEYS must be a subset of PARAM_WHITELIST.
@@ -113,6 +124,22 @@ class Preset(Protocol):
 
     def description(self) -> str:
         """Human-readable description shown in ``--help`` and docs."""
+        ...
+
+    def render_template(self) -> Dict[str, Any]:
+        """Return render styling options for overlay text.
+
+        All keys are optional.  Recognised keys:
+
+        - ``title_card_text`` (str): text for the opening title card.
+        - ``disclaimer_text`` (str): small text shown at the very bottom.
+        - ``watermark_text`` (str): small semi-transparent top-right text.
+        - ``slogan_text`` (str): promotional slogan overlay.
+        - ``end_card_text`` (str): text for the closing end card.
+
+        The ``{movie}`` placeholder in any string value is replaced with
+        the actual movie name at render time.
+        """
         ...
 
 

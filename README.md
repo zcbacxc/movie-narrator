@@ -24,6 +24,9 @@ Movie Narrator is an open-source toolkit that automatically generates movie reca
 - 🏁 Multi-candidate horse race (`mn race` — run N variations, score, rank, auto-pick best)
 - 🎯 Reference video imitation (`mn imitate` — extract style from viral narration, generate same-style new video)
 - 👁️ VLM scene captioning (`vision_captioner: vlm` — real visual descriptions via cloud VLM API)
+- 🎭 Narrator perspective (`--narrator-perspective` / `--focus-character` — omniscient / character / detective viewpoints)
+- 🎨 Render template system (`render_template` — per-preset title cards, watermarks, slogans)
+- 🔍 TMDB fact verification (`research_provider: tmdb` — cross-check movie cards against TMDB data)
 - 🖥️ Web UI — provided by the separate [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web) package (FastAPI + React browser app with form inputs, cooperative cancel, artifact download, and real-time progress via WebSocket)
 - 🎞️ Video rendering with MoviePy and FFmpeg
 - 📝 Script markdown export (`script.md`)
@@ -145,7 +148,7 @@ mn create --movie "飞驰人生" --keep-cache
 mn create --movie "飞驰人生" --style "热血搞笑" --duration 60
 ```
 
-All 18 CLI flags are documented in [`examples/cli-usage.sh`](examples/cli-usage.sh) with usage examples for every scenario: basic, video/library, research/BGM/clips, multi-language subtitles, narration presets, and YAML config. Key flags: `--movie/-m`, `--style/-s`, `--duration/-d`, `--voice/-v`, `--format/-f`, `--video`, `--library-dir`, `--research`, `--bgm`, `--no-bgm`, `--no-clips`, `--strict`, `--keep-cache`, `--retry`, `--subtitle-lang`, `--subtitle-mode`, `--narration-preset/-p`, `--config`.
+All 24 CLI flags are documented in [`examples/cli-usage.sh`](examples/cli-usage.sh) with usage examples for every scenario: basic, video/library, research/BGM/clips, multi-language subtitles, narration presets, perspective, logging, and YAML config. Key flags: `--movie/-m`, `--style/-s`, `--duration/-d`, `--voice/-v`, `--format/-f`, `--video`, `--library-dir`, `--research`, `--bgm`, `--no-bgm`, `--no-clips`, `--strict`, `--keep-cache`, `--retry`, `--subtitle-lang`, `--subtitle-mode`, `--narration-preset/-p`, `--narrator-perspective`, `--focus-character`, `--log-level`, `--verbose`, `--config`.
 
 ### Job YAML config
 
@@ -164,7 +167,7 @@ When `--config` is not passed, the CLI auto-discovers a YAML config in priority 
 
 This means new users can run `mn create --movie X` without creating any config file — the example YAML provides default steps/params automatically.
 
-See [`examples/job.example.yaml`](examples/job.example.yaml) for the full whitelist: soft-step toggles under `steps:` (`research`, `align`, `scene`, `match`, `bgm`, `export`, `translate`), all 52 `params:` keys (scene detection, match, BGM, TTS pacing, translate, research, WhisperX, render, async, video sizes), and the multi-language subtitle top-level keys `subtitle_lang` / `subtitle_mode`. Relative `video` / `bgm` / `library_dir` paths resolve against the YAML file's directory. LLM credentials stay in `.env` / `MN_*` only.
+See [`examples/job.example.yaml`](examples/job.example.yaml) for the full whitelist: soft-step toggles under `steps:` (`research`, `align`, `scene`, `match`, `bgm`, `export`, `translate`), all 77 `params:` keys (scene detection, match, vision, BGM, TTS pacing, translate, research, WhisperX, render, QA, prompt shaping, async, video sizes, platform, perspective), and the multi-language subtitle top-level keys `subtitle_lang` / `subtitle_mode`. Relative `video` / `bgm` / `library_dir` paths resolve against the YAML file's directory. LLM credentials stay in `.env` / `MN_*` only.
 
 ### Multi-language subtitles
 
@@ -515,6 +518,7 @@ movie-narrator/
 - [x] v0.5.3 — Hardening: SDK API docs, benchmark script, Quickstart guide, research plugin example
 - [x] v0.5.4 — Quality Uplift: VLM caption provider, multi-candidate horse race, reference video imitation, L2 runbook
 - [x] v0.5.5 — Logging Improvements: `--log-level`/`--verbose` CLI options, RotatingFileHandler, JSON logs, run ID, step timing
+- [x] v0.5.6 — Narrative Quality & External Data: narrative principles, platform tone, rhythm marking, perspective, script judge, movie card, TMDB, BGM emotion, render template, lang consistency, retryable errors
 
 > SDK and Plugin API are designed together — both must stabilize in the same release.
 

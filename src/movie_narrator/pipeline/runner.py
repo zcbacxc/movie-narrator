@@ -158,6 +158,7 @@ def build_context(
     subtitle_mode: Optional[str] = None,
     services: Optional[Services] = None,
     narration_preset: Optional[str] = None,
+    lang: str = "zh",  # R2-NA-LANG: narration language
     log_level: int = logging.DEBUG,
     verbose: bool = False,
     json_format: bool = False,
@@ -228,8 +229,18 @@ def build_context(
             "translate_provider": (params or {}).get("translate_provider", "llm"),
             "translate_retries": (params or {}).get("translate_retries", 3),
             "research_provider": (params or {}).get("research_provider", "llm"),
+            # R2-NA-LANG: single source of truth for narration language.
+            "lang": lang,
         }
     )
+
+    # R2-NA-LANG: consistency check — warn if subtitle target language
+    # matches narration language (translation would be a no-op).
+    if subtitle_lang and subtitle_lang.lower() == lang.lower():
+        services.console.inline_warn(
+            f"subtitle_lang ({subtitle_lang}) matches narration lang ({lang}) — "
+            f"subtitle translation will be a no-op."
+        )
 
     if workflow_steps:
         ctx.metadata["workflow_steps"] = dict(workflow_steps)
@@ -416,6 +427,13 @@ def run_pipeline(
                 raise
             except Exception as e:
                 elapsed = time.time() - step_start
+                # R2-NA-ORCH: detect retryable (transient) errors via the
+                # `retryable` attribute on ProviderError subclasses (and any
+                # wrapped exception that sets it). Network timeouts / rate
+                # limits / temporary-unavailable set it True; config and
+                # logic errors default to False (non-retryable).
+                is_retryable = bool(getattr(e, "retryable", False))
+                ctx.step_state.step_retryable = is_retryable
                 if name in SOFT_STATUS_STEPS:
                     _set_pipeline_status_failed(ctx, name)
                     consequence = SOFT_STEP_CONSEQUENCES.get(name, "")
@@ -423,7 +441,8 @@ def run_pipeline(
                     if consequence:
                         msg = f"{msg} — {consequence}"
                     ctx.step_state = StepState(
-                        result=StepResult.WARNING, message=msg
+                        result=StepResult.WARNING, message=msg,
+                        step_retryable=is_retryable,
                     )
                     console.step_warn(name, ctx.step_state.message)
                     ctx.metadata.setdefault("_degraded_steps", []).append(name)
@@ -442,7 +461,8 @@ def run_pipeline(
                 elif action is StepAction.SKIP:
                     console.step_warn(name, f"skipped after {attempt} attempt(s): {e}")
                     ctx.step_state = StepState(
-                        result=StepResult.WARNING, message=f"skipped: {e}"
+                        result=StepResult.WARNING, message=f"skipped: {e}",
+                        step_retryable=is_retryable,
                     )
                     break  # exit retry loop, continue to next step
 
@@ -581,10 +601,40 @@ def _handle_step_error(
     If the controller does not implement ``on_step_error`` (e.g. the
     GradioController or ``controller=None``), returns ``ABORT`` to
     preserve the existing fail-fast behavior.
+
+    R2-NA-ORCH: before delegating, inspect the exception's ``retryable``
+    attribute. A retryable (transient, network-type) failure is a good
+    candidate for an interactive [R]etry/[S]kip/[A]bort choice:
+
+    - If ``--retry`` is enabled (the controller exposes ``on_step_error``,
+      wired up by :class:`InteractiveCLIController`), the existing prompt
+      fires unchanged — the retryable flag simply makes the transient
+      nature of the failure explicit.
+    - If ``--retry`` is *not* enabled, log a warning suggesting the flag
+      so the user knows the failure may clear on retry, then fall through
+      to the existing fail-fast (ABORT) path.
+    - Non-retryable errors (config/logic) skip the hint entirely and keep
+      the existing behavior.
     """
+    is_retryable = bool(getattr(error, "retryable", False))
+    handler = (
+        getattr(controller, "on_step_error", None)
+        if controller is not None
+        else None
+    )
+    retry_enabled = handler is not None
+
+    if is_retryable and not retry_enabled:
+        # Transient failure but the user did not enable --retry. Surface a
+        # hint that the error may clear on retry, then proceed with the
+        # existing fail-fast (ABORT) behavior below.
+        console.inline_warn(
+            f"Step '{name}' failed with a retryable (transient) error: {error}. "
+            f"Re-run with --retry to choose [R]etry/[S]kip/[A]bort."
+        )
+
     if controller is None:
         return StepAction.ABORT
-    handler = getattr(controller, "on_step_error", None)
     if handler is None:
         return StepAction.ABORT
     return handler(name, error, attempt)

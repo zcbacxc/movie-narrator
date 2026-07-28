@@ -177,6 +177,28 @@
 - [x] Services.logger integration (AppLogger auto-injected for plugin use)
 - [x] Docs/examples alignment with v0.5.4 project state
 
+### v0.5.6 — Narrative Quality & External Data
+
+- [x] Narrative five-principles + anti-AI-tone in prompt templates (NA-M1-S1)
+- [x] Platform tone adaptation — `target_platform` for douyin/bilibili/youtube (NA-M1-S2)
+- [x] Rhythm zone & emotion marking on plot beats (NA-M1-S3)
+- [x] Rhythm-zone influence on match scoring (NA-M1-S3+)
+- [x] Narrator perspective & character anchor — `narrator_perspective` / `focus_character` (NA-M1-S4)
+- [x] CLI flags for perspective — `--narrator-perspective` / `--focus-character` (NA-M1-S4+)
+- [x] Two-phase script self-check judge with retry (NA-M1-S5)
+- [x] Judge feedback loop — inject issues into retry prompt (NA-M1-S5+)
+- [x] Structured movie card for reduced hallucination (NA-M2-S1)
+- [x] TMDB external data source for fact verification (NA-M2-S1+)
+- [x] BGM emotion-based selection using beat metadata (NA-M4-S1)
+- [x] Emotion-weighted BGM selection with energy alignment (NA-M4-S1+)
+- [x] Render template system with per-preset styling (NA-M6-S1)
+- [x] Language chain consistency — single `lang` source of truth (R2-NA-LANG)
+- [x] Retryable error codes for network-type failures (R2-NA-ORCH)
+- [x] TMDB provider import-time registration fix (`pipeline/research.py`)
+- [x] YAML whitelist comments sync — 12 missing params documented (`examples/job.example.yaml`)
+- [x] L2 YAML comment fixes — WP1 short keys, prompt_target_segment_duration (`examples/l2/job.l2.douyin.yaml`)
+- [x] README / cli-usage.sh / ROADMAP alignment with current codebase
+
 ## v0.6.x — Cloud
 
 - [ ] Remote inference (offload LLM / TTS / rendering to cloud workers)

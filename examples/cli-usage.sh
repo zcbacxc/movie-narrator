@@ -109,6 +109,19 @@ mn imitate --reference viral_ref.mp4 --analyze-only
 # Then run: mn-web
 
 # ============================================================
+# 解说视角 (NA-M1-S4)
+# ============================================================
+
+# 全知视角（默认，中性鸟瞰）
+mn create --movie "飞驰人生" --narrator-perspective omniscient
+
+# 角色视角（主观，锚定到指定角色）
+mn create --movie "飞驰人生" --narrator-perspective character --focus-character "张驰"
+
+# 悬疑视角（逐步揭开谜底）
+mn create --movie "满江红" --narrator-perspective detective
+
+# ============================================================
 # YAML 配置
 # ============================================================
 
@@ -141,6 +154,8 @@ mn create --config examples/job.example.yaml --movie "其他电影" --no-clips
 # | --subtitle-lang    | 目标语言标签 (en/ja/zh-TW...)；空=关闭 | - |
 # | --subtitle-mode    | 字幕模式 (original/translated/bilingual) | original |
 # | --narration-preset, -p | 解说风格预设 (douyin-fast/mainstream-dry/bilibili-long) | douyin-fast |
+# | --narrator-perspective | 解说视角 (omniscient/character/detective) | omniscient |
+# | --focus-character     | 视角锚定角色名（character 模式下生效） | - |
 # | --log-level        | 文件日志级别 (DEBUG/INFO/WARNING/ERROR) | DEBUG |
 # | --verbose          | 控制台显示 DEBUG 级别日志 | false |
 # | --config           | YAML 配置文件路径 | 自动发现 |

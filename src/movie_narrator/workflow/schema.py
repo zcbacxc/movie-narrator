@@ -53,6 +53,8 @@ class JobParams(BaseModel):
     audio_target_dbfs: Optional[float] = None
     # EP6: RMS-based loudness normalization (more consistent than peak)
     bgm_loudnorm: Optional[bool] = None
+    # NA-M4-S1: path to a BGM metadata YAML used for emotion-based selection
+    bgm_metadata_path: Optional[str] = None
     # ── TTS pacing ──
     tts_pause_ms: Optional[int] = None
     tts_max_concurrent: Optional[int] = None
@@ -115,6 +117,24 @@ class JobParams(BaseModel):
     async_max_workers: Optional[int] = None
     # ── Video sizes ──
     video_sizes: Optional[Dict[str, list]] = None
+    # NA-M1-S2: target platform for tone adaptation
+    target_platform: Optional[str] = None  # "douyin" | "bilibili" | "youtube" | None
+    # R2-NA-LANG: single source of truth for narration language
+    lang: Optional[str] = None  # "zh" (default) | "en" | "ja" | ...
+    # NA-M6-S1: render template — per-preset styling options (title card,
+    # disclaimer, watermark, slogan, end card text).  The {movie}
+    # placeholder in any string value is replaced with the movie name at
+    # render time.  All keys are optional.
+    render_template: Optional[Dict[str, Any]] = None
+    # NA-M1-S4: narrator perspective & character anchor.
+    # Perspective mode: "omniscient" (default, neutral bird's-eye view),
+    # "character" (subjective, tied to focus_character), or "detective"
+    # (mystery gradually unfolding).  When empty/None, behaviour is
+    # backward-compatible (no perspective hint injected).
+    narrator_perspective: Optional[str] = None
+    # Name of the character to anchor the narration on (used with
+    # "character" perspective).  Ignored for other modes.
+    focus_character: Optional[str] = None
 
 
 VALID_SUBTITLE_MODES = frozenset({"original", "translated", "bilingual"})
@@ -139,6 +159,7 @@ class JobConfig(BaseModel):
     subtitle_lang: Optional[str] = None
     subtitle_mode: Optional[str] = None
     narration_preset: Optional[str] = None
+    lang: Optional[str] = None  # R2-NA-LANG: narration language (default "zh")
     steps: Optional[JobSteps] = None
     params: Optional[JobParams] = None
 
@@ -187,3 +208,4 @@ class ResolvedJob(BaseModel):
     subtitle_lang: Optional[str] = None
     subtitle_mode: str = "original"
     narration_preset: Optional[str] = None
+    lang: str = "zh"  # R2-NA-LANG: narration language (default Chinese)

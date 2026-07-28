@@ -73,6 +73,12 @@ class StepResult(Enum):
 class StepState:
     result: StepResult = StepResult.SUCCESS
     message: str | None = None
+    # R2-NA-ORCH: records whether the failure that produced this state was a
+    # retryable (transient, network-type) error. Defaults to False so every
+    # existing call site stays non-retryable unless it explicitly opts in.
+    # Consumed for audit/diagnostics; the runner reads the exception's
+    # ``retryable`` attribute directly for the retry/skip/abort decision.
+    step_retryable: bool = False
 
 
 # ── Services container ──────────────────────────────────────
@@ -142,6 +148,28 @@ class ResearchInfo(BaseModel):
     genres: List[str] = Field(default_factory=list)
     cast: List[str] = Field(default_factory=list)
     keywords: List[str] = Field(default_factory=list)
+
+
+class MovieCard(BaseModel):
+    """Structured movie metadata card (NA-M2-S1).
+
+    A focused, typed snapshot of movie metadata extracted during the
+    research step. Carrying title / year / genres / director / cast /
+    set_pieces as explicit fields (rather than relying on free-form
+    summary prose) gives downstream prompt construction a stable,
+    hallucination-resistant context.
+
+    The card is optional and backward compatible: code that does not
+    read it is unaffected. When the research step is skipped or fails,
+    the card is simply absent from ``ctx.metadata["movie_card"]``.
+    """
+    title: str
+    year: Optional[str] = None
+    genres: List[str] = Field(default_factory=list)
+    summary: str = ""
+    director: Optional[str] = None
+    cast: List[str] = Field(default_factory=list)
+    set_pieces: List[str] = Field(default_factory=list)
 
 
 class Scene(BaseModel):

@@ -47,6 +47,14 @@ class DouyinFastPreset:
             "render_title_card_sec": 1.0,
             "render_cover_export": True,
             "render_vertical_safe_area": True,
+            # NA-M1-S2: platform tone adaptation
+            "target_platform": "douyin",
+            # NA-M6-S1: render template — per-preset styling overlays
+            "render_template": {
+                "title_card_text": "{movie}",
+                "slogan_text": "关注不迷路",
+                "end_card_text": "点赞+关注",
+            },
         }
 
     def prompt_tags(self) -> Dict[str, str]:

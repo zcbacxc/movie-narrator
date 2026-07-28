@@ -40,6 +40,13 @@ class MainstreamDryPreset:
                 "关于{movie}，有个细节你可能没注意",
                 "{movie}的故事，远比表面看到的复杂",
             ],
+            # NA-M1-S2: platform tone adaptation
+            "target_platform": "youtube",
+            # NA-M6-S1: render template — per-preset styling overlays
+            "render_template": {
+                "title_card_text": "{movie}",
+                "end_card_text": "感谢观看",
+            },
         }
 
     def prompt_tags(self) -> Dict[str, str]:
