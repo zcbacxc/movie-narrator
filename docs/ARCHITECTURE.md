@@ -58,12 +58,12 @@ run_pipeline(...) # STEPS order unchanged
 
 - Module: `movie_narrator.workflow` (`load_job_config`, `merge_job`, `JobConfigError`)
 - Soft steps honor `metadata["workflow_steps"][<field>] is False` → `status.<field> = "disabled"`
-- Params whitelist (48 keys: scene_threshold, scene_frame_skip, match_min_score, match_speed_clamp_min/max, scene_merge_min_duration, match_drop_scene_min_duration, embedding_model_name, bgm_gain_db, bgm_duck_db, bgm_normalize, audio_target_dbfs, tts_pause_ms, tts_max_concurrent, tts_audio_format, tts_audio_bitrate, translate_source_lang, translate_provider, translate_retries, translate_chunk_chars, translate_chunk_size, research_provider, whisperx_device/model/language, render_fps/video_codec/audio_codec/threads/bg_color/font_size/output_name/ffmpeg_timeout, render_fit_mode/crf/preset/faststart, render_subtitle_position/max_width_ratio/bottom_margin_ratio, qa_enabled/qa_max_silence_db/qa_min_duration_ratio/qa_max_duration_ratio, prompt_target_sentences/prompt_target_segment_duration/prompt_max_chars_per_sentence/prompt_hook_seconds, async_timeout, async_max_workers, video_sizes) land in `ctx.metadata` via `build_context` copy loop
+- Params whitelist (77 keys — full list in `examples/job.example.yaml` comments: scene detection, match, vision, BGM, TTS pacing, translate, research, WhisperX align, render, QA, prompt shaping, async, video sizes, platform, perspective) land in `ctx.metadata` via `build_context` copy loop
 - Multi-language subtitle top-level keys: `subtitle_lang`, `subtitle_mode` (validated in `JobConfig` — `subtitle_mode ∈ {translated, bilingual}` without `subtitle_lang` raises `JobConfigError` at merge time)
 - `STEPS` remains the single source of step order; since v0.5, custom steps can be added via `@register_step` plugin API (see Plugin System section below)
 - YAML auto-discovery: `--config` not passed → `cwd/job.yaml` → packaged `examples/job.example.yaml` → none
 - `.env.example` is the single source of truth for first-run config (read by `ensure_user_config()`, not a divergent inline template)
-- Strict env/yaml boundary: `.env` (Settings) = 24 LLM + TTS infrastructure fields only; `job.yaml` (params) = 48 pipeline behavior keys; no code constants module — inline literals match example files
+- Strict env/yaml boundary: `.env` (Settings) = 32 LLM + TTS infrastructure fields only; `job.yaml` (params) = 77 pipeline behavior keys; no code constants module — inline literals match example files
 
 ## Web UI Layer
 

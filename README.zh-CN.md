@@ -265,7 +265,7 @@ mn create --movie "飞驰人生" --duration 60
 
 ### 完整配置项
 
-完整环境变量列表（共 24 项，仅 LLM + TTS 基础配置）及默认值和说明，请查看 [`.env.example`](.env.example)。所有流水线行为参数（48 项）通过 [`examples/job.example.yaml`](examples/job.example.yaml) 配置，涵盖场景检测、匹配、渲染、翻译、BGM、WhisperX、异步、视频分辨率等。
+完整环境变量列表（共 32 项，仅 LLM + TTS 基础配置）及默认值和说明，请查看 [`.env.example`](.env.example)。所有流水线行为参数（77 项）通过 [`examples/job.example.yaml`](examples/job.example.yaml) 配置，涵盖场景检测、匹配、视觉、BGM、TTS 速率、翻译、调研、WhisperX、渲染、质检、文案塑形、异步、视频分辨率、平台、视角等。
 
 ### LLM 服务商导航
 

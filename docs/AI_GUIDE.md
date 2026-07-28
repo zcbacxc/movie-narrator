@@ -46,7 +46,7 @@ MN_DEFAULT_VOICE=zh-CN-YunxiNeural
 
 ### Job YAML 配置
 
-`examples/job.example.yaml` 包含全部 48 个行为参数的白名单和默认值。用法：
+`examples/job.example.yaml` 包含全部 77 个行为参数的白名单和默认值。用法：
 
 ```bash
 mn create --config examples/job.example.yaml
@@ -144,7 +144,7 @@ src/movie_narrator/
 | Soft vs Hard steps | 软步骤失败可跳过（`--strict` 改为中止），硬步骤失败中止流水线 |
 | Content-addressable TTS cache | 7 维度 SHA256（schema_version, provider, provider_version, model, voice, text, style_prompt） |
 | YAML auto-discovery | 未传 `--config` 时自动查找 `cwd/job.yaml` → 打包示例 |
-| env/yaml boundary | `.env` = LLM + TTS 凭证（24 项）；`job.yaml` = 行为参数（52 项） |
+| env/yaml boundary | `.env` = LLM + TTS 凭证（32 项）；`job.yaml` = 行为参数（77 项） |
 
 ## 添加新 Pipeline 步骤
 

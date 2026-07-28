@@ -143,8 +143,7 @@ mn create --config examples/job.example.yaml --movie "其他电影" --no-clips
 # | --format, -f       | 视频比例 (16:9 / 9:16) | 16:9 |
 # | --video            | 源电影文件路径 | - |
 # | --library-dir      | 电影库目录 | - |
-# | --research         | 启用 LLM 剧情调研 | false |
-# | --no-research      | 禁用剧情调研 | - |
+# | --research         | 启用 LLM 剧情调研（--research/--no-research） | false |
 # | --bgm              | 背景音乐文件路径 | - |
 # | --no-bgm           | 禁用 BGM | false |
 # | --no-clips         | 跳过场景片段导出 | false |
@@ -156,6 +155,8 @@ mn create --config examples/job.example.yaml --movie "其他电影" --no-clips
 # | --narration-preset, -p | 解说风格预设 (douyin-fast/mainstream-dry/bilibili-long) | douyin-fast |
 # | --narrator-perspective | 解说视角 (omniscient/character/detective) | omniscient |
 # | --focus-character     | 视角锚定角色名（character 模式下生效） | - |
+# | --output-dir, -o   | 自定义输出目录 | auto |
+# | --pause-at         | 在指定步骤暂停（如 match_clips） | - |
 # | --log-level        | 文件日志级别 (DEBUG/INFO/WARNING/ERROR) | DEBUG |
 # | --verbose          | 控制台显示 DEBUG 级别日志 | false |
 # | --config           | YAML 配置文件路径 | 自动发现 |

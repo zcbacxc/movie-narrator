@@ -35,8 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed (v0.5.6)
 
 - `README.md` / `README.zh-CN.md`: updated params count (52→77) and CLI flags count (18→24) to reflect current codebase.
-- `examples/cli-usage.sh`: added `--narrator-perspective` and `--focus-character` to the complete parameter list.
+- `examples/cli-usage.sh`: added `--narrator-perspective` and `--focus-character` to the complete parameter list; completed table to 24 entries (added `--output-dir` / `--pause-at`, merged `--no-research` into `--research`).
 - `docs/ROADMAP.md` / `ROADMAP.zh-CN.md`: added v0.5.6 narrative quality & external data section.
+- `docs/AI_GUIDE.md` / `docs/ARCHITECTURE.md` / `docs/ARCHITECTURE.zh-CN.md`: updated env var count (24→32) and params count (48/52→77) to match current codebase; simplified inline param lists to reference `examples/job.example.yaml`.
 
 ### Notes
 

@@ -54,12 +54,12 @@ run_pipeline(...) # STEPS 顺序不变
 
 - 模块所在：`movie_narrator.workflow`（`load_job_config`, `merge_job`, `JobConfigError`）
 - 软步骤遵守 `metadata["workflow_steps"][<field>] is False` → `status.<field> = "disabled"`
-- 在 `ctx.metadata` 中通过 `build_context` 拷贝循环注入的参数白名单（48 个键：scene_threshold, scene_frame_skip, match_min_score, match_speed_clamp_min/max, scene_merge_min_duration, match_drop_scene_min_duration, embedding_model_name, bgm_gain_db, bgm_duck_db, bgm_normalize, audio_target_dbfs, tts_pause_ms, tts_max_concurrent, tts_audio_format, tts_audio_bitrate, translate_source_lang, translate_provider, translate_retries, translate_chunk_chars, translate_chunk_size, research_provider, whisperx_device/model/language, render_fps/video_codec/audio_codec/threads/bg_color/font_size/output_name/ffmpeg_timeout, render_fit_mode/crf/preset/faststart, render_subtitle_position/max_width_ratio/bottom_margin_ratio, qa_enabled/qa_max_silence_db/qa_min_duration_ratio/qa_max_duration_ratio, prompt_target_sentences/prompt_target_segment_duration/prompt_max_chars_per_sentence/prompt_hook_seconds, async_timeout, async_max_workers, video_sizes）
+- 在 `ctx.metadata` 中通过 `build_context` 拷贝循环注入的参数白名单（77 个键，完整列表见 `examples/job.example.yaml` 注释：场景检测、匹配、视觉、BGM、TTS 速率、翻译、调研、WhisperX 对齐、渲染、质检、文案塑形、异步、视频分辨率、平台、视角）
 - 多语言字幕顶层键：`subtitle_lang`、`subtitle_mode`（在 `JobConfig` 中校验 —— 设置 `subtitle_mode ∈ {translated, bilingual}` 但缺 `subtitle_lang` 时会在 merge 阶段抛 `JobConfigError`）
 - `STEPS` 仍是步骤顺序的唯一来源；自 v0.5 起，可通过 `@register_step` 插件 API 添加自定义步骤（见下方插件系统章节）
 - YAML 自动发现：未传 `--config` 时按 `cwd/job.yaml` → 随包 `examples/job.example.yaml` → 缺省 顺序查找
 - `.env.example` 是首次运行配置的真理源头（由 `ensure_user_config()` 读取，避免内联模板漂移）
-- 严格的 env/yaml 边界：`.env`（Settings）= 24 个 LLM + TTS 基础设施字段；`job.yaml`（params）= 48 个流水线行为键；无代码常量模块 —— 内联字面值与示例文件保持一致
+- 严格的 env/yaml 边界：`.env`（Settings）= 32 个 LLM + TTS 基础设施字段；`job.yaml`（params）= 77 个流水线行为键；无代码常量模块 —— 内联字面值与示例文件保持一致
 
 ## Web UI 层
 
