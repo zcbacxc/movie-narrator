@@ -124,6 +124,15 @@ class JobParams(BaseModel):
     # placeholder in any string value is replaced with the movie name at
     # render time.  All keys are optional.
     render_template: Optional[Dict[str, Any]] = None
+    # NA-M1-S4: narrator perspective & character anchor.
+    # Perspective mode: "omniscient" (default, neutral bird's-eye view),
+    # "character" (subjective, tied to focus_character), or "detective"
+    # (mystery gradually unfolding).  When empty/None, behaviour is
+    # backward-compatible (no perspective hint injected).
+    narrator_perspective: Optional[str] = None
+    # Name of the character to anchor the narration on (used with
+    # "character" perspective).  Ignored for other modes.
+    focus_character: Optional[str] = None
 
 
 VALID_SUBTITLE_MODES = frozenset({"original", "translated", "bilingual"})

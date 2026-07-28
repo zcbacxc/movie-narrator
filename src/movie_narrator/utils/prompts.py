@@ -97,6 +97,54 @@ def build_language_hint(lang: str = "") -> str:
     return f"Language: Write ALL narration text in {lang_name}."
 
 
+# ── Narrator perspective (NA-M1-S4) ───────────────────────
+# Maps a perspective mode to a prompt hint that steers the LLM's
+# narrative vantage point.  "omniscient" (or empty) produces no hint so
+# existing behaviour is unchanged.  Generic narrative technique,
+# independently authored.
+
+def build_perspective_hint(perspective: str = "", focus_character: str = "") -> str:
+    """Build the {perspective_hint} block for EXPAND_PROMPT.
+
+    Returns empty string for the default "omniscient" perspective (or an
+    empty/unknown value) so the feature is backward-compatible with
+    configs that don't set ``narrator_perspective``.
+
+    Args:
+        perspective: One of "omniscient", "character", "detective".
+        focus_character: Character name used together with "character"
+            perspective to anchor the narration viewpoint.
+
+    Returns:
+        A single-line perspective directive, or "" for the default mode.
+    """
+    perspective = (perspective or "").strip().lower()
+
+    if not perspective or perspective == "omniscient":
+        return ""
+
+    if perspective == "character":
+        if focus_character and focus_character.strip():
+            return (
+                f"Narrative perspective: Tell the story from the viewpoint of "
+                f"{focus_character.strip()}. Use their subjective experience to "
+                f"frame events."
+            )
+        return (
+            "Narrative perspective: Tell the story from a specific character's "
+            "viewpoint. Choose the protagonist."
+        )
+
+    if perspective == "detective":
+        return (
+            "Narrative perspective: Tell the story as a mystery gradually "
+            "unfolding. Reveal clues piece by piece, building suspense."
+        )
+
+    # Unknown perspective — be backward-compatible (no hint).
+    return ""
+
+
 SCRIPT_PROMPT = """\
 You are a million-follower movie narration blogger. Write a narration script for the movie "{movie}" lasting about {duration} seconds.
 
@@ -166,6 +214,7 @@ Style: {style}.
 {anti_ai_tone}
 {platform_tone}
 {language_hint}
+{perspective_hint}
 {cadence_hint}
 
 Given plot points (one sentence -> exactly one narration line):
