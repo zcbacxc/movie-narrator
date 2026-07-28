@@ -1,0 +1,15 @@
+# BGM Metadata Template
+# Users fill this in with their own BGM library metadata.
+# The pipeline uses this to select BGM that matches the narration's emotional tone.
+# Filename should match the actual BGM file name (without path).
+bgm_samples:
+  - filename: "example_epic.mp3"
+    mood: "intense"     # one of: suspense, laughter, intense, calm, twist
+    bpm: 120
+    energy: 0.8         # 0.0-1.0
+    genres: ["action", "dramatic"]
+  - filename: "example_calm.mp3"
+    mood: "calm"
+    bpm: 70
+    energy: 0.2
+    genres: ["ambient", "reflective"]

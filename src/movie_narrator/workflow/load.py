@@ -107,6 +107,8 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
             "render_profile", "render_title_card_sec",
             "render_cover_export", "render_vertical_safe_area",
             "bgm_loudnorm",
+            # NA-M4-S1: BGM emotion-based selection metadata file
+            "bgm_metadata_path",
             # Deliverable QA
             "qa_enabled", "qa_max_silence_db",
             "qa_min_duration_ratio", "qa_max_duration_ratio",

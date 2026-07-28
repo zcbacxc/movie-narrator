@@ -53,6 +53,8 @@ class JobParams(BaseModel):
     audio_target_dbfs: Optional[float] = None
     # EP6: RMS-based loudness normalization (more consistent than peak)
     bgm_loudnorm: Optional[bool] = None
+    # NA-M4-S1: path to a BGM metadata YAML used for emotion-based selection
+    bgm_metadata_path: Optional[str] = None
     # ── TTS pacing ──
     tts_pause_ms: Optional[int] = None
     tts_max_concurrent: Optional[int] = None

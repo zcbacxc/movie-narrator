@@ -48,6 +48,8 @@ ALLOWED_PARAM_KEYS: frozenset[str] = frozenset({
     "bgm_normalize",
     "audio_target_dbfs",
     "bgm_loudnorm",
+    # NA-M4-S1: BGM emotion-based selection metadata file
+    "bgm_metadata_path",
     # Render / subtitle
     "render_subtitle_position",
     "render_subtitle_max_width_ratio",
