@@ -8,6 +8,7 @@ from ..utils.prompts import BEATS_PROMPT, EXPAND_PROMPT, JUDGE_PROMPT, build_cad
 from ..utils.llm import get_llm_client
 from ..utils.json_parser import extract_json
 from ..tts.base import is_ci
+from ..workflow.errors import is_network_error
 from time import sleep
 
 
@@ -535,10 +536,24 @@ def generate_script(ctx: Context) -> Context:
                     ctx.metadata["script_source"] = "ci_mock"
                     ctx.metadata["script_degraded"] = True
                     return ctx
-                raise RuntimeError(
+                # R2-NA-ORCH: classify the underlying failure. Network /
+                # timeout errors (ConnectionError, TimeoutError, openai
+                # APITimeoutError / APIConnectionError / RateLimitError) are
+                # transient → mark the wrapped exception retryable so the
+                # pipeline runner can offer interactive [R]etry/[S]kip/
+                # [A]bort when --retry is enabled, or suggest the flag when
+                # it is not. Config/logic errors (bad API key, malformed
+                # response, wrong beat count) stay non-retryable (False).
+                # A plain RuntimeError is kept (rather than swapping to
+                # ProviderError) so existing callers/tests that match on
+                # RuntimeError continue to work; the runner reads the flag
+                # via getattr(error, "retryable", False).
+                wrapped = RuntimeError(
                     f"LLM script generation failed after {settings.script_retries} attempts: {e}. "
                     f"Check your LLM configuration (MN_LLM_BASE_URL, MN_LLM_API_KEY, MN_LLM_MODEL) "
                     f"and network connectivity."
-                ) from e
+                )
+                wrapped.retryable = is_network_error(e)
+                raise wrapped from e
             sleep(settings.script_retry_delay)
     return ctx
