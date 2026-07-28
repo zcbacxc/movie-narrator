@@ -16,6 +16,16 @@ dependency is needed. The provider gracefully degrades when:
   - the movie is not found on TMDB
   - the API request fails (network error, rate limit, etc.)
 
+Robustness features:
+  - **HTTP 429 retry**: rate-limited responses are retried up to 3 times
+    with exponential backoff (1s, 2s, 4s). When the server supplies a
+    ``Retry-After`` header, its value is used as the wait time instead.
+  - **In-memory cache**: a process-level ``_TMDB_CACHE`` memoizes
+    responses by URL, avoiding duplicate requests for the same resource
+    within a single process. No expiry policy is applied.
+  - **Graceful degradation**: network errors during card enrichment are
+    logged at WARNING level and the original card is returned unchanged.
+
 TMDB API reference: https://developer.themoviedb.org/reference/intro/getting-started
 """
 
@@ -23,6 +33,8 @@ from __future__ import annotations
 
 import json
 import logging
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Any, Dict, List, Optional
@@ -39,6 +51,36 @@ logger = logging.getLogger(__name__)
 _TMDB_SEARCH_PATH = "/search/movie"
 _TMDB_MOVIE_PATH = "/movie/{movie_id}"
 
+# Process-level response cache. Keyed by full request URL. No expiry —
+# the cache lives for the lifetime of the Python process and is intended
+# to deduplicate requests for the same resource within a single run.
+_TMDB_CACHE: dict[str, Any] = {}
+
+# Retry configuration for HTTP 429 (Too Many Requests).
+_TMDB_MAX_RETRIES = 3
+_TMDB_RETRY_BACKOFF: List[int] = [1, 2, 4]  # seconds
+
+
+def _parse_retry_after(headers: Any) -> Optional[float]:
+    """Parse the ``Retry-After`` HTTP header into a wait time in seconds.
+
+    Supports the integer-seconds form (``Retry-After: 120``). The
+    HTTP-date form is not parsed and falls back to the default backoff.
+    Returns ``None`` when the header is absent or unparseable.
+    """
+    if headers is None:
+        return None
+    try:
+        raw = headers.get("Retry-After")
+    except AttributeError:
+        return None
+    if not raw:
+        return None
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
+
 
 def _tmdb_get(
     base_url: str,
@@ -49,22 +91,87 @@ def _tmdb_get(
 ) -> Optional[Dict[str, Any]]:
     """Make a GET request to the TMDB API and return parsed JSON.
 
-    Returns ``None`` on any error (network, HTTP, parse). Errors are
-    logged at DEBUG level so they don't pollute production logs.
+    Behavior:
+      - **Cache**: the response for each URL is memoized in the
+        process-level ``_TMDB_CACHE``. A cache hit returns immediately
+        without issuing a network request.
+      - **HTTP 429 retry**: rate-limited responses are retried up to
+        ``_TMDB_MAX_RETRIES`` (3) times. The wait time is taken from the
+        ``Retry-After`` header when present, otherwise from
+        ``_TMDB_RETRY_BACKOFF`` (1s, 2s, 4s).
+      - **Error handling**: returns ``None`` on non-429 HTTP errors and
+        JSON parse errors (logged at DEBUG). Network errors
+        (``URLError`` / ``OSError``) are propagated so callers can apply
+        their own degradation strategy (e.g. card enrichment logs a
+        warning and returns the original card).
     """
     params["api_key"] = api_key
     url = base_url.rstrip("/") + path + "?" + urllib.parse.urlencode(params)
+
+    # Cache hit — skip the network round-trip entirely.
+    if url in _TMDB_CACHE:
+        logger.debug(f"TMDB cache hit for {path}")
+        return _TMDB_CACHE[url]
+
     req = urllib.request.Request(url, headers={"Accept": "application/json"})
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            if resp.status != 200:
-                logger.debug(f"TMDB API returned status {resp.status} for {path}")
-                return None
-            body = resp.read().decode("utf-8")
-            return json.loads(body)
-    except Exception as e:
-        logger.debug(f"TMDB API request failed for {path}: {e}")
-        return None
+    for attempt in range(_TMDB_MAX_RETRIES + 1):  # initial attempt + retries
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                status = resp.status
+                if status == 429:
+                    # Defensive: urlopen normally raises HTTPError for 4xx,
+                    # but handle a 429 response object just in case.
+                    if attempt >= _TMDB_MAX_RETRIES:
+                        logger.debug(
+                            f"TMDB API rate-limited (429) for {path}; "
+                            f"giving up after {attempt + 1} attempt(s)"
+                        )
+                        return None
+                    wait = _parse_retry_after(resp.headers)
+                    if wait is None:
+                        wait = _TMDB_RETRY_BACKOFF[attempt]
+                    logger.debug(
+                        f"TMDB API rate-limited (429) for {path}; "
+                        f"retrying in {wait}s (attempt {attempt + 1}/{_TMDB_MAX_RETRIES})"
+                    )
+                    time.sleep(wait)
+                    continue
+                if status != 200:
+                    logger.debug(f"TMDB API returned status {status} for {path}")
+                    return None
+                body = resp.read().decode("utf-8")
+                data = json.loads(body)
+                _TMDB_CACHE[url] = data
+                return data
+        except urllib.error.HTTPError as e:
+            if e.code == 429:
+                if attempt >= _TMDB_MAX_RETRIES:
+                    logger.debug(
+                        f"TMDB API rate-limited (429) for {path}; "
+                        f"giving up after {attempt + 1} attempt(s)"
+                    )
+                    return None
+                wait = _parse_retry_after(e.headers)
+                if wait is None:
+                    wait = _TMDB_RETRY_BACKOFF[attempt]
+                logger.debug(
+                    f"TMDB API rate-limited (429) for {path}; "
+                    f"retrying in {wait}s (attempt {attempt + 1}/{_TMDB_MAX_RETRIES})"
+                )
+                time.sleep(wait)
+                continue
+            logger.debug(f"TMDB API returned HTTP {e.code} for {path}: {e}")
+            return None
+        except (urllib.error.URLError, OSError) as e:
+            # Network-level error — propagate so callers (e.g. card
+            # enrichment) can log and degrade gracefully.
+            logger.debug(f"TMDB network error for {path}: {e}")
+            raise
+        except Exception as e:
+            logger.debug(f"TMDB API request failed for {path}: {e}")
+            return None
+
+    return None
 
 
 def _search_movie(
@@ -191,9 +298,14 @@ def tmdb_research(ctx: Context, settings: Settings) -> ResearchInfo:
         )
 
     # Search for the movie
-    search_result = _search_movie(
-        settings.tmdb_base_url, api_key, ctx.movie_name, settings.tmdb_language
-    )
+    try:
+        search_result = _search_movie(
+            settings.tmdb_base_url, api_key, ctx.movie_name, settings.tmdb_language
+        )
+    except (urllib.error.URLError, OSError) as e:
+        raise RuntimeError(
+            f"TMDB search failed for '{ctx.movie_name}': network error: {e}"
+        ) from e
     if not search_result or not isinstance(search_result, dict):
         raise RuntimeError(
             f"Movie '{ctx.movie_name}' not found on TMDB"
@@ -204,9 +316,14 @@ def tmdb_research(ctx: Context, settings: Settings) -> ResearchInfo:
         raise RuntimeError(f"TMDB search returned no valid movie ID for '{ctx.movie_name}'")
 
     # Fetch detailed info with credits
-    details = _get_movie_details(
-        settings.tmdb_base_url, api_key, movie_id, settings.tmdb_language
-    )
+    try:
+        details = _get_movie_details(
+            settings.tmdb_base_url, api_key, movie_id, settings.tmdb_language
+        )
+    except (urllib.error.URLError, OSError) as e:
+        raise RuntimeError(
+            f"TMDB details fetch failed for movie ID {movie_id}: network error: {e}"
+        ) from e
     if not details or not isinstance(details, dict):
         raise RuntimeError(f"TMDB API returned no details for movie ID {movie_id}")
 
@@ -232,7 +349,8 @@ def enrich_movie_card_with_tmdb(
 
     When TMDB is unavailable (no key, movie not found, network error),
     the original card is returned unchanged — the feature is a soft
-    enhancement.
+    enhancement. Network errors are logged at WARNING level so they are
+    visible in production logs without interrupting the pipeline.
 
     Args:
         card: The LLM-sourced MovieCard to enrich.
@@ -247,9 +365,16 @@ def enrich_movie_card_with_tmdb(
         logger.debug("TMDB enrichment skipped: no API key configured")
         return card
 
-    search_result = _search_movie(
-        settings.tmdb_base_url, api_key, ctx.movie_name, settings.tmdb_language
-    )
+    try:
+        search_result = _search_movie(
+            settings.tmdb_base_url, api_key, ctx.movie_name, settings.tmdb_language
+        )
+    except (urllib.error.URLError, OSError) as e:
+        logger.warning(
+            f"TMDB enrichment: network error while searching for "
+            f"'{ctx.movie_name}': {e}"
+        )
+        return card
     if not search_result or not isinstance(search_result, dict):
         logger.debug(f"TMDB enrichment: movie '{ctx.movie_name}' not found")
         return card
@@ -258,9 +383,16 @@ def enrich_movie_card_with_tmdb(
     if not isinstance(movie_id, int):
         return card
 
-    details = _get_movie_details(
-        settings.tmdb_base_url, api_key, movie_id, settings.tmdb_language
-    )
+    try:
+        details = _get_movie_details(
+            settings.tmdb_base_url, api_key, movie_id, settings.tmdb_language
+        )
+    except (urllib.error.URLError, OSError) as e:
+        logger.warning(
+            f"TMDB enrichment: network error while fetching details for "
+            f"movie ID {movie_id}: {e}"
+        )
+        return card
     if not details or not isinstance(details, dict):
         return card
 
