@@ -73,8 +73,10 @@ narration_preset: ""        # douyin-fast | mainstream-dry | bilibili-long
 #          match_diversity_window / match_max_scene_reuse
 #          match_timeline_mode / match_act_weights
 #          match_topk / match_topk_reuse_penalty
-  #   视觉: vision_captioner
+#          match_skip_intro_sec / match_drop_dark_luma / match_source_window
+#   视觉: vision_captioner
 #   BGM:  bgm_gain_db / bgm_duck_db / bgm_normalize / audio_target_dbfs
+#          bgm_loudnorm / bgm_metadata_path
 #   TTS:  tts_pause_ms / tts_max_concurrent / tts_audio_format / tts_audio_bitrate
 #   翻译: translate_source_lang / translate_provider / translate_retries
 #          translate_chunk_chars / translate_chunk_size
@@ -87,11 +89,15 @@ narration_preset: ""        # douyin-fast | mainstream-dry | bilibili-long
 #          render_subtitle_bottom_margin_ratio
 #          render_require_footage / render_min_footage_coverage / render_profile
 #          render_title_card_sec / render_cover_export / render_vertical_safe_area
+#          render_template
 #   质检: qa_enabled / qa_max_silence_db / qa_min_duration_ratio / qa_max_duration_ratio
 #   文案: prompt_target_sentences / prompt_target_segment_duration
 #         prompt_max_chars_per_sentence / prompt_hook_seconds
+#         hook_templates / set_pieces
 #   异步: async_timeout / async_max_workers
 #   视频: video_sizes
+#   平台: target_platform / lang
+#   视角: narrator_perspective / focus_character
 params:
   # ---- 场景检测 ----
   scene_threshold: 27.0     # PySceneDetect 灵敏度（越大越不敏感，切分越少）

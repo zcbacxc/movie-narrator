@@ -177,6 +177,12 @@
 - [x] Services.logger 集成（AppLogger 自动注入，供插件使用结构化日志）
 - [x] 文档与示例对齐 v0.5.4 项目状态
 
+### v0.5.6 — TMDB 注册修复 & YAML 对齐
+
+- [x] TMDB provider 导入时注册修复（`pipeline/research.py`）
+- [x] YAML 白名单注释同步 — 补全 12 个缺失参数文档（`examples/job.example.yaml`）
+- [x] L2 YAML 注释修复 — WP1 短键已生效、prompt_target_segment_duration 为合法字段（`examples/l2/job.l2.douyin.yaml`）
+
 ## v0.6.x — Cloud
 
 - [ ] 远程推理（offload LLM / TTS / 渲染到云 worker）

@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.6] - 2026-07-28
+
+### Fixed (v0.5.6 — TMDB Registration & YAML Alignment)
+
+- **TMDB provider registration** (`pipeline/research.py`): added explicit `from ..providers import tmdb` import at module level to ensure `@register_research("tmdb")` executes at import time. Without this, the tmdb provider was only registered when `enrich_movie_card_with_tmdb` was lazily imported inside `_research_via_llm`, causing `research_provider: "tmdb"` to fail with "unknown provider" because the registry check runs before the lazy import.
+- **YAML whitelist comments** (`examples/job.example.yaml`): added 12 missing keys to the params whitelist documentation — `match_skip_intro_sec`, `match_drop_dark_luma`, `match_source_window`, `bgm_loudnorm`, `bgm_metadata_path`, `hook_templates`, `set_pieces`, `target_platform`, `lang`, `render_template`, `narrator_perspective`, `focus_character`.
+- **L2 YAML outdated comments** (`examples/l2/job.l2.douyin.yaml`): updated WP1 short-key comments from "不生效" to "已生效"; corrected the false `prompt_target_segment_duration` comment (it is a valid JobParams field, not a load-failure risk).
+
+### Notes
+
+- `CONTRACT_VERSION` remains `(0, 5, 1)` — no SDK surface changes.
+- All 876 tests pass (23 skipped in CI mode, 0 failures).
+
 ## [0.5.5] - 2026-07-27
 
 ### Added (v0.5.5 — Logging Improvements)

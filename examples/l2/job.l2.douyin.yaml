@@ -14,10 +14,8 @@ no_clips: true
 # bgm: "D:/bgm/your-track.mp3"  # 或用 --bgm
 
 steps:
-  research: true       # 有效：经 research_enabled 通路
-  translate: false     # 有效：短键唯一可靠别名
-  # 以下短键在 WP1 前不生效（无 _STEP_ALIASES）：
-  # scene, match, align, bgm, export
+  research: true       # 所有短键自 WP1 起均已生效（_STEP_ALIASES 已实现）
+  translate: false     # 短键直接映射到 JobSteps 字段
 
 params:
   match_min_score: 0.25
@@ -32,4 +30,4 @@ params:
   render_subtitle_position: bottom
   qa_enabled: true
   bgm_normalize: true
-  # 禁止写入 prompt_target_segment_duration（会 load 失败，靠 preset）
+  # prompt_target_segment_duration 为合法 JobParams 字段，可安全写入（此处靠 preset 隐式注入）

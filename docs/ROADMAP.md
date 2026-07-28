@@ -177,6 +177,12 @@
 - [x] Services.logger integration (AppLogger auto-injected for plugin use)
 - [x] Docs/examples alignment with v0.5.4 project state
 
+### v0.5.6 — TMDB Registration & YAML Alignment
+
+- [x] TMDB provider import-time registration fix (`pipeline/research.py`)
+- [x] YAML whitelist comments sync — 12 missing params documented (`examples/job.example.yaml`)
+- [x] L2 YAML comment fixes — WP1 short keys, prompt_target_segment_duration (`examples/l2/job.l2.douyin.yaml`)
+
 ## v0.6.x — Cloud
 
 - [ ] Remote inference (offload LLM / TTS / rendering to cloud workers)

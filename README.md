@@ -515,6 +515,7 @@ movie-narrator/
 - [x] v0.5.3 — Hardening: SDK API docs, benchmark script, Quickstart guide, research plugin example
 - [x] v0.5.4 — Quality Uplift: VLM caption provider, multi-candidate horse race, reference video imitation, L2 runbook
 - [x] v0.5.5 — Logging Improvements: `--log-level`/`--verbose` CLI options, RotatingFileHandler, JSON logs, run ID, step timing
+- [x] v0.5.6 — TMDB Registration & YAML Alignment: TMDB provider import-time registration, YAML whitelist docs sync, L2 comment fixes
 
 > SDK and Plugin API are designed together — both must stabilize in the same release.
 

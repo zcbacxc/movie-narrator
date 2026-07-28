@@ -9,6 +9,13 @@ from ..utils.console import step_timing
 from ..utils.json_parser import extract_json
 from ..utils.llm import get_llm_client
 
+# Import tmdb module to trigger @register_research("tmdb") at import time.
+# Without this, the tmdb provider is only registered when
+# enrich_movie_card_with_tmdb is lazily imported (inside _research_via_llm),
+# which means `research_provider: "tmdb"` would fail with "unknown provider"
+# because the registry check in research_plot runs before the lazy import.
+from ..providers import tmdb as _tmdb_module  # noqa: F401
+
 RESEARCH_PROMPT = """\
 You are a film research assistant. Provide structured information about the movie "{movie}".
 
