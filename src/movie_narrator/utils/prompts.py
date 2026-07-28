@@ -187,6 +187,32 @@ Output ONLY JSON:
 }}
 """
 
+# ── Script self-check judge (NA-M1-S5) ─────────────────────
+# A lightweight LLM quality gate that evaluates the generated narration
+# script on three dimensions before accepting it. The judge runs after
+# Phase 2 (expand) and before the trim, inside the retry loop.
+# NOTE: This is a generic quality-gate pattern, independently authored.
+
+JUDGE_PROMPT = """\
+You are a strict script quality reviewer. Evaluate the following movie narration script for "{movie}".
+
+Script segments (in order):
+{script}
+
+Score each dimension from 1 to 10:
+- hook_strength: How compelling is the opening hook? Does the first line grab attention within seconds?
+- spoiler_level: How much plot is spoiled? Higher means MORE spoiler (we want this LOW). A score of 10 means the entire ending/twist is revealed.
+- plot_accuracy: How accurate is the plot retelling? Does it faithfully represent the movie without fabrications?
+
+Decision rule:
+- verdict = "pass" if hook_strength >= 6 AND spoiler_level <= 7 AND plot_accuracy >= 6
+- verdict = "retry" otherwise
+
+Return ONLY a JSON object (no markdown, no extra text):
+{{"hook_strength": 8, "spoiler_level": 3, "plot_accuracy": 9, "verdict": "pass", "issues": ["short description of any problem, or empty list if none"]}}
+"""
+
+
 # ── Cadence/register/connector hints for preset-driven prompt shaping ──
 # These are injected into SCRIPT_PROMPT via {cadence_hint}.  Each preset
 # selects one hint per dimension; the combination produces a distinctive

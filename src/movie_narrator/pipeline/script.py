@@ -4,7 +4,7 @@ import re
 from ..config import get_settings
 from ..models import Context, ScriptSegment
 from ..utils.console import step_timing
-from ..utils.prompts import BEATS_PROMPT, EXPAND_PROMPT, build_cadence_hint, build_set_pieces_hint, build_hook_hint, build_platform_tone_hint, build_language_hint, NARRATIVE_PRINCIPLES, ANTI_AI_TONE
+from ..utils.prompts import BEATS_PROMPT, EXPAND_PROMPT, JUDGE_PROMPT, build_cadence_hint, build_set_pieces_hint, build_hook_hint, build_platform_tone_hint, build_language_hint, NARRATIVE_PRINCIPLES, ANTI_AI_TONE
 from ..utils.llm import get_llm_client
 from ..utils.json_parser import extract_json
 from ..tts.base import is_ci
@@ -291,17 +291,114 @@ def _expand_beats_to_script(
     return segments
 
 
+# ── Phase 3: script self-check judge (NA-M1-S5) ──────────
+# A lightweight LLM quality gate that scores the expanded script on
+# three dimensions (hook, spoiler, accuracy) before it is accepted.
+# Generic quality-gate pattern, independently authored.
+
+# Default passing score returned in CI mode (no LLM call) or when the
+# judge itself fails — the pipeline must never break on the judge.
+_DEFAULT_PASS_SCORE = {
+    "hook_strength": 8,
+    "spoiler_level": 3,
+    "plot_accuracy": 9,
+    "verdict": "pass",
+    "issues": [],
+}
+
+
+def judge_script(
+    segments: List[ScriptSegment], movie_name: str, llm
+) -> dict:
+    """Judge the expanded script on three quality dimensions.
+
+    Evaluates ``hook_strength``, ``spoiler_level`` (lower is better),
+    and ``plot_accuracy`` (each 1-10), then derives a ``verdict`` of
+    ``"pass"`` or ``"retry"``.
+
+    In CI mode (``is_ci()``) the LLM is skipped and a default passing
+    score is returned so the full pipeline can be exercised without a
+    network round-trip.
+
+    Args:
+        segments: The expanded narration segments (pre-trim).
+        movie_name: Movie title for context in the judge prompt.
+        llm: An :class:`LLMClient` (has ``.client`` and ``.model``).
+
+    Returns:
+        A dict with keys ``hook_strength``, ``spoiler_level``,
+        ``plot_accuracy``, ``verdict``, and ``issues``.
+    """
+    # CI mode: skip the LLM call entirely (no network, no latency).
+    if is_ci():
+        return dict(_DEFAULT_PASS_SCORE)
+
+    # Format the segments into a numbered script block for the judge.
+    script_text = "\n".join(
+        f"{i + 1}. {s.text}" for i, s in enumerate(segments)
+    )
+
+    prompt = JUDGE_PROMPT.format(movie=movie_name, script=script_text)
+
+    # Low temperature + capped max_tokens for a fast, deterministic check.
+    response = llm.client.chat.completions.create(
+        model=llm.model,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.3,
+        max_tokens=256,
+    )
+    raw = response.choices[0].message.content or ""
+    scores = extract_json(raw)
+
+    # Normalise: ensure all expected keys exist with safe defaults so
+    # downstream code never KeyErrors on a malformed LLM response.
+    scores.setdefault("hook_strength", 0)
+    scores.setdefault("spoiler_level", 10)
+    scores.setdefault("plot_accuracy", 0)
+    if not isinstance(scores.get("issues"), list):
+        scores["issues"] = []
+    # Re-derive verdict from the scores to guarantee the decision rule
+    # is enforced regardless of what the LLM returned.
+    hook = scores.get("hook_strength", 0)
+    spoiler = scores.get("spoiler_level", 10)
+    accuracy = scores.get("plot_accuracy", 0)
+    scores["verdict"] = (
+        "pass"
+        if _is_int_ge(hook, 6) and _is_int_le(spoiler, 7) and _is_int_ge(accuracy, 6)
+        else "retry"
+    )
+    return scores
+
+
+def _is_int_ge(value, threshold: int) -> bool:
+    """True iff *value* coerces to an int >= *threshold*."""
+    try:
+        return int(value) >= threshold
+    except (TypeError, ValueError):
+        return False
+
+
+def _is_int_le(value, threshold: int) -> bool:
+    """True iff *value* coerces to an int <= *threshold*."""
+    try:
+        return int(value) <= threshold
+    except (TypeError, ValueError):
+        return False
+
+
 # ── Main entry point ───────────────────────────────────────
 
 
 def generate_script(ctx: Context) -> Context:
-    """Two-phase script generation: plot beats -> narration expansion -> trim.
+    """Two-phase script generation: plot beats -> narration expansion -> judge -> trim.
 
     Phase 1 extracts exactly N plot beats (low temperature, structured).
     Phase 2 expands each beat into one narration line (style tags applied).
+    Phase 3 (NA-M1-S5) judges the expanded script on hook/spoiler/accuracy;
+    a "retry" verdict re-runs the whole loop when retries remain.
     Fallback trim ensures exactly N segments even if LLM overshoots.
 
-    The retry loop wraps both phases together.  CI mode falls back to
+    The retry loop wraps all phases together.  CI mode falls back to
     mock content (same as v0.4.15).
     """
     settings = get_settings()
@@ -338,9 +435,51 @@ def generate_script(ctx: Context) -> Context:
                 with step_timing(ctx.services.console, "llm_expand_script"):
                     segments = _expand_beats_to_script(ctx, settings, llm, beats, n)
 
-                # Fallback: trim to exactly n if LLM overshot
-                segments = _trim_segments(segments, n)
+                # NA-M1-S5: Phase 3 — judge the expanded script (before trim).
+                # The judge is a lightweight quality gate; any failure is
+                # caught so it never breaks the pipeline (treat as pass).
+                try:
+                    with step_timing(ctx.services.console, "llm_judge_script"):
+                        judge_scores = judge_script(segments, ctx.movie_name, llm)
+                except Exception as judge_err:
+                    ctx.services.console.debug(
+                        f"  generate_script: judge failed, treating as pass: {judge_err}"
+                    )
+                    judge_scores = dict(_DEFAULT_PASS_SCORE)
 
+                ctx.metadata["script_judge"] = judge_scores
+
+                verdict = judge_scores.get("verdict", "pass")
+                if verdict == "pass":
+                    # Accepted — trim to target and return.
+                    segments = _trim_segments(segments, n)
+                    ctx.segments = segments
+                    ctx.metadata["script_source"] = "llm"
+                    ctx.metadata["script_phase"] = "two-phase"
+                    ctx.metadata["script_target_count"] = n
+                    ctx.metadata["script_beat_count"] = len(beats)
+                    ctx.metadata["script_segment_count"] = len(segments)
+                    return ctx
+
+                # verdict == "retry" — log issues and decide whether to retry.
+                issues = judge_scores.get("issues", [])
+                retries_left = settings.script_retries - 1 - attempt
+                if retries_left > 0:
+                    ctx.services.console.inline_warn(
+                        f"Script judge verdict=retry "
+                        f"(attempt {attempt + 1}/{settings.script_retries}): {issues}"
+                    )
+                    sleep(settings.script_retry_delay)
+                    continue
+
+                # All retries exhausted — use the last generated script
+                # with a warning so the pipeline can proceed.
+                ctx.services.console.inline_warn(
+                    f"Script judge verdict=retry after all "
+                    f"{settings.script_retries} attempts; using last script. "
+                    f"Issues: {issues}"
+                )
+                segments = _trim_segments(segments, n)
                 ctx.segments = segments
                 ctx.metadata["script_source"] = "llm"
                 ctx.metadata["script_phase"] = "two-phase"
