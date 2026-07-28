@@ -71,29 +71,13 @@ def ensure_final_audio(ctx: Context) -> Context:
     return ctx
 
 
-def select_bgm_by_emotion(ctx: Context) -> Optional[str]:
-    """Select a BGM file whose mood matches the dominant narration emotion.
+def _compute_emotion_profile(beats_meta: list) -> dict[str, float] | None:
+    """Compute the emotion distribution as normalised weights.
 
-    NA-M4-S1: emotion-based BGM auto-selection.
-
-    The dominant emotion is the most frequent ``emotion`` value across
-    ``ctx.metadata["beats_meta"]`` (ignoring None / missing values). The
-    BGM metadata file (``ctx.metadata["bgm_metadata_path"]``, defaulting
-    to the packaged ``assets/bgm_metadata.yaml`` template) is then scanned
-    for the first sample whose ``mood`` equals the dominant emotion.
-
-    Returns the resolved path to the selected BGM file, or ``None`` when:
-      - no ``beats_meta`` / no usable emotions
-      - no BGM metadata file exists (or is unreadable)
-      - no sample matches the dominant emotion
-      - the matched file does not exist on disk
-
-    This is a SOFT enhancement: callers fall back to the existing BGM
-    selection logic when ``None`` is returned, so existing behaviour is
-    preserved when no metadata is available.
+    Returns a dict mapping emotion -> fraction (0.0-1.0), or ``None``
+    when no usable emotions are present. The distribution considers
+    ALL emotions, not just the dominant one, enabling better BGM matching.
     """
-    beats_meta = ctx.metadata.get("beats_meta") or []
-    # Compute the dominant emotion (most frequent, ignoring None values).
     counts: Dict[str, int] = {}
     for bm in beats_meta:
         if not isinstance(bm, dict):
@@ -104,7 +88,90 @@ def select_bgm_by_emotion(ctx: Context) -> Optional[str]:
         counts[emotion] = counts.get(emotion, 0) + 1
     if not counts:
         return None
-    dominant_emotion = max(counts, key=lambda k: counts[k])
+    total = sum(counts.values())
+    return {e: c / total for e, c in counts.items()}
+
+
+# Emotion energy mapping: approximate perceived energy level per emotion.
+# Used to match BGM energy to the narration's emotional intensity.
+_EMOTION_ENERGY: dict[str, float] = {
+    "intense": 0.9,
+    "suspense": 0.7,
+    "twist": 0.6,
+    "laughter": 0.5,
+    "calm": 0.2,
+}
+
+
+def _score_bgm_candidate(sample: dict, emotion_profile: dict[str, float]) -> float:
+    """Score a BGM candidate against the emotion profile.
+
+    Higher score = better match. Scoring considers:
+    - Direct mood match weighted by the emotion's fraction
+    - Energy alignment between BGM energy and weighted narration energy
+    - Versatility bonus when the BGM mood covers a secondary emotion
+
+    Returns 0.0 when the sample's mood doesn't match any emotion.
+    """
+    mood = sample.get("mood")
+    if not isinstance(mood, str) or mood not in emotion_profile:
+        return 0.0
+
+    # Primary match: the fraction of this mood in the narration
+    primary_score = emotion_profile[mood]
+
+    # Versatility bonus: if the BGM's mood also appears as a secondary
+    # emotion (>20%), give a small bonus for covering more of the arc.
+    versatility = 0.0
+    for emo, frac in emotion_profile.items():
+        if emo == mood:
+            continue
+        if emo == mood and frac > 0.20:
+            versatility += frac * 0.15
+    primary_score += versatility
+
+    # Energy alignment: compute the narration's weighted average energy
+    # and compare it to the BGM's energy field. Closer = better.
+    narration_energy = sum(
+        _EMOTION_ENERGY.get(e, 0.5) * f for e, f in emotion_profile.items()
+    )
+    bgm_energy = sample.get("energy")
+    if isinstance(bgm_energy, (int, float)) and 0.0 <= bgm_energy <= 1.0:
+        energy_diff = abs(narration_energy - float(bgm_energy))
+        # Map energy_diff (0.0=perfect, 1.0=worst) to a bonus/penalty
+        energy_score = (1.0 - energy_diff) * 0.2
+        primary_score += energy_score
+
+    return primary_score
+
+
+def select_bgm_by_emotion(ctx: Context) -> Optional[str]:
+    """Select a BGM file whose mood best matches the narration's emotion profile.
+
+    NA-M4-S1+: emotion-weighted BGM auto-selection.
+
+    Instead of picking the first BGM matching the single dominant emotion,
+    this computes the full emotion distribution and scores ALL candidates
+    against it. The best-scoring candidate is selected, considering:
+
+    - How well the BGM mood matches the emotion distribution
+    - Energy alignment between narration intensity and BGM energy
+    - Versatility for multi-emotion narratives
+
+    Returns the resolved path to the selected BGM file, or ``None`` when:
+      - no ``beats_meta`` / no usable emotions
+      - no BGM metadata file exists (or is unreadable)
+      - no sample matches any emotion in the profile
+      - the matched file does not exist on disk
+
+    This is a SOFT enhancement: callers fall back to the existing BGM
+    selection logic when ``None`` is returned, so existing behaviour is
+    preserved when no metadata is available.
+    """
+    beats_meta = ctx.metadata.get("beats_meta") or []
+    emotion_profile = _compute_emotion_profile(beats_meta)
+    if not emotion_profile:
+        return None
 
     # Resolve the BGM metadata file path.
     metadata_path_str = ctx.metadata.get("bgm_metadata_path")
@@ -131,12 +198,15 @@ def select_bgm_by_emotion(ctx: Context) -> Optional[str]:
     if not isinstance(samples, list):
         return None
 
-    # Resolve filenames relative to the metadata file's directory.
+    # Score all candidates and pick the best match.
     base_dir = metadata_path.parent
+    best_score = 0.0
+    best_path: Optional[str] = None
     for sample in samples:
         if not isinstance(sample, dict):
             continue
-        if sample.get("mood") != dominant_emotion:
+        score = _score_bgm_candidate(sample, emotion_profile)
+        if score <= best_score:
             continue
         filename = sample.get("filename")
         if not isinstance(filename, str) or not filename:
@@ -145,8 +215,17 @@ def select_bgm_by_emotion(ctx: Context) -> Optional[str]:
         if not candidate.is_absolute():
             candidate = (base_dir / filename).resolve()
         if candidate.is_file():
-            return str(candidate)
-    return None
+            best_score = score
+            best_path = str(candidate)
+
+    if best_path:
+        # Store selection metadata for diagnostics.
+        ctx.metadata["bgm_selection"] = {
+            "emotion_profile": {k: round(v, 3) for k, v in emotion_profile.items()},
+            "score": round(best_score, 3),
+        }
+
+    return best_path
 
 
 def mix_bgm(ctx: Context) -> Context:
