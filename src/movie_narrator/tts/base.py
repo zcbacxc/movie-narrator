@@ -6,6 +6,7 @@ from pathlib import Path
 
 from pydub import AudioSegment
 
+from ..workflow.errors import ProviderError, is_network_error
 from .protocol import TTSProvider
 
 
@@ -38,8 +39,24 @@ class BaseTTSProvider(TTSProvider):
     async def synthesize(self, text: str, voice: str, output_path: Path) -> None:
         if is_ci():
             await self._silent_synthesize(text, output_path)
-        else:
+            return
+        # R2-NA-ORCH: wrap the real (network-dependent) synthesis call so
+        # transient failures are flagged retryable. Network/timeout errors
+        # (ConnectionError, TimeoutError, openai APITimeoutError /
+        # APIConnectionError / RateLimitError) become a ProviderError with
+        # retryable=True, which the pipeline runner uses to offer interactive
+        # [R]etry/[S]kip/[A]bort when --retry is enabled. Config/logic errors
+        # (ConfigError, invalid voice, missing voice-clone file) are NOT
+        # network errors and are re-raised unchanged (non-retryable).
+        try:
             await self._real_synthesize(text, voice, output_path)
+        except Exception as e:
+            if is_network_error(e):
+                raise ProviderError(
+                    f"TTS synthesis failed (transient network error): {e}",
+                    retryable=True,
+                ) from e
+            raise
 
     async def _silent_synthesize(self, text: str, output_path: Path) -> None:
         """Write silence sized to text; CI mode never blocks on network.
