@@ -123,6 +123,9 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
             "target_platform", "lang",
             # NA-M6-S1: render template styling
             "render_template",
+            # NA-M1-S4: narrator perspective & character anchor
+            "narrator_perspective",
+            "focus_character",
         }
         for k in data["params"].keys():
             if k not in allowed_params:

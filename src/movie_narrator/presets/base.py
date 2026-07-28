@@ -82,6 +82,9 @@ ALLOWED_PARAM_KEYS: frozenset[str] = frozenset({
     "lang",
     # NA-M6-S1: render template — per-preset styling dict
     "render_template",
+    # NA-M1-S4: narrator perspective & character anchor
+    "narrator_perspective",
+    "focus_character",
 })
 
 # Safety: ALLOWED_PARAM_KEYS must be a subset of PARAM_WHITELIST.

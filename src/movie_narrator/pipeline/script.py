@@ -4,7 +4,7 @@ import re
 from ..config import get_settings
 from ..models import Context, ScriptSegment
 from ..utils.console import step_timing
-from ..utils.prompts import BEATS_PROMPT, EXPAND_PROMPT, JUDGE_PROMPT, build_cadence_hint, build_set_pieces_hint, build_hook_hint, build_platform_tone_hint, build_language_hint, NARRATIVE_PRINCIPLES, ANTI_AI_TONE
+from ..utils.prompts import BEATS_PROMPT, EXPAND_PROMPT, JUDGE_PROMPT, build_cadence_hint, build_set_pieces_hint, build_hook_hint, build_platform_tone_hint, build_language_hint, build_perspective_hint, NARRATIVE_PRINCIPLES, ANTI_AI_TONE
 from ..utils.llm import get_llm_client
 from ..utils.json_parser import extract_json
 from ..tts.base import is_ci
@@ -240,6 +240,10 @@ def _expand_beats_to_script(
         anti_ai_tone=ANTI_AI_TONE,
         platform_tone=build_platform_tone_hint(ctx.metadata.get("target_platform", "")),
         language_hint=build_language_hint(ctx.metadata.get("lang", "")),
+        perspective_hint=build_perspective_hint(
+            ctx.metadata.get("narrator_perspective", ""),
+            ctx.metadata.get("focus_character", ""),
+        ),
     )
 
     response = llm.client.chat.completions.create(
