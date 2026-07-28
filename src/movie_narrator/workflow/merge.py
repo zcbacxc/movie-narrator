@@ -116,6 +116,8 @@ def merge_job(
             "async_timeout", "async_max_workers",
             # Video sizes
             "video_sizes",
+            # NA-M6-S1: render template styling
+            "render_template",
         ):
             val = getattr(job.params, key)
             if val is not None:

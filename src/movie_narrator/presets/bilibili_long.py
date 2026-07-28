@@ -46,6 +46,12 @@ class BilibiliLongPreset:
             "render_vertical_safe_area": True,
             # NA-M1-S2: platform tone adaptation
             "target_platform": "bilibili",
+            # NA-M6-S1: render template — per-preset styling overlays
+            "render_template": {
+                "title_card_text": "{movie}",
+                "disclaimer_text": "解说仅供交流，请支持正版",
+                "end_card_text": "一键三连",
+            },
         }
 
     def prompt_tags(self) -> Dict[str, str]:
