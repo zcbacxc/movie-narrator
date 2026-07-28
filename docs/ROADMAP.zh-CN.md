@@ -177,11 +177,27 @@
 - [x] Services.logger 集成（AppLogger 自动注入，供插件使用结构化日志）
 - [x] 文档与示例对齐 v0.5.4 项目状态
 
-### v0.5.6 — TMDB 注册修复 & YAML 对齐
+### v0.5.6 — 叙事质量与外部数据
 
+- [x] 叙事五原则 + 反 AI 腔调注入提示模板 (NA-M1-S1)
+- [x] 平台语气适配 — `target_platform` 支持 douyin/bilibili/youtube (NA-M1-S2)
+- [x] 节拍标注 rhythm_zone/emotion (NA-M1-S3)
+- [x] 节拍区域影响匹配评分 (NA-M1-S3+)
+- [x] 解说视角与角色锚定 — `narrator_perspective` / `focus_character` (NA-M1-S4)
+- [x] CLI 视角参数 — `--narrator-perspective` / `--focus-character` (NA-M1-S4+)
+- [x] 两阶段解说稿自检 judge + 重试 (NA-M1-S5)
+- [x] Judge 反馈循环 — 将审查问题注入重试提示 (NA-M1-S5+)
+- [x] 结构化电影卡片降低幻觉 (NA-M2-S1)
+- [x] TMDB 外部数据源事实验证 (NA-M2-S1+)
+- [x] BGM 基于情绪的选择 (NA-M4-S1)
+- [x] 情绪加权 BGM 选择与能量对齐 (NA-M4-S1+)
+- [x] 渲染模板系统 — 按 preset 自定义样式 (NA-M6-S1)
+- [x] 语言链一致性 — 单一 `lang` 真相源 (R2-NA-LANG)
+- [x] 可重试错误码 — 网络类故障分类 (R2-NA-ORCH)
 - [x] TMDB provider 导入时注册修复（`pipeline/research.py`）
 - [x] YAML 白名单注释同步 — 补全 12 个缺失参数文档（`examples/job.example.yaml`）
 - [x] L2 YAML 注释修复 — WP1 短键已生效、prompt_target_segment_duration 为合法字段（`examples/l2/job.l2.douyin.yaml`）
+- [x] README / cli-usage.sh / ROADMAP 与当前代码库对齐
 
 ## v0.6.x — Cloud
 

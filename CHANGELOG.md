@@ -7,16 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [0.5.6] - 2026-07-28
 
+### Added (v0.5.6 — Narrative Quality & External Data)
+
+- **Narrative five-principles + anti-AI-tone** (NA-M1-S1, `prompts.py`): injected five narrative principles (hook, pacing, emotion arc, specificity, variety) and anti-AI-tone guidelines into LLM prompt templates to produce more natural, engaging narration.
+- **Platform tone adaptation** (NA-M1-S2, `prompts.py` / `models.py`): new `target_platform` param (`douyin` / `bilibili` / `youtube`) that adjusts tone, pacing, and vocabulary to match platform conventions.
+- **Rhythm zone & emotion marking** (NA-M1-S3, `script.py`): plot beats now carry `rhythm_zone` (intro / build / climax / resolution) and `emotion` fields, enabling downstream rhythm-aware matching.
+- **Rhythm-zone match scoring** (NA-M1-S3+, `match.py`): match score now includes a soft bonus for scenes whose timeline position aligns with the beat's rhythm zone, improving narrative pacing.
+- **Narrator perspective & character anchor** (NA-M1-S4, `script.py` / `models.py`): new `narrator_perspective` (`omniscient` / `character` / `detective`) and `focus_character` params that shift narration viewpoint for creative variety.
+- **CLI perspective flags** (NA-M1-S4+, `cli.py`): `--narrator-perspective` and `--focus-character` CLI flags override YAML values.
+- **Two-phase script self-check judge** (NA-M1-S5, `script.py` / `errors.py`): after Phase-2 expansion, a judge LLM call evaluates the script against quality criteria; low-quality scripts trigger a retry with feedback.
+- **Judge feedback loop** (NA-M1-S5+, `script.py`): on judge rejection, specific quality issues are injected into the retry prompt for targeted correction, improving convergence.
+- **Structured movie card** (NA-M2-S1, `research.py` / `models.py`): LLM now produces a structured `MovieCard` (title, year, genre, director, cast, plot summary, themes) instead of freeform text, reducing hallucination and enabling downstream fact verification.
+- **TMDB external data source** (NA-M2-S1+, `providers/tmdb.py`): optional TMDB integration for fact verification — cross-checks LLM-generated movie cards against TMDB data; available as `research_provider: "tmdb"` or as an enrichment layer over LLM research.
+- **BGM emotion-based selection** (NA-M4-S1, `bgm.py`): when BGM metadata YAML is provided (`bgm_metadata_path`), BGM tracks are selected based on beat emotion labels for mood-appropriate scoring.
+- **Emotion-weighted BGM selection** (NA-M4-S1+, `bgm.py`): uses full emotion distribution across all beats (not just dominant emotion) for BGM selection, with energy alignment to match narrative intensity.
+- **Render template system** (NA-M6-S1, `render.py` / `models.py`): new `render_template` param provides per-preset styling options (title card text, disclaimer, watermark, slogan, end card); `{movie}` placeholder auto-replaced at render time.
+- **Language chain consistency** (R2-NA-LANG, `models.py` / `script.py` / `translate.py`): single `lang` param as source of truth for narration language, propagated consistently through script generation, TTS, and translation.
+- **Retryable error codes** (R2-NA-ORCH, `errors.py`): network-type failures (timeout, connection error) now carry `RetryableError` classification, enabling the orchestrator to distinguish transient from permanent failures.
+
 ### Fixed (v0.5.6 — TMDB Registration & YAML Alignment)
 
 - **TMDB provider registration** (`pipeline/research.py`): added explicit `from ..providers import tmdb` import at module level to ensure `@register_research("tmdb")` executes at import time. Without this, the tmdb provider was only registered when `enrich_movie_card_with_tmdb` was lazily imported inside `_research_via_llm`, causing `research_provider: "tmdb"` to fail with "unknown provider" because the registry check runs before the lazy import.
 - **YAML whitelist comments** (`examples/job.example.yaml`): added 12 missing keys to the params whitelist documentation — `match_skip_intro_sec`, `match_drop_dark_luma`, `match_source_window`, `bgm_loudnorm`, `bgm_metadata_path`, `hook_templates`, `set_pieces`, `target_platform`, `lang`, `render_template`, `narrator_perspective`, `focus_character`.
 - **L2 YAML outdated comments** (`examples/l2/job.l2.douyin.yaml`): updated WP1 short-key comments from "不生效" to "已生效"; corrected the false `prompt_target_segment_duration` comment (it is a valid JobParams field, not a load-failure risk).
+- **Lang params backward compatibility** (`models.py`): `lang` is only added to params when explicitly set by user, preventing unintended behavior changes for existing configs.
+
+### Changed (v0.5.6)
+
+- `README.md` / `README.zh-CN.md`: updated params count (52→77) and CLI flags count (18→24) to reflect current codebase.
+- `examples/cli-usage.sh`: added `--narrator-perspective` and `--focus-character` to the complete parameter list.
+- `docs/ROADMAP.md` / `ROADMAP.zh-CN.md`: added v0.5.6 narrative quality & external data section.
 
 ### Notes
 
 - `CONTRACT_VERSION` remains `(0, 5, 1)` — no SDK surface changes.
-- All 876 tests pass (23 skipped in CI mode, 0 failures).
+- All 853 tests pass (23 skipped in CI mode, 0 failures).
 
 ## [0.5.5] - 2026-07-27
 
