@@ -145,11 +145,15 @@ def merge_job(
     )
 
     # R2-NA-LANG: resolve narration language (default "zh").
-    lang = pick_optional(cli.get("lang"), yaml_get("lang"), None) or "zh"
-    lang = str(lang).strip().lower() or "zh"
-    # If lang is set in params, the params value takes precedence
-    if "lang" not in params:
-        params["lang"] = lang
+    # Only add to params if explicitly set by user (CLI or YAML).
+    # The default "zh" is handled by build_context's parameter default.
+    lang = pick_optional(cli.get("lang"), yaml_get("lang"), None)
+    if lang:
+        lang = str(lang).strip().lower()
+        if "lang" not in params:
+            params["lang"] = lang
+    else:
+        lang = "zh"
 
     config_path = cli.get("config_path")
     if config_path is not None:
