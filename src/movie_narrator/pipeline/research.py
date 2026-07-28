@@ -81,6 +81,20 @@ def _research_via_llm(ctx: Context, settings) -> ResearchInfo:
         except Exception:
             ctx.metadata.pop("movie_card", None)
 
+        # NA-M2-S1+: TMDB cross-validation. When an API key is configured,
+        # enrich the LLM-sourced card with TMDB-verified factual data
+        # (director, cast, genres, year). This is a soft enhancement:
+        # if TMDB is unavailable or the movie isn't found, the LLM card
+        # is used unchanged.
+        card = ctx.metadata.get("movie_card")
+        if card is not None:
+            try:
+                from ..providers.tmdb import enrich_movie_card_with_tmdb
+                enriched = enrich_movie_card_with_tmdb(card, ctx, settings)
+                ctx.metadata["movie_card"] = enriched
+            except Exception:
+                pass  # TMDB enrichment is best-effort
+
         return ResearchInfo(
             title=data.get("title", ctx.movie_name),
             year=data.get("year"),
