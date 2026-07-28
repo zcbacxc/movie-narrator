@@ -163,6 +163,14 @@ def create(
         None, "--narration-preset", "-p",
         help="解说风格预设 douyin-fast | mainstream-dry | bilibili-long / Narration style preset",
     ),
+    narrator_perspective: Optional[str] = typer.Option(
+        None, "--narrator-perspective",
+        help="解说视角 omniscient | character | detective / Narrator perspective mode",
+    ),
+    focus_character: Optional[str] = typer.Option(
+        None, "--focus-character",
+        help="聚焦角色名(配合 character 视角) / Focus character name (used with 'character' perspective)",
+    ),
     output_dir: Optional[str] = typer.Option(
         None, "--output-dir", "-o",
         help="输出目录(默认 output/<电影名>) / Output directory (default: output/<movie>)",
@@ -249,6 +257,9 @@ def create(
         "config_path": config_path,
         "subtitle_lang": subtitle_lang,
         "subtitle_mode": subtitle_mode,
+        "narration_preset": narration_preset,
+        "narrator_perspective": narrator_perspective,
+        "focus_character": focus_character,
     }
     resolved = merge_job(cli_snapshot, job, get_settings())
 
