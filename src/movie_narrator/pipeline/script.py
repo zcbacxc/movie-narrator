@@ -92,6 +92,13 @@ def _trim_segments(segments: List[ScriptSegment], target: int) -> List[ScriptSeg
 
 # ── Phase 1: plot beat extraction ──────────────────────────
 
+# NA-M1-S3: rhythm_zone / emotion marking.
+# Generic dramatic-arc theory (hook -> rising -> peak -> settle) and a
+# small set of emotion tags. Used to validate LLM output; invalid values
+# silently fall back to None (same leniency as act / approx_ratio).
+_RHYTHM_ZONES = frozenset({"hook", "rising", "peak", "settle"})
+_EMOTIONS = frozenset({"suspense", "laughter", "intense", "calm", "twist"})
+
 
 def _generate_plot_beats(
     ctx: Context, settings, llm, target_count: int
@@ -171,14 +178,23 @@ def _generate_plot_beats(
                     ratio = max(0.0, min(1.0, ratio))  # clamp to [0, 1]
             except (TypeError, ValueError):
                 ratio = None
+            # NA-M1-S3: parse rhythm_zone / emotion, validate against
+            # allowed values; fall back to None on invalid/missing input
+            # (same leniency as act / approx_ratio above).
+            rhythm_zone = b.get("rhythm_zone")
+            if not isinstance(rhythm_zone, str) or rhythm_zone not in _RHYTHM_ZONES:
+                rhythm_zone = None
+            emotion = b.get("emotion")
+            if not isinstance(emotion, str) or emotion not in _EMOTIONS:
+                emotion = None
             cleaned.append(text)
-            beats_meta.append({"text": text, "act": act, "approx_ratio": ratio})
+            beats_meta.append({"text": text, "act": act, "approx_ratio": ratio, "rhythm_zone": rhythm_zone, "emotion": emotion})
         else:
             text = str(b).strip()
             if not text or text.lower() == "none":
                 continue
             cleaned.append(text)
-            beats_meta.append({"text": text, "act": None, "approx_ratio": None})
+            beats_meta.append({"text": text, "act": None, "approx_ratio": None, "rhythm_zone": None, "emotion": None})
     if len(cleaned) != target_count:
         raise ValueError(
             f"Phase 1: after filtering None/empty beats, expected {target_count}, got {len(cleaned)}"

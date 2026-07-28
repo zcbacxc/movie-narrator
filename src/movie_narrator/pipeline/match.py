@@ -606,6 +606,45 @@ def _get_act_candidate_indices(
     return indices
 
 
+# ── NA-M1-S3: rhythm-zone scene-density hint ───────────────
+
+
+def _apply_rhythm_density_hint(merge_min: float, beats_meta: list[dict]) -> float:
+    """Nudge the scene-merge threshold based on rhythm_zone markings.
+
+    This is a *soft hint*, not a hard override: the configured
+    ``scene_merge_min_duration`` is blended with the per-beat rhythm
+    signals so that "hook" beats (which benefit from rapid, dense cuts)
+    lower the threshold, while "settle" beats (which benefit from
+    longer, calmer scenes) raise it. The adjustment is bounded so the
+    value never collapses to zero or grows unbounded.
+
+    ``hook``  -> more scenes (denser)  -> lower merge threshold.
+    ``settle``-> fewer scenes (sparser)-> higher merge threshold.
+
+    Returns the (possibly adjusted) merge_min. When beats_meta is empty,
+    no beat carries a rhythm_zone, or merge_min is non-positive, the
+    original value is returned unchanged.
+    """
+    if not beats_meta or merge_min <= 0:
+        return merge_min
+
+    hooks = sum(1 for bm in beats_meta if bm.get("rhythm_zone") == "hook")
+    settles = sum(1 for bm in beats_meta if bm.get("rhythm_zone") == "settle")
+    if hooks == 0 and settles == 0:
+        return merge_min
+
+    # Net signal in [-1, 1]: positive = hook-heavy (denser),
+    # negative = settle-heavy (sparser).
+    net = (hooks - settles) / len(beats_meta)
+    # Bound the multiplicative nudge to ±40% of the configured threshold
+    # so it stays a soft hint rather than a hard override.
+    factor = 1.0 - 0.4 * net
+    adjusted = merge_min * factor
+    # Floor at 0.5s — a near-zero threshold would over-fragment scenes.
+    return max(0.5, adjusted)
+
+
 def match_clips(ctx: Context) -> Context:
     if not ctx.source_video_path:
         ctx.status.match = "skipped"
@@ -632,6 +671,11 @@ def match_clips(ctx: Context) -> Context:
     clamp_min = ctx.metadata.get("match_speed_clamp_min", 0.85)
     clamp_max = ctx.metadata.get("match_speed_clamp_max", 1.25)
     merge_min = ctx.metadata.get("scene_merge_min_duration", 2.0)
+    # NA-M1-S3: soft rhythm-zone hint — nudge the merge threshold based on
+    # the dramatic-arc zones present in the beats (hook -> denser, settle ->
+    # sparser). No-op when beats lack rhythm_zone markings.
+    beats_meta = ctx.metadata.get("beats_meta", [])
+    merge_min = _apply_rhythm_density_hint(merge_min, beats_meta)
     drop_min = ctx.metadata.get("match_drop_scene_min_duration", 0.4)
     output_dir = Path(ctx.output_dir)
 

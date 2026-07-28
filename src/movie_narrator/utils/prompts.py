@@ -142,18 +142,20 @@ Requirements:
 - Points should span the full movie arc: opening hook -> rising tension -> climax -> resolution.
 - Arrange in chronological order of the film's plot.
 - For each beat, estimate which act (1-4) it belongs to and its approximate position in the film (0.0 = opening, 1.0 = ending).
+- For each beat, assign a "rhythm_zone" marking its dramatic-arc role: one of "hook" (grabbing attention), "rising" (building tension), "peak" (climactic moment), or "settle" (resolution/breath). The beats should progress through these zones across the arc.
+- For each beat, assign an "emotion" tag capturing the dominant feeling: one of "suspense", "laughter", "intense", "calm", or "twist".
 {set_pieces_hint}
 Output ONLY a JSON object:
 {{
   "beats": [
-    {{"text": "Point 1", "act": 1, "approx_ratio": 0.05}},
-    {{"text": "Point 2", "act": 2, "approx_ratio": 0.25}},
+    {{"text": "Point 1", "act": 1, "approx_ratio": 0.05, "rhythm_zone": "hook", "emotion": "suspense"}},
+    {{"text": "Point 2", "act": 2, "approx_ratio": 0.25, "rhythm_zone": "rising", "emotion": "intense"}},
     ...
   ]
 }}
 
 The "beats" array MUST contain exactly {target_count} items.
-Each item MUST have "text" (string), "act" (int 1-4), and "approx_ratio" (float 0.0-1.0).
+Each item MUST have "text" (string), "act" (int 1-4), "approx_ratio" (float 0.0-1.0), "rhythm_zone" (one of "hook", "rising", "peak", "settle"), and "emotion" (one of "suspense", "laughter", "intense", "calm", "twist").
 """
 
 EXPAND_PROMPT = """\
