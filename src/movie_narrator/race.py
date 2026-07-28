@@ -330,6 +330,7 @@ def run_race(
                 subtitle_lang=subtitle_lang,
                 subtitle_mode=subtitle_mode,
                 narration_preset=cand.narration_preset,
+                lang="zh",  # R2-NA-LANG: race mode defaults to Chinese
             )
 
             ctx = run_pipeline(ctx)

@@ -4,7 +4,7 @@ import re
 from ..config import get_settings
 from ..models import Context, ScriptSegment
 from ..utils.console import step_timing
-from ..utils.prompts import BEATS_PROMPT, EXPAND_PROMPT, build_cadence_hint, build_set_pieces_hint, build_hook_hint, build_platform_tone_hint, NARRATIVE_PRINCIPLES, ANTI_AI_TONE
+from ..utils.prompts import BEATS_PROMPT, EXPAND_PROMPT, build_cadence_hint, build_set_pieces_hint, build_hook_hint, build_platform_tone_hint, build_language_hint, NARRATIVE_PRINCIPLES, ANTI_AI_TONE
 from ..utils.llm import get_llm_client
 from ..utils.json_parser import extract_json
 from ..tts.base import is_ci
@@ -115,6 +115,7 @@ def _generate_plot_beats(
         target_count=target_count,
         set_pieces_hint=build_set_pieces_hint(ctx.metadata.get("set_pieces")),
         narrative_principles=NARRATIVE_PRINCIPLES,
+        language_hint=build_language_hint(ctx.metadata.get("lang", "")),
     )
 
     # ST-09: Scale max_tokens by target_count to avoid truncation on
@@ -222,6 +223,7 @@ def _expand_beats_to_script(
         narrative_principles=NARRATIVE_PRINCIPLES,
         anti_ai_tone=ANTI_AI_TONE,
         platform_tone=build_platform_tone_hint(ctx.metadata.get("target_platform", "")),
+        language_hint=build_language_hint(ctx.metadata.get("lang", "")),
     )
 
     response = llm.client.chat.completions.create(

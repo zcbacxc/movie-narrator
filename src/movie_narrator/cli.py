@@ -299,6 +299,7 @@ def create(
         subtitle_lang=resolved.subtitle_lang,
         subtitle_mode=resolved.subtitle_mode,
         narration_preset=resolved.narration_preset or narration_preset,
+        lang=resolved.lang,
         log_level=_resolved_level,
         verbose=verbose,
     )
@@ -585,6 +586,7 @@ def imitate(
         subtitle_lang=subtitle_lang,
         subtitle_mode=subtitle_mode,
         narration_preset=preset_name,
+        lang="zh",  # R2-NA-LANG: imitate command defaults to Chinese
         log_level=_resolved_level,
         verbose=verbose,
     )

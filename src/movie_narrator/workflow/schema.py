@@ -117,6 +117,8 @@ class JobParams(BaseModel):
     video_sizes: Optional[Dict[str, list]] = None
     # NA-M1-S2: target platform for tone adaptation
     target_platform: Optional[str] = None  # "douyin" | "bilibili" | "youtube" | None
+    # R2-NA-LANG: single source of truth for narration language
+    lang: Optional[str] = None  # "zh" (default) | "en" | "ja" | ...
 
 
 VALID_SUBTITLE_MODES = frozenset({"original", "translated", "bilingual"})
@@ -141,6 +143,7 @@ class JobConfig(BaseModel):
     subtitle_lang: Optional[str] = None
     subtitle_mode: Optional[str] = None
     narration_preset: Optional[str] = None
+    lang: Optional[str] = None  # R2-NA-LANG: narration language (default "zh")
     steps: Optional[JobSteps] = None
     params: Optional[JobParams] = None
 
@@ -189,3 +192,4 @@ class ResolvedJob(BaseModel):
     subtitle_lang: Optional[str] = None
     subtitle_mode: str = "original"
     narration_preset: Optional[str] = None
+    lang: str = "zh"  # R2-NA-LANG: narration language (default Chinese)

@@ -69,6 +69,34 @@ def build_platform_tone_hint(platform: str = "") -> str:
     return PLATFORM_TONE.get(platform, "")
 
 
+# ── Language hint (R2-NA-LANG) ─────────────────────────────
+# Maps lang codes to LLM language directives. Ensures the narration
+# is generated in the correct language regardless of prompt template
+# language (prompts are in English, output must match `lang`).
+
+_LANG_NAMES: dict[str, str] = {
+    "zh": "Simplified Chinese (简体中文)",
+    "en": "English",
+    "ja": "Japanese (日本語)",
+    "ko": "Korean (한국어)",
+    "es": "Spanish (Español)",
+    "fr": "French (Français)",
+    "de": "German (Deutsch)",
+}
+
+
+def build_language_hint(lang: str = "") -> str:
+    """Build the language directive for BEATS_PROMPT and EXPAND_PROMPT.
+
+    Returns empty string when lang is empty or "zh" (default, backward-
+    compatible — existing prompts implicitly produce Chinese).
+    """
+    if not lang or lang == "zh":
+        return ""
+    lang_name = _LANG_NAMES.get(lang, lang)
+    return f"Language: Write ALL narration text in {lang_name}."
+
+
 SCRIPT_PROMPT = """\
 You are a million-follower movie narration blogger. Write a narration script for the movie "{movie}" lasting about {duration} seconds.
 
@@ -107,6 +135,7 @@ You are a film story analyst. Extract EXACTLY {target_count} key plot points fro
 Style: {style}.
 {research}
 {narrative_principles}
+{language_hint}
 Requirements:
 - Each point MUST be one concise sentence summarising a pivotal story moment.
 - Total MUST be exactly {target_count} points — no more, no less.
@@ -134,6 +163,7 @@ Style: {style}.
 {narrative_principles}
 {anti_ai_tone}
 {platform_tone}
+{language_hint}
 {cadence_hint}
 
 Given plot points (one sentence -> exactly one narration line):
