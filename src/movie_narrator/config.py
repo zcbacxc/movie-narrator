@@ -122,6 +122,10 @@ class Settings(BaseSettings):
     research_retries: int = 3
     research_retry_delay: float = 1.5
     translate_max_tokens: int = 4096
+    # ── TMDB (external movie database for fact verification) ──
+    tmdb_api_key: Optional[str] = None
+    tmdb_base_url: str = "https://api.themoviedb.org/3"
+    tmdb_language: str = "zh-CN"
     # ── TTS ──
     default_voice: str = "zh-CN-YunxiNeural"
     tts_provider: TTSProviderType = TTSProviderType.EDGE
