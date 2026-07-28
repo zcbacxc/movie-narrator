@@ -1,3 +1,29 @@
+# ── Narrative principles (NA-M1-S1) ─────────────────────────
+# Five storytelling principles distilled from general narrative craft
+# (hook, suspense, payoff, quotable line, cognitive reversal) plus
+# anti-AI-tone constraints. These are injected into both BEATS_PROMPT
+# and EXPAND_PROMPT to enforce quality at the prompt level.
+# NOTE: These are generic narrative techniques, independently authored.
+
+NARRATIVE_PRINCIPLES = """\
+Narrative principles (MUST follow):
+- HOOK: The first sentence must create immediate suspense, contrast, or stakes — grab attention within 5 seconds.
+- SUSPENSE: Every 20-30 seconds, plant a "you'd think... but actually..." beat to keep the viewer guessing.
+- PAYOFF: At key emotional peaks, deliver a satisfying release — let the tension land.
+- QUOTABLE: Each major segment should contain at least one short, screenshot-worthy line that sticks.
+- REVERSAL: The ending should flip or reframe the viewer's understanding of the story.
+"""
+
+ANTI_AI_TONE = """\
+Anti-AI-tone rules (MUST follow):
+- Write in spoken, colloquial language — avoid formal summaries or encyclopedic phrasing.
+- Use short, punchy sentences. Vary length for rhythm.
+- Tag emotional beats naturally within the narration (e.g., implying tension, excitement, or surprise through word choice).
+- Never use generic filler like "总的来说" "值得一提的是" "不仅如此" — these are AI tells.
+- Prefer concrete visual descriptions over abstract statements.
+"""
+
+
 SCRIPT_PROMPT = """\
 You are a million-follower movie narration blogger. Write a narration script for the movie "{movie}" lasting about {duration} seconds.
 
@@ -35,6 +61,7 @@ You are a film story analyst. Extract EXACTLY {target_count} key plot points fro
 
 Style: {style}.
 {research}
+{narrative_principles}
 Requirements:
 - Each point MUST be one concise sentence summarising a pivotal story moment.
 - Total MUST be exactly {target_count} points — no more, no less.
@@ -59,6 +86,8 @@ EXPAND_PROMPT = """\
 You are a million-follower movie narration blogger. Write a narration script from these plot points for "{movie}" ({duration}s).
 
 Style: {style}.
+{narrative_principles}
+{anti_ai_tone}
 {cadence_hint}
 
 Given plot points (one sentence -> exactly one narration line):
