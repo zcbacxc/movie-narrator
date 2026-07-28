@@ -145,6 +145,82 @@ def build_perspective_hint(perspective: str = "", focus_character: str = "") -> 
     return ""
 
 
+# ── Judge feedback (NA-M1-S5+) ────────────────────────────
+# Builds a targeted feedback hint from the previous judge scores
+# so that retry attempts fix the identified problems instead of
+# blindly re-running with the same prompt.
+
+def build_judge_feedback_hint(prev_scores: dict | None) -> str:
+    """Build the {judge_feedback} block for EXPAND_PROMPT on retry.
+
+    Returns empty string on the first attempt (no previous scores) or
+    when the previous attempt passed (no issues to fix). On retry, the
+    hint lists the specific weaknesses the LLM must address.
+
+    Args:
+        prev_scores: The dict returned by :func:`judge_script` from the
+            previous attempt, or ``None`` on the first try.
+
+    Returns:
+        A directive string, or ``""`` when no feedback is needed.
+    """
+    if not prev_scores:
+        return ""
+
+    issues = prev_scores.get("issues") or []
+    hook = prev_scores.get("hook_strength", 10)
+    spoiler = prev_scores.get("spoiler_level", 0)
+    accuracy = prev_scores.get("plot_accuracy", 10)
+
+    parts: list[str] = []
+    if hook is not None:
+        try:
+            if int(hook) < 6:
+                parts.append(
+                    "- PREVIOUS ATTEMPT FAILED: The opening hook was too weak "
+                    "(score {}/10). Rewrite the FIRST sentence to be more "
+                    "shocking, suspenseful, or curiosity-inducing.".format(hook)
+                )
+        except (TypeError, ValueError):
+            pass
+    if spoiler is not None:
+        try:
+            if int(spoiler) > 7:
+                parts.append(
+                    "- PREVIOUS ATTEMPT FAILED: Too many spoilers "
+                    "(score {}/10). Remove explicit reveals of the ending "
+                    "or major twists — hint at them instead.".format(spoiler)
+                )
+        except (TypeError, ValueError):
+            pass
+    if accuracy is not None:
+        try:
+            if int(accuracy) < 6:
+                parts.append(
+                    "- PREVIOUS ATTEMPT FAILED: Plot accuracy was too low "
+                    "(score {}/10). Stick to verified facts from the research "
+                    "context — do not fabricate scenes or character actions.".format(accuracy)
+                )
+        except (TypeError, ValueError):
+            pass
+
+    # Include raw issues from the judge if present
+    for issue in issues:
+        if isinstance(issue, str) and issue.strip():
+            issue_text = issue.strip()
+            # Avoid duplicating issues already covered above
+            if not any(issue_text.lower() in p.lower() for p in parts):
+                parts.append(f"- Previous attempt issue: {issue_text}")
+
+    if not parts:
+        return ""
+
+    return (
+        "IMPROVEMENT DIRECTIVE (fix these problems from the previous attempt):\n"
+        + "\n".join(parts)
+    )
+
+
 SCRIPT_PROMPT = """\
 You are a million-follower movie narration blogger. Write a narration script for the movie "{movie}" lasting about {duration} seconds.
 
@@ -216,6 +292,7 @@ Style: {style}.
 {language_hint}
 {perspective_hint}
 {cadence_hint}
+{judge_feedback}
 
 Given plot points (one sentence -> exactly one narration line):
 {beats}

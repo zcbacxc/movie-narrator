@@ -4,7 +4,7 @@ import re
 from ..config import get_settings
 from ..models import Context, ScriptSegment
 from ..utils.console import step_timing
-from ..utils.prompts import BEATS_PROMPT, EXPAND_PROMPT, JUDGE_PROMPT, build_cadence_hint, build_set_pieces_hint, build_hook_hint, build_platform_tone_hint, build_language_hint, build_perspective_hint, NARRATIVE_PRINCIPLES, ANTI_AI_TONE
+from ..utils.prompts import BEATS_PROMPT, EXPAND_PROMPT, JUDGE_PROMPT, build_cadence_hint, build_set_pieces_hint, build_hook_hint, build_platform_tone_hint, build_language_hint, build_perspective_hint, build_judge_feedback_hint, NARRATIVE_PRINCIPLES, ANTI_AI_TONE
 from ..utils.llm import get_llm_client
 from ..utils.json_parser import extract_json
 from ..tts.base import is_ci
@@ -229,12 +229,17 @@ def _generate_plot_beats(
 
 
 def _expand_beats_to_script(
-    ctx: Context, settings, llm, beats: List[str], target_count: int
+    ctx: Context, settings, llm, beats: List[str], target_count: int,
+    prev_judge_scores: dict | None = None,
 ) -> List[ScriptSegment]:
     """Phase 2: Expand each beat into exactly one narration segment.
 
     Uses moderate temperature (script_expand_temperature) for style
     expression while keeping count controlled.
+
+    When ``prev_judge_scores`` is provided (retry attempt), a targeted
+    feedback hint is injected into the prompt so the LLM can fix the
+    specific problems identified by the judge.
     """
     tags = ctx.metadata.get("narration_preset_tags", {})
     max_chars = ctx.metadata.get("prompt_max_chars_per_sentence", 15)
@@ -265,6 +270,7 @@ def _expand_beats_to_script(
             ctx.metadata.get("narrator_perspective", ""),
             ctx.metadata.get("focus_character", ""),
         ),
+        judge_feedback=build_judge_feedback_hint(prev_judge_scores),
     )
 
     response = llm.client.chat.completions.create(
@@ -430,6 +436,11 @@ def generate_script(ctx: Context) -> Context:
     base_count = ctx.metadata.get("prompt_target_sentences")
     seg_duration = ctx.metadata.get("prompt_target_segment_duration")
 
+    # NA-M1-S5+: Track judge scores across retry attempts so the feedback
+    # hint can be injected into the next retry's expand prompt, turning
+    # blind retries into targeted corrections.
+    prev_judge_scores: dict | None = None
+
     for attempt in range(settings.script_retries):
         try:
             with get_llm_client() as llm:
@@ -458,7 +469,10 @@ def generate_script(ctx: Context) -> Context:
 
                 # Phase 2: expand beats into narration segments
                 with step_timing(ctx.services.console, "llm_expand_script"):
-                    segments = _expand_beats_to_script(ctx, settings, llm, beats, n)
+                    segments = _expand_beats_to_script(
+                        ctx, settings, llm, beats, n,
+                        prev_judge_scores=prev_judge_scores,
+                    )
 
                 # NA-M1-S5: Phase 3 — judge the expanded script (before trim).
                 # The judge is a lightweight quality gate; any failure is
@@ -486,7 +500,9 @@ def generate_script(ctx: Context) -> Context:
                     ctx.metadata["script_segment_count"] = len(segments)
                     return ctx
 
-                # verdict == "retry" — log issues and decide whether to retry.
+                # verdict == "retry" — carry scores to next attempt so
+                # the expand prompt gets targeted feedback.
+                prev_judge_scores = judge_scores
                 issues = judge_scores.get("issues", [])
                 retries_left = settings.script_retries - 1 - attempt
                 if retries_left > 0:
