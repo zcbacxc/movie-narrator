@@ -144,6 +144,28 @@ class ResearchInfo(BaseModel):
     keywords: List[str] = Field(default_factory=list)
 
 
+class MovieCard(BaseModel):
+    """Structured movie metadata card (NA-M2-S1).
+
+    A focused, typed snapshot of movie metadata extracted during the
+    research step. Carrying title / year / genres / director / cast /
+    set_pieces as explicit fields (rather than relying on free-form
+    summary prose) gives downstream prompt construction a stable,
+    hallucination-resistant context.
+
+    The card is optional and backward compatible: code that does not
+    read it is unaffected. When the research step is skipped or fails,
+    the card is simply absent from ``ctx.metadata["movie_card"]``.
+    """
+    title: str
+    year: Optional[str] = None
+    genres: List[str] = Field(default_factory=list)
+    summary: str = ""
+    director: Optional[str] = None
+    cast: List[str] = Field(default_factory=list)
+    set_pieces: List[str] = Field(default_factory=list)
+
+
 class Scene(BaseModel):
     index: int
     start: float

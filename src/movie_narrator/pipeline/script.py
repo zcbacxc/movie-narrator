@@ -115,6 +115,26 @@ def _generate_plot_beats(
             f"Genres: {', '.join(ctx.research.genres)}\n"
         )
 
+    # NA-M2-S1: Enrich the research context with structured movie card
+    # data (director / cast / genres) to anchor the LLM in verified facts
+    # and reduce hallucination. The card is optional — when absent the
+    # block is unchanged (backward compatible).
+    movie_card = ctx.metadata.get("movie_card")
+    if movie_card is not None:
+        card_parts = []
+        if movie_card.director:
+            card_parts.append(f"Director: {movie_card.director}")
+        if movie_card.cast:
+            card_parts.append(f"Cast: {', '.join(movie_card.cast)}")
+        if movie_card.genres:
+            card_parts.append(f"Genres: {', '.join(movie_card.genres)}")
+        if card_parts:
+            research_block += "\n" + "\n".join(card_parts) + "\n"
+        # Fall back to the card's set_pieces only when the caller has not
+        # already supplied explicit set_pieces via metadata.
+        if movie_card.set_pieces and not ctx.metadata.get("set_pieces"):
+            ctx.metadata["set_pieces"] = movie_card.set_pieces
+
     prompt = BEATS_PROMPT.format(
         movie=ctx.movie_name,
         style=ctx.style,

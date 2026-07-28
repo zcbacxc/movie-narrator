@@ -3,7 +3,7 @@ from pathlib import Path
 from time import sleep
 
 from ..config import get_settings
-from ..models import Context, ResearchInfo, StepResult
+from ..models import Context, MovieCard, ResearchInfo, StepResult
 from ..providers import research_registry, register_research
 from ..utils.console import step_timing
 from ..utils.json_parser import extract_json
@@ -18,9 +18,16 @@ Output ONLY valid JSON in this exact format:
   "year": 2023,
   "summary": "2-3 sentence plot summary...",
   "genres": ["Action", "Drama"],
+  "director": "Director Name",
   "cast": ["Actor 1", "Actor 2"],
+  "set_pieces": ["Iconic scene 1", "Iconic scene 2"],
   "keywords": ["keyword1", "keyword2", "keyword3"]
 }}
+
+The "director" and "set_pieces" fields are optional — include them only
+when you are confident. "set_pieces" are the most visually iconic or
+memorable scenes of the film (3-6 short names). If unsure about any
+optional field, return an empty list or omit it entirely.
 
 Do NOT add any text before or after the JSON.
 """
@@ -54,6 +61,25 @@ def _research_via_llm(ctx: Context, settings) -> ResearchInfo:
             )
         raw = response.choices[0].message.content or ""
         data = extract_json(raw)
+
+        # NA-M2-S1: Build a structured movie card from the same LLM
+        # response. Carrying typed metadata (director / cast / genres /
+        # set_pieces) downstream reduces hallucination in script
+        # generation. Construction is wrapped so a malformed response
+        # never breaks the research step — the card is simply omitted.
+        try:
+            raw_year = data.get("year")
+            ctx.metadata["movie_card"] = MovieCard(
+                title=str(data.get("title") or ctx.movie_name),
+                year=str(raw_year) if raw_year is not None else None,
+                genres=data.get("genres") or [],
+                summary=data.get("summary") or "",
+                director=data.get("director"),
+                cast=data.get("cast") or [],
+                set_pieces=data.get("set_pieces") or [],
+            )
+        except Exception:
+            ctx.metadata.pop("movie_card", None)
 
         return ResearchInfo(
             title=data.get("title", ctx.movie_name),
