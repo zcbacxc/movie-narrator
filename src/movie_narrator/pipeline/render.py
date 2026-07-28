@@ -193,6 +193,43 @@ def _export_cover_image(
         cover_raw.unlink(missing_ok=True)
 
 
+def _substitute_movie(text: str, movie_name: str) -> str:
+    """NA-M6-S1: Replace the ``{movie}`` placeholder with the actual movie name.
+
+    Returns the original text unchanged when the placeholder is absent.
+    """
+    if not text:
+        return text
+    return text.replace("{movie}", movie_name or "")
+
+
+def _create_watermark_image(text: str, size: tuple, fontsize: int = 36):
+    """NA-M6-S1: Create a full-canvas transparent image with small
+    semi-transparent text anchored to the top-right corner.
+
+    Returns a ``numpy.ndarray`` (RGBA) suitable for ``ImageClip``.
+    """
+    import numpy as np
+    from ..utils.font import get_font
+
+    img = Image.new("RGBA", size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    font = get_font(fontsize)
+
+    bbox = draw.textbbox((0, 0), text, font=font)
+    text_w = bbox[2] - bbox[0]
+    margin = max(10, int(size[0] * 0.03))
+    x = size[0] - text_w - margin
+    y = margin
+
+    # Semi-transparent white text with a faint black stroke for legibility.
+    draw.text(
+        (x, y), text, fill=(255, 255, 255, 140), font=font,
+        stroke_width=1, stroke_fill=(0, 0, 0, 120),
+    )
+    return np.array(img)
+
+
 def render_video(ctx: Context) -> Context:
     # AQ-04 safety net: ensure final audio is normalized even if mix_bgm
     # was skipped or failed. This guarantees render never receives raw
@@ -312,11 +349,22 @@ def render_video(ctx: Context) -> Context:
     # EP5: Title card overlay — show movie name at the beginning for a
     # polished opening. Uses a larger centered font with fade in/out.
     # Duration is controlled by render_title_card_sec (0 = disabled).
+    #
+    # NA-M6-S1: If a render_template is provided with ``title_card_text``,
+    # use it (with ``{movie}`` replaced by ctx.movie_name) instead of the
+    # bare movie name.  Falls back to ctx.movie_name when no template is
+    # present so existing behaviour is unchanged.
+    render_template = ctx.metadata.get("render_template") or {}
     title_card_sec = ctx.metadata.get("render_title_card_sec", 0)
-    if title_card_sec and title_card_sec > 0 and ctx.movie_name:
+    title_card_template = render_template.get("title_card_text")
+    if title_card_template:
+        title_card_text = _substitute_movie(title_card_template, ctx.movie_name)
+    else:
+        title_card_text = ctx.movie_name
+    if title_card_sec and title_card_sec > 0 and title_card_text:
         title_font_size = int(font_size * 1.4)
         title_img = _create_text_image(
-            ctx.movie_name, size, fontsize=title_font_size,
+            title_card_text, size, fontsize=title_font_size,
             position="center",
             max_width_ratio=0.85,
         )
@@ -331,7 +379,68 @@ def render_video(ctx: Context) -> Context:
             pass  # no fade — title card still visible
         clips.append(title_clip)
         ctx.services.console.debug(
-            f"  EP5 title card: {ctx.movie_name} ({title_card_sec}s)"
+            f"  EP5 title card: {title_card_text} ({title_card_sec}s)"
+        )
+
+    # NA-M6-S1: End card overlay — show end card text at the end of the
+    # video (similar to the title card but at the closing).  Soft addition:
+    # skipped entirely when ``end_card_text`` is absent from the template.
+    end_card_template = render_template.get("end_card_text")
+    if end_card_template:
+        end_card_text = _substitute_movie(end_card_template, ctx.movie_name)
+        end_card_sec = title_card_sec if (title_card_sec and title_card_sec > 0) else 1.0
+        end_font_size = int(font_size * 1.4)
+        end_img = _create_text_image(
+            end_card_text, size, fontsize=end_font_size,
+            position="center",
+            max_width_ratio=0.85,
+        )
+        end_clip = ImageClip(end_img, is_mask=False)
+        end_start = max(0.0, total_duration - end_card_sec)
+        end_clip = end_clip.with_duration(end_card_sec).with_start(end_start)
+        try:
+            from moviepy.video.fx import FadeIn, FadeOut
+            fade_dur = min(0.3, end_card_sec / 3)
+            end_clip = end_clip.with_effects([FadeIn(fade_dur), FadeOut(fade_dur)])
+        except Exception:
+            pass  # no fade — end card still visible
+        clips.append(end_clip)
+        ctx.services.console.debug(
+            f"  NA-M6-S1 end card: {end_card_text} ({end_card_sec}s)"
+        )
+
+    # NA-M6-S1: Watermark overlay — small semi-transparent text in the
+    # top-right corner, visible for the entire video duration.
+    watermark_template = render_template.get("watermark_text")
+    if watermark_template:
+        watermark_text = _substitute_movie(watermark_template, ctx.movie_name)
+        wm_img = _create_watermark_image(
+            watermark_text, size, fontsize=max(24, int(font_size * 0.36)),
+        )
+        wm_clip = ImageClip(wm_img, is_mask=False)
+        wm_clip = wm_clip.with_duration(total_duration).with_start(0)
+        clips.append(wm_clip)
+        ctx.services.console.debug(
+            f"  NA-M6-S1 watermark: {watermark_text}"
+        )
+
+    # NA-M6-S1: Disclaimer overlay — small text at the very bottom,
+    # visible for the entire video duration.  Uses a smaller font and a
+    # minimal bottom margin so it sits beneath the subtitle band.
+    disclaimer_template = render_template.get("disclaimer_text")
+    if disclaimer_template:
+        disclaimer_text = _substitute_movie(disclaimer_template, ctx.movie_name)
+        disc_img = _create_text_image(
+            disclaimer_text, size, fontsize=max(20, int(font_size * 0.42)),
+            position="bottom",
+            max_width_ratio=0.9,
+            bottom_margin_ratio=0.02,
+        )
+        disc_clip = ImageClip(disc_img, is_mask=False)
+        disc_clip = disc_clip.with_duration(total_duration).with_start(0)
+        clips.append(disc_clip)
+        ctx.services.console.debug(
+            f"  NA-M6-S1 disclaimer: {disclaimer_text}"
         )
 
     final_video = CompositeVideoClip(clips).with_audio(audio_clip)

@@ -121,6 +121,8 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
             "video_sizes",
             # NA-M1-S2 / R2-NA-LANG: platform + language
             "target_platform", "lang",
+            # NA-M6-S1: render template styling
+            "render_template",
         }
         for k in data["params"].keys():
             if k not in allowed_params:

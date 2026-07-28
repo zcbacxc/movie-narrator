@@ -42,6 +42,11 @@ class MainstreamDryPreset:
             ],
             # NA-M1-S2: platform tone adaptation
             "target_platform": "youtube",
+            # NA-M6-S1: render template — per-preset styling overlays
+            "render_template": {
+                "title_card_text": "{movie}",
+                "end_card_text": "感谢观看",
+            },
         }
 
     def prompt_tags(self) -> Dict[str, str]:

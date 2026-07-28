@@ -119,6 +119,11 @@ class JobParams(BaseModel):
     target_platform: Optional[str] = None  # "douyin" | "bilibili" | "youtube" | None
     # R2-NA-LANG: single source of truth for narration language
     lang: Optional[str] = None  # "zh" (default) | "en" | "ja" | ...
+    # NA-M6-S1: render template — per-preset styling options (title card,
+    # disclaimer, watermark, slogan, end card text).  The {movie}
+    # placeholder in any string value is replaced with the movie name at
+    # render time.  All keys are optional.
+    render_template: Optional[Dict[str, Any]] = None
 
 
 VALID_SUBTITLE_MODES = frozenset({"original", "translated", "bilingual"})
