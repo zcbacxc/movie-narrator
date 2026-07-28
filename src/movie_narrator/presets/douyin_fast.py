@@ -47,6 +47,8 @@ class DouyinFastPreset:
             "render_title_card_sec": 1.0,
             "render_cover_export": True,
             "render_vertical_safe_area": True,
+            # NA-M1-S2: platform tone adaptation
+            "target_platform": "douyin",
         }
 
     def prompt_tags(self) -> Dict[str, str]:

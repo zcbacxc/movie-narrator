@@ -23,6 +23,51 @@ Anti-AI-tone rules (MUST follow):
 - Prefer concrete visual descriptions over abstract statements.
 """
 
+# ── Platform tone (NA-M1-S2) ───────────────────────────────
+# Platform-specific tone hints injected into the expand prompt.
+# Each platform has distinct audience expectations — these hints
+# guide the LLM to produce content that fits the platform's vibe.
+# NOTE: These are independently authored based on publicly observable
+# platform characteristics, not copied from any external source.
+
+PLATFORM_TONE: dict[str, str] = {
+    "douyin": (
+        "Platform tone (抖音/Douyin — short-form vertical video):\n"
+        "- High emotional intensity — every line should trigger curiosity, shock, or excitement.\n"
+        "- Scroll-stop energy — the first 3 seconds are do-or-die; open with a jolt.\n"
+        "- Use internet-native slang and trending expressions naturally (not forced).\n"
+        "- Cliffhanger endings — leave the viewer wanting more, not a tidy summary.\n"
+        '- Speak TO the viewer (\u201c你敢信？\u201d \u201c注意看\u201d) — second-person engagement.'
+    ),
+    "bilibili": (
+        "Platform tone (B站/Bilibili — mid-length horizontal video):\n"
+        "- Information density — viewers expect analysis, context, and depth beyond surface plot.\n"
+        "- Measured pacing — let ideas breathe; don't rush through points.\n"
+        "- Analytical angle — offer a perspective or interpretation, not just a recap.\n"
+        "- Respect the audience's intelligence — avoid over-explaining obvious plot points.\n"
+        '- Use B\u5360-style asides (\u201c这里有个细节\u201d \u201c考据一下\u201d) for depth signals.'
+    ),
+    "youtube": (
+        "Platform tone (YouTube — global, polished):\n"
+        "- Clear structure — viewers expect a well-organized narrative with a beginning, middle, and end.\n"
+        "- Polished delivery — smooth transitions, professional tone, no rough edges.\n"
+        "- Universal accessibility — avoid hyper-local slang that only native speakers would get.\n"
+        "- Value-driven — every segment should deliver insight, entertainment, or both.\n"
+        "- Strong CTA energy — the ending should leave a lasting impression."
+    ),
+}
+
+
+def build_platform_tone_hint(platform: str = "") -> str:
+    """Build the platform tone hint block for EXPAND_PROMPT.
+
+    Returns empty string when platform is empty or unknown
+    (backward-compatible with configs that don't set target_platform).
+    """
+    if not platform:
+        return ""
+    return PLATFORM_TONE.get(platform, "")
+
 
 SCRIPT_PROMPT = """\
 You are a million-follower movie narration blogger. Write a narration script for the movie "{movie}" lasting about {duration} seconds.
@@ -88,6 +133,7 @@ You are a million-follower movie narration blogger. Write a narration script fro
 Style: {style}.
 {narrative_principles}
 {anti_ai_tone}
+{platform_tone}
 {cadence_hint}
 
 Given plot points (one sentence -> exactly one narration line):

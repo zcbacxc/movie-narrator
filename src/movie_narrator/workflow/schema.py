@@ -115,6 +115,8 @@ class JobParams(BaseModel):
     async_max_workers: Optional[int] = None
     # ── Video sizes ──
     video_sizes: Optional[Dict[str, list]] = None
+    # NA-M1-S2: target platform for tone adaptation
+    target_platform: Optional[str] = None  # "douyin" | "bilibili" | "youtube" | None
 
 
 VALID_SUBTITLE_MODES = frozenset({"original", "translated", "bilingual"})

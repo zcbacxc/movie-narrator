@@ -4,7 +4,7 @@ import re
 from ..config import get_settings
 from ..models import Context, ScriptSegment
 from ..utils.console import step_timing
-from ..utils.prompts import BEATS_PROMPT, EXPAND_PROMPT, build_cadence_hint, build_set_pieces_hint, build_hook_hint, NARRATIVE_PRINCIPLES, ANTI_AI_TONE
+from ..utils.prompts import BEATS_PROMPT, EXPAND_PROMPT, build_cadence_hint, build_set_pieces_hint, build_hook_hint, build_platform_tone_hint, NARRATIVE_PRINCIPLES, ANTI_AI_TONE
 from ..utils.llm import get_llm_client
 from ..utils.json_parser import extract_json
 from ..tts.base import is_ci
@@ -221,6 +221,7 @@ def _expand_beats_to_script(
         hook_hint=build_hook_hint(ctx.metadata.get("hook_templates"), ctx.movie_name),
         narrative_principles=NARRATIVE_PRINCIPLES,
         anti_ai_tone=ANTI_AI_TONE,
+        platform_tone=build_platform_tone_hint(ctx.metadata.get("target_platform", "")),
     )
 
     response = llm.client.chat.completions.create(
