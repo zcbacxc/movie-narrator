@@ -519,6 +519,7 @@ movie-narrator/
 - [x] v0.5.4 — Quality Uplift: VLM caption provider, multi-candidate horse race, reference video imitation, L2 runbook
 - [x] v0.5.5 — Logging Improvements: `--log-level`/`--verbose` CLI options, RotatingFileHandler, JSON logs, run ID, step timing
 - [x] v0.5.6 — Narrative Quality & External Data: narrative principles, platform tone, rhythm marking, perspective, script judge, movie card, TMDB, BGM emotion, render template, lang consistency, retryable errors
+- [x] v0.5.7 — Quality Hardening: TMDB caching/retry/degradation, +45 tests (render template, edge cases), feature-level benchmark profiling
 
 > SDK and Plugin API are designed together — both must stabilize in the same release.
 

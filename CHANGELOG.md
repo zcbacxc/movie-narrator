@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.7] - 2026-07-29
+
+### Added (v0.5.7 — Quality Hardening)
+
+- **TMDB provider caching** (`providers/tmdb.py`): in-memory cache layer (`_TMDB_CACHE`) for all TMDB API GET requests — repeated lookups for the same movie within a pipeline run now return instantly without network calls.
+- **TMDB rate-limit retry** (`providers/tmdb.py`): HTTP 429 responses now trigger automatic retry with `Retry-After` header parsing (falls back to exponential backoff `[1s, 2s, 4s]`), up to 3 attempts. Network errors (`URLError`, `socket.timeout`) are classified as retryable.
+- **TMDB graceful degradation** (`providers/tmdb.py`): after exhausting retries on transient errors, `enrich_movie_card_with_tmdb` returns the original LLM card unchanged instead of crashing — TMDB is a soft enhancement, never a hard dependency.
+- **Render template tests** (`tests/test_render_template.py`): 13 new tests covering `{movie}` placeholder substitution, multi-placeholder replacement, empty/None input handling, template parsing into render context, and title-card text rendering.
+- **v0.5.6 edge-case tests** (`tests/test_v056_edge_cases.py`): 35 new tests covering narrator perspective invalid values, platform tone boundary behaviour, language chain propagation, retryable error classification (`URLError` vs `ProviderError`), and render template graceful degradation.
+- **Feature-level benchmark profiling** (`benchmarks/profile_pipeline.py`): `FeatureTiming` dataclass and monkey-patch instrumentation to measure per-feature overhead — judge LLM evaluation, TMDB enrichment, and BGM emotion selection are now individually timed with call counts and triggered/not-triggered status.
+
+### Changed (v0.5.7)
+
+- `tests/test_tmdb_provider.py`: +21 new tests (retry on 429, cache hit/miss, Retry-After header parsing, HTTP error classification, enrichment with partial data, search/movie detail edge cases).
+- `docs/ROADMAP.md` / `ROADMAP.zh-CN.md`: added v0.5.7 quality hardening section.
+- `README.md`: added v0.5.7 milestone entry.
+- `docs/QUICKSTART.md`: updated version reference to 0.5.7.
+
+### Notes
+
+- `CONTRACT_VERSION` remains `(0, 5, 1)` — no SDK surface changes.
+- All 921 tests pass (23 skipped in CI mode, 0 failures).
+- Total test count increased from 876 (v0.5.6) to 921 (+45 new tests).
+
 ## [0.5.6] - 2026-07-28
 
 ### Added (v0.5.6 — Narrative Quality & External Data)

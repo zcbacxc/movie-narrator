@@ -199,6 +199,16 @@
 - [x] L2 YAML comment fixes — WP1 short keys, prompt_target_segment_duration (`examples/l2/job.l2.douyin.yaml`)
 - [x] README / cli-usage.sh / ROADMAP alignment with current codebase
 
+### v0.5.7 — Quality Hardening
+
+- [x] TMDB provider in-memory caching (`_TMDB_CACHE`) for all GET requests
+- [x] TMDB rate-limit retry — HTTP 429 with Retry-After header parsing + exponential backoff
+- [x] TMDB graceful degradation — returns original LLM card after retry exhaustion
+- [x] Render template tests — 13 tests for `{movie}` placeholder substitution and rendering
+- [x] v0.5.6 edge-case tests — 35 tests for perspective, platform tone, lang chain, error classification
+- [x] Feature-level benchmark profiling — judge LLM, TMDB, BGM emotion per-feature timing
+- [x] Total test count: 876 → 921 (+45 new tests, 0 failures)
+
 ## v0.6.x — Cloud
 
 - [ ] Remote inference (offload LLM / TTS / rendering to cloud workers)

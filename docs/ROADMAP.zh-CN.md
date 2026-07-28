@@ -199,6 +199,16 @@
 - [x] L2 YAML 注释修复 — WP1 短键已生效、prompt_target_segment_duration 为合法字段（`examples/l2/job.l2.douyin.yaml`）
 - [x] README / cli-usage.sh / ROADMAP 与当前代码库对齐
 
+### v0.5.7 — 质量加固
+
+- [x] TMDB provider 内存缓存（`_TMDB_CACHE`）— 所有 GET 请求复用结果
+- [x] TMDB 限流重试 — HTTP 429 解析 Retry-After 头 + 指数退避（3 次尝试）
+- [x] TMDB 优雅降级 — 重试耗尽后返回原始 LLM 卡片，不崩溃
+- [x] 渲染模板测试 — 13 个测试覆盖 `{movie}` 占位符替换与渲染逻辑
+- [x] v0.5.6 边界用例测试 — 35 个测试覆盖视角、平台调性、语言链、错误分类
+- [x] 特性级基准性能分析 — judge LLM、TMDB、BGM 情感选择独立计时
+- [x] 测试总数：876 → 921（+45 个新测试，0 失败）
+
 ## v0.6.x — Cloud
 
 - [ ] 远程推理（offload LLM / TTS / 渲染到云 worker）

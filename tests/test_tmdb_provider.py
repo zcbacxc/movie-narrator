@@ -12,19 +12,44 @@ Verifies that:
 9. enrich_movie_card_with_tmdb overrides factual fields when TMDB data available
 """
 
-from unittest.mock import MagicMock, patch, PropertyMock
+import http.client
+import urllib.error
+from io import BytesIO
+from unittest.mock import MagicMock, patch, PropertyMock, call
 
 from movie_narrator.models import MovieCard, ResearchInfo
 from movie_narrator.providers.registry import research_registry
 from movie_narrator.providers.tmdb import (
+    _TMDB_CACHE,
     _extract_director,
     _extract_cast,
     _extract_genres,
     _build_movie_card,
     _build_research_info,
+    _tmdb_get,
+    _search_movie,
     tmdb_research,
     enrich_movie_card_with_tmdb,
 )
+
+
+def _make_response(status: int, body: str, headers=None):
+    """Build a mock HTTP response usable as a context manager."""
+    resp = MagicMock()
+    resp.status = status
+    resp.read.return_value = body.encode("utf-8")
+    resp.headers = headers if headers is not None else http.client.HTTPMessage()
+    resp.__enter__.return_value = resp
+    resp.__exit__.return_value = False
+    return resp
+
+
+def _make_http_error(code: int, headers=None):
+    """Build an HTTPError instance for testing error paths."""
+    hdrs = headers if headers is not None else http.client.HTTPMessage()
+    return urllib.error.HTTPError(
+        "http://test", code, "Error", hdrs, BytesIO(b"")
+    )
 
 
 class TestTmdbProviderRegistration:
@@ -259,3 +284,384 @@ class TestEnrichMovieCard:
 
         enrich_movie_card_with_tmdb(card, ctx, settings)
         assert "tmdb_corrections" not in ctx.metadata
+
+
+# ── Robustness tests: retry, cache, rate-limit, error handling ──
+
+
+class TestTmdbRetry:
+    """Verify HTTP 429 retry logic with exponential backoff."""
+
+    def setup_method(self):
+        _TMDB_CACHE.clear()
+
+    def test_retries_on_429_then_succeeds(self):
+        ok_resp = _make_response(200, '{"results": []}')
+        with patch(
+            "movie_narrator.providers.tmdb.urllib.request.urlopen",
+            side_effect=[_make_http_error(429), ok_resp],
+        ) as mock_open, patch(
+            "movie_narrator.providers.tmdb.time.sleep"
+        ) as mock_sleep:
+            result = _tmdb_get(
+                "https://api.themoviedb.org/3", "/search/movie", "key",
+                {"query": "test"},
+            )
+        assert result == {"results": []}
+        # First attempt raised 429; second succeeded.
+        assert mock_open.call_count == 2
+        # First retry uses backoff[0] = 1s.
+        mock_sleep.assert_called_once_with(1)
+
+    def test_gives_up_after_max_retries(self):
+        err = _make_http_error(429)
+        with patch(
+            "movie_narrator.providers.tmdb.urllib.request.urlopen",
+            side_effect=[err, err, err, err],
+        ) as mock_open, patch(
+            "movie_narrator.providers.tmdb.time.sleep"
+        ) as mock_sleep:
+            result = _tmdb_get(
+                "https://api.themoviedb.org/3", "/search/movie", "key",
+                {"query": "test"},
+            )
+        assert result is None
+        # 1 initial attempt + 3 retries = 4 calls; 3 sleeps (1s, 2s, 4s).
+        assert mock_open.call_count == 4
+        assert mock_sleep.call_count == 3
+        assert mock_sleep.call_args_list == [call(1), call(2), call(4)]
+
+    def test_non_429_http_error_is_not_retried(self):
+        err = _make_http_error(404)
+        with patch(
+            "movie_narrator.providers.tmdb.urllib.request.urlopen",
+            side_effect=err,
+        ) as mock_open, patch(
+            "movie_narrator.providers.tmdb.time.sleep"
+        ) as mock_sleep:
+            result = _tmdb_get(
+                "https://api.themoviedb.org/3", "/search/movie", "key",
+                {"query": "test"},
+            )
+        assert result is None
+        assert mock_open.call_count == 1
+        mock_sleep.assert_not_called()
+
+
+class TestTmdbCache:
+    """Verify the in-memory cache avoids duplicate network requests."""
+
+    def setup_method(self):
+        _TMDB_CACHE.clear()
+
+    def test_second_call_hits_cache(self):
+        resp = _make_response(200, '{"ok": true}')
+        with patch(
+            "movie_narrator.providers.tmdb.urllib.request.urlopen",
+            return_value=resp,
+        ) as mock_open:
+            result1 = _tmdb_get(
+                "https://api.themoviedb.org/3", "/search/movie", "key",
+                {"query": "test"},
+            )
+            result2 = _tmdb_get(
+                "https://api.themoviedb.org/3", "/search/movie", "key",
+                {"query": "test"},
+            )
+        assert result1 == {"ok": True}
+        assert result2 == {"ok": True}
+        # Only the first call reached the network.
+        assert mock_open.call_count == 1
+
+    def test_different_urls_are_not_cached_together(self):
+        resp = _make_response(200, '{"ok": true}')
+        with patch(
+            "movie_narrator.providers.tmdb.urllib.request.urlopen",
+            return_value=resp,
+        ) as mock_open:
+            _tmdb_get(
+                "https://api.themoviedb.org/3", "/search/movie", "key",
+                {"query": "a"},
+            )
+            _tmdb_get(
+                "https://api.themoviedb.org/3", "/search/movie", "key",
+                {"query": "b"},
+            )
+        # Different query params produce different URLs — both hit network.
+        assert mock_open.call_count == 2
+
+    def test_cached_value_is_returned_without_network(self):
+        resp = _make_response(200, '{"ok": true}')
+        with patch(
+            "movie_narrator.providers.tmdb.urllib.request.urlopen",
+            return_value=resp,
+        ):
+            # Prime the cache with the first call.
+            _tmdb_get(
+                "https://api.themoviedb.org/3", "/search/movie", "key",
+                {"query": "test"},
+            )
+        # Second call: urlopen is not mocked, so any network access would
+        # hit the real internet and fail. A cache hit avoids that entirely.
+        result = _tmdb_get(
+            "https://api.themoviedb.org/3", "/search/movie", "key",
+            {"query": "test", "api_key": "key"},
+        )
+        assert result == {"ok": True}
+
+
+class TestTmdbRateLimitWithRetryAfter:
+    """Verify the Retry-After header is honored on HTTP 429."""
+
+    def setup_method(self):
+        _TMDB_CACHE.clear()
+
+    def test_uses_retry_after_header_value(self):
+        headers = http.client.HTTPMessage()
+        headers.add_header("Retry-After", "5")
+        err = _make_http_error(429, headers=headers)
+        ok_resp = _make_response(200, '{"ok": true}')
+        with patch(
+            "movie_narrator.providers.tmdb.urllib.request.urlopen",
+            side_effect=[err, ok_resp],
+        ), patch(
+            "movie_narrator.providers.tmdb.time.sleep"
+        ) as mock_sleep:
+            result = _tmdb_get(
+                "https://api.themoviedb.org/3", "/search/movie", "key",
+                {"query": "test"},
+            )
+        assert result == {"ok": True}
+        # Retry-After (5s) overrides the default backoff (1s).
+        mock_sleep.assert_called_once_with(5)
+
+    def test_retry_after_used_on_every_retry(self):
+        headers = http.client.HTTPMessage()
+        headers.add_header("Retry-After", "3")
+        err = _make_http_error(429, headers=headers)
+        ok_resp = _make_response(200, '{"ok": true}')
+        with patch(
+            "movie_narrator.providers.tmdb.urllib.request.urlopen",
+            side_effect=[err, err, ok_resp],
+        ), patch(
+            "movie_narrator.providers.tmdb.time.sleep"
+        ) as mock_sleep:
+            result = _tmdb_get(
+                "https://api.themoviedb.org/3", "/search/movie", "key",
+                {"query": "test"},
+            )
+        assert result == {"ok": True}
+        # Both retries use the Retry-After value (3s), not the backoff.
+        assert mock_sleep.call_count == 2
+        assert mock_sleep.call_args_list == [call(3), call(3)]
+
+    def test_falls_back_to_backoff_without_retry_after(self):
+        ok_resp = _make_response(200, '{"ok": true}')
+        with patch(
+            "movie_narrator.providers.tmdb.urllib.request.urlopen",
+            side_effect=[_make_http_error(429), ok_resp],
+        ), patch(
+            "movie_narrator.providers.tmdb.time.sleep"
+        ) as mock_sleep:
+            result = _tmdb_get(
+                "https://api.themoviedb.org/3", "/search/movie", "key",
+                {"query": "test"},
+            )
+        assert result == {"ok": True}
+        # No Retry-After header → default backoff[0] = 1s.
+        mock_sleep.assert_called_once_with(1)
+
+    def test_fractional_retry_after_is_parsed(self):
+        headers = http.client.HTTPMessage()
+        headers.add_header("Retry-After", "0.5")
+        err = _make_http_error(429, headers=headers)
+        ok_resp = _make_response(200, '{"ok": true}')
+        with patch(
+            "movie_narrator.providers.tmdb.urllib.request.urlopen",
+            side_effect=[err, ok_resp],
+        ), patch(
+            "movie_narrator.providers.tmdb.time.sleep"
+        ) as mock_sleep:
+            result = _tmdb_get(
+                "https://api.themoviedb.org/3", "/search/movie", "key",
+                {"query": "test"},
+            )
+        assert result == {"ok": True}
+        mock_sleep.assert_called_once_with(0.5)
+
+
+class TestTmdbNetworkErrorHandling:
+    """Verify graceful degradation on network errors."""
+
+    def setup_method(self):
+        _TMDB_CACHE.clear()
+
+    def test_tmdb_get_propagates_urlerror(self):
+        err = urllib.error.URLError("connection refused")
+        with patch(
+            "movie_narrator.providers.tmdb.urllib.request.urlopen",
+            side_effect=err,
+        ):
+            try:
+                _tmdb_get(
+                    "https://api.themoviedb.org/3", "/search/movie", "key",
+                    {"query": "test"},
+                )
+                assert False, "Should have raised URLError"
+            except urllib.error.URLError:
+                pass
+
+    def test_enrichment_returns_original_card_on_network_error(self):
+        card = MovieCard(title="Test", director="LLM Director")
+        ctx = MagicMock()
+        ctx.movie_name = "Test"
+        ctx.metadata = {}
+        settings = MagicMock()
+        settings.tmdb_api_key = "key"
+        settings.tmdb_base_url = "https://api.themoviedb.org/3"
+        settings.tmdb_language = "zh-CN"
+        err = urllib.error.URLError("connection refused")
+        with patch(
+            "movie_narrator.providers.tmdb.urllib.request.urlopen",
+            side_effect=err,
+        ):
+            result = enrich_movie_card_with_tmdb(card, ctx, settings)
+        assert result is card
+
+    def test_enrichment_logs_warning_on_network_error(self):
+        card = MovieCard(title="Test", director="LLM Director")
+        ctx = MagicMock()
+        ctx.movie_name = "Test"
+        ctx.metadata = {}
+        settings = MagicMock()
+        settings.tmdb_api_key = "key"
+        settings.tmdb_base_url = "https://api.themoviedb.org/3"
+        settings.tmdb_language = "zh-CN"
+        err = urllib.error.URLError("connection refused")
+        with patch(
+            "movie_narrator.providers.tmdb.urllib.request.urlopen",
+            side_effect=err,
+        ), patch(
+            "movie_narrator.providers.tmdb.logger"
+        ) as mock_logger:
+            enrich_movie_card_with_tmdb(card, ctx, settings)
+        # A network error during enrichment should be logged at warning.
+        assert mock_logger.warning.called
+
+    def test_research_raises_runtime_error_on_network_error(self):
+        ctx = MagicMock()
+        ctx.movie_name = "Test"
+        ctx.metadata = {}
+        settings = MagicMock()
+        settings.tmdb_api_key = "key"
+        settings.tmdb_base_url = "https://api.themoviedb.org/3"
+        settings.tmdb_language = "zh-CN"
+        err = urllib.error.URLError("connection refused")
+        with patch(
+            "movie_narrator.providers.tmdb.urllib.request.urlopen",
+            side_effect=err,
+        ):
+            try:
+                tmdb_research(ctx, settings)
+                assert False, "Should have raised RuntimeError"
+            except RuntimeError as e:
+                assert "network error" in str(e).lower()
+
+
+class TestTmdbSearchEmptyResults:
+    """Verify handling of empty search results."""
+
+    def setup_method(self):
+        _TMDB_CACHE.clear()
+
+    def test_search_returns_none_for_empty_results(self):
+        resp = _make_response(200, '{"results": []}')
+        with patch(
+            "movie_narrator.providers.tmdb.urllib.request.urlopen",
+            return_value=resp,
+        ):
+            result = _search_movie(
+                "https://api.themoviedb.org/3", "key", "Test", "zh-CN"
+            )
+        assert result is None
+
+    def test_search_returns_none_for_missing_results_key(self):
+        resp = _make_response(200, '{"page": 1}')
+        with patch(
+            "movie_narrator.providers.tmdb.urllib.request.urlopen",
+            return_value=resp,
+        ):
+            result = _search_movie(
+                "https://api.themoviedb.org/3", "key", "Test", "zh-CN"
+            )
+        assert result is None
+
+    def test_enrichment_returns_original_card_for_empty_results(self):
+        resp = _make_response(200, '{"results": []}')
+        card = MovieCard(title="Test", director="LLM")
+        ctx = MagicMock()
+        ctx.movie_name = "Test"
+        ctx.metadata = {}
+        settings = MagicMock()
+        settings.tmdb_api_key = "key"
+        settings.tmdb_base_url = "https://api.themoviedb.org/3"
+        settings.tmdb_language = "zh-CN"
+        with patch(
+            "movie_narrator.providers.tmdb.urllib.request.urlopen",
+            return_value=resp,
+        ):
+            result = enrich_movie_card_with_tmdb(card, ctx, settings)
+        assert result is card
+
+
+class TestTmdbMalformedResponse:
+    """Verify handling of malformed JSON responses."""
+
+    def setup_method(self):
+        _TMDB_CACHE.clear()
+
+    def test_tmdb_get_returns_none_for_malformed_json(self):
+        resp = _make_response(200, '{"broken":')
+        with patch(
+            "movie_narrator.providers.tmdb.urllib.request.urlopen",
+            return_value=resp,
+        ):
+            result = _tmdb_get(
+                "https://api.themoviedb.org/3", "/search/movie", "key",
+                {"query": "test"},
+            )
+        assert result is None
+
+    def test_malformed_response_is_not_cached(self):
+        resp = _make_response(200, '{"broken":')
+        with patch(
+            "movie_narrator.providers.tmdb.urllib.request.urlopen",
+            return_value=resp,
+        ) as mock_open:
+            _tmdb_get(
+                "https://api.themoviedb.org/3", "/search/movie", "key",
+                {"query": "test"},
+            )
+            _tmdb_get(
+                "https://api.themoviedb.org/3", "/search/movie", "key",
+                {"query": "test", "api_key": "key"},
+            )
+        # Malformed JSON should not be cached, so both calls hit network.
+        assert mock_open.call_count == 2
+
+    def test_enrichment_returns_original_card_for_malformed_json(self):
+        resp = _make_response(200, '{"broken":')
+        card = MovieCard(title="Test", director="LLM")
+        ctx = MagicMock()
+        ctx.movie_name = "Test"
+        ctx.metadata = {}
+        settings = MagicMock()
+        settings.tmdb_api_key = "key"
+        settings.tmdb_base_url = "https://api.themoviedb.org/3"
+        settings.tmdb_language = "zh-CN"
+        with patch(
+            "movie_narrator.providers.tmdb.urllib.request.urlopen",
+            return_value=resp,
+        ):
+            result = enrich_movie_card_with_tmdb(card, ctx, settings)
+        assert result is card
