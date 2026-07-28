@@ -28,6 +28,7 @@ _ALLOWED_TOP = (
     "subtitle_mode",
     "narration_preset",
     "align_backend",
+    "lang",  # R2-NA-LANG: top-level narration language
 )
 
 
@@ -118,6 +119,8 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
             "async_timeout", "async_max_workers",
             # Video sizes
             "video_sizes",
+            # NA-M1-S2 / R2-NA-LANG: platform + language
+            "target_platform", "lang",
         }
         for k in data["params"].keys():
             if k not in allowed_params:

@@ -158,6 +158,7 @@ def build_context(
     subtitle_mode: Optional[str] = None,
     services: Optional[Services] = None,
     narration_preset: Optional[str] = None,
+    lang: str = "zh",  # R2-NA-LANG: narration language
     log_level: int = logging.DEBUG,
     verbose: bool = False,
     json_format: bool = False,
@@ -228,8 +229,18 @@ def build_context(
             "translate_provider": (params or {}).get("translate_provider", "llm"),
             "translate_retries": (params or {}).get("translate_retries", 3),
             "research_provider": (params or {}).get("research_provider", "llm"),
+            # R2-NA-LANG: single source of truth for narration language.
+            "lang": lang,
         }
     )
+
+    # R2-NA-LANG: consistency check — warn if subtitle target language
+    # matches narration language (translation would be a no-op).
+    if subtitle_lang and subtitle_lang.lower() == lang.lower():
+        services.console.inline_warn(
+            f"subtitle_lang ({subtitle_lang}) matches narration lang ({lang}) — "
+            f"subtitle translation will be a no-op."
+        )
 
     if workflow_steps:
         ctx.metadata["workflow_steps"] = dict(workflow_steps)

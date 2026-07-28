@@ -142,6 +142,13 @@ def merge_job(
         cli.get("narration_preset"), yaml_get("narration_preset"), None
     )
 
+    # R2-NA-LANG: resolve narration language (default "zh").
+    lang = pick_optional(cli.get("lang"), yaml_get("lang"), None) or "zh"
+    lang = str(lang).strip().lower() or "zh"
+    # If lang is set in params, the params value takes precedence
+    if "lang" not in params:
+        params["lang"] = lang
+
     config_path = cli.get("config_path")
     if config_path is not None:
         config_path = str(config_path)
@@ -166,4 +173,5 @@ def merge_job(
         subtitle_lang=subtitle_lang,
         subtitle_mode=subtitle_mode,
         narration_preset=narration_preset,
+        lang=lang,
     )

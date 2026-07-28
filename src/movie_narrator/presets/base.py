@@ -78,6 +78,8 @@ ALLOWED_PARAM_KEYS: frozenset[str] = frozenset({
     "render_vertical_safe_area",
     # NA-M1-S2: target platform for tone adaptation
     "target_platform",
+    # R2-NA-LANG: narration language
+    "lang",
 })
 
 # Safety: ALLOWED_PARAM_KEYS must be a subset of PARAM_WHITELIST.
