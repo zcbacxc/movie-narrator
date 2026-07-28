@@ -134,3 +134,96 @@ def test_yaml_no_bgm_when_cli_false():
     job = JobConfig(movie="M", no_bgm=True)
     r = merge_job(_cli(no_bgm=False, config_path="job.yaml"), job, Settings())
     assert r.no_bgm is True
+
+
+# ── NA-M1-S4: narrator_perspective / focus_character CLI exposure ──
+
+
+def test_cli_narrator_perspective_flows_to_params():
+    """CLI --narrator-perspective value appears in resolved.params."""
+    r = merge_job(
+        _cli(movie="M", narrator_perspective="character", config_path=None),
+        None,
+        Settings(),
+    )
+    assert r.params.get("narrator_perspective") == "character"
+
+
+def test_cli_focus_character_flows_to_params():
+    """CLI --focus-character value appears in resolved.params."""
+    r = merge_job(
+        _cli(movie="M", focus_character="张三", config_path=None),
+        None,
+        Settings(),
+    )
+    assert r.params.get("focus_character") == "张三"
+
+
+def test_yaml_narrator_perspective_flows_to_params():
+    """YAML params.narrator_perspective value appears in resolved.params."""
+    job = JobConfig(
+        movie="M",
+        params=JobParams(narrator_perspective="detective"),
+    )
+    r = merge_job(_cli(config_path="job.yaml"), job, Settings())
+    assert r.params.get("narrator_perspective") == "detective"
+
+
+def test_yaml_focus_character_flows_to_params():
+    """YAML params.focus_character value appears in resolved.params."""
+    job = JobConfig(
+        movie="M",
+        params=JobParams(focus_character="李四"),
+    )
+    r = merge_job(_cli(config_path="job.yaml"), job, Settings())
+    assert r.params.get("focus_character") == "李四"
+
+
+def test_cli_perspective_overrides_yaml():
+    """CLI --narrator-perspective overrides YAML params.narrator_perspective."""
+    job = JobConfig(
+        movie="M",
+        params=JobParams(narrator_perspective="omniscient"),
+    )
+    r = merge_job(
+        _cli(narrator_perspective="detective", config_path="job.yaml"),
+        job,
+        Settings(),
+    )
+    assert r.params.get("narrator_perspective") == "detective"
+
+
+def test_cli_focus_character_overrides_yaml():
+    """CLI --focus-character overrides YAML params.focus_character."""
+    job = JobConfig(
+        movie="M",
+        params=JobParams(focus_character="YAMLChar"),
+    )
+    r = merge_job(
+        _cli(focus_character="CLIChar", config_path="job.yaml"),
+        job,
+        Settings(),
+    )
+    assert r.params.get("focus_character") == "CLIChar"
+
+
+def test_neither_cli_nor_yaml_perspective_not_in_params():
+    """When neither CLI nor YAML sets narrator_perspective, it's absent."""
+    r = merge_job(_cli(movie="M"), None, Settings())
+    assert "narrator_perspective" not in r.params
+    assert "focus_character" not in r.params
+
+
+def test_perspective_and_character_together():
+    """Both narrator_perspective and focus_character can be set together."""
+    r = merge_job(
+        _cli(
+            movie="M",
+            narrator_perspective="character",
+            focus_character="王五",
+        ),
+        None,
+        Settings(),
+    )
+    assert r.params.get("narrator_perspective") == "character"
+    assert r.params.get("focus_character") == "王五"

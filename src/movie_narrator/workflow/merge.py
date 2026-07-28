@@ -155,6 +155,23 @@ def merge_job(
     else:
         lang = "zh"
 
+    # NA-M1-S4: narrator perspective & focus character — CLI overrides YAML.
+    perspective = pick_optional(
+        cli.get("narrator_perspective"),
+        getattr(job.params, "narrator_perspective", None) if job and job.params else None,
+        None,
+    )
+    if perspective:
+        params["narrator_perspective"] = str(perspective).strip()
+
+    focus_char = pick_optional(
+        cli.get("focus_character"),
+        getattr(job.params, "focus_character", None) if job and job.params else None,
+        None,
+    )
+    if focus_char:
+        params["focus_character"] = str(focus_char).strip()
+
     config_path = cli.get("config_path")
     if config_path is not None:
         config_path = str(config_path)
