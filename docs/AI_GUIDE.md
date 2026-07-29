@@ -6,7 +6,7 @@
 
 `movie-narrator` — 一个 Python CLI 工具（`mn`），从一个提示词生成带解说的电影回顾视频。
 
-**Pipeline**: Resolve → Assets → Research → Script → Script Export → TTS → Align → Scenes → Match → BGM → Translate → Subtitle → Render → QA → Export Clips（15 步）
+**Pipeline**: Resolve → Assets → Research → Script → Script Export → TTS → Align → Scenes → Match → BGM → Translate → Subtitle → QA Gate → Render → QA → Export Clips（16 步）
 
 ## 安装
 
@@ -112,10 +112,10 @@ src/movie_narrator/
 ├── cli.py               # Typer CLI 入口（mn 命令）
 ├── config.py            # Settings（pydantic-settings，MN_* 环境变量）
 ├── models.py            # Context、PipelineStatus、StepState、Services 等数据模型
-├── contract.py          # 稳定 API 边界（CONTRACT_VERSION = (0, 5, 1)，web 包通过它消费引擎）
+├── contract.py          # 稳定 API 边界（CONTRACT_VERSION = (0, 6, 1)，web 包通过它消费引擎）
 ├── plugin_loader.py     # 插件发现（entry_points）、StepRegistry、Plugin protocol、PluginContext
 ├── pipeline/
-│   ├── runner.py        # 15 步流水线编排（STEPS 列表 + build_context）
+│   ├── runner.py        # 16 步流水线编排（STEPS 列表 + build_context）
 │   ├── registry.py      # StepRegistry 与 runner 集成
 │   ├── scene_filter.py  # WP6 场景过滤（片头跳过、黑帧检测、高亮窗口）
 │   ├── resolve.py       # 源视频查找
@@ -124,10 +124,12 @@ src/movie_narrator/
 │   ├── render.py        # MoviePy 视频渲染
 │   ├── translate.py     # 多语言字幕翻译
 │   ├── qa.py            # 成片质检（ffprobe）
+│   ├── qa_gate.py       # QA Gate 软步骤（run_qa_gate）
 │   └── errors.py        # PipelineStrictError, PipelineCancelled, StepAction
 ├── tts/                 # TTS 抽象层（edge / openai / mimo）
 ├── providers/           # ProviderRegistry（register_tts、register_vision、register_llm、register_research）
 ├── vision/              # VisionCaptioner 抽象（stub，通过 Plugin API 可扩展）
+├── cloud/               # 云端集成（远程渲染、存储等）
 ├── workflow/            # YAML 配置加载与合并
 ├── presets/             # 解说风格预设（douyin-fast / mainstream-dry / bilibili-long）
 └── utils/               # 工具函数（llm、font、json_parser 等）

@@ -19,9 +19,9 @@ including the core engine, the web package, and third-party plugins.
 
 ### Web Package (`movie-narrator-web`)
 
-- Tracks the core engine version (both at `0.5.x`).
-- Declares `movie-narrator>=0.5.0` as dependency.
-- Checks `CONTRACT_VERSION >= (0, 5, 0)` at import time via `_MIN_CONTRACT`.
+- Tracks the core engine version (both at `0.6.x`).
+- Declares `movie-narrator>=0.6.0` as dependency.
+- Checks `CONTRACT_VERSION >= (0, 6, 0)` at import time via `_MIN_CONTRACT`.
 
 ### Third-Party Plugins
 
@@ -31,7 +31,7 @@ including the core engine, the web package, and third-party plugins.
 
 ```python
 from movie_narrator.contract import check_version
-check_version((0, 5, 1))
+check_version((0, 6, 1))
 ```
 
 ## Entry Points

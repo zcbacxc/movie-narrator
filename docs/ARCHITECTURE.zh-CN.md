@@ -5,13 +5,13 @@
 
 ## 流水线总览
 
-影片剧情解说由 15 个串联步骤组成，编排入口在 `pipeline/runner.py`。在任何步骤执行前，`preflight.py` 都会预先探测 LLM 连通性与 TTS provider 配置 —— 一旦失败立刻抛 `PreflightError`，而不是悄悄降级成 mock 内容。
+影片剧情解说由 16 个串联步骤组成，编排入口在 `pipeline/runner.py`。在任何步骤执行前，`preflight.py` 都会预先探测 LLM 连通性与 TTS provider 配置 —— 一旦失败立刻抛 `PreflightError`，而不是悄悄降级成 mock 内容。
 
 ```text
 resolve_video → prepare_assets → research_plot → generate_script →
 export_script_md → generate_voice → align_audio → detect_scenes →
 match_clips → mix_bgm → translate_subtitles → generate_subtitle →
-render_video → validate_deliverable → export_clips
+run_qa_gate → render_video → validate_deliverable → export_clips
 ```
 
 ### 步骤分类
@@ -19,7 +19,7 @@ render_video → validate_deliverable → export_clips
 | 类别 | 步骤 | 失败处理 |
 |------|------|----------|
 | **硬步骤**（始终运行） | resolve_video, prepare_assets, generate_script, export_script_md, generate_voice, render_video, validate_deliverable | 必须成功，否则整个流水线失败 |
-| **软步骤**（依赖缺失可跳过） | research_plot, align_audio, detect_scenes, match_clips, mix_bgm, translate_subtitles, export_clips | 解说级优雅跳过 / 软降级；可通过 `--strict` 强制为硬步骤 |
+| **软步骤**（依赖缺失可跳过） | research_plot, align_audio, detect_scenes, match_clips, mix_bgm, translate_subtitles, run_qa_gate, export_clips | 解说级优雅跳过 / 软降级；可通过 `--strict` 强制为硬步骤 |
 
 ### 流水线状态模型
 
@@ -34,6 +34,7 @@ class PipelineStatus(BaseModel):
     bgm: StepStatus        # mix_bgm
     export: StepStatus     # export_clips
     translate: StepStatus  # translate_subtitles (default: "skipped" — 功能未启用)
+    qa_gate: StepStatus    # run_qa_gate (default: "disabled")
 ```
 
 `translate` 是唯一的软步骤，**默认** 状态为 `skipped`（而非 `disabled`）。两者的语义区别是：「功能默认关闭」不等于「通过 `steps.translate=false` 或未知 provider 明确禁用」（多语言字幕设计动机在设计文档历史中；发布前的设计规格放在公开仓库之外）。
@@ -81,7 +82,7 @@ React SPA（位于 movie-narrator-web）— 表单 / 进度 / 产物视图
     ▼   REST (POST /api/tasks)  +  WebSocket (/ws/task/{task_id})
 FastAPI app（位于 movie-narrator-web）— uvicorn 监听 :8760
     ▼
-contract.py（核心 repo — 稳定 API 边界，CONTRACT_VERSION = (0, 5, 1)）
+contract.py（核心 repo — 稳定 API 边界，CONTRACT_VERSION = (0, 6, 1)）
     ▼
 build_context(..., services=Services(console=BufferedConsole))
     ▼
@@ -102,7 +103,7 @@ React SPA 由 Vite 打包产出静态资源，FastAPI 直接托管；因此单�
 
 ### 模块 —— `contract.py`（稳定 API 边界，`movie-narrator-web` 唯一的导入面）
 
-`contract.py` 模块是外部 `movie-narrator-web` 包（以及任何未来消费者）依赖的 **唯一导入面**。它从 4 个内部模块 re-export 符号，并定义 `PipelineResult` protocol，不移动任何代码。契约版本通过 `CONTRACT_VERSION = (0, 5, 1)` 固定 —— web 包在 import 时校验，拒绝不匹配的引擎版本。
+`contract.py` 模块是外部 `movie-narrator-web` 包（以及任何未来消费者）依赖的 **唯一导入面**。它从 4 个内部模块 re-export 符号，并定义 `PipelineResult` protocol，不移动任何代码。契约版本通过 `CONTRACT_VERSION = (0, 6, 1)` 固定 —— web 包在 import 时校验，拒绝不匹配的引擎版本。
 
 ```text
 movie-narrator-web  →  contract.py  →  pipeline/runner.py (build_context, run_pipeline, PARAM_WHITELIST)
@@ -120,7 +121,7 @@ movie-narrator-web  →  contract.py  →  pipeline/runner.py (build_context, ru
 | `PipelineCancelled` / `PipelineStrictError` | pipeline/errors.py | 流水线终态异常 |
 | `RunController` / `StepAction` / `check_cancelled` | pipeline/errors.py | 协作式取消 + 重试 protocol |
 | `sanitize_filename` | utils/sanitize.py | 跨平台文件名清洗 |
-| `CONTRACT_VERSION` | contract.py | `(0, 5, 1)` —— 外部 `movie-narrator-web` 包在 import 时校验的版本号 |
+| `CONTRACT_VERSION` | contract.py | `(0, 6, 1)` —— 外部 `movie-narrator-web` 包在 import 时校验的版本号 |
 | `StepRegistry` / `step_registry` | plugin_loader.py | 流水线步骤插件中央注册表；`step_registry` 是全局实例 |
 | `ProviderRegistry` / `tts_registry` / `vision_registry` / `llm_registry` / `research_registry` | providers/registry.py | TTS、vision、LLM、research provider 的注册系统 |
 | `register_step` / `step` | plugin_loader.py | 装饰器式步骤注册（`@register_step("name", ...)` 或 `@step("name")`） |
@@ -326,4 +327,4 @@ class MyPlugin:
 | `--strict` 标志 | 把软步骤失败升级为硬错误（CI 或生产环境用） |
 | 渲染时 `usable_clips` 过滤 | 忽略意外的 `source="fallback"` 行（构造时的默认） |
 
-<!-- Updated to sync with ARCHITECTURE.md through v0.5.5 -->
+<!-- Updated to sync with ARCHITECTURE.md through v0.6.1 -->

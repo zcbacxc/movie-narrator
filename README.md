@@ -35,6 +35,8 @@ Movie Narrator is an open-source toolkit that automatically generates movie reca
 - 📦 Metadata export
 - 🔌 Extensible pipeline architecture
 - 🐍 Pure Python implementation
+- ☁️ Async task queue (mn submit/status/tasks/cancel/wait/cleanup — local + remote job submission, progress polling, retry)
+- 🌐 Remote inference (mn serve/download — offload LLM/TTS/rendering to cloud workers via REST API)
 
 ---
 
@@ -249,6 +251,18 @@ CI=1 mn create --movie "Demo" --duration 10
 ```bash
 mn version   # Show version
 mn --help    # Show help
+mn preset              # List/view narration presets
+mn plugin list         # List installed plugins
+mn resume --state <path>  # Resume paused pipeline
+mn submit -m <movie>   # Submit async task (v0.6.0+)
+mn status <task_id>    # Check task status
+mn tasks               # List recent tasks
+mn cancel <task_id>    # Cancel running task
+mn wait <task_id>      # Wait for task completion
+mn cleanup             # Clean up completed tasks
+mn serve               # Start remote inference API server (v0.6.1+)
+mn download <task_id>  # Download artifacts from remote server (v0.6.1+)
+mn submit --remote http://worker:8765  # Submit to remote server
 ```
 
 ---
@@ -347,16 +361,16 @@ output/
 
 ## Pipeline
 
-15-step sequential pipeline (see [Architecture](docs/ARCHITECTURE.md)):
+16-step sequential pipeline (see [Architecture](docs/ARCHITECTURE.md)):
 
 ```text
 resolve_video → prepare_assets → research_plot → generate_script →
 export_script_md → generate_voice → align_audio → detect_scenes →
 match_clips → mix_bgm → translate_subtitles → generate_subtitle →
-render_video → validate_deliverable → export_clips
+run_qa_gate → render_video → validate_deliverable → export_clips
 ```
 
-**Soft steps** (research, align, scene detect, scene match, BGM, translate, clip export) gracefully skip or soft-degrade when optional dependencies are missing or upstream data is unavailable. Use `--strict` to abort instead.
+**Soft steps** (research, align, scene detect, scene match, BGM, translate, QA gate, clip export) gracefully skip or soft-degrade when optional dependencies are missing or upstream data is unavailable. Use `--strict` to abort instead.
 
 ---
 
@@ -370,7 +384,7 @@ movie-narrator/
 │   ├── config.py            # Pydantic settings
 │   ├── models.py            # Data models (Context, Status, etc.)
 │   ├── pipeline/
-│   │   ├── runner.py        # 15-step pipeline orchestrator
+│   │   ├── runner.py        # 16-step pipeline orchestrator
 │   │   ├── resolve.py       # Source video resolution
 │   │   ├── assets.py        # Asset validation
 │   │   ├── research.py      # LLM movie research
@@ -388,6 +402,16 @@ movie-narrator/
 │   │   ├── export_clips.py  # Per-segment clip export (direct ffmpeg)
 │   │   ├── preflight.py     # Pre-run LLM/TTS validation (fail-fast)
 │   │   └── errors.py        # PipelineStrictError, PipelineCancelled, RunController, StepAction
+│   ├── cloud/                  # Task queue + remote inference (v0.6.x)
+│   │   ├── __init__.py         # Public exports
+│   │   ├── models.py           # Task, TaskRequest, TaskResult, TaskStatus
+│   │   ├── queue.py            # LocalTaskQueue, TaskQueue protocol
+│   │   ├── remote_queue.py     # RemoteTaskQueue (v0.6.1)
+│   │   ├── storage.py          # TaskStorage (JSON persistence)
+│   │   ├── worker.py           # run_task, CancelController, ProgressConsole
+│   │   ├── api.py              # TaskAPIServer (REST API, v0.6.1)
+│   │   ├── daemon.py           # WorkerDaemon, run_daemon (v0.6.1)
+│   │   └── remote_provider.py  # Remote LLM/TTS + artifact download (v0.6.1)
 │   ├── workflow/
 │   │   ├── schema.py        # JobConfig / JobSteps / JobParams
 │   │   ├── load.py          # YAML loader + validation
@@ -444,7 +468,9 @@ movie-narrator/
 │   ├── test_deliverable_qa.py
 │   ├── test_qa.py
 │   ├── test_text_image.py
-│   └── test_video_layout.py
+│   ├── test_video_layout.py
+│   ├── test_v060_task_queue.py
+│   └── test_v061_remote.py
 ├── docs/
 ├── assets/
 └── .github/workflows/
@@ -526,12 +552,12 @@ movie-narrator/
 
 > SDK and Plugin API are designed together — both must stabilize in the same release.
 
-### v0.6.x — Cloud (Planned)
+### v0.6.x — Cloud
 
-- [ ] Remote inference (offload LLM / TTS / rendering to cloud workers)
+- [x] Task queue (v0.6.0: LocalTaskQueue, mn submit/status/tasks/cancel/wait/cleanup)
+- [x] Remote inference (v0.6.1: REST API, RemoteTaskQueue, mn serve/download, --remote flag)
+- [x] Web service deployment (v0.6.1: TaskAPIServer REST API) — authentication/multi-tenant still planned
 - [ ] Distributed rendering (split video segments across nodes)
-- [ ] Task queue (async job submission, progress polling, retry)
-- [ ] Web service deployment (REST API, authentication, multi-tenant)
 
 ---
 

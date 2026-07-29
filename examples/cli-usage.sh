@@ -132,7 +132,7 @@ mn create --config examples/job.example.yaml
 mn create --config examples/job.example.yaml --movie "其他电影" --no-clips
 
 # ============================================================
-# 完整参数列表
+# mn create 完整参数列表
 # ============================================================
 # | 参数 | 说明 | 默认值 |
 # |------|------|--------|
@@ -160,3 +160,59 @@ mn create --config examples/job.example.yaml --movie "其他电影" --no-clips
 # | --log-level        | 文件日志级别 (DEBUG/INFO/WARNING/ERROR) | DEBUG |
 # | --verbose          | 控制台显示 DEBUG 级别日志 | false |
 # | --config           | YAML 配置文件路径 | 自动发现 |
+
+# ============================================================
+# 异步任务队列 (v0.6.0+)
+# ============================================================
+
+# 提交异步任务（本地队列）
+mn submit -m 飞驰人生 -p douyin-fast
+
+# 提交并等待完成
+mn submit -m 满江红 --wait --timeout 600
+
+# 查看任务状态
+mn status <task_id>
+
+# 列出最近任务
+mn tasks
+mn tasks --status running
+mn tasks --limit 50
+
+# 等待任务完成
+mn wait <task_id>
+mn wait <task_id> -t 600
+
+# 取消任务
+mn cancel <task_id>
+
+# 清理已完成任务
+mn cleanup
+mn cleanup --all
+
+# ============================================================
+# 远程推理服务 (v0.6.1)
+# ============================================================
+
+# 启动远程推理服务（GPU 机器 / 云端服务器）
+mn serve --host 0.0.0.0 --port 8765
+mn serve --max-workers 4
+
+# 提交任务到远程服务器
+mn submit -m 飞驰人生 --remote http://worker:8765 --wait
+
+# 查看远程任务状态
+mn status <task_id> --remote http://worker:8765
+mn tasks --remote http://worker:8765
+
+# 从远程服务器下载产物
+mn download <task_id> --remote http://worker:8765
+mn download <task_id> -r http://worker:8765 -f final.mp4
+mn download <task_id> -r http://worker:8765 -o ./output
+
+# ============================================================
+# 管线恢复 (EP9)
+# ============================================================
+
+# 从暂停点恢复管线
+mn resume --state output/<电影名>/pipeline_state.json

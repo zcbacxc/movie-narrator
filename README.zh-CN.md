@@ -35,6 +35,8 @@ Movie Narrator 是一个开源工具包，可通过简单命令自动生成带�
 - 📦 元数据导出
 - 🔌 可扩展的流水线架构
 - 🐍 纯 Python 实现
+- ☁️ 异步任务队列（mn submit/status/tasks/cancel/wait/cleanup — 本地 + 远程任务提交、进度轮询、重试）
+- 🌐 远程推理（mn serve/download — 通过 REST API 将 LLM/TTS/渲染卸载到云端 Worker）
 
 ---
 
@@ -219,6 +221,18 @@ CI=1 mn create --movie "Demo" --duration 10
 ```bash
 mn version   # 查看版本
 mn --help    # 查看帮助
+mn preset              # 列出/查看解说预设
+mn plugin list         # 列出已安装插件
+mn resume --state <path>  # 恢复暂停的流水线
+mn submit -m <movie>   # 提交异步任务 (v0.6.0+)
+mn status <task_id>    # 查看任务状态
+mn tasks               # 列出最近任务
+mn cancel <task_id>    # 取消运行中的任务
+mn wait <task_id>      # 等待任务完成
+mn cleanup             # 清理已完成任务
+mn serve               # 启动远程推理 API 服务 (v0.6.1+)
+mn download <task_id>  # 从远程服务器下载产物 (v0.6.1+)
+mn submit --remote http://worker:8765  # 提交到远程服务器
 ```
 
 ---
@@ -317,16 +331,16 @@ output/
 
 ## 流水线
 
-15 步顺序流水线（详见[架构设计](docs/ARCHITECTURE.md)）：
+16 步顺序流水线（详见[架构设计](docs/ARCHITECTURE.md)）：
 
 ```text
 resolve_video → prepare_assets → research_plot → generate_script →
 export_script_md → generate_voice → align_audio → detect_scenes →
 match_clips → mix_bgm → translate_subtitles → generate_subtitle →
-render_video → validate_deliverable → export_clips
+run_qa_gate → render_video → validate_deliverable → export_clips
 ```
 
-**软步骤**（research、align、scene detect、scene match、BGM、translate、clip export）在缺少可选依赖或上游数据缺失时**优雅跳过**或**软降级**。使用 `--strict` 改为直接中断。
+**软步骤**（research、align、scene detect、scene match、BGM、translate、QA gate、clip export）在缺少可选依赖或上游数据缺失时**优雅跳过**或**软降级**。使用 `--strict` 改为直接中断。
 
 ---
 
@@ -340,7 +354,7 @@ movie-narrator/
 │   ├── config.py            # Pydantic 配置
 │   ├── models.py            # 数据模型（Context、Status 等）
 │   ├── pipeline/
-│   │   ├── runner.py        # 15 步流水线协调器
+│   │   ├── runner.py        # 16 步流水线协调器
 │   │   ├── resolve.py       # 源视频解析
 │   │   ├── assets.py        # 素材验证
 │   │   ├── research.py      # LLM 电影调研
@@ -358,6 +372,16 @@ movie-narrator/
 │   │   ├── export_clips.py  # 场景片段导出（直调 ffmpeg）
 │   │   ├── preflight.py     # 运行前 LLM/TTS 校验（快速失败）
 │   │   └── errors.py        # PipelineStrictError, PipelineCancelled, RunController, StepAction
+│   ├── cloud/                  # 任务队列 + 远程推理 (v0.6.x)
+│   │   ├── __init__.py         # 公共导出
+│   │   ├── models.py           # Task, TaskRequest, TaskResult, TaskStatus
+│   │   ├── queue.py            # LocalTaskQueue, TaskQueue 协议
+│   │   ├── remote_queue.py     # RemoteTaskQueue (v0.6.1)
+│   │   ├── storage.py          # TaskStorage (JSON 持久化)
+│   │   ├── worker.py           # run_task, CancelController, ProgressConsole
+│   │   ├── api.py              # TaskAPIServer (REST API, v0.6.1)
+│   │   ├── daemon.py           # WorkerDaemon, run_daemon (v0.6.1)
+│   │   └── remote_provider.py  # 远程 LLM/TTS + 产物下载 (v0.6.1)
 │   ├── workflow/
 │   │   ├── schema.py        # JobConfig / JobSteps / JobParams
 │   │   ├── load.py          # YAML 加载与验证
@@ -406,7 +430,9 @@ movie-narrator/
 │   ├── test_translate.py
 │   ├── test_json_parser.py
 │   ├── test_pipeline_cancel.py
-│   └── test_workflow_steps.py
+│   ├── test_workflow_steps.py
+│   ├── test_v060_task_queue.py
+│   └── test_v061_remote.py
 ├── docs/
 ├── assets/
 └── .github/workflows/
@@ -478,12 +504,12 @@ movie-narrator/
 
 > SDK 与 Plugin API 一起设计——两者必须在同一版本中稳定。
 
-### v0.6.x — 云端（规划中）
+### v0.6.x — 云端
 
-- [ ] 远程推理（将 LLM / TTS / 渲染卸载到云端 Worker）
+- [x] 任务队列（v0.6.0: LocalTaskQueue, mn submit/status/tasks/cancel/wait/cleanup）
+- [x] 远程推理（v0.6.1: REST API, RemoteTaskQueue, mn serve/download, --remote flag）
+- [x] Web 服务部署（v0.6.1: TaskAPIServer REST API）— 认证/多租户仍规划中
 - [ ] 分布式渲染（跨节点拆分视频片段）
-- [ ] 任务队列（异步任务提交、进度轮询、重试）
-- [ ] Web 服务部署（REST API、认证、多租户）
 
 ---
 

@@ -120,7 +120,7 @@ steps without an insertion point are appended to the end.
 
 ### Built-in Step Names
 
-The 15 built-in steps in execution order:
+The 16 built-in steps in execution order:
 
 1. `resolve_video`
 2. `prepare_assets`
@@ -134,9 +134,10 @@ The 15 built-in steps in execution order:
 10. `mix_bgm` (soft)
 11. `translate_subtitles` (soft)
 12. `generate_subtitle`
-13. `render_video`
-14. `validate_deliverable`
-15. `export_clips` (soft)
+13. `run_qa_gate` (soft)
+14. `render_video`
+15. `validate_deliverable`
+16. `export_clips` (soft)
 
 ## TTS Providers
 

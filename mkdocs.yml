@@ -30,6 +30,7 @@ nav:
       - Pipeline: sdk/pipeline.md
       - TTS: sdk/tts.md
       - Presets: sdk/presets.md
+      # - Cloud: sdk/cloud.md  # TODO: create docs/sdk/cloud.md when cloud module is documented
 
 plugins:
   - mkdocstrings:

@@ -517,7 +517,7 @@ def imitate(
     用法 / Usage:
         mn imitate -r viral_ref.mp4 -m 满江红 --video movie.mp4
         mn imitate -r viral_ref.mp4 --analyze-only
-        mn imitate -r viral_ref.mp4 -m 满江红 --video movie.mp4 --auto-pick
+        mn imitate -r viral_ref.mp4 -m 满江红 --video movie.mp4 --strict
     """
     from .imitate import (
         analyze_reference,

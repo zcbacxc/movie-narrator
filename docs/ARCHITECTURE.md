@@ -5,13 +5,13 @@
 
 ## Pipeline Overview
 
-15-step sequential pipeline orchestrated by `pipeline/runner.py`. Before any step executes, `preflight.py` probes LLM connectivity and TTS provider configuration — failing fast with `PreflightError` instead of silently degrading to mock content.
+16-step sequential pipeline orchestrated by `pipeline/runner.py`. Before any step executes, `preflight.py` probes LLM connectivity and TTS provider configuration — failing fast with `PreflightError` instead of silently degrading to mock content.
 
 ```text
 resolve_video → prepare_assets → research_plot → generate_script →
 export_script_md → generate_voice → align_audio → detect_scenes →
 match_clips → mix_bgm → translate_subtitles → generate_subtitle →
-render_video → validate_deliverable → export_clips
+run_qa_gate → render_video → validate_deliverable → export_clips
 ```
 
 ### Step Categories
@@ -19,7 +19,7 @@ render_video → validate_deliverable → export_clips
 | Category | Steps | Status |
 |----------|-------|--------|
 | **Hard** (always run) | resolve_video, prepare_assets, generate_script, export_script_md, generate_voice, render_video, validate_deliverable | Must succeed |
-| **Soft** (skip on missing deps) | research_plot, align_audio, detect_scenes, match_clips, mix_bgm, translate_subtitles, export_clips | Skip gracefully / soft-degrade; `--strict` to abort |
+| **Soft** (skip on missing deps) | research_plot, align_audio, detect_scenes, match_clips, mix_bgm, translate_subtitles, run_qa_gate, export_clips | Skip gracefully / soft-degrade; `--strict` to abort |
 
 ### Pipeline Status Model
 
@@ -34,6 +34,7 @@ class PipelineStatus(BaseModel):
     bgm: StepStatus        # mix_bgm
     export: StepStatus     # export_clips
     translate: StepStatus  # translate_subtitles (default: "skipped" — feature off)
+    qa_gate: StepStatus    # run_qa_gate (default: "disabled")
 ```
 
 `translate` is the only soft status whose **default** is `skipped` rather than
@@ -85,7 +86,7 @@ React SPA (in movie-narrator-web) — form / progress / artifacts view
     ▼   REST (POST /api/tasks)  +  WebSocket (/ws/task/{task_id})
 FastAPI app (in movie-narrator-web) — uvicorn on :8760
     ▼
-contract.py (core repo — stable API boundary, CONTRACT_VERSION = (0, 5, 1))
+contract.py (core repo — stable API boundary, CONTRACT_VERSION = (0, 6, 1))
     ▼
 build_context(..., services=Services(console=BufferedConsole))
     ▼
@@ -106,7 +107,7 @@ The React SPA is built by Vite into static assets that FastAPI serves directly, 
 
 ### Modules — `contract.py` (stable API boundary, the only import surface for `movie-narrator-web`)
 
-The `contract.py` module is the **single import surface** that the external `movie-narrator-web` package (and any future consumer) depends on. It re-exports symbols from 4 internal modules and defines the `PipelineResult` protocol, without moving any code. The contract version is pinned via `CONTRACT_VERSION = (0, 5, 1)` — the web package checks this at import time to refuse mismatched engine versions.
+The `contract.py` module is the **single import surface** that the external `movie-narrator-web` package (and any future consumer) depends on. It re-exports symbols from 4 internal modules and defines the `PipelineResult` protocol, without moving any code. The contract version is pinned via `CONTRACT_VERSION = (0, 6, 1)` — the web package checks this at import time to refuse mismatched engine versions.
 
 ```text
 movie-narrator-web  →  contract.py  →  pipeline/runner.py (build_context, run_pipeline, PARAM_WHITELIST)
@@ -118,13 +119,13 @@ movie-narrator-web  →  contract.py  →  pipeline/runner.py (build_context, ru
 | Symbol | Source | Purpose |
 |--------|--------|---------|
 | `PipelineResult` | contract.py (new) | `runtime_checkable` Protocol — formalizes 5 Context attributes (video_path, audio_path, clips_dir, output_dir, subtitle_paths) |
-| `PARAM_WHITELIST` | pipeline/runner.py | ~60 allowed param keys — single source of truth for form↔engine sync |
+| `PARAM_WHITELIST` | pipeline/runner.py | ~77 allowed param keys — single source of truth for form↔engine sync |
 | `build_context` / `run_pipeline` | pipeline/runner.py | Engine entry points |
 | `BaseConsole` / `Console` / `SilentConsole` | utils/console.py | Output abstraction protocol + base class |
 | `PipelineCancelled` / `PipelineStrictError` | pipeline/errors.py | Pipeline terminal exceptions |
 | `RunController` / `StepAction` / `check_cancelled` | pipeline/errors.py | Cooperative cancel + retry protocol |
 | `sanitize_filename` | utils/sanitize.py | Cross-platform filename sanitization |
-| `CONTRACT_VERSION` | contract.py | `(0, 5, 1)` — version the external `movie-narrator-web` package checks against at import time |
+| `CONTRACT_VERSION` | contract.py | `(0, 6, 1)` — version the external `movie-narrator-web` package checks against at import time |
 | `StepRegistry` / `step_registry` | plugin_loader.py | Central registry for pipeline step plugins; `step_registry` is the global instance |
 | `ProviderRegistry` / `tts_registry` / `vision_registry` / `llm_registry` / `research_registry` | providers/registry.py | Provider registration system for TTS, vision, LLM, and research providers |
 | `register_step` / `step` | plugin_loader.py | Decorator-based step registration (`@register_step("name", ...)` or `@step("name")`) |
@@ -150,6 +151,7 @@ captioner.caption_scenes(scenes, video_path) → list[SceneCaption]
 |--------|---------------|
 | `vision/protocol.py` | `VisionCaptioner` ABC — defines `caption_scenes()` contract + `SceneCaption` dataclass |
 | `vision/stub.py` | `StubVisionCaptioner` — returns placeholder labels (flagged `is_stub=True`) |
+| `vision/vlm.py` | `VLMVisionCaptioner` — real VLM (Vision Language Model) provider for scene captioning |
 | `vision/factory.py` | `get_vision_captioner()` — dispatches by `vision_captioner` param (`"none"` / `"stub"` / future providers) |
 | `vision/__init__.py` | Public API exports |
 

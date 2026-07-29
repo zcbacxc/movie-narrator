@@ -13,7 +13,7 @@ Verify installation:
 
 ```bash
 mn version
-# movie-narrator 0.5.10 (contract 0.5.1)
+# movie-narrator 0.6.1 (contract 0.6.1)
 ```
 
 ## Step 1: Create the plugin package
@@ -39,7 +39,7 @@ name = "my-plugin"
 version = "0.1.0"
 description = "My custom movie-narrator plugin."
 requires-python = ">=3.10"
-dependencies = ["movie-narrator>=0.5.0"]
+dependencies = ["movie-narrator>=0.6.0"]
 
 [project.entry-points."movie_narrator.plugins"]
 my-plugin = "my_plugin:MyPlugin"
