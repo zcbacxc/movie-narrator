@@ -17,7 +17,7 @@ import numpy as np
 import pytest
 from pydub import AudioSegment
 
-from movie_narrator.models import Context, Services, ScriptSegment, TimedSegment
+from movie_narrator.models import Assets, Context, Services, ScriptSegment, TimedSegment
 from movie_narrator.utils.audio_qa import (
     SegmentAudioMetrics,
     detect_clipping,
@@ -663,7 +663,7 @@ def test_bgm_transitions_stored_in_metadata(tmp_path):
         duration=5,
         output_dir=str(tmp_path),
         audio_path=str(narration_path),
-        assets=MagicMock(bgm=str(bgm_path)),
+        assets=Assets(bgm=str(bgm_path)),
         services=Services(console=MagicMock()),
     )
     ctx.metadata["bgm_request"] = "explicit"
@@ -708,7 +708,7 @@ def test_bgm_no_transitions_without_beats_meta(tmp_path):
         duration=3,
         output_dir=str(tmp_path),
         audio_path=str(narration_path),
-        assets=MagicMock(bgm=str(bgm_path)),
+        assets=Assets(bgm=str(bgm_path)),
         services=Services(console=MagicMock()),
     )
     ctx.metadata["bgm_request"] = "explicit"
