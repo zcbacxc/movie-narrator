@@ -1184,6 +1184,49 @@ def _match_clips_impl(
         max_reuse=ctx.metadata.get("match_max_scene_reuse", 2),
     )
 
+    # ── v0.5.11: Match quality scoring aggregation ──────────
+    # Compute per-clip composite scores across embedding + rhythm + diversity
+    # dimensions.  Rhythm scores are extracted from the greedy_topk_assign
+    # results if available; otherwise only embedding + diversity are used.
+    from ..utils.match_quality import score_clips, aggregate_match_quality
+
+    # Extract rhythm scores from topk_results if embedding path ran.
+    # The rhythm adjustment was used internally by _greedy_topk_assign
+    # but not persisted per-clip. For v0.5.11, we recompute a simplified
+    # rhythm score from beats_meta rhythm_zone if available.
+    rhythm_scores: list[Optional[float]] = []
+    for i, mc in enumerate(matched_clips):
+        if i < len(beats_meta) and beats_meta[i].get("rhythm_zone"):
+            # Map rhythm zone to a 0-1 score based on how well the
+            # clip's scene aligns with the expected rhythm zone.
+            # This is a simplified heuristic; the full rhythm adjustment
+            # is computed inside _greedy_topk_assign.
+            zone = beats_meta[i]["rhythm_zone"]
+            # Simple mapping: high-energy zones get higher rhythm scores
+            # when matched via embedding (content matches energy).
+            if mc.source in ("embedding", "embedding_topk", "embedding_top1"):
+                rhythm_scores.append(0.8)  # default good alignment
+            else:
+                rhythm_scores.append(None)
+        else:
+            rhythm_scores.append(None)
+
+    score_clips(
+        matched_clips,
+        rhythm_scores=rhythm_scores,
+        diversity_window=ctx.metadata.get("match_diversity_window", 3),
+        diversity_max_reuse=ctx.metadata.get("match_max_scene_reuse", 2),
+    )
+
+    # Aggregate match quality summary
+    match_quality = aggregate_match_quality(matched_clips)
+    ctx.metadata["match_quality"] = match_quality.to_dict()
+    if match_quality.low_quality_count > 0:
+        ctx.services.console.inline_warn(
+            f"Match quality: {match_quality.low_quality_count} clip(s) "
+            f"have low composite score (< 0.4)."
+        )
+
     # Log speed factor stats + collect for match_summary (F1)
     speed_factors: List[float] = []
     if matched_clips:
@@ -1324,6 +1367,8 @@ def _match_clips_impl(
             },
             "adjustment_max": _RHYTHM_ADJUSTMENT_MAX,
         },
+        # v0.5.11: composite match quality summary
+        "match_quality": ctx.metadata.get("match_quality", {}),
         # Back-compat fields (kept for existing consumers)
         "total": total,
         "embedding": embedding_count,

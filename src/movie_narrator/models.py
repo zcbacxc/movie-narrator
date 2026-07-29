@@ -102,10 +102,28 @@ class ScriptSegment(BaseModel):
     text: str
 
 
+class WordSegment(BaseModel):
+    """A single word with timing and confidence from forced alignment.
+
+    v0.5.11: Populated by WhisperX ``align()`` word-level output.
+    """
+
+    word: str
+    start: float
+    end: float
+    score: float = 0.0
+
+
 class TimedSegment(BaseModel):
     text: str
     start: float
     end: float
+    # v0.5.11: word-level alignment data from WhisperX forced alignment.
+    # Populated only when whisperx.align() succeeds; empty otherwise.
+    words: List[WordSegment] = Field(default_factory=list)
+    # v0.5.11: alignment confidence score (0.0–1.0), computed from
+    # word-level scores. 0.0 when no word-level data is available.
+    confidence: float = 0.0
 
 
 class PipelineStatus(BaseModel):
@@ -190,6 +208,12 @@ class MatchedClip(BaseModel):
     score: float
     scene_index: Optional[int] = None
     source: Literal["scene", "heuristic", "embedding", "embedding_topk", "embedding_top1", "fallback"] = "fallback"
+    # v0.5.11: per-dimension quality scores for composite scoring.
+    # None for heuristic clips where no embedding/rhythm data exists.
+    embedding_score: Optional[float] = None
+    rhythm_score: Optional[float] = None
+    diversity_score: Optional[float] = None
+    composite_score: Optional[float] = None
 
 
 class Context(BaseModel):

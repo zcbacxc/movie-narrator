@@ -1,5 +1,12 @@
 from ..models import Context, StepResult
 from ..utils.optional_deps import probe
+from ..utils.alignment_qa import (
+    extract_word_segments,
+    assign_words_to_segments,
+    word_level_remap,
+    validate_alignment,
+    check_drift as check_drift_v0511,
+)
 from ._align_backend import select_align_backend, run_faster_whisper, BackendUnavailable
 
 
@@ -7,7 +14,8 @@ from ._align_backend import select_align_backend, run_faster_whisper, BackendUna
 # Drift threshold: if the single ASR segment's duration differs from the
 # total narration duration by more than this ratio, the ASR is unreliable
 # (likely all-silence detected as one blob).
-_DRIFT_THRESHOLD = 0.5
+# v0.5.11: tightened from 0.5 to 0.3 based on L2 test data analysis.
+_DRIFT_THRESHOLD = 0.3
 
 # F4 backward-jump threshold: if the wx segment maps far behind prev_end
 # AND the clamp would compress the segment to less than half its original
@@ -201,6 +209,8 @@ def _align_with_whisperx(ctx: Context) -> Context:
         # ── AQ-01: Run full forced alignment (Q-X11) ──
         # Previously only midpoint remapping was done. Now we run
         # whisperx.align() for word-level timestamps, then validate.
+        # v0.5.11: preserve word-level segments for sub-segment precision.
+        word_segments_data: list[dict] = []
         try:
             model_a, metadata = whisperx.load_align_model(
                 language_code=language, device=device
@@ -208,6 +218,8 @@ def _align_with_whisperx(ctx: Context) -> Context:
             result = whisperx.align(
                 result["segments"], model_a, metadata, audio, device=device
             )
+            # v0.5.11: Extract word-level segments from align result
+            word_segments_data = extract_word_segments(result)
         except Exception as align_err:
             ctx.services.console.inline_warn(
                 f"WhisperX forced alignment failed ({align_err}); "
@@ -255,6 +267,30 @@ def _align_with_whisperx(ctx: Context) -> Context:
 
         # ── AQ-01: Monotonic non-overlap remapping (shared logic) ──
         backward_skipped = _remap_segments(ctx, wx_segments)
+
+        # ── v0.5.11: Word-level alignment ──────────────────────
+        # Assign word-level timestamps to timed segments, then apply
+        # word-level remapping for sub-segment precision.
+        if word_segments_data:
+            assigned = assign_words_to_segments(
+                ctx.timed_segments, word_segments_data, wx_segments
+            )
+            tightened = word_level_remap(
+                ctx.timed_segments, word_segments_data
+            )
+            ctx.metadata["align_word_segments"] = len(word_segments_data)
+            ctx.metadata["align_words_assigned"] = assigned
+            ctx.metadata["align_word_tightened"] = tightened
+
+        # ── v0.5.11: Alignment confidence scoring ──────────────
+        # Run alignment QA validation and store in metadata.
+        align_qa = validate_alignment(ctx.timed_segments)
+        ctx.metadata["alignment_qa"] = align_qa.to_dict()
+        if align_qa.low_confidence_count > 0:
+            ctx.services.console.inline_warn(
+                f"Alignment QA: {align_qa.low_confidence_count} segment(s) "
+                f"have low confidence (< 0.6)."
+            )
 
         # C1 fix: only mark success if forced alignment didn't fall back.
         # Fallback path keeps status='failed' (set in except block above)
@@ -312,6 +348,10 @@ def _align_with_faster_whisper(ctx: Context) -> Context:
 
     # ── Monotonic non-overlap remapping (shared logic) ──
     backward_skipped = _remap_segments(ctx, wx_segments)
+
+    # ── v0.5.11: Alignment QA (no word-level for faster-whisper) ──
+    align_qa = validate_alignment(ctx.timed_segments)
+    ctx.metadata["alignment_qa"] = align_qa.to_dict()
 
     ctx.metadata["align_segments"] = len(wx_segments)
     ctx.metadata["align_backward_skipped"] = backward_skipped
