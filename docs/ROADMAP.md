@@ -209,14 +209,14 @@
 - [x] Feature-level benchmark profiling — judge LLM, TMDB, BGM emotion per-feature timing
 - [x] Total test count: 876 → 921 (+45 new tests, 0 failures)
 
-### v0.5.8 — Script Quality Deep Dive (Planned)
+### v0.5.8 — Script Quality Deep Dive (2026-07-29)
 
-- [ ] Fix `_score_bgm_candidate` multi-functionality reward bug (branch condition `emo == mood` always False)
-- [ ] Multilingual anti-AI tone — expand banned phrase list beyond Chinese (English, Japanese, Korean)
-- [ ] Enhanced Judge — 5 dimensions (hook, spoiler, accuracy, anti-AI compliance, narrative principle adherence)
-- [ ] Beat deduplication — detect and merge duplicate plot beats before Phase 2 expansion
-- [ ] Built-in hook template library — fallback hook patterns when user doesn't provide `hook_templates`
-- [ ] Script-level QA gate — validate script before TTS (length, diversity, hook presence)
+- [x] Fix `_score_bgm_candidate` multi-functionality reward bug (branch condition `emo == mood` always False)
+- [x] Multilingual anti-AI tone — expand banned phrase list beyond Chinese (English, Japanese, Korean)
+- [x] Enhanced Judge — 5 dimensions (hook, spoiler, accuracy, anti-AI compliance, narrative principle adherence)
+- [x] Beat deduplication — detect and merge duplicate plot beats before Phase 2 expansion
+- [x] Built-in hook template library — fallback hook patterns when user doesn't provide `hook_templates`
+- [x] Script-level QA gate — validate script before TTS (length, diversity, hook presence)
 
 ### v0.5.9 — Voice & Audio Quality (Planned)
 

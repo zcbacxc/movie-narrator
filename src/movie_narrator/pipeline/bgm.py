@@ -120,13 +120,14 @@ def _score_bgm_candidate(sample: dict, emotion_profile: dict[str, float]) -> flo
     # Primary match: the fraction of this mood in the narration
     primary_score = emotion_profile[mood]
 
-    # Versatility bonus: if the BGM's mood also appears as a secondary
-    # emotion (>20%), give a small bonus for covering more of the arc.
+    # Versatility bonus: when the narration has secondary emotions
+    # (frac > 20%) beyond the BGM's own mood, the BGM that matches the
+    # dominant emotion earns a small bonus for anchoring a multi-emotion arc.
     versatility = 0.0
     for emo, frac in emotion_profile.items():
         if emo == mood:
             continue
-        if emo == mood and frac > 0.20:
+        if frac > 0.20:
             versatility += frac * 0.15
     primary_score += versatility
 
