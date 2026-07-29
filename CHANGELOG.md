@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.10] - 2026-07-29
+
+### Added (v0.5.10 — Subtitle & Translation Quality)
+
+- **Subtitle QA utilities** (`utils/subtitle_qa.py`): new module providing per-cue subtitle quality validation — `check_cps` (characters per second with CJK-weighted effective length, script-aware thresholds: ≤20 CPS Latin / ≤15 CPS CJK), `check_line_length` (line count estimation and max-chars-per-line compliance), `check_overlaps` (cue overlap detection), `check_display_fit` (render area overflow estimation using font-metric heuristics), `analyze_cue` (aggregates all checks into `SubtitleCueMetrics`), and `validate_subtitles` / `aggregate_cue_metrics` (pipeline-level summary for `metadata.json`). All checks are advisory (soft gate) — issues logged as warnings, never block the pipeline.
+- **Translation glossary** (`utils/glossary.py`): new module for cross-chunk terminology consistency — `extract_terms` (quoted phrases and capitalized proper nouns with deduplication and substring filtering), `build_glossary` (builds source→translation mapping across chunks, flags inconsistent translations), `check_translation_consistency` (wrapper returning `GlossaryReport`), and `mark_untranslated_lines` (identifies lines where translation equals source text). Results stored in `ctx.metadata["translation_glossary"]` and `ctx.metadata["untranslated_indices"]`.
+- **Bilingual line balancing** (`utils/text_image.py`): new `_balance_lines` function that redistributes CJK text across lines for even visual appearance. Applied in `_render_bottom` after word-wrap — only affects CJK text (Latin word boundaries are preserved). Improves readability of bilingual subtitles where one line is significantly longer than the other.
+- **Subtitle QA pipeline integration** (`pipeline/subtitle.py`): `generate_subtitle` now runs `validate_subtitles` on both original and translated tracks, stores results in `ctx.metadata["subtitle_qa"]`, and checks display fit for translated text against render area dimensions (vertical/horizontal aware). Overflow cues flagged in `ctx.metadata["subtitle_qa"]["display_fit_issues"]`.
+- **Translation quality pipeline integration** (`pipeline/translate.py`): `translate_subtitles` now marks untranslated lines (where translation equals source) and runs cross-chunk glossary consistency check. Untranslated indices stored in `ctx.metadata["untranslated_indices"]`; glossary report stored in `ctx.metadata["translation_glossary"]`. Warnings surfaced via `console.inline_warn`.
+- **v0.5.10 subtitle quality tests** (`tests/test_v0510_subtitle.py`): 57 new tests covering CJK detection, CPS calculation (normal/high/zero-duration), line length (short/long-CJK/long-Latin/multiline), overlap detection, display fit (short/long-CJK/vertical/exact-fit), per-cue analysis, full validation, aggregation, glossary term extraction (quoted-CJK/English/capitalized/empty/short-filtered), glossary consistency (consistent/inconsistent/single-occurrence-filtered), untranslated line marking, subtitle pipeline integration (metadata storage, translated track, display fit issues, overlaps), and bilingual line balancing (CJK/Latin-skipped/single/empty/exceeds-max).
+
+### Changed (v0.5.10)
+
+- `utils/text_image.py`: `_render_bottom` now applies `_balance_lines` after wrapping each bilingual piece, improving CJK subtitle visual balance.
+- `pipeline/subtitle.py`: `generate_subtitle` now produces subtitle QA metrics for diagnostics.
+- `pipeline/translate.py`: `translate_subtitles` now produces translation quality diagnostics (untranslated lines, glossary consistency).
+
+### Notes
+
+- `CONTRACT_VERSION` remains `(0, 5, 1)` — no SDK surface changes.
+- All 1059 tests pass (31 skipped in CI/codec-limited mode, 0 failures).
+- Total test count increased from 1002 (v0.5.9) to 1059 (+57 new tests).
+
 ## [0.5.9] - 2026-07-29
 
 ### Added (v0.5.9 — Voice & Audio Quality)
