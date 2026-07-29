@@ -44,4 +44,16 @@ from .contract import (  # noqa: F401
     vision_registry,
     llm_registry,
     research_registry,
+    # Cloud / Task Queue (v0.6.0)
+    CancelController,
+    LocalTaskQueue,
+    ProgressConsole,
+    Task,
+    TaskProgress,
+    TaskQueue,
+    TaskRequest,
+    TaskResult,
+    TaskStatus,
+    TaskStorage,
+    run_task,
 )

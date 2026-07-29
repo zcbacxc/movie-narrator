@@ -46,7 +46,7 @@ from typing import Any, Callable, Dict, Optional, Protocol, runtime_checkable
 #   MAJOR — breaking changes to exported symbols or signatures
 #   MINOR — new exports added (backward compatible)
 #   PATCH — bug fixes, doc changes (no API surface change)
-CONTRACT_VERSION: tuple[int, int, int] = (0, 5, 1)
+CONTRACT_VERSION: tuple[int, int, int] = (0, 6, 0)
 
 
 def check_version(required: tuple[int, int, int]) -> None:
@@ -286,6 +286,18 @@ __all__ = [
     # Presets (re-exported for web package and external consumers)
     "list_presets",
     "get_preset",
+    # Cloud / Task Queue (v0.6.0)
+    "CancelController",
+    "LocalTaskQueue",
+    "ProgressConsole",
+    "Task",
+    "TaskProgress",
+    "TaskQueue",
+    "TaskRequest",
+    "TaskResult",
+    "TaskStatus",
+    "TaskStorage",
+    "run_task",
 ]
 
 
@@ -306,3 +318,19 @@ from .plugin_loader import (  # noqa: E402
 # presets modules import from models and config, which are safe but we
 # keep the import explicit for contract clarity.
 from .presets import get_preset, list_presets  # noqa: E402
+
+# Cloud / task queue (v0.6.0) — imported here to avoid circular import:
+# cloud.worker imports from pipeline.runner, which imports from contract.
+from .cloud import (  # noqa: E402
+    CancelController,
+    LocalTaskQueue,
+    ProgressConsole,
+    Task,
+    TaskProgress,
+    TaskQueue,
+    TaskRequest,
+    TaskResult,
+    TaskStatus,
+    TaskStorage,
+    run_task,
+)

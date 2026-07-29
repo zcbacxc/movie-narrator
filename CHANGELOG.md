@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] - 2026-07-29
+
+### Added (v0.6.0 — Cloud Task Queue & Async Job System)
+
+- **Cloud package** (`cloud/`): new package providing async task queue infrastructure for cloud deployment — includes `models.py` (task lifecycle data structures), `storage.py` (JSON-based persistence), `queue.py` (in-process task queue), and `worker.py` (pipeline execution with progress tracking and retry).
+- **Task models** (`cloud/models.py`): `TaskStatus` (pending/running/completed/failed/cancelled/retrying), `TaskPriority` (low/normal/high/urgent), `TaskRequest` (mirrors `build_context` args + retry config), `TaskProgress` (step-level tracking with completed/skipped/failed lists), `TaskResult` (video/audio/subtitle paths + error capture), and `Task` (central model with lifecycle timestamps, elapsed time, and summary export). `TERMINAL_STATES` and `ACTIVE_STATES` frozensets for state classification.
+- **Task storage** (`cloud/storage.py`): `TaskStorage` — JSON-based persistence with atomic writes (temp-file + `os.replace`), thread-safe operations via `threading.Lock`, index file for fast listing, and methods: `save`, `load`, `delete`, `list_tasks` (with status filter + limit), `count`, `clear_terminal`, `clear_all`. Survives process restarts.
+- **Task queue** (`cloud/queue.py`): `TaskQueue` protocol (duck-typed interface for local/remote/cloud backends) and `LocalTaskQueue` implementation using `ThreadPoolExecutor` — supports `submit`, `get_task`, `get_status`, `get_progress`, `get_result`, `cancel`, `list_tasks`, `wait` (blocking with timeout + poll), `cleanup_terminal`, `cleanup_all`, `active_count` property, and graceful `shutdown`.
+- **Worker** (`cloud/worker.py`): `CancelController` (cooperative cancellation via `threading.Event`, implements `RunController` protocol), `ProgressConsole` (console wrapper intercepting step events for real-time progress tracking), `run_task` (pipeline execution with retry support — exponential backoff, interruptible sleep, retryable error detection via error type name matching), and `_execute_task` (single-attempt execution — builds context, wraps console with progress tracker, captures results/errors/traceback).
+- **CLI task queue commands** (`cli.py`): six new commands — `mn submit` (async task submission with `--wait`/`--timeout` options), `mn status` (detailed task status with progress breakdown), `mn tasks` (task listing with status filter + limit), `mn cancel` (cancel running task), `mn wait` (block until terminal with configurable timeout/poll), `mn cleanup` (clear terminal or all tasks).
+- **Contract exports**: `CONTRACT_VERSION` bumped from `(0, 5, 1)` to `(0, 6, 0)` — new cloud types exported via `contract.py` and `__init__.py`: `CancelController`, `LocalTaskQueue`, `ProgressConsole`, `Task`, `TaskProgress`, `TaskQueue`, `TaskRequest`, `TaskResult`, `TaskStatus`, `TaskStorage`, `run_task`.
+- **v0.6.0 task queue tests** (`tests/test_v060_task_queue.py`): 86 new tests covering task status/priority enums, task request serialization, task progress tracking (step update, mark completed/skipped/failed, no duplicates, completed count), task result succeeded/failed properties, task model (defaults, terminal/active states, elapsed seconds, summary, unique IDs), task storage (save/load, delete, list with filter/limit, count, clear terminal/all, persistence across instances, index file), cancel controller (initial state, cancel, reset, RunController protocol), progress console (step tracking, delegation, multiple steps), local task queue (create, auto-start, submit, get task/status/result, cancel, list, wait timeout, cleanup, active count, protocol compliance), worker build output dir, execute task (success, failure, cancellation, progress tracking), run task (first-try success, non-retryable error, retryable retry, retry exhausted, cancellation during sleep), contract exports (version bump, cloud types in contract/init/package), and integration (submit+wait success/failure, cancel running, concurrent tasks, persistence across restart, progress tracking in queue).
+
+### Changed (v0.6.0)
+
+- `contract.py`: `CONTRACT_VERSION` bumped from `(0, 5, 1)` to `(0, 6, 0)` — backward incompatible (MINOR bump for new cloud/task queue exports). Cloud types imported at bottom of module to avoid circular import (`cloud.worker` imports from `pipeline.runner` which imports from `contract`).
+- `__init__.py`: Cloud types added to SDK exports alongside existing pipeline, registry, and plugin exports.
+- `tests/test_contract.py`: Contract version test updated to expect `(0, 6, 0)`.
+- `tests/test_m5_community.py`: `check_version_raises_when_below` test updated to use `(0, 7, 0)` as the future version.
+
+### Notes
+
+- `CONTRACT_VERSION` bumped from `(0, 5, 1)` to `(0, 6, 0)` — MINOR bump for new cloud/task queue exports (backward compatible, new exports only).
+- All 1313 tests pass (31 skipped in CI/codec-limited mode, 0 failures).
+- Total test count increased from 1227 (v0.5.12) to 1313 (+86 new tests).
+- The `LocalTaskQueue` is the first implementation of the `TaskQueue` protocol — future cloud backends (Celery, RQ, SQS + Lambda) can implement the same protocol as drop-in replacements.
+- Cooperative cancellation uses `CancelController` implementing the existing `RunController` protocol — pipeline steps check `check_cancelled(controller)` at step boundaries, enabling graceful termination without thread termination.
+
 ## [0.5.12] - 2026-07-29
 
 ### Added (v0.5.12 — Holistic QA & Quality Dashboard)

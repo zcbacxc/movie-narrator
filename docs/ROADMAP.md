@@ -252,7 +252,17 @@
 
 ## v0.6.x — Cloud
 
+### v0.6.0 — Task Queue & Async Job System (2026-07-29)
+
+- [x] Task queue (async job submission, progress polling, retry) — `LocalTaskQueue` with `ThreadPoolExecutor`, `TaskQueue` protocol for pluggable backends
+- [x] Task models — `TaskStatus`, `TaskPriority`, `TaskRequest`, `TaskProgress`, `TaskResult`, `Task` with full lifecycle tracking
+- [x] Task persistence — JSON-based `TaskStorage` with atomic writes, thread-safe, survives process restarts
+- [x] Cooperative cancellation — `CancelController` implementing `RunController` protocol, interruptible retry sleep
+- [x] Progress tracking — `ProgressConsole` wrapper intercepting step events for real-time progress updates
+- [x] Retry with exponential backoff — retryable error detection via error type matching, interruptible sleep
+- [x] CLI task queue commands — `mn submit`, `mn status`, `mn tasks`, `mn cancel`, `mn wait`, `mn cleanup`
+- [x] Contract exports — `CONTRACT_VERSION` bumped to `(0, 6, 0)`, cloud types exported via SDK
+
 - [ ] Remote inference (offload LLM / TTS / rendering to cloud workers)
 - [ ] Distributed rendering (split video segments across nodes)
-- [ ] Task queue (async job submission, progress polling, retry)
 - [ ] Web service deployment (REST API, authentication, multi-tenant) — note: the Web UI itself is now an independent package ([movie-narrator-web](https://github.com/zcbacxc/movie-narrator-web)); this item covers cloud deployment/hosting concerns, not the UI codebase
