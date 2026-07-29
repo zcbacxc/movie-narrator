@@ -4,7 +4,7 @@
 # 🎬 Movie Narrator
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
-![License](https://img.shields.io/github/license/zcbacxc/movie-narrator)
+![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![CI](https://github.com/zcbacxc/movie-narrator/actions/workflows/ci.yml/badge.svg)
 ![PyPI](https://img.shields.io/pypi/v/movie-narrator)
 ![Downloads](https://img.shields.io/pypi/dm/movie-narrator)
@@ -17,26 +17,24 @@ Movie Narrator is an open-source toolkit that automatically generates movie reca
 
 ## Features
 
-- 🎬 Generate movie recap scripts with LLMs
+- 🎬 LLM-powered movie recap script generation
 - 🔊 Text-to-Speech narration (Edge-TTS by default)
 - 💬 Automatic SRT subtitle generation
-- 🌐 Multi-language subtitles (`--subtitle-lang en` translates narration cues via LLM and writes `subtitle.<lang>.srt` + `subtitle.bilingual.srt`)
-- 🏁 Multi-candidate horse race (`mn race` — run N variations, score, rank, auto-pick best)
-- 🎯 Reference video imitation (`mn imitate` — extract style from viral narration, generate same-style new video)
-- 👁️ VLM scene captioning (`vision_captioner: vlm` — real visual descriptions via cloud VLM API)
-- 🎭 Narrator perspective (`--narrator-perspective` / `--focus-character` — omniscient / character / detective viewpoints)
-- 🎨 Render template system (`render_template` — per-preset title cards, watermarks, slogans)
-- 🔍 TMDB fact verification (`research_provider: tmdb` — cross-check movie cards against TMDB data)
-- 🖥️ Web UI — provided by the separate [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web) package (FastAPI + React browser app with form inputs, cooperative cancel, artifact download, and real-time progress via WebSocket)
+- 🌐 Multi-language subtitles with LLM translation
+- 🏁 Multi-candidate horse race — run N variations, score and auto-pick the best
+- 🎯 Reference video imitation — extract style from viral narration
+- 👁️ VLM scene captioning via cloud VLM API
+- 🎭 Narrator perspective (omniscient / character / detective)
+- 🎨 Render template system (title cards, watermarks, slogans)
+- 🔍 TMDB fact verification for movie cards
+- 🖥️ Web UI (separate `movie-narrator-web` package — FastAPI + React)
 - 🎞️ Video rendering with MoviePy and FFmpeg
-- 📝 Script markdown export (`script.md`)
-- 🎵 Background music integration (BGM)
-- 🎬 Scene-level clip export
+- 📝 Script markdown export
+- 🎵 Background music integration
 - 📦 Metadata export
-- 🔌 Extensible pipeline architecture
-- 🐍 Pure Python implementation
-- ☁️ Async task queue (mn submit/status/tasks/cancel/wait/cleanup — local + remote job submission, progress polling, retry)
-- 🌐 Remote inference (mn serve/download — offload LLM/TTS/rendering to cloud workers via REST API)
+- 🔌 Extensible plugin architecture
+- ☁️ Async task queue (local + remote job submission, progress polling, retry)
+- 🌐 Remote inference via REST API
 
 ---
 
@@ -113,7 +111,7 @@ pip install movie-narrator-web
 pip install "movie-narrator[full]"
 ```
 
-> **Note on Python 3.14+**: The `[ml]` extra (WhisperX + sentence-transformers) is currently gated to Python < 3.14 due to upstream dependency wheel availability. On Python 3.14+, `pip install "movie-narrator[full]"` will install all other extras and **silently skip** the ML components. The `align` and `match` pipeline steps will soft-degrade (see [Soft steps](#soft-steps)) instead of failing.
+> **Note on Python 3.14+**: The `[ml]` extra (WhisperX + sentence-transformers) is currently gated to Python < 3.14 due to upstream dependency wheel availability. On Python 3.14+, `pip install "movie-narrator[full]"` will install all other extras and **silently skip** the ML components. The `align` and `match` pipeline steps will soft-degrade (see [Soft steps](#pipeline)) instead of failing.
 
 For development:
 
@@ -138,132 +136,23 @@ mn create --movie "飞驰人生" --style "热血搞笑" --duration 60
 
 # With custom voice and format
 mn create --movie "飞驰人生" --voice "zh-CN-XiaoxiaoNeural" --format "9:16"
-
-# Keep TTS cache for debugging
-mn create --movie "飞驰人生" --keep-cache
 ```
 
-### CLI Options
+### More Commands
 
 ```bash
-# Basic usage
-mn create --movie "飞驰人生" --style "热血搞笑" --duration 60
-```
-
-All 24 CLI flags are documented in [`examples/cli-usage.sh`](examples/cli-usage.sh) with usage examples for every scenario: basic, video/library, research/BGM/clips, multi-language subtitles, narration presets, perspective, logging, and YAML config. Key flags: `--movie/-m`, `--style/-s`, `--duration/-d`, `--voice/-v`, `--format/-f`, `--video`, `--library-dir`, `--research`, `--bgm`, `--no-bgm`, `--no-clips`, `--strict`, `--keep-cache`, `--retry`, `--subtitle-lang`, `--subtitle-mode`, `--narration-preset/-p`, `--narrator-perspective`, `--focus-character`, `--log-level`, `--verbose`, `--config`.
-
-### Job YAML config
-
-```bash
-# Drive a job from YAML (movie may live only in the file)
-mn create --config examples/job.example.yaml
-
-# CLI flags still win over YAML
-mn create --config examples/job.example.yaml --movie "OtherTitle" --no-clips
-```
-
-When `--config` is not passed, the CLI auto-discovers a YAML config in priority order:
-1. `cwd/job.yaml` (project-level user config)
-2. Packaged `examples/job.example.yaml` (sensible defaults for new users)
-3. None (pure CLI args)
-
-This means new users can run `mn create --movie X` without creating any config file — the example YAML provides default steps/params automatically.
-
-See [`examples/job.example.yaml`](examples/job.example.yaml) for the full whitelist: soft-step toggles under `steps:` (`research`, `align`, `scene`, `match`, `bgm`, `export`, `translate`), all 77 `params:` keys (scene detection, match, vision, BGM, TTS pacing, translate, research, WhisperX, render, QA, prompt shaping, async, video sizes, platform, perspective), and the multi-language subtitle top-level keys `subtitle_lang` / `subtitle_mode`. Relative `video` / `bgm` / `library_dir` paths resolve against the YAML file's directory. LLM credentials stay in `.env` / `MN_*` only.
-
-### Multi-language subtitles
-
-```bash
-# Translate narration cues to English and overlay them on the video
-mn create --movie "Inception" --subtitle-lang en --subtitle-mode bilingual
-
-# Or just write the translated SRT files (no on-screen change)
-mn create --movie "Inception" --subtitle-lang en
-```
-
-When `--subtitle-lang` is set, `generate_subtitle` always writes three SRT files:
-
-- `subtitle.srt` — original narration (always present, `subtitle_path` invariant)
-- `subtitle.<lang>.srt` — translated (e.g. `subtitle.en.srt`)
-- `subtitle.bilingual.srt` — cue body `f"{original}\n{translation}"` (LF between lines)
-
-`--subtitle-mode` chooses which file `render_video` reads:
-
-| Mode | Overlay text source |
-|------|---------------------|
-| `original` (default) | `subtitle.srt` |
-| `translated` | `subtitle.<lang>.srt` (falls back to `subtitle.srt` with a warn if missing) |
-| `bilingual` | `subtitle.bilingual.srt` (same fallback) |
-
-Setting `subtitle_mode=translated|bilingual` without `subtitle_lang` raises `JobConfigError` at merge time. Failure policy: LLM retries `MN_TRANSLATE_RETRIES` times, then soft-degrades to filling the translation track with the original text and surfacing a warning.
-
-### Multi-candidate horse race (Q-P2)
-
-```bash
-# Run 3 variations with different presets, score and rank
-mn race --movie "飞驰人生" --video movie.mp4 --candidates 3
-
-# Custom presets + auto-pick the best
-mn race --movie "飞驰人生" --video movie.mp4 --presets douyin-fast,mainstream-dry,bilibili-long --auto-pick
-```
-
-Runs N variations of the same input with different presets, scores each by pacing density, footage coverage, and duration alignment, then ranks. Use `--auto-pick` to copy the winner to the output root.
-
-### Reference video imitation (Q-P7)
-
-```bash
-# Analyze a viral narration and generate a same-style new video
-mn imitate --reference viral_ref.mp4 --movie "飞驰人生" --video movie.mp4
-
-# Analyze only (no generation)
-mn imitate --reference viral_ref.mp4 --analyze-only
-```
-
-Extracts sentence density, cut density, and pacing from the reference video, auto-generates a temporary preset, then runs the standard pipeline to produce a same-style narration.
-
-### VLM scene captioning (Q-M5)
-
-Set `vision_captioner: vlm` in `job.yaml` params and configure `MN_VLM_*` env vars to enable real visual scene descriptions via cloud VLM API (GPT-4o, Qwen-VL, etc.). This unlocks embedding re-rank in scene matching for significantly better clip selection.
-
-### Web UI
-
-The Web UI is now a separate package. Install and launch it with:
-
-```bash
-# Install the standalone Web UI package
-pip install movie-narrator-web
-
-# Launch local browser app (default: http://127.0.0.1:8760)
-mn-web
-```
-
-For full usage details (custom host/port, production build, development mode, form fields, and artifact download), see the [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web) repository.
-
-### Offline Demo (No LLM Required)
-
-```bash
-# CI=1 uses silent audio fallback, bypasses LLM and Edge-TTS
-CI=1 mn create --movie "Demo" --duration 10
-```
-
-### Other Commands
-
-```bash
-mn version   # Show version
-mn --help    # Show help
-mn preset              # List/view narration presets
-mn plugin list         # List installed plugins
-mn resume --state <path>  # Resume paused pipeline
-mn submit -m <movie>   # Submit async task (v0.6.0+)
-mn status <task_id>    # Check task status
-mn tasks               # List recent tasks
-mn cancel <task_id>    # Cancel running task
-mn wait <task_id>      # Wait for task completion
-mn cleanup             # Clean up completed tasks
+mn create --config examples/job.example.yaml     # Drive from YAML config
+mn create --subtitle-lang en --subtitle-mode bilingual  # Multi-language subtitles
+mn race --movie "飞驰人生" --video movie.mp4 --candidates 3  # Multi-candidate horse race
+mn imitate --reference viral_ref.mp4 --movie "飞驰人生"  # Reference video imitation
 mn serve               # Start remote inference API server (v0.6.1+)
-mn download <task_id>  # Download artifacts from remote server (v0.6.1+)
-mn submit --remote http://worker:8765  # Submit to remote server
+mn submit -m <movie>   # Submit async task
+mn tasks               # List recent tasks
+mn version             # Show version
+mn --help              # Full help with all 24 CLI flags
 ```
+
+All 24 CLI flags are documented in [`examples/cli-usage.sh`](examples/cli-usage.sh).
 
 ---
 
@@ -303,7 +192,7 @@ mn create --movie "飞驰人生" --duration 60
 | Priority | Location | Notes |
 |----------|----------|-------|
 | 1 | Environment variables (`MN_*`) | Highest |
-| 2 | `当前目录/.env` | Project-level |
+| 2 | `cwd/.env` | Project-level |
 | 3 | `~/.movie-narrator/.env` | User-level, never lost on pip install/upgrade/uninstall |
 | 4 | Built-in defaults | Local Ollama |
 
@@ -327,29 +216,13 @@ Movie Narrator works with any OpenAI-compatible LLM. New user? Check out the [LL
 
 ## Output
 
-```text
-output/
-└── 飞驰人生/
-    ├── narration.mp3       # TTS narration audio
-    ├── mixed.mp3            # Narration + BGM mix (when BGM enabled)
-    ├── subtitle.srt
-    ├── subtitle.<lang>.srt    # (when --subtitle-lang set; e.g. subtitle.en.srt)
-    ├── subtitle.bilingual.srt # (when --subtitle-lang set; original + LF + translation per cue)
-    ├── script.md
-    ├── research.json        # (when --research)
-    ├── matches.json         # (when video provided)
-    ├── metadata.json
-    ├── final.mp4
-    └── clips/               # (when --no-clips not set)
-```
-
 | File | Description |
 |------|-------------|
 | `narration.mp3` | AI-generated narration audio |
 | `mixed.mp3` | Narration + BGM overlay (when BGM enabled; otherwise `narration.mp3` used directly) |
 | `subtitle.srt` | Synchronized subtitle file (original narration) |
 | `subtitle.<lang>.srt` | Translated subtitle (when `--subtitle-lang` set) |
-| `subtitle.bilingual.srt` | Bilingual subtitle (when `--subtitle-lang` set; cue body `f"{src}\n{dst}"`) |
+| `subtitle.bilingual.srt` | Bilingual subtitle (when `--subtitle-lang` set) |
 | `script.md` | Human-readable script |
 | `research.json` | Movie research data (when `--research`) |
 | `metadata.json` | Segment timings, pipeline status, config |
@@ -379,185 +252,26 @@ run_qa_gate → render_video → validate_deliverable → export_clips
 ```text
 movie-narrator/
 ├── src/movie_narrator/
-│   ├── __init__.py          # Package metadata (__version__)
 │   ├── cli.py               # Typer CLI entry point
 │   ├── config.py            # Pydantic settings
 │   ├── models.py            # Data models (Context, Status, etc.)
-│   ├── pipeline/
-│   │   ├── runner.py        # 16-step pipeline orchestrator
-│   │   ├── resolve.py       # Source video resolution
-│   │   ├── assets.py        # Asset validation
-│   │   ├── research.py      # LLM movie research
-│   │   ├── script.py        # LLM script generation
-│   │   ├── script_export.py # Script markdown export
-│   │   ├── tts.py           # TTS orchestration (uses tts/ package; caching + concurrency)
-│   │   ├── align.py         # WhisperX audio alignment
-│   │   ├── scenes.py        # PySceneDetect scene detection
-│   │   ├── match.py         # Heuristic clip matching
-│   │   ├── bgm.py           # Background music mixing
-│   │   ├── translate.py     # Multi-language subtitle translation (LLM)
-│   │   ├── subtitle.py      # SRT generation (single / translated / bilingual)
-│   │   ├── render.py        # MoviePy 2.x video rendering
-│   │   ├── qa.py            # Post-render deliverable QA (hard step)
-│   │   ├── export_clips.py  # Per-segment clip export (direct ffmpeg)
-│   │   ├── preflight.py     # Pre-run LLM/TTS validation (fail-fast)
-│   │   └── errors.py        # PipelineStrictError, PipelineCancelled, RunController, StepAction
-│   ├── cloud/                  # Task queue + remote inference (v0.6.x)
-│   │   ├── __init__.py         # Public exports
-│   │   ├── models.py           # Task, TaskRequest, TaskResult, TaskStatus
-│   │   ├── queue.py            # LocalTaskQueue, TaskQueue protocol
-│   │   ├── remote_queue.py     # RemoteTaskQueue (v0.6.1)
-│   │   ├── storage.py          # TaskStorage (JSON persistence)
-│   │   ├── worker.py           # run_task, CancelController, ProgressConsole
-│   │   ├── api.py              # TaskAPIServer (REST API, v0.6.1)
-│   │   ├── daemon.py           # WorkerDaemon, run_daemon (v0.6.1)
-│   │   └── remote_provider.py  # Remote LLM/TTS + artifact download (v0.6.1)
-│   ├── workflow/
-│   │   ├── schema.py        # JobConfig / JobSteps / JobParams
-│   │   ├── load.py          # YAML loader + validation
-│   │   ├── merge.py         # CLI > YAML > Settings merge
-│   │   └── errors.py        # JobConfigError
-│   ├── tts/                     # TTS abstraction layer
-│   │   ├── __init__.py          # re-exports public API
-│   │   ├── protocol.py          # TTSProvider ABC
-│   │   ├── base.py              # BaseTTSProvider (CI silent fallback), is_ci()
-│   │   ├── edge.py              # EdgeTTSProvider
-│   │   ├── openai_provider.py   # OpenAITTSProvider (voice whitelist, lazy SDK)
-│   │   ├── mimo_provider.py     # MimoTTSProvider (3 models: named voice, voice clone, voice design)
-│   │   ├── factory.py           # get_tts_provider(settings)
-│   │   └── cache.py             # TTSCacheKey, cache_path_for, PROVIDER_CACHE_VERSIONS
-│   ├── utils/
-│   │   ├── async_utils.py   # Sync/async bridge
-│   │   ├── console.py       # Console Protocol + PlainConsole + build_console
-│   │   ├── environment.py   # Environment collection
-│   │   ├── errors.py        # ConfigError (cross-cutting config-error class)
-│   │   ├── font.py          # CJK font fallback
-│   │   ├── json_parser.py   # LLM JSON extraction (with truncation recovery)
-│   │   ├── llm.py           # OpenAI client wrapper
-│   │   ├── log.py           # AppLogger (file logging layer)
-│   │   ├── metadata_export.py # metadata.json builder
-│   │   ├── optional_deps.py # Optional dependency probing
-│   │   ├── prompts.py       # Prompt templates
-│   │   ├── retention.py     # Log file retention
-│   │   ├── audio_mix.py     # Audio normalize + BGM ducking (pydub)
-│   │   ├── deliverable_qa.py # ffprobe/ffmpeg media probing + QA rules
-│   │   └── video_layout.py  # Cover/contain crop+resize geometry
-├── tests/
-│   ├── test_context.py
-│   ├── test_settings.py
-│   ├── test_errors.py
-│   ├── test_align.py
-│   ├── test_assets.py
-│   ├── test_bgm.py
-│   ├── test_cli_config.py
-│   ├── test_cli_resolve.py
-│   ├── test_match.py
-│   ├── test_optional_deps.py
-│   ├── test_render_real.py
-│   ├── test_research.py
-│   ├── test_resolve.py
-│   ├── test_runner_strict.py
-│   ├── test_runner_workflow_metadata.py
-│   ├── test_scenes.py
-│   ├── test_script_export.py
-│   ├── test_translate.py
-│   ├── test_json_parser.py
-│   ├── test_pipeline_cancel.py
-│   ├── test_workflow_steps.py
-│   ├── test_audio_mix.py
-│   ├── test_deliverable_qa.py
-│   ├── test_qa.py
-│   ├── test_text_image.py
-│   ├── test_video_layout.py
-│   ├── test_v060_task_queue.py
-│   └── test_v061_remote.py
-├── docs/
-├── assets/
-└── .github/workflows/
+│   ├── contract.py          # Stable API contract surface
+│   ├── pipeline/            # 16-step pipeline (runner, steps, errors)
+│   ├── cloud/               # Task queue + remote inference (v0.6.x)
+│   ├── workflow/            # YAML job config (schema, loader, merge)
+│   ├── tts/                 # TTS provider abstraction layer
+│   └── utils/               # Shared utilities (console, log, font, etc.)
+├── tests/                   # Unit + integration tests
+├── docs/                    # Architecture, guides, roadmap
+├── examples/                # Job YAML, CLI usage, plugins
+└── .github/workflows/       # CI/CD
 ```
 
 ---
 
 ## Roadmap
 
-### v0.1.x — Core Pipeline ✅
-
-- [x] CLI interface (`mn create`, `mn version`)
-- [x] LLM script generation with JSON output
-- [x] Edge-TTS narration with concurrent generation
-- [x] SRT subtitle generation with millisecond precision
-- [x] MoviePy video rendering (16:9 / 9:16)
-- [x] TTS result caching with content-addressable keys
-- [x] Metadata export (JSON)
-- [x] CI pipeline (unit tests + smoke test)
-
-### v0.2.x — Scene & Media ✅
-
-- [x] Research agent for movie plot research (`--research`)
-- [x] WhisperX audio-text alignment
-- [x] Scene detection from movie videos
-- [x] Automatic clip matching based on script
-- [x] Semantic scene search (embedding-based, requires `[ml]`)
-- [x] Background music integration (BGM mixing)
-- [x] Script markdown export (`script.md`)
-- [x] Scene-level clip output (`clips/`)
-
-### v0.3.x — Platform & Workflow ✅
-
-- [x] Declarative workflow config for soft-step toggles + params
-- [x] YAML-based job configuration (`mn create --config`)
-- [x] Console / structured-step-state logging refactor (`ctx.services.console`, `StepState`)
-- [x] Multi-language subtitle support (`--subtitle-lang` / `--subtitle-mode`; LLM translation with retry-then-soft-degrade; `subtitle.<lang>.srt` + `subtitle.bilingual.srt` outputs)
-- [x] Web UI (Gradio local browser app via `mn web`; cooperative cancel; requires `[web]` extra) (v0.4.10: refactored to FastAPI + React; later split into independent repo [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web))
-
-### v0.4.x — TTS Abstraction & Infrastructure ✅
-
-- [x] Web UI rewrite: Gradio → FastAPI + React 18 + WebSocket (v0.4.10; later split into independent repo [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web))
-- [x] TTS provider abstraction (`TTSProvider` protocol, Edge + OpenAI + MiMo backends)
-- [x] Provider selection via `MN_TTS_PROVIDER` (`edge` / `openai` / `mimo`)
-- [x] OpenAI TTS support (voice whitelist, credential fallback, lazy SDK import)
-- [x] MiMo TTS support (3 models: named voice, voice clone, voice design; limited-time free)
-- [x] Cache key upgrade (sha256, 7 dimensions, two-level fan-out, per-provider version map)
-- [x] CI temp-file isolation (silent audio never enters cache)
-- [x] `is_ci()` single source of truth for CI detection
-- [x] `ConfigError` cross-cutting error class
-- [x] MoviePy 1.x → 2.x upgrade (Python 3.13+ compatibility)
-- [x] Preflight LLM/TTS validation before pipeline execution
-- [x] Step-level retry mechanism (`--retry` flag, `StepAction` enum)
-- [x] Auto-create `~/.movie-narrator/.env` on first run
-- [x] `export_clips` direct ffmpeg subprocess (design choice, not workaround)
-- [x] Config system overhaul: strict env/yaml boundary — `.env` (Settings) contains LLM + TTS infrastructure fields only; `job.yaml` (params) contains all pipeline behavior keys; YAML auto-discovery (`--config` not passed → `cwd/job.yaml` → packaged example); `.env.example` and `job.example.yaml` are the single sources of truth; no code constants module — inline literals match example files
-
-### v0.5.x — Ecosystem
-
-> **Goal**: Freeze the public API surface (Pipeline, Workflow, Plugin, SDK) before Cloud features depend on it.
-
-- [x] Plugin API — StepRegistry + ProviderRegistry with `@register_step` / `@register_provider` decorators (#91)
-- [x] Python SDK — `from movie_narrator import ...` with stable `contract.py` surface (#92)
-- [x] Plugin discovery via `importlib.metadata` entry points (`movie_narrator.plugins` group) (#92)
-- [x] `Services.logger` for structured logging in plugins (#92)
-- [x] Out-of-tree example plugin (`examples/plugins/watermark/`) (#92)
-- [x] WP6 scene filtering — intro skip, dark frame detection, highlight window (#93)
-- [x] WebUI split — `movie-narrator-web` standalone repo, core engine is now pure CLI (#94, #95)
-- [x] M4 — Provider migration: LLM/Research registries, protocol validation for TTS/Vision (#98)
-- [x] M5 — Community & packaging: CLI plugin commands, plugin template, `check_version()`, packaging guide (#99)
-- [x] v0.5.3 — Hardening: SDK API docs, benchmark script, Quickstart guide, research plugin example
-- [x] v0.5.4 — Quality Uplift: VLM caption provider, multi-candidate horse race, reference video imitation, L2 runbook
-- [x] v0.5.5 — Logging Improvements: `--log-level`/`--verbose` CLI options, RotatingFileHandler, JSON logs, run ID, step timing
-- [x] v0.5.6 — Narrative Quality & External Data: narrative principles, platform tone, rhythm marking, perspective, script judge, movie card, TMDB, BGM emotion, render template, lang consistency, retryable errors
-- [x] v0.5.7 — Quality Hardening: TMDB caching/retry/degradation, +45 tests (render template, edge cases), feature-level benchmark profiling
-- [x] v0.5.8 — Script Quality Deep Dive: BGM versatility fix, multilingual anti-AI tone, 5-dimension judge, beat deduplication, hook template library, script QA gate, +37 tests
-- [x] v0.5.9 — Voice & Audio Quality: audio QA (clipping/SNR/silence), emotion-aware prosody, TTS duration feedback v2, BGM dynamic transition, audio quality aggregation, +44 tests
-- [x] v0.5.10 — Subtitle & Translation Quality: subtitle QA (CPS/overlap/line-length/display-fit), translation glossary consistency, untranslated line marking, bilingual CJK line balancing, +57 tests
-
-> SDK and Plugin API are designed together — both must stabilize in the same release.
-
-### v0.6.x — Cloud
-
-- [x] Task queue (v0.6.0: LocalTaskQueue, mn submit/status/tasks/cancel/wait/cleanup)
-- [x] Remote inference (v0.6.1: REST API, RemoteTaskQueue, mn serve/download, --remote flag)
-- [x] Web service deployment (v0.6.1: TaskAPIServer REST API) — authentication/multi-tenant still planned
-- [ ] Distributed rendering (split video segments across nodes)
+Current focus: cloud infrastructure (distributed rendering, API gateway, cloud storage). See the full [Roadmap](docs/ROADMAP.md) for version-by-version details from v0.6.2 to v1.0.
 
 ---
 

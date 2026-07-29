@@ -3,6 +3,48 @@
 
 # Architecture
 
+## Component Overview
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│                      Entry Points                           │
+│   CLI (mn create/serve/submit)     Web UI (mn-web, external)│
+└──────────┬──────────────────────────────┬───────────────────┘
+           │                              │
+           ▼                              ▼
+┌─────────────────────┐        ┌─────────────────────┐
+│  workflow.py        │        │  contract.py        │
+│  (job.yaml merge)   │        │  (API boundary)     │
+└─────────┬───────────┘        └─────────┬───────────┘
+          │                              │
+          ▼                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                 pipeline/runner.py                          │
+│    build_context() → run_pipeline() → 16 STEPS             │
+│                                                             │
+│  ├── tts/          Edge / OpenAI / MiMo providers          │
+│  ├── vision/       Stub / VLM captioners                   │
+│  ├── providers/    registry: LLM / TTS / Vision / Research │
+│  ├── plugin_loader  @register_step / entry_points discovery│
+│  └── cloud/        queue / API server / daemon / remote    │
+└──────────┬──────────────────────────────────────────────────┘
+           │
+           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                       Output                                │
+│  final.mp4 · narration.mp3 · subtitle.srt · script.md     │
+│  metadata.json · matches.json · clips/                     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+- **CLI** (`cli.py`) — entry point; parses flags, calls `workflow` or `run_pipeline` directly
+- **workflow** (`workflow.py`) — optional job.yaml merge layer (CLI > YAML > Settings)
+- **pipeline** (`pipeline/runner.py`) — 16-step sequential orchestrator; owns `STEPS`, `build_context`, `run_pipeline`
+- **tts / vision / providers** — pluggable subsystems with registry-based dispatch (`@register_tts`, `@register_vision`, etc.)
+- **cloud** (`cloud/`) — async task queue, REST API server, remote inference proxy (v0.6.x)
+- **contract** (`contract.py`) — single import surface for external consumers; pins `CONTRACT_VERSION`
+- **plugin_loader** (`plugin_loader.py`) — entry_points discovery + `@register_step` for custom steps
+
 ## Pipeline Overview
 
 16-step sequential pipeline orchestrated by `pipeline/runner.py`. Before any step executes, `preflight.py` probes LLM connectivity and TTS provider configuration — failing fast with `PreflightError` instead of silently degrading to mock content.
@@ -20,6 +62,29 @@ run_qa_gate → render_video → validate_deliverable → export_clips
 |----------|-------|--------|
 | **Hard** (always run) | resolve_video, prepare_assets, generate_script, export_script_md, generate_voice, render_video, validate_deliverable | Must succeed |
 | **Soft** (skip on missing deps) | research_plot, align_audio, detect_scenes, match_clips, mix_bgm, translate_subtitles, run_qa_gate, export_clips | Skip gracefully / soft-degrade; `--strict` to abort |
+
+### Step Responsibilities
+
+**Context** (`models.Context`) is the shared mutable state passed through all steps.
+
+| Step | Cat. | Responsibility | Key Output |
+|------|------|---------------|------------|
+| resolve_video | hard | Locate source video from `--video`, `--library-dir`, or config | `ctx.video_path` |
+| prepare_assets | hard | Validate BGM, font, intro assets exist on disk | — |
+| research_plot | soft | LLM fetches movie metadata (title, cast, keywords) | `research.json` |
+| generate_script | hard | LLM returns JSON → `List[ScriptSegment]` | script data |
+| export_script_md | hard | Render segments to human-readable Markdown | `script.md` |
+| generate_voice | hard | TTS async synthesis + sha256 content-addressable cache (7-dim key, two-level fan-out); CI uses silent fallback | `narration.mp3` + `TimedSegment[]` |
+| align_audio | soft | WhisperX word-level alignment; fallback to segment-level via faster-whisper | word timestamps |
+| detect_scenes | soft | PySceneDetect splits source video into `Scene` list | scene list |
+| match_clips | soft | Map scenes to script segments: embedding re-rank (when `[ml]` installed) or proportional heuristic; falls back on probe/model failure | `matches.json` |
+| mix_bgm | soft | Mix background music under narration; EP6 duck curve scales depth with narration energy | `mixed.mp3` |
+| translate_subtitles | soft | Per-chunk translation via configured provider (default `llm`); retry-then-soft-degrade policy; CI passthrough | `ctx.translated_texts` |
+| generate_subtitle | hard | Format SRT from timed segments; bilingual support (`subtitle.<lang>.srt`, `subtitle.bilingual.srt`) | `subtitle.srt` + variants |
+| run_qa_gate | soft | Quality validation gate | QA report |
+| render_video | hard | MoviePy composite: background + text/footage overlays + audio; CRF 18 / preset `slow` / `+faststart` | `final.mp4` + `metadata.json` |
+| validate_deliverable | hard | ffprobe validation: streams, audio level, duration ratio, file size; CI skips by default | `ctx.metadata["qa_report"]` |
+| export_clips | soft | Extract per-segment clips | `clips/` directory |
 
 ### Pipeline Status Model
 
@@ -39,9 +104,11 @@ class PipelineStatus(BaseModel):
 
 `translate` is the only soft status whose **default** is `skipped` rather than
 `disabled` — "feature off" is semantically distinct from "explicitly disabled
-via `steps.translate=false` or unknown provider" (the multi-language subtitle
-design rationale is captured in this section's history; pre-launch design specs
-live outside the public tree).
+via `steps.translate=false` or unknown provider".
+
+### metadata.json
+
+Every pipeline run writes `metadata.json` — the audit and diagnostics file consumed by L2 hand-tests, CI quality gates, and downstream tooling. Key domains: `match_summary` (match-quality breakdown for jq queries), `duration_metrics` (narration timing vs target), align diagnostics (backend selection and fallback tracking), and `quality_dashboard` (cross-step score aggregation). Full field-by-field schema is documented in [METADATA_SCHEMA.md](METADATA_SCHEMA.md), organized by functional domain (match, align, script, audio, render, quality).
 
 ## Job config merge layer
 
@@ -66,122 +133,78 @@ run_pipeline(...) # STEPS order unchanged
 - `.env.example` is the single source of truth for first-run config (read by `ensure_user_config()`, not a divergent inline template)
 - Strict env/yaml boundary: `.env` (Settings) = 32 LLM + TTS infrastructure fields only; `job.yaml` (params) = 77 pipeline behavior keys; no code constants module — inline literals match example files
 
-## Web UI Layer
+## Cloud Architecture (v0.6.x)
 
-> **The Web UI is now a separate project.** Since the monorepo split, the FastAPI + React SPA stack lives in an external repository: [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web). The core repo (`movie-narrator`) no longer ships `web_api/` or `webui/` directories — it is a pure CLI engine. Install and run the Web UI as an independent package:
->
-> ```bash
-> pip install movie-narrator-web
-> mn-web            # launches the FastAPI + React SPA (port 8760)
-> ```
->
-> The legacy Gradio UI (`src/movie_narrator/web/`) was removed back in v0.4.12; the FastAPI + React SPA that replaced it was carved out into `movie-narrator-web` during the repo split. There is no longer a `mn web` command or `[web]` extra in the core package — `fastapi`, `uvicorn`, and `python-multipart` are no longer dependencies of `movie-narrator`.
+The `cloud/` package provides async job execution and remote inference capabilities, enabling the pipeline to run as a cloud service rather than only as a local CLI tool.
 
-### Architecture — external package `movie-narrator-web`
-
-The external web package owns the full FastAPI + React stack and consumes the core engine **only** through the contract surface defined in `contract.py`:
+### Deployment modes
 
 ```text
-React SPA (in movie-narrator-web) — form / progress / artifacts view
-    ▼   REST (POST /api/tasks)  +  WebSocket (/ws/task/{task_id})
-FastAPI app (in movie-narrator-web) — uvicorn on :8760
-    ▼
-contract.py (core repo — stable API boundary, CONTRACT_VERSION = (0, 6, 1))
-    ▼
-build_context(..., services=Services(console=BufferedConsole))
-    ▼
-run_pipeline(ctx, controller=RunController)   ← background task (in movie-narrator-web)
-    ▼
-TaskManager streams console snapshots over WebSocket → React renders live progress
+Mode 1: Local async (single machine)
+┌────────┐     ┌──────────────────┐
+│  CLI   │────▶│  LocalTaskQueue  │────▶ ThreadPoolExecutor
+│ (mn)   │     │  (in-process)    │      → run_pipeline()
+└────────┘     └──────────────────┘
+
+Mode 2: Remote worker (client-server)
+┌────────┐     ┌──────────────────┐     ┌──────────────────┐
+│  CLI   │────▶│ RemoteTaskQueue  │────▶│  TaskAPIServer   │
+│ (mn)   │     │ (HTTP client)    │ HTTP│  + LocalTaskQueue│
+└────────┘     └──────────────────┘     │  + WorkerDaemon   │
+                                        │  → run_pipeline() │
+                                        └──────────────────┘
 ```
 
-The React SPA is built by Vite into static assets that FastAPI serves directly, so the single `mn-web` process owns both the API and the frontend bundle — no separate frontend server is required in production. Internal modules of the web package (`server.py`, `routes.py`, `ws.py`, `tasks.py`, `console.py`, `controller.py`, `form.py`, `models.py`, `utils.py`) are documented in the `movie-narrator-web` repository; they are intentionally not described here.
-
-### Key design rules (contract guarantees the external web package must honor)
-
-- **No second implementation**: the web package calls `build_context` + `run_pipeline` — the same functions the CLI uses
-- **Cancel is runtime-only**: `RunController` / `PipelineCancelled` never enter `Context`, `PipelineStatus`, or `metadata.json`. Cancel is a distinct terminal path (not warn, not error, does not trip `--strict`)
-- **empty = no override**: form fields left blank do NOT inject into `params` — Settings (`.env` / `MN_*`) defaults apply
-- **Uploads to a stable dir**: uploaded files go to `output/_uploads`, never to ad-hoc `mn_web_*` temp dirs or the `output/` movie folder
-- **Single-job per task**: re-entrancy guard per task id inside the web package's `TaskManager`, replacing the old `gr.State`-based `WebRun` session state
-
-### Modules — `contract.py` (stable API boundary, the only import surface for `movie-narrator-web`)
-
-The `contract.py` module is the **single import surface** that the external `movie-narrator-web` package (and any future consumer) depends on. It re-exports symbols from 4 internal modules and defines the `PipelineResult` protocol, without moving any code. The contract version is pinned via `CONTRACT_VERSION = (0, 6, 1)` — the web package checks this at import time to refuse mismatched engine versions.
+### Task lifecycle
 
 ```text
-movie-narrator-web  →  contract.py  →  pipeline/runner.py (build_context, run_pipeline, PARAM_WHITELIST)
-                                  →  pipeline/errors.py (PipelineCancelled, RunController, StepAction, ...)
-                                  →  utils/console.py (BaseConsole, Console, SilentConsole)
-                                  →  utils/sanitize.py (sanitize_filename)
+pending → running → completed
+              ↘         ↗
+            retrying   failed
+              ↘         ↗
+               cancelled
 ```
 
-| Symbol | Source | Purpose |
-|--------|--------|---------|
-| `PipelineResult` | contract.py (new) | `runtime_checkable` Protocol — formalizes 5 Context attributes (video_path, audio_path, clips_dir, output_dir, subtitle_paths) |
-| `PARAM_WHITELIST` | pipeline/runner.py | ~77 allowed param keys — single source of truth for form↔engine sync |
-| `build_context` / `run_pipeline` | pipeline/runner.py | Engine entry points |
-| `BaseConsole` / `Console` / `SilentConsole` | utils/console.py | Output abstraction protocol + base class |
-| `PipelineCancelled` / `PipelineStrictError` | pipeline/errors.py | Pipeline terminal exceptions |
-| `RunController` / `StepAction` / `check_cancelled` | pipeline/errors.py | Cooperative cancel + retry protocol |
-| `sanitize_filename` | utils/sanitize.py | Cross-platform filename sanitization |
-| `CONTRACT_VERSION` | contract.py | `(0, 6, 1)` — version the external `movie-narrator-web` package checks against at import time |
-| `StepRegistry` / `step_registry` | plugin_loader.py | Central registry for pipeline step plugins; `step_registry` is the global instance |
-| `ProviderRegistry` / `tts_registry` / `vision_registry` / `llm_registry` / `research_registry` | providers/registry.py | Provider registration system for TTS, vision, LLM, and research providers |
-| `register_step` / `step` | plugin_loader.py | Decorator-based step registration (`@register_step("name", ...)` or `@step("name")`) |
-| `register_tts` / `register_vision` / `register_llm` / `register_research` | providers/registry.py | Decorator-based provider registration for TTS, vision, LLM, and research providers |
-| `Plugin` / `PluginContext` | plugin_loader.py | `Plugin` protocol (`name` + `register(ctx)`) and `PluginContext` (holds `steps`, `tts`, `vision`, `llm`, `research`) |
-| `load_plugin` / `discover_plugins` / `list_available_plugins` | plugin_loader.py | Manual plugin loading, entry_points auto-discovery, and plugin listing |
-| `Step` | plugin_loader.py | Dataclass describing a registered step (name, func, soft, before, after) |
-| `list_presets` / `get_preset` | presets/ | Public SDK exports for narration preset introspection |
+- **`TaskStatus`**: `pending | running | retrying | completed | failed | cancelled`
+- **Terminal states**: `completed`, `failed`, `cancelled`
+- **Retry**: transient errors (ConnectionError, TimeoutError, RateLimitError) trigger exponential backoff up to `max_retries` (default 3)
 
-### Modules — `vision/` (Visual scene captioning, v0.4.26+)
-
-The `vision/` package provides an abstraction layer for visual scene captioning, enabling future VLM (Vision Language Model) integration without touching match logic:
-
-```text
-pipeline/match._build_scene_captions()
-    ▼
-vision.factory.get_vision_captioner(name) → VisionCaptioner
-    ▼
-captioner.caption_scenes(scenes, video_path) → list[SceneCaption]
-```
+### Key modules
 
 | Module | Responsibility |
 |--------|---------------|
-| `vision/protocol.py` | `VisionCaptioner` ABC — defines `caption_scenes()` contract + `SceneCaption` dataclass |
-| `vision/stub.py` | `StubVisionCaptioner` — returns placeholder labels (flagged `is_stub=True`) |
-| `vision/vlm.py` | `VLMVisionCaptioner` — real VLM (Vision Language Model) provider for scene captioning |
-| `vision/factory.py` | `get_vision_captioner()` — dispatches by `vision_captioner` param (`"none"` / `"stub"` / future providers) |
-| `vision/__init__.py` | Public API exports |
+| `cloud/models.py` | `Task`, `TaskRequest`, `TaskProgress`, `TaskResult`, `TaskStatus`, `TaskPriority` |
+| `cloud/queue.py` | `TaskQueue` protocol + `LocalTaskQueue` (ThreadPoolExecutor) |
+| `cloud/remote_queue.py` | `RemoteTaskQueue` — HTTP client implementing the same `TaskQueue` protocol |
+| `cloud/api.py` | `TaskAPIServer` — REST API on stdlib `http.server` (no extra deps) |
+| `cloud/daemon.py` | `run_daemon` / `WorkerDaemon` — queue + API server with signal handling |
+| `cloud/worker.py` | `run_task` — pipeline wrapper with cancel + progress + retry; `CancelController` implements `RunController` |
+| `cloud/storage.py` | `TaskStorage` — JSON persistence with atomic writes |
+| `cloud/remote_provider.py` | `register_remote_llm` / `register_remote_tts` — proxy inference; `download_artifact` / `list_artifacts` — fetch outputs |
 
-**Integration with match**: vision captions supplement (not replace) audio-transcript captions. When `vision_captioner="stub"`, labels are flagged as fake so the existing fake-caption guard treats them identically to placeholder labels — embedding is skipped, heuristic path runs. A real VLM provider can be registered in `factory.py` without modifying `match.py`.
+### REST API endpoints
 
-**Trigger condition for real VLM** (per QUALITY_UPLIFT_METHODS §5): EP1–EP4 must be online + G1/G2 hand-test S6 ≤ 1 + acceptable latency overhead.
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | `/tasks` | Submit a new task |
+| GET | `/tasks` | List tasks (optional `?status=` filter) |
+| GET | `/tasks/{id}` | Get task details |
+| DELETE | `/tasks/{id}` | Cancel a task |
+| GET | `/tasks/{id}/result` | Get task result (terminal only) |
+| GET | `/tasks/{id}/artifacts` | List output files |
+| GET | `/tasks/{id}/download/{file}` | Download an output file |
+| GET | `/health` | Health check |
+| GET | `/info` | Server info (version, worker count) |
 
-### EP9 — Pipeline pause/resume (v0.4.26+)
+### Key design rules
 
-The pipeline supports human-in-the-loop pause points via `PipelinePaused` exception and state serialization:
-
-```text
-mn create ... --pause-at script
-    ▼
-runner: after "generate_script" step completes
-    ▼
-_save_pipeline_state(ctx) → output_dir/pipeline_state.json
-    ▼
-raise PipelinePaused(completed_step="generate_script")
-
-mn resume <output_dir>
-    ▼
-_load_pipeline_state(path) → Context (SilentConsole auto-injected)
-    ▼
-run_pipeline(ctx, start_step="align_audio")  # skips completed steps
-```
-
-**State file** (`pipeline_state.json`): serializes all `Context` fields except `services` (non-serializable). On resume, `SilentConsole` is auto-injected via `model_validator`, then replaced with a real `Console` by the `mn resume` command.
-
-**Pause points**: `--pause-at script` (after script generation) or `--pause-at match` (after scene matching). User can edit `script.md` or `matches.json` before resuming.
+- **Same protocol, different transports**: `LocalTaskQueue` and `RemoteTaskQueue` both implement `TaskQueue` — swap with zero code changes
+- **No extra dependencies**: REST API uses stdlib `http.server`; remote client uses stdlib `urllib.request`
+- **Cooperative cancellation**: `CancelController` implements `RunController` — the pipeline checks `is_cancelled()` at step boundaries, not mid-step
+- **Progress via console wrapping**: `ProgressConsole` wraps the real `Console`, intercepting `step()` / `step_ok()` calls to update `TaskProgress` in real-time
+- **Retry preserves cache**: on retry, `CancelController.reset()` is called and the pipeline re-executes from scratch — cached results (TTS segments, scene detection) are reused via content-addressable cache
+- **Artifact management**: completed task outputs served via `/tasks/{id}/download/{file}` with path-traversal protection
+- **Remote inference proxy**: `register_remote_llm("remote")` / `register_remote_tts("remote")` allow offloading LLM/TTS calls to a remote worker without changing pipeline code
 
 ## TTS Abstraction Layer
 
@@ -218,209 +241,31 @@ pipeline probes duration via AudioSegment.from_mp3
 | `tts/cache.py` | `TTSCacheKey` dataclass, `cache_path_for()` (two-level fan-out), `PROVIDER_CACHE_VERSIONS` |
 | `utils/errors.py` | `ConfigError` — cross-cutting config-error class |
 
-## Data Flow
+## Vision Abstraction Layer (v0.4.26+)
 
-1. **Context** (`models.Context`) — shared mutable state passed through all steps
-2. **resolve_video** — locate source video from `--video`, `--library-dir`, or config
-3. **prepare_assets** — validate BGM, font, intro assets exist on disk
-4. **research_plot** — LLM fetches movie metadata (title, cast, keywords) → `research.json`
-5. **generate_script** — LLM returns JSON → `List[ScriptSegment]`
-6. **export_script_md** — renders segments to human-readable `script.md`
-7. **generate_voice** — TTS provider (Edge-TTS, OpenAI, or MiMo) async with semaphore + sha256 content-addressable cache (7-dimension key, two-level fan-out) → `narration.mp3` + `List[TimedSegment]`. CI mode uses silent fallback with temp-file isolation.
-8. **align_audio** — (optional) WhisperX aligns narration to text → word-level timestamps
-9. **detect_scenes** — (optional) PySceneDetect splits source video into `Scene` list
-10. **match_clips** — (optional) maps scenes to script segments. Baseline is proportional heuristic matching against the scene span (`source="heuristic"`). When `[ml]` is installed and more than one scene exists, re-rank candidates by multilingual sentence-similarity embeddings (`source="embedding"`); falls back to heuristic on probe/modelfailure → `matches.json`
-11. **mix_bgm** — (optional) mixes background music under narration → `final_audio.mp3`
-12. **translate_subtitles** — (optional, v0.3) when `subtitle_lang` is set, calls the configured translation provider (default `llm`) per chunk; failure policy is retry-then-soft-degrade (fill with originals, surface a `metadata.warnings` entry). CI passthrough (`CI=1`) copies originals without network. The step produces `ctx.translated_texts` only — no files written. `subtitle_path` invariant is preserved.
-13. **generate_subtitle** — pure formatter. Always writes `subtitle.srt` from `timed_segments`. When `translated_texts` is non-empty and length-aligned, additionally writes `subtitle.<lang>.srt` (translated) and `subtitle.bilingual.srt` (cue body `f"{src}\n{dst}"` with explicit LF). Bundles paths into `ctx.subtitle_paths: SubtitlePaths` and resolves `ctx.render_subtitle_path` per `subtitle_mode` (original | translated | bilingual).
-14. **render_video** — MoviePy composites: solid background + text overlays (or real footage for matched segments) + audio → `final.mp4` + `metadata.json`. Source footage is fitted to the canvas (cover by default; contain letterboxes). Subtitle overlays are always drawn (bottom position by default) including over footage segments. Encode uses CRF 18 / preset `slow` / `+faststart` by default. Overlay text comes from `ctx.render_subtitle_path`; multi-line cues auto-scale the font (`scale = 1.0 - 0.1 * (line_count - 1)`, clamped to `[0.6, 1.0]`).
-15. **validate_deliverable** — (hard) probes `final.mp4` with ffprobe (falls back to `ffmpeg -i` when ffprobe is absent). Fails the pipeline on missing video/audio stream, silent audio (mean volume below `qa_max_silence_db`), duration outside `[qa_min_duration_ratio, qa_max_duration_ratio]`, or tiny output file. CI skips by default; local runs enable QA unless `qa_enabled: false`. Stores `ctx.metadata["qa_report"]`.
-16. **export_clips** — (optional) extracts per-segment clips to `clips/` directory
+The `vision/` package provides an abstraction layer for visual scene captioning, enabling future VLM (Vision Language Model) integration without touching match logic:
 
-## Output Structure
-
-```
-output/<movie>/
-├── narration.mp3          # TTS output
-├── mixed.mp3        # narration + BGM mix (when BGM enabled)
-├── subtitle.srt           # SRT subtitles (original narration; always written)
-├── subtitle.<lang>.srt    # translated subtitles (when --subtitle-lang set)
-├── subtitle.bilingual.srt # bilingual subtitles (when --subtitle-lang set; cue body "src\ndst")
-├── script.md              # human-readable script
-├── research.json          # movie research data (when --research)
-├── metadata.json          # timings, config, pipeline status, content_language
-├── final.mp4              # rendered video
-├── matches.json           # scene-to-segment matching (when video provided)
-└── clips/                 # per-segment clip files (when --no-clips not set)
+```text
+pipeline/match._build_scene_captions()
+    ▼
+vision.factory.get_vision_captioner(name) → VisionCaptioner
+    ▼
+captioner.caption_scenes(scenes, video_path) → list[SceneCaption]
 ```
 
-### `metadata.json` → `match_summary` schema (v1, PR #56)
+| Module | Responsibility |
+|--------|---------------|
+| `vision/protocol.py` | `VisionCaptioner` ABC — defines `caption_scenes()` contract + `SceneCaption` dataclass |
+| `vision/stub.py` | `StubVisionCaptioner` — returns placeholder labels (flagged `is_stub=True`) |
+| `vision/vlm.py` | `VLMVisionCaptioner` — real VLM (Vision Language Model) provider for scene captioning |
+| `vision/factory.py` | `get_vision_captioner()` — dispatches by `vision_captioner` param (`"none"` / `"stub"` / future providers) |
+| `vision/__init__.py` | Public API exports |
 
-`match_summary` records the match-quality breakdown for L2 hand-test O9/O10.
-Full schema (21 fields + 4 back-compat fields):
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `version` | int | schema version, currently = 1 |
-| `status` | str | "success" / "failed" |
-| `segments` | int | total matched narration segments |
-| `scenes_in` | int | original scene count (before merge/drop) |
-| `scenes_after_merge` | int | scene count after merge, before drop |
-| `scenes_after_drop` | int | final scene count after drop |
-| `merge_min_duration` | float | short-scene merge threshold (seconds) |
-| `drop_min_duration` | float | tiny-scene drop threshold (seconds) |
-| `min_score` | float | embedding low-score fallback threshold (default 0.25) |
-| `speed_clamp` | [float, float] | speed factor clamp range [min, max] |
-| `source_counts` | {embedding, heuristic} | segment count per source |
-| `heuristic_ratio` | float | heuristic segment ratio (0.0–1.0) |
-| `embedding_ratio` | float | embedding segment ratio (0.0–1.0) |
-| `score` | {min,max,avg} \| null | stats for **adopted** embedding scores (excludes fallbacks) |
-| `raw_score` | {min,max,avg,n} \| null | stats for **all attempted** embedding scores (includes fallbacks; n=attempts) |
-| `speed_factor` | {min,max,avg} \| null | speed factor stats (src_duration / narr_duration) |
-| `low_score_fallback_count` | int | segments that fell back to heuristic due to score < min_score |
-| `captioning` | {used, usable_label_ratio, cached, language, model} | WhisperX captioning status |
-| `embedding_model` | str | embedding model name used |
-| `degraded_reason` | str \| null | "fake_captions" / "all_heuristic" / null |
-| `diversity` | {swaps, swaps_log, window, max_reuse} | WP3 diversity post-processing audit (v0.4.20+, see v0.4.20 audit table) |
-| `timeline` | {mode, act_weights, segments_per_act} | EP1 act-weighted timeline audit (v0.4.22+, see v0.4.22 audit table) |
-| `topk` | {k, reuse_penalty, topk_count, top1_count} | EP3 top-K rerank audit (v0.4.24+, see v0.4.24 audit table) |
-| **— back-compat —** | | |
-| `total` | int | = segments (legacy consumers) |
-| `embedding` | int | = source_counts.embedding (legacy consumers) |
-| `heuristic` | int | = source_counts.heuristic (legacy consumers) |
-| `captions_fake` | bool | = (degraded_reason == "fake_captions") (legacy consumers) |
-
-`score` vs `raw_score`: `score.avg` reflects only "good" embedding hits (adopted);
-`raw_score.avg` includes "bad-but-fell-back" scores. If `score.avg=0.85` but
-`low_score_fallback_count=5`, the first N hits were accurate and 5 failed to fallback.
-
-### `metadata.json` → align diagnostics (v0.4.18+)
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `status.align` | str | "success" / "failed" / "skipped" / "disabled" — see semantics table below |
-| `align_fallback` | bool | True if alignment is segment-level only (no word-level forced alignment). Triggered by: (a) WhisperX `align()` raised, (b) faster-whisper backend used. **Segment-level timestamps are sufficient for subtitle.py.** |
-| `align_degraded` | bool | True if alignment is degraded (fallback, empty ASR, or single-segment drift) |
-| `align_segments` | int | number of ASR segments returned by the backend |
-| `align_backward_skipped` | int | segments that kept TTS estimates because monotonic clamp would have crushed them to 100ms (F4) |
-| `align_backend_used` | str | actual backend: "whisperx" / "faster_whisper" / "none" (v0.4.19+) |
-| `align_backend_reason` | str | why this backend was selected (v0.4.19+) |
-| `align_backend_attempted` | list | failed backend attempts before fallback (v0.4.19+) |
-
-**`status.align` semantics:**
-
-| Value | Meaning | Timestamps | In `_degraded_steps`? |
-|-------|---------|------------|----------------------|
-| `success` | Alignment succeeded. May be word-level (WhisperX forced align) or segment-level (faster-whisper). Check `align_fallback` flag to distinguish. | Word-level or segment-level | No |
-| `failed` | WhisperX forced alignment raised — fell back to transcript-level timestamps. Timestamps are still usable (segment-level). | Segment-level | Yes |
-| `skipped` | ASR returned empty or single-segment drift too large. Timestamps remain TTS-estimated. | TTS-estimated | Yes |
-| `disabled` | Neither whisperx nor faster_whisper importable. | TTS-estimated | No (uses `skipped` step result) |
-
-**`align_fallback` flag**: When `True`, alignment used segment-level timestamps only (no word-level forced alignment). This is set when: (a) WhisperX `align()` raised → fallback to transcript-level, (b) faster-whisper backend used. **Segment-level timestamps are sufficient for subtitle.py and embedding re-rank** (L2 handtest: `embedding_ratio=1.0` with faster-whisper).
-
-`align_backward_skipped > 0` means some segments' timestamps are TTS estimates
-(not WhisperX-aligned) because the wx segment mapped far behind the previous
-segment's end. This is preferable to a 100ms flash on screen.
-
-### v0.4.20 audit fields (Stage D)
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `match_summary.diversity.swaps` | int | Number of scene swaps performed by `_apply_diversity()` (v0.4.20+) |
-| `match_summary.diversity.swaps_log` | list | `[{segment_index, old_scene, new_scene}]` for each swap — audit trail to distinguish original embedding scores from post-swap scores (v0.4.20+) |
-| `match_summary.diversity.window` | int | Sliding window size used for diversity check (v0.4.20+) |
-| `match_summary.diversity.max_reuse` | int | Max scene reuse allowed within window (v0.4.20+) |
-| `footage_coverage.ratio` | float | Fraction of narration segments with real footage (vs text-only fallback) (v0.4.20+) |
-| `footage_coverage.segments_with_footage` | int | Count of segments with footage (v0.4.20+) |
-| `footage_coverage.total_segments` | int | Total narration segments (v0.4.20+) |
-| `script_truncated.count` | int | Number of segments truncated by `_truncate_to_max_chars()` (v0.4.20+) |
-| `script_truncated.max_chars` | int | The max_chars limit used (v0.4.20+) |
-| `script_truncated.details` | list | `[{original_len, truncated_len}]` for each truncated segment (v0.4.20+) |
-
-**`script_truncated` is absent (not null) when no truncation occurred** — zero overhead when LLM respects `prompt_max_chars_per_sentence`.
-
-### v0.4.21 audit fields (Stage D remaining)
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `duration_metrics.target_sec` | int/float | Target narration duration from `--duration` (v0.4.21+) |
-| `duration_metrics.narration_sec` | float | Actual narration duration after TTS assembly (v0.4.21+) |
-| `duration_metrics.ratio_vs_target` | float | `narration_sec / target_sec` (v0.4.21+) |
-| `duration_metrics.pause_ms_original` | int | Original pause_ms from config (v0.4.21+) |
-| `duration_metrics.pause_ms_applied` | int | Actual pause_ms used (reduced if adjustment triggered) (v0.4.21+) |
-| `duration_metrics.adjusted` | bool | Whether pause was reduced to fit target (v0.4.21+) |
-| `render_profile` | str | `"publish"` (default) or `"draft"` (fast iteration: crf=28, preset=ultrafast) (v0.4.21+) |
-
-**`duration_metrics` is absent (not null) when no target duration is set** — zero overhead when `--duration` is not specified or narration is within 15% of target.
-
-**ST-06 tail protection**: `_trim_segments` now locks the last segment (tail climax/outro) in addition to the first 3 hooks. Only activates when `target > 4 and len(segments) > target + 1` — no behavior change for typical configurations (target ≥ 8).
-
-### v0.4.22 audit fields (EP1 act-weighted timeline)
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `match_summary.timeline.mode` | str | `"uniform"` (default) or `"weighted_acts"` (v0.4.22+) |
-| `match_summary.timeline.act_weights` | list\|null | Weight per act, e.g. `[0.15, 0.25, 0.40, 0.20]`; null when uniform (v0.4.22+) |
-| `match_summary.timeline.segments_per_act` | list\|null | Segment count per act, e.g. `[3, 5, 7, 3]`; null when uniform (v0.4.22+) |
-
-**`timeline.act_weights` is null (not absent) when uniform mode** — the field always exists so downstream consumers can branch on `mode` without checking key presence.
-
-**Weighted acts fallback**: when `match_timeline_mode="weighted_acts"` but `< 8 scenes` or `< 4 segments`, the mode silently falls back to `uniform` and `timeline.mode` reflects `"uniform"`. This ensures the feature never breaks on short videos.
-
-### v0.4.26 audit fields (Stage E + Effect uplift + EP8/EP9)
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `match_summary.timeline.mode` | str | Extended: `"beat_anchor"` when EP2 beat anchors used (v0.4.26+) |
-| `match_summary.timeline.anchored_count` | int\|null | Number of segments that used beat `approx_ratio` as time anchor (v0.4.26+) |
-| `ctx.metadata["beats_meta"]` | list\|absent | Per-beat `{text, act, approx_ratio}` from structured LLM output (v0.4.26+) |
-| `render_title_card_sec` | float\|absent | Title card duration in seconds; 0 or absent = disabled (v0.4.26+) |
-
-**EP2 beat anchor priority**: when beat metadata is available, the heuristic baseline uses `approx_ratio` as the primary time anchor. Priority chain: EP2 beat anchor > EP1 weighted acts > uniform proportional mapping. If LLM returns invalid `approx_ratio` (out of [0,1] or non-numeric), it falls back to EP1 weighted acts.
-
-**EP6 duck curve**: `duck_bgm` now scales duck depth proportionally with narration energy. The `bgm_duck_db` param remains the maximum duck depth; actual per-segment ducking varies from 0 to `bgm_duck_db` based on narration RMS amplitude.
-
-**EP9 pause/resume**: `pipeline_state.json` is written to `output_dir/` when `--pause-at` triggers. The file contains all `Context` fields except `services`. On `mn resume`, the state is loaded, `SilentConsole` is auto-injected, then replaced with a real `Console`, and `run_pipeline()` is called with `start_step` to skip completed steps.
-
-### v0.4.24 audit fields (EP3 top-K rerank)
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `match_summary.source_counts.embedding_topk` | int | Count of segments matched via top-K rerank path (v0.4.24+) |
-| `match_summary.source_counts.embedding_top1` | int | Count of segments matched via top-1 fallback (topk ≤ 1) (v0.4.24+) |
-| `match_summary.topk.k` | int | The `match_topk` value used (default 5); 0/1 = top-1 mode (v0.4.24+) |
-| `match_summary.topk.reuse_penalty` | float | Score deduction applied to recently-used scenes (default 0.15) (v0.4.24+) |
-| `match_summary.topk.topk_count` | int | Number of segments that used top-K rerank (v0.4.24+) |
-| `match_summary.topk.top1_count` | int | Number of segments that fell back to top-1 (v0.4.24+) |
-
-**`source_counts.embedding`** is the sum of `embedding_topk` + `embedding_top1` — back-compat for existing consumers. The `embedding_topk` / `embedding_top1` split is the EP3-specific breakdown.
-
-**`MatchedClip.source`** values: `"embedding_topk"` (top-K ran, k > 1), `"embedding_top1"` (top-K disabled, k ≤ 1), `"heuristic"` (low-score fallback or no captions), `"scene"` (no embedding model), `"fallback"` (no scenes). The legacy `"embedding"` value is no longer assigned to new clips but remains in the Literal for back-compat.
-
-**Reuse penalty mechanics**: when a scene was used in the last `reuse_window` (default 3) segments, its raw cosine score gets a `reuse_penalty` deduction before greedy selection. This lets a lower-ranked but unused candidate win over a recently-used top-1, without forcing a hard diversity swap. The penalty only applies within the top-K candidate pool — it does not affect the raw score stored in `MatchedClip.score`.
-
-### v0.4.23 audit fields (performance contract)
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `bgm_error` | str\|absent | Error message when `mix_bgm` fails; absent when BGM succeeds (v0.4.23+) |
-
-**TTS cache key change (ST-08)**: `TTSCacheKey` now includes `style_prompt` instead of `pause_ms`. `CACHE_SCHEMA_VERSION` bumped 2 → 3, so all pre-v0.4.23 cache files are automatically re-generated on first run. Atomic write (`.partial` → `os.replace`) prevents corrupt cache files; if a corrupt file is detected at load time, it is deleted and re-synthesized transparently.
-
-## Extension Points
-
-- **New pipeline step (recommended)**: use `@register_step("name", ...)` decorator via the Plugin API. The step is auto-discovered if packaged as an entry_points plugin, or can be loaded manually via `load_plugin()`. See `examples/plugins/watermark/` for a reference implementation.
-- **New pipeline step (legacy)**: append directly to `STEPS` in `pipeline/runner.py`. Signature must be `(ctx: Context) -> Context`.
-- **Swap TTS/renderer/LLM**: replace `pipeline/tts.py`, `pipeline/render.py`, or `utils/llm.py` while keeping the step function signature.
-- **New TTS/Vision/LLM/Research provider (recommended)**: use `@register_tts("name")`, `@register_vision("name")`, `@register_llm("name")`, or `@register_research("name")` decorator via the Provider Registry. The provider is auto-discovered if packaged as an entry_points plugin.
-- **New VisionCaptioner provider (legacy)**: implement `VisionCaptioner` ABC in `vision/`, register in `vision/factory.py`. See `vision/stub.py` for reference. Match logic auto-detects fake vs real captions via `is_stub` flag.
-- **Pipeline pause/resume**: `--pause-at script|match` pauses after the step; `mn resume <output_dir>` continues. State serialized to `pipeline_state.json`.
-- **New CLI command**: add `@app.command()` in `cli.py`.
-- **Frontend / WebUI**: the React SPA and FastAPI backend now live in the external repo [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web) (Vite + TypeScript + shadcn/ui + Tailwind CSS, served on port 8760 via the `mn-web` command). To extend the web layer, work inside that repository — the core `movie-narrator` repo no longer ships `web_api/` or `webui/`, and there is no `mn web` command or `[web]` extra here. Any new engine capability the web package needs must be exposed through `contract.py` (bump `CONTRACT_VERSION` accordingly). See `docs/CONTRIBUTING.md` → *Frontend Development*.
+**Integration with match**: vision captions supplement (not replace) audio-transcript captions. When `vision_captioner="stub"`, labels are flagged as fake so the existing fake-caption guard treats them identically to placeholder labels — embedding is skipped, heuristic path runs. A real VLM provider can be registered in `factory.py` without modifying `match.py`.
 
 ## Plugin System (v0.5+)
 
-The Plugin API (M1/M2) provides a stable extension mechanism for adding custom pipeline steps and providers without forking the core engine:
+The Plugin API provides a stable extension mechanism for adding custom pipeline steps and providers without forking the core engine:
 
 ```text
 Third-party package (pyproject.toml entry_points)
@@ -459,7 +304,31 @@ class MyPlugin:
 
 Plugins are discovered via `importlib.metadata` entry points under the `movie_narrator.plugins` group. See `examples/plugins/watermark/` for a complete reference implementation.
 
-## WP6 — Scene Filtering (v0.5+)
+## Pipeline Pause/Resume (EP9, v0.4.26+)
+
+The pipeline supports human-in-the-loop pause points via `PipelinePaused` exception and state serialization:
+
+```text
+mn create ... --pause-at script
+    ▼
+runner: after "generate_script" step completes
+    ▼
+_save_pipeline_state(ctx) → output_dir/pipeline_state.json
+    ▼
+raise PipelinePaused(completed_step="generate_script")
+
+mn resume <output_dir>
+    ▼
+_load_pipeline_state(path) → Context (SilentConsole auto-injected)
+    ▼
+run_pipeline(ctx, start_step="align_audio")  # skips completed steps
+```
+
+**State file** (`pipeline_state.json`): serializes all `Context` fields except `services` (non-serializable). On resume, `SilentConsole` is auto-injected via `model_validator`, then replaced with a real `Console` by the `mn resume` command.
+
+**Pause points**: `--pause-at script` (after script generation) or `--pause-at match` (after scene matching). User can edit `script.md` or `matches.json` before resuming.
+
+## Scene Filtering (WP6, v0.5+)
 
 The `pipeline/scene_filter.py` module provides three scene-filtering features that improve narration quality by removing non-content segments and biasing selection toward highlights:
 
@@ -471,6 +340,47 @@ The `pipeline/scene_filter.py` module provides three scene-filtering features th
 
 These params are added to `PARAM_WHITELIST` via the UnifiedParamSchema and flow through the standard `build_context` → `ctx.metadata` path.
 
+## Web UI Layer
+
+> **The Web UI is a separate project.** Since the monorepo split, the FastAPI + React SPA stack lives in an external repository: [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web). Install and run it as an independent package:
+>
+> ```bash
+> pip install movie-narrator-web
+> mn-web            # launches the FastAPI + React SPA (port 8760)
+> ```
+
+The external web package consumes the core engine **only** through the contract surface defined in `contract.py`. There is no `mn web` command or `[web]` extra in the core package — `fastapi`, `uvicorn`, and `python-multipart` are not dependencies of `movie-narrator`.
+
+### Contract boundary
+
+```text
+movie-narrator-web  →  contract.py  →  pipeline/runner.py (build_context, run_pipeline, PARAM_WHITELIST)
+                                →  pipeline/errors.py (PipelineCancelled, RunController, StepAction, ...)
+                                →  utils/console.py (BaseConsole, Console, SilentConsole)
+                                →  utils/sanitize.py (sanitize_filename)
+```
+
+`contract.py` is the **single import surface** — the web package must not import any internal module directly. `CONTRACT_VERSION = (0, 6, 1)` is checked at import time to refuse mismatched engine versions. The full symbol table is documented in [docs/sdk/contract.md](sdk/contract.md).
+
+### Key design rules
+
+- **No second implementation**: the web package calls `build_context` + `run_pipeline` — the same functions the CLI uses
+- **Cancel is runtime-only**: `RunController` / `PipelineCancelled` never enter `Context`, `PipelineStatus`, or `metadata.json`. Cancel is a distinct terminal path (not warn, not error, does not trip `--strict`)
+- **empty = no override**: form fields left blank do NOT inject into `params` — Settings (`.env` / `MN_*`) defaults apply
+- **Uploads to a stable dir**: uploaded files go to `output/_uploads`, never to ad-hoc temp dirs or the `output/` movie folder
+
+## Extension Points
+
+- **New pipeline step (recommended)**: use `@register_step("name", ...)` decorator via the Plugin API. The step is auto-discovered if packaged as an entry_points plugin, or can be loaded manually via `load_plugin()`. See `examples/plugins/watermark/` for a reference implementation.
+- **New pipeline step (legacy)**: append directly to `STEPS` in `pipeline/runner.py`. Signature must be `(ctx: Context) -> Context`.
+- **Swap TTS/renderer/LLM**: replace `pipeline/tts.py`, `pipeline/render.py`, or `utils/llm.py` while keeping the step function signature.
+- **New TTS/Vision/LLM/Research provider (recommended)**: use `@register_tts("name")`, `@register_vision("name")`, `@register_llm("name")`, or `@register_research("name")` decorator via the Provider Registry. The provider is auto-discovered if packaged as an entry_points plugin.
+- **New VisionCaptioner provider (legacy)**: implement `VisionCaptioner` ABC in `vision/`, register in `vision/factory.py`. See `vision/stub.py` for reference. Match logic auto-detects fake vs real captions via `is_stub` flag.
+- **Pipeline pause/resume**: `--pause-at script|match` pauses after the step; `mn resume <output_dir>` continues. State serialized to `pipeline_state.json`.
+- **Remote inference**: `mn serve` starts a worker daemon; `mn submit --remote <url>` submits tasks to a remote worker; `register_remote_llm` / `register_remote_tts` proxy inference calls.
+- **New CLI command**: add `@app.command()` in `cli.py`.
+- **Frontend / WebUI**: work inside the [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web) repository. Any new engine capability the web package needs must be exposed through `contract.py` (bump `CONTRACT_VERSION` accordingly). See `docs/CONTRIBUTING.md` → *Frontend Development*.
+
 ## Key Design Decisions
 
 | Decision | Rationale |
@@ -481,3 +391,6 @@ These params are added to `PARAM_WHITELIST` via the UnifiedParamSchema and flow 
 | `PipelineStatus` model | Every soft step's outcome is introspectable in `metadata.json` |
 | `--strict` flag | Turns soft failures into hard aborts for CI or production use |
 | `usable_clips` filter in render | Ignores accidental `source="fallback"` rows (construction default) |
+| `TaskQueue` protocol abstraction | Local and remote deployments share the same API surface |
+| Stdlib-only REST API | Cloud deployment without adding FastAPI/uvicorn as core dependencies |
+| `contract.py` as sole import boundary | Web package versioned independently via `CONTRACT_VERSION`, not package version |

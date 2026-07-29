@@ -5,273 +5,149 @@
 
 > Per-release details in [CHANGELOG.md](../CHANGELOG.md). Configuration reference in [`.env.example`](../.env.example) and [`job.example.yaml`](../examples/job.example.yaml).
 
-## v0.1.x — Core Pipeline
+## Completed
 
-- [x] CLI interface (`mn create`, `mn version`)
-- [x] LLM script generation with JSON output
-- [x] Edge-TTS narration with concurrent generation
-- [x] SRT subtitle generation with millisecond precision
-- [x] MoviePy video rendering (16:9 / 9:16)
-- [x] TTS result caching with content-addressable keys
-- [x] Metadata export (JSON)
-- [x] CI pipeline (unit tests + smoke test)
+| Version | Theme | Summary |
+|---------|-------|---------|
+| v0.1.x | Core Pipeline | CLI, LLM script, Edge-TTS, SRT, MoviePy rendering, TTS caching, CI |
+| v0.2.x | Scene & Media | Research agent, WhisperX alignment, scene detection, clip matching, BGM, graceful degradation |
+| v0.3.x | Platform & Workflow | YAML job config, multi-language subtitles, Gradio WebUI (superseded) |
+| v0.4.x | TTS Abstraction & Infrastructure | TTS provider abstraction, config overhaul, FastAPI + React WebUI, render quality, L2 hand-test passed, match intelligence, effect portfolio, contract layer |
+| v0.5.x | Ecosystem | Plugin API / SDK freeze / scene filtering / WebUI split / narrative & audio quality / subtitle QA / holistic QA dashboard. `CONTRACT_VERSION` → `(0, 5, 1)` |
+| v0.6.0 | Task Queue | Async job system, task persistence, cancellation, progress tracking, retry, CLI commands. `CONTRACT_VERSION` → `(0, 6, 0)` |
+| v0.6.1 | Remote Inference | REST API server, remote task queue, worker daemon, artifact management, remote provider proxies, CLI commands. `CONTRACT_VERSION` → `(0, 6, 1)` |
 
-## v0.2.x — Scene & Media
+---
 
-- [x] Research agent for movie plot research (`--research`)
-- [x] WhisperX audio-text alignment
-- [x] Scene detection from movie videos
-- [x] Automatic clip matching based on script
-- [x] Semantic scene search (embedding-based)
-- [x] Background music integration (BGM mixing)
-- [x] Script markdown export (`script.md`)
-- [x] Scene-level clip output (`clips/`)
-- [x] Graceful degradation — soft steps skip silently when optional deps missing
+## Current & Planned
 
-## v0.3.x — Platform & Workflow
+### v0.6.x — Cloud (continued)
 
-- [x] Declarative workflow config for soft-step toggles + params
-- [x] YAML-based job configuration (`mn create --config`)
-- [x] Console / structured-step-state logging refactor (`ctx.services.console`, `StepState`)
-- [x] Multi-language subtitle support (`--subtitle-lang` / `--subtitle-mode`; LLM translation with retry-then-soft-degrade; three-file SRT output)
-- [x] Web UI (Gradio; superseded by v0.4.x FastAPI + React refactor; subsequently split into the independent repo [movie-narrator-web](https://github.com/zcbacxc/movie-narrator-web))
+#### v0.6.2 — Distributed Rendering (planned)
 
-## v0.4.x — TTS Abstraction & Infrastructure
+- [ ] Video segment splitting — divide rendered timeline into N independent segments
+- [ ] Worker distribution — dispatch segments to available worker nodes via task queue
+- [ ] Parallel rendering — each worker renders its segment independently
+- [ ] Result stitching — concatenate segment outputs into final video (ffmpeg concat demuxer)
+- [ ] `mn render-distributed` CLI command — trigger distributed rendering jobs with `--workers` flag
+- [ ] CONTRACT_VERSION → `(0, 6, 2)` — distributed rendering types exported via SDK
 
-> 28 patch releases (v0.4.0 – v0.4.27). Major themes: TTS provider abstraction, config system overhaul, WebUI refactor, core engine production quality, L2 readiness & hand-test passed, match intelligence, effect portfolio, extensibility, contract layer.
+#### v0.6.3 — API Gateway & Authentication (planned)
 
-### Infrastructure
+- [ ] API key authentication — `X-API-Key` header validation middleware
+- [ ] JWT token support — issued tokens for authenticated sessions
+- [ ] Multi-tenant isolation — tenant-scoped task storage and artifacts
+- [ ] Rate limiting — per-tenant request throttling (token bucket algorithm)
+- [ ] API versioning — `/api/v1/` prefix for stable endpoints
+- [ ] CONTRACT_VERSION → `(0, 6, 3)` — auth middleware types exported via SDK
 
-- [x] TTS provider abstraction (Edge / OpenAI / MiMo via `MN_TTS_PROVIDER`)
-- [x] Content-addressable cache (sha256, 7 dimensions, per-provider version map)
-- [x] Config system overhaul — strict `.env` / `job.yaml` boundary
-- [x] MoviePy 1.x → 2.x upgrade (Python 3.13+ compatibility)
-- [x] Preflight LLM/TTS validation before pipeline execution
-- [x] Step-level retry mechanism (`--retry` flag, `StepAction` enum)
+#### v0.6.4 — Cloud Storage & Artifact Management (planned)
 
-### Web UI
+- [ ] Storage backend abstraction — `StorageBackend` protocol (local / S3 / GCS)
+- [ ] S3-compatible storage — artifact upload/download to S3 buckets
+- [ ] Artifact lifecycle — TTL-based cleanup, storage quotas per tenant
+- [ ] Presigned URLs — CDN-friendly direct download links
+- [ ] Storage migration tool — local → cloud transfer utility
+- [ ] CONTRACT_VERSION → `(0, 6, 4)` — storage backend types exported via SDK
 
-> The Web UI work below has since been split into the independent repository [movie-narrator-web](https://github.com/zcbacxc/movie-narrator-web). The core repo no longer ships `web_api/` or `webui/`; install the Web UI separately via `pip install movie-narrator-web` and launch it with `mn-web`.
+### v0.7.x — Production Deployment
 
-- [x] Gradio → FastAPI + React SPA refactor (Vite + TypeScript + shadcn/ui)
-- [x] WebSocket real-time progress (`/ws/task/{task_id}`)
-- [x] pip-installable WebUI packaging — now shipped from the separate `movie-narrator-web` repo (`pip install movie-narrator-web`, command `mn-web`)
+> **Goal**: Make the engine production-ready with containerization, observability, and fault tolerance.
 
-### Core Engine Quality
+#### v0.7.0 — Containerization & Orchestration (planned)
 
-- [x] Post-render deliverable QA step (`validate_deliverable`)
-- [x] Audio normalize + BGM ducking with attack/release smoothing
-- [x] Video cover/contain layout; bottom-safe subtitle layout (CJK wrapping + backdrop bar)
-- [x] Render encode quality — CRF 18, preset `slow`, `+faststart`
-- [x] Narration preset system (`douyin-fast` / `mainstream-dry` / `bilibili-long`)
-- [x] Two-phase script generation with dynamic sentence count
-- [x] Draft profile mode for fast iteration (`render_profile: draft`)
+- [ ] Dockerfile — multi-stage build (builder + runtime), GPU support
+- [ ] docker-compose.yml — local cluster (API + N workers + storage)
+- [ ] Helm chart — K8s deployment templates (worker deployment, API deployment, storage)
+- [ ] Worker auto-scaling — HPA based on queue depth
+- [ ] ConfigMap/Secret management — env injection from K8s secrets
+- [ ] Health/readiness probes — `/health` and `/ready` endpoints
 
-### L2 Readiness & Validation
+#### v0.7.1 — Observability & Monitoring (planned)
 
-- [x] `match_summary` full schema (21+ fields) in `metadata.json` for L2 jq queries
-- [x] Degradation visibility — `_degraded_steps` + CLI summary for all soft-step failures
-- [x] faster-whisper backend (Windows CPU compatibility; unlocks embedding re-rank)
-- [x] L2 hand-test passed — O1-O10 100% (G1 满江红 + G3 飞驰人生3)
-- [x] L2 G2 cross-movie validation — 西虹市首富
-- [x] L2+ hand-test toolkit (checklist + `compare_runs.py` + SOP)
+- [ ] Prometheus metrics — `/metrics` endpoint (task count, queue depth, render duration, error rate)
+- [ ] Grafana dashboard — pre-built dashboard JSON templates
+- [ ] Distributed tracing — OpenTelemetry spans for cross-node operations
+- [ ] Structured logging aggregation — Loki/ELK-ready JSON logs with correlation IDs
+- [ ] Alert rules — queue backlog, worker failure rate, render timeout
 
-### Match Intelligence
+#### v0.7.2 — Reliability & Fault Tolerance (planned)
 
-- [x] EP1 act-weighted timeline partitioning (4-act dramatic pacing)
-- [x] EP3 top-K rerank with order-backtrack reuse penalty
-- [x] EP2 beat time anchor (structured beats with `act` + `approx_ratio`)
-- [x] Diversity post-processing (sliding-window scene reuse limit)
-- [x] Footage coverage gate (warn-only when below threshold)
+- [ ] Circuit breaker — for external APIs (LLM, TTS, TMDB, VLM)
+- [ ] Dead letter queue — failed tasks moved to DLQ for inspection and replay
+- [ ] Graceful shutdown — drain in-flight tasks before process exit
+- [ ] Job checkpointing — save intermediate state for long-running tasks
+- [ ] Retry policy framework — configurable per-step retry strategies
+- [ ] Health check framework — dependency health (LLM, TTS, storage)
 
-### Effect Portfolio
+### v0.8.x — Advanced Features
 
-- [x] EP4 hook templates & set pieces (genre-appropriate scroll-stoppers + named-scene injection)
-- [x] EP5 title card + cover.jpg export + vertical safe area (9:16 subtitle margin tightening)
-- [x] EP6 duck curve & RMS-based loudness normalization
+> **Goal**: Add batch processing, advanced rendering, and multi-language support for power users.
 
-### Extensibility & Pipeline
+#### v0.8.0 — Batch Processing & Workflow Orchestration (planned)
 
-- [x] EP8 VisionCaptioner abstraction (`vision/` package; stub provider, extensible via Plugin API)
-- [x] EP9 pause/resume (`--pause-at` + `mn resume` + `pipeline_state.json`)
-- [x] Contract layer (`contract.py` — stable API boundary; now the surface consumed by the external [movie-narrator-web](https://github.com/zcbacxc/movie-narrator-web) package, `CONTRACT_VERSION = (0, 5, 1)`)
-- [x] Stage E productization (CLI match summary + RS-07/08/09 render fixes)
+- [ ] Batch job submission — submit N movies in one API request
+- [ ] Batch templates — series, playlists, themed collections
+- [ ] Job dependencies — DAG-based task chaining (research → script → render)
+- [ ] Scheduled jobs — cron-based recurring task submission
+- [ ] Batch progress tracking — aggregate progress across sub-tasks
+- [ ] CONTRACT_VERSION → `(0, 8, 0)` — batch workflow types exported via SDK
 
-## v0.5.x — Ecosystem
+#### v0.8.1 — Advanced Rendering & Effects (planned)
 
-> **Goal**: Freeze the public API surface (Pipeline, Workflow, Plugin, SDK) before Cloud features depend on it.
+- [ ] Scene transitions — crossfade, cut, wipe between segments
+- [ ] Multi-track audio — narration + BGM + SFX mixing
+- [ ] Picture-in-picture — overlay layouts for reaction/commentary style
+- [ ] Text animations — kinetic typography for hooks and titles
+- [ ] Custom branding — watermark, logo, intro/outro cards
+- [ ] Render preset sharing format — shareable render configurations
 
-### M1 — Plugin registry infrastructure (#91)
+#### v0.8.2 — Multi-language & Internationalization (planned)
 
-- [x] Plugin API for custom pipeline steps (step registration, lifecycle hooks, dependency declaration)
-- [x] StepRegistry + ProviderRegistry with `@register_step` / `@register_tts` / `@register_vision` / `@register_llm` / `@register_research` decorators
-- [x] UnifiedParamSchema — `PARAM_WHITELIST` auto-derived from `JobParams` model fields
-- [x] SDK surface exports (`list_presets`, `get_preset`) in `contract.py` and `__init__.py`
+- [ ] Full i18n pipeline — language-aware script generation and matching
+- [ ] Localized TTS voices — per-language voice selection and fallback
+- [ ] Cross-language clip matching — match clips regardless of audio language
+- [ ] Subtitle translation chain — source → intermediate → target language
+- [ ] Web UI localization — i18n support in movie-narrator-web
 
-### M2 — SDK freeze (#92)
+### v0.9.x — Stabilization & Polish
 
-- [x] Python SDK for programmatic usage (`from movie_narrator import ...`)
-- [x] Custom pipeline step registration (`@register_step`)
-- [x] Plugin discovery via `importlib.metadata` entry points (`movie_narrator.plugins` group)
-- [x] Third-party provider extensions (TTS, LLM, research backends via Plugin API)
-- [x] `Services.logger` optional field for structured logging in plugins
-- [x] Out-of-tree example plugin (`examples/plugins/watermark/`)
+> **Goal**: Optimize performance, harden security, and complete documentation for v1.0 readiness.
 
-### WP6 — Scene filtering (#93)
+#### v0.9.0 — Performance Optimization (planned)
 
-- [x] Intro skip — auto-detect and skip intro/logo sequences via luminance + motion analysis
-- [x] Dark frame detection — filter near-black frames that waste narration budget
-- [x] Highlight window — configurable time-window-based scene prioritization
+- [ ] Render pipeline parallelization — concurrent segment encoding
+- [ ] Memory optimization — streaming processing for large videos
+- [ ] Cache strategy refinement — LLM response caching, scene embedding cache
+- [ ] Worker warm-up — pre-load models on worker start
+- [ ] Cold-start optimization — lazy initialization of heavy dependencies
+- [ ] Benchmark suite — automated performance regression tests
 
-### WebUI split — Dual repository separation (#94, #95)
+#### v0.9.1 — Security Hardening (planned)
 
-- [x] WebUI (FastAPI + React) extracted into standalone repo [movie-narrator-web](https://github.com/zcbacxc/movie-narrator-web)
-- [x] Core engine is now a pure CLI package with no web dependencies
-- [x] Contract versioning (`CONTRACT_VERSION = (0, 5, 0)`) for import-time compatibility checks
+- [ ] OAuth2 authentication — full OAuth2 flow for web clients
+- [ ] Input sanitization — comprehensive validation for all API inputs
+- [ ] Tenant isolation hardening — storage path isolation, resource quotas
+- [ ] Audit logging — all API operations logged for compliance
+- [ ] Secret management — Vault / Sealed Secrets integration
+- [ ] Security scanning — dependency audit, SAST in CI pipeline
 
-### M4 — Provider migration
+#### v0.9.2 — Documentation & Developer Experience (planned)
 
-- [x] LLM registry (`llm_registry`) — `utils/llm.py` migrated to registry pattern with built-in `openai` provider
-- [x] Research registry (`research_registry`) — `pipeline/research.py` migrated to registry pattern with built-in `llm` provider
-- [x] TTS/Vision factory legacy fallback cleanup — removed dead code, registry-only dispatch
-- [x] Protocol validation — `tts_registry` and `vision_registry` enforce ABC conformance at `create()` time
-- [x] `PluginContext` extended with `llm` and `research` fields
-- [x] `CONTRACT_VERSION` bumped to `(0, 5, 1)` — backward compatible (new exports only)
-- [x] SDK exports: `register_llm`, `register_research`, `llm_registry`, `research_registry` added to `contract.py` and `__init__.py`
+- [ ] OpenAPI/Swagger spec — auto-generated API documentation
+- [ ] Deployment guides — Docker, K8s, bare metal tutorials
+- [ ] Tutorial series — getting started → advanced usage walkthroughs
+- [ ] Architecture Decision Records (ADRs) — key design decisions documented
+- [ ] Migration guide — v0.x → v1.0 upgrade path
+- [ ] Integration test suite — cross-module and end-to-end tests
+- [ ] Test coverage gate — >95% coverage enforced in CI
 
-### M5 — Community & packaging
+### v1.0.0 — Stable Release
 
-- [x] CLI plugin commands (`mn plugin list|discover|registries|version`)
-- [x] Plugin template (`examples/plugins/template/`) with README quick-start guide
-- [x] `check_version()` helper for import-time version validation by external consumers
-- [x] `ProviderRegistry.info()` method for structured provider metadata
-- [x] Packaging guide (`docs/PACKAGING.md`) — versioning, entry points, publishing workflow
+> **Goal**: API stability guarantee, production-ready, feature-complete for target use cases.
 
-> **Design note**: SDK and Plugin API are designed together — the SDK is the primary consumer of the Plugin API, so both must stabilize in the same release to avoid compatibility pressure.
-
-### v0.5.3 — Hardening
-
-- [x] SDK API reference (`mkdocs.yml` + `docs/sdk/` — auto-generated from docstrings via mkdocstrings)
-- [x] Performance benchmark script (`benchmarks/profile_pipeline.py` — per-step profiling in CI mode)
-- [x] Quickstart guide (`docs/QUICKSTART.md` — end-to-end plugin tutorial)
-- [x] Research provider example (`examples/plugins/research-wiki/` — Wikipedia API-based research provider)
-- [x] `ResearchInfo` added to SDK exports (`contract.py` + `__init__.py`)
-- [x] `PLUGIN_DEVELOPMENT.md` updated with LLM and Research provider sections
-- [x] `docs` optional dependency group (mkdocs + mkdocstrings)
-
-### v0.5.4 — Quality Uplift
-
-- [x] VLM caption provider (`vision/vlm.py` — cloud VLM API for real visual scene descriptions, Q-M5)
-- [x] Multi-candidate horse race (`race.py` + `mn race` CLI — run N variations, score, rank, Q-P2)
-- [x] Reference video imitation (`imitate.py` + `mn imitate` CLI — extract style from viral narration, Q-P7)
-- [x] Layer 0 runbook (`examples/l2/RUNBOOK.md` — zero-code quality improvement guide, Q-X1~X6)
-
-### v0.5.5 — Logging Improvements
-
-- [x] Configurable log levels (`--log-level DEBUG|INFO|WARNING|ERROR` on `mn create`/`resume`/`imitate`)
-- [x] Verbose console mode (`--verbose` flag for real-time debug output)
-- [x] RotatingFileHandler (10MB, 5 backups) preventing unbounded log growth
-- [x] JSON format logging option for structured log aggregation (ELK/Loki)
-- [x] Run ID correlation (8-char ID in log prefix + metadata.json)
-- [x] Sub-step timing (`step_timing` for LLM/TTS/ffmpeg call profiling)
-- [x] Services.logger integration (AppLogger auto-injected for plugin use)
-- [x] Docs/examples alignment with v0.5.4 project state
-
-### v0.5.6 — Narrative Quality & External Data
-
-- [x] Narrative five-principles + anti-AI-tone in prompt templates (NA-M1-S1)
-- [x] Platform tone adaptation — `target_platform` for douyin/bilibili/youtube (NA-M1-S2)
-- [x] Rhythm zone & emotion marking on plot beats (NA-M1-S3)
-- [x] Rhythm-zone influence on match scoring (NA-M1-S3+)
-- [x] Narrator perspective & character anchor — `narrator_perspective` / `focus_character` (NA-M1-S4)
-- [x] CLI flags for perspective — `--narrator-perspective` / `--focus-character` (NA-M1-S4+)
-- [x] Two-phase script self-check judge with retry (NA-M1-S5)
-- [x] Judge feedback loop — inject issues into retry prompt (NA-M1-S5+)
-- [x] Structured movie card for reduced hallucination (NA-M2-S1)
-- [x] TMDB external data source for fact verification (NA-M2-S1+)
-- [x] BGM emotion-based selection using beat metadata (NA-M4-S1)
-- [x] Emotion-weighted BGM selection with energy alignment (NA-M4-S1+)
-- [x] Render template system with per-preset styling (NA-M6-S1)
-- [x] Language chain consistency — single `lang` source of truth (R2-NA-LANG)
-- [x] Retryable error codes for network-type failures (R2-NA-ORCH)
-- [x] TMDB provider import-time registration fix (`pipeline/research.py`)
-- [x] YAML whitelist comments sync — 12 missing params documented (`examples/job.example.yaml`)
-- [x] L2 YAML comment fixes — WP1 short keys, prompt_target_segment_duration (`examples/l2/job.l2.douyin.yaml`)
-- [x] README / cli-usage.sh / ROADMAP alignment with current codebase
-
-### v0.5.7 — Quality Hardening
-
-- [x] TMDB provider in-memory caching (`_TMDB_CACHE`) for all GET requests
-- [x] TMDB rate-limit retry — HTTP 429 with Retry-After header parsing + exponential backoff
-- [x] TMDB graceful degradation — returns original LLM card after retry exhaustion
-- [x] Render template tests — 13 tests for `{movie}` placeholder substitution and rendering
-- [x] v0.5.6 edge-case tests — 35 tests for perspective, platform tone, lang chain, error classification
-- [x] Feature-level benchmark profiling — judge LLM, TMDB, BGM emotion per-feature timing
-- [x] Total test count: 876 → 921 (+45 new tests, 0 failures)
-
-### v0.5.8 — Script Quality Deep Dive (2026-07-29)
-
-- [x] Fix `_score_bgm_candidate` multi-functionality reward bug (branch condition `emo == mood` always False)
-- [x] Multilingual anti-AI tone — expand banned phrase list beyond Chinese (English, Japanese, Korean)
-- [x] Enhanced Judge — 5 dimensions (hook, spoiler, accuracy, anti-AI compliance, narrative principle adherence)
-- [x] Beat deduplication — detect and merge duplicate plot beats before Phase 2 expansion
-- [x] Built-in hook template library — fallback hook patterns when user doesn't provide `hook_templates`
-- [x] Script-level QA gate — validate script before TTS (length, diversity, hook presence)
-
-### v0.5.9 — Voice & Audio Quality (2026-07-29)
-
-- [x] TTS duration feedback v2 — speed adjustment for overflow segments after v1 pause reduction (capped at 1.15x)
-- [x] TTS output quality validation — clipping detection, SNR estimation, silence check
-- [x] Emotion-aware TTS — per-segment prosody speed/pitch driven by beat emotion labels (intense/suspense/calm/twist/laughter)
-- [x] BGM dynamic transition — per-zone gain adjustment with crossfade on emotion zone changes
-- [x] Audio quality aggregation — per-segment audio metrics in metadata.json
-
-### v0.5.10 — Subtitle & Translation Quality (2026-07-29)
-
-- [x] Subtitle QA — CPS (characters per second), overlap detection, line length compliance
-- [x] Translation terminology consistency — cross-chunk glossary extraction and enforcement
-- [x] Subtitle display length validation — ensure translated text fits render area
-- [x] Bilingual subtitle optimization — line balancing for bilingual mode
-- [x] Mark untranslated lines in output metadata
-
-### v0.5.11 — Match & Alignment Precision (2026-07-29)
-
-- [x] Word-level alignment — leverage WhisperX word timestamps for sub-segment precision
-- [x] Match quality scoring aggregation — composite score across embedding + rhythm + diversity
-- [x] Scene diversity check — detect and penalize repeated scene usage across segments
-- [x] Stricter alignment drift threshold — tighten from 0.5 to 0.3 based on L2 test data
-- [x] Alignment confidence scoring — flag low-confidence segments for review
-
-### v0.5.12 — Holistic QA & Quality Dashboard (2026-07-29)
-
-- [x] Intermediate product QA gates — audio, subtitle, script quality checks before render
-- [x] Quality score aggregation — cross-step quality dashboard in metadata.json
-- [x] Quality regression baseline — track quality metrics across runs for trend analysis
-- [x] Video encoding quality check — bitrate, codec, resolution validation
-- [x] QA report export — structured quality report alongside deliverables
-
-## v0.6.x — Cloud
-
-### v0.6.0 — Task Queue & Async Job System (2026-07-29)
-
-- [x] Task queue (async job submission, progress polling, retry) — `LocalTaskQueue` with `ThreadPoolExecutor`, `TaskQueue` protocol for pluggable backends
-- [x] Task models — `TaskStatus`, `TaskPriority`, `TaskRequest`, `TaskProgress`, `TaskResult`, `Task` with full lifecycle tracking
-- [x] Task persistence — JSON-based `TaskStorage` with atomic writes, thread-safe, survives process restarts
-- [x] Cooperative cancellation — `CancelController` implementing `RunController` protocol, interruptible retry sleep
-- [x] Progress tracking — `ProgressConsole` wrapper intercepting step events for real-time progress updates
-- [x] Retry with exponential backoff — retryable error detection via error type matching, interruptible sleep
-- [x] CLI task queue commands — `mn submit`, `mn status`, `mn tasks`, `mn cancel`, `mn wait`, `mn cleanup`
-- [x] Contract exports — `CONTRACT_VERSION` bumped to `(0, 6, 0)`, cloud types exported via SDK
-
-### v0.6.1 — Remote Inference (2026-07-29)
-
-- [x] REST API server — `TaskAPIServer` with stdlib `http.server`, endpoints for task CRUD + artifact download
-- [x] Remote task queue client — `RemoteTaskQueue` implementing `TaskQueue` protocol via HTTP, stdlib `urllib` only
-- [x] Worker daemon — `WorkerDaemon` / `run_daemon()` combining `LocalTaskQueue` + `TaskAPIServer` with graceful shutdown
-- [x] Artifact management — `list_artifacts()`, `download_artifact()`, `download_all_artifacts()` with path-traversal protection
-- [x] Remote provider proxies — `register_remote_llm()` / `register_remote_tts()` for offloading inference to remote workers
-- [x] CLI remote commands — `mn serve`, `mn download`, `--remote` flag on `mn submit`/`status`/`tasks`/`cancel`/`wait`
-- [x] Contract exports — `CONTRACT_VERSION` bumped to `(0, 6, 1)`, remote inference types exported via SDK
-
-- [ ] Distributed rendering (split video segments across nodes)
-- [ ] Web service deployment (REST API, authentication, multi-tenant) — note: the Web UI itself is now an independent package ([movie-narrator-web](https://github.com/zcbacxc/movie-narrator-web)); this item covers cloud deployment/hosting concerns, not the UI codebase
+- [ ] **CONTRACT_VERSION freeze** → `(1, 0, 0)` — API surface declared stable
+- [ ] **API stability guarantee** — no breaking changes in v1.x without v2.0
+- [ ] **Final documentation pass** — all docs reviewed and up-to-date
+- [ ] **Release announcement** — changelog, migration guide, blog post
+- [ ] **Long-term support policy** — v1.x maintenance branch and backport rules

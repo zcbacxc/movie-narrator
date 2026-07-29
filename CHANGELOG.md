@@ -9,157 +9,118 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added (v0.6.1 — Remote Inference)
 
-- **REST API server** (`cloud/api.py`): `TaskAPIServer` — lightweight HTTP server built on Python stdlib `http.server` (no extra dependencies). Exposes REST endpoints for remote task management: `POST /tasks` (submit), `GET /tasks` (list with `?status=` filter), `GET /tasks/{id}` (details), `DELETE /tasks/{id}` (cancel), `GET /tasks/{id}/result` (terminal result), `GET /tasks/{id}/artifacts` (output file listing), `GET /tasks/{id}/download/{file}` (file download with path-traversal protection), `GET /health` (health check), `GET /info` (server version + worker count). Uses `ThreadingHTTPServer` for concurrent request handling. Supports non-blocking start for testing and blocking start with SIGINT handling for production.
-- **Remote task queue client** (`cloud/remote_queue.py`): `RemoteTaskQueue` — implements the `TaskQueue` protocol by delegating all operations to a remote `TaskAPIServer` via HTTP. Uses stdlib `urllib.request` (no extra dependencies). Methods: `submit`, `get_task`, `get_status`, `get_progress`, `get_result`, `cancel`, `list_tasks`, `wait` (blocking with timeout + poll), `health_check`, `server_info`, `shutdown` (no-op). `RemoteQueueError` exception for connection/protocol failures. Supports `X-API-Key` header for authentication. `base_url` property for endpoint discovery.
-- **Worker daemon** (`cloud/daemon.py`): `WorkerDaemon` class and `run_daemon()` function — server-side component that combines a `LocalTaskQueue` (actual pipeline execution) with a `TaskAPIServer` (remote API). Supports context manager protocol, non-blocking start for testing, blocking start with SIGINT/SIGTERM graceful shutdown. `is_running` property and `base_url` property. This is the main entry point for `mn serve`.
-- **Artifact management** (`cloud/remote_provider.py`): `list_artifacts()` — lists output files (filename, size, path) for a completed task; `download_artifact()` — downloads a single output file with streaming (64KB chunks) and path-traversal protection; `download_all_artifacts()` — downloads all artifacts from a task. All support optional `api_key` for authenticated servers.
-- **Remote provider registration** (`cloud/remote_provider.py`): `register_remote_llm()` — registers a "remote" LLM provider that proxies inference calls to a remote worker via OpenAI-compatible API; `register_remote_tts()` — registers a "remote" TTS provider. Both use the existing `@register_llm` / `@register_tts` decorators and include duplicate-registration guards.
-- **CLI remote commands** (`cli.py`): new `mn serve` command (start the remote inference API server with `--host`, `--port`, `--max-workers`, `--storage-dir` options); new `mn download` command (download task artifacts from a remote server); `--remote` / `-r` flag added to `mn submit`, `mn status`, `mn tasks`, `mn cancel`, `mn wait` commands to operate against a remote server instead of local queue.
-- **Contract exports**: `CONTRACT_VERSION` bumped from `(0, 6, 0)` to `(0, 6, 1)` — new remote inference types exported via `contract.py` and `__init__.py`: `RemoteTaskQueue`, `RemoteQueueError`, `TaskAPIServer`, `WorkerDaemon`, `download_artifact`, `download_all_artifacts`, `list_artifacts`, `register_remote_llm`, `register_remote_tts`, `run_daemon`.
-- **v0.6.1 remote inference tests** (`tests/test_v061_remote.py`): 44 new tests covering API server (health check, server info, submit/get/list/cancel tasks, status filter, not-found handling, invalid JSON, invalid task request, unknown path 404), remote task queue (base_url property, health check success/failure, server info, wait timeout/not-found, shutdown no-op, connection error, API key header), worker daemon (start/stop, context manager, base_url property, double-start raises), artifact management (list artifacts, list with no output, download artifact, download all, download non-existent, path traversal protection), and remote provider registration (register LLM/TTS, duplicate registration guard).
+- **REST API server** (`cloud/api.py`): `TaskAPIServer` — lightweight HTTP server built on Python stdlib (`ThreadingHTTPServer`, no extra dependencies). Provides REST endpoints for task submission, listing, cancellation, result retrieval, artifact download, and health checks.
+- **Remote task queue client** (`cloud/remote_queue.py`): `RemoteTaskQueue` — implements the `TaskQueue` protocol by delegating to a remote `TaskAPIServer` via stdlib `urllib.request`. Supports `X-API-Key` authentication. `RemoteQueueError` for connection/protocol failures.
+- **Worker daemon** (`cloud/daemon.py`): `WorkerDaemon` class and `run_daemon()` — combines `LocalTaskQueue` (pipeline execution) with `TaskAPIServer` (remote API). Main entry point for `mn serve`.
+- **Artifact management** (`cloud/remote_provider.py`): `list_artifacts()`, `download_artifact()`, `download_all_artifacts()` — streaming download with path-traversal protection. All support optional `api_key`.
+- **Remote provider registration** (`cloud/remote_provider.py`): `register_remote_llm()` and `register_remote_tts()` — proxy inference calls to a remote worker via OpenAI-compatible API. Include duplicate-registration guards.
+- **CLI remote commands** (`cli.py`): `mn serve` (start API server), `mn download` (download artifacts), `--remote` flag added to `mn submit`/`status`/`tasks`/`cancel`/`wait`.
+- **Contract exports**: `CONTRACT_VERSION` bumped from `(0, 6, 0)` to `(0, 6, 1)` — 9 new remote inference types exported via SDK.
+- **Tests** (`tests/test_v061_remote.py`): +44 tests covering API server, remote queue, worker daemon, artifact management, and remote provider registration.
 
 ### Changed (v0.6.1)
 
-- `contract.py`: `CONTRACT_VERSION` bumped from `(0, 6, 0)` to `(0, 6, 1)` — backward compatible (new exports only). Remote inference types imported alongside existing cloud types.
-- `cloud/__init__.py`: Remote inference types added to public API exports.
-- `__init__.py`: Remote inference types added to SDK exports.
+- `contract.py`: `CONTRACT_VERSION` bumped from `(0, 6, 0)` to `(0, 6, 1)` — MINOR bump (backward compatible, new exports only). Remote inference types imported alongside existing cloud types.
+- `cloud/__init__.py` / `__init__.py`: Remote inference types added to public API exports.
 - `cli.py`: `_get_queue()` helper extended to support `--remote` flag, returning `RemoteTaskQueue` when a remote URL is provided.
-- `tests/test_contract.py`: Contract version test updated to expect `(0, 6, 1)`.
-- `tests/test_v060_task_queue.py`: Contract version assertion updated from `(0, 6, 0)` to `(0, 6, 1)`.
-
-### Notes
-
-- `CONTRACT_VERSION` bumped from `(0, 6, 0)` to `(0, 6, 1)` — MINOR bump for new remote inference exports (backward compatible, new exports only).
-- All 1388 tests pass (31 skipped in CI/codec-limited mode, 0 failures).
-- Total test count increased from 1313 (v0.6.0) to 1388 (+44 new tests, +31 pre-existing skipped).
-- The `TaskAPIServer` uses only Python stdlib (`http.server`, `urllib`) — zero additional dependencies required for remote inference.
-- The `RemoteTaskQueue` is the second implementation of the `TaskQueue` protocol — clients can submit and monitor tasks on remote workers without local pipeline execution.
-- Remote provider proxies (`register_remote_llm`, `register_remote_tts`) allow offloading LLM/TTS inference to a remote worker via OpenAI-compatible API forwarding.
+- `tests/test_contract.py` / `tests/test_v060_task_queue.py`: Contract version assertions updated to `(0, 6, 1)`.
+- All 1388 tests pass (31 skipped in CI, 0 failures). +44 new tests vs v0.6.0.
 
 ## [0.6.0] - 2026-07-29
 
 ### Added (v0.6.0 — Cloud Task Queue & Async Job System)
 
-- **Cloud package** (`cloud/`): new package providing async task queue infrastructure for cloud deployment — includes `models.py` (task lifecycle data structures), `storage.py` (JSON-based persistence), `queue.py` (in-process task queue), and `worker.py` (pipeline execution with progress tracking and retry).
-- **Task models** (`cloud/models.py`): `TaskStatus` (pending/running/completed/failed/cancelled/retrying), `TaskPriority` (low/normal/high/urgent), `TaskRequest` (mirrors `build_context` args + retry config), `TaskProgress` (step-level tracking with completed/skipped/failed lists), `TaskResult` (video/audio/subtitle paths + error capture), and `Task` (central model with lifecycle timestamps, elapsed time, and summary export). `TERMINAL_STATES` and `ACTIVE_STATES` frozensets for state classification.
-- **Task storage** (`cloud/storage.py`): `TaskStorage` — JSON-based persistence with atomic writes (temp-file + `os.replace`), thread-safe operations via `threading.Lock`, index file for fast listing, and methods: `save`, `load`, `delete`, `list_tasks` (with status filter + limit), `count`, `clear_terminal`, `clear_all`. Survives process restarts.
-- **Task queue** (`cloud/queue.py`): `TaskQueue` protocol (duck-typed interface for local/remote/cloud backends) and `LocalTaskQueue` implementation using `ThreadPoolExecutor` — supports `submit`, `get_task`, `get_status`, `get_progress`, `get_result`, `cancel`, `list_tasks`, `wait` (blocking with timeout + poll), `cleanup_terminal`, `cleanup_all`, `active_count` property, and graceful `shutdown`.
-- **Worker** (`cloud/worker.py`): `CancelController` (cooperative cancellation via `threading.Event`, implements `RunController` protocol), `ProgressConsole` (console wrapper intercepting step events for real-time progress tracking), `run_task` (pipeline execution with retry support — exponential backoff, interruptible sleep, retryable error detection via error type name matching), and `_execute_task` (single-attempt execution — builds context, wraps console with progress tracker, captures results/errors/traceback).
-- **CLI task queue commands** (`cli.py`): six new commands — `mn submit` (async task submission with `--wait`/`--timeout` options), `mn status` (detailed task status with progress breakdown), `mn tasks` (task listing with status filter + limit), `mn cancel` (cancel running task), `mn wait` (block until terminal with configurable timeout/poll), `mn cleanup` (clear terminal or all tasks).
-- **Contract exports**: `CONTRACT_VERSION` bumped from `(0, 5, 1)` to `(0, 6, 0)` — new cloud types exported via `contract.py` and `__init__.py`: `CancelController`, `LocalTaskQueue`, `ProgressConsole`, `Task`, `TaskProgress`, `TaskQueue`, `TaskRequest`, `TaskResult`, `TaskStatus`, `TaskStorage`, `run_task`.
-- **v0.6.0 task queue tests** (`tests/test_v060_task_queue.py`): 86 new tests covering task status/priority enums, task request serialization, task progress tracking (step update, mark completed/skipped/failed, no duplicates, completed count), task result succeeded/failed properties, task model (defaults, terminal/active states, elapsed seconds, summary, unique IDs), task storage (save/load, delete, list with filter/limit, count, clear terminal/all, persistence across instances, index file), cancel controller (initial state, cancel, reset, RunController protocol), progress console (step tracking, delegation, multiple steps), local task queue (create, auto-start, submit, get task/status/result, cancel, list, wait timeout, cleanup, active count, protocol compliance), worker build output dir, execute task (success, failure, cancellation, progress tracking), run task (first-try success, non-retryable error, retryable retry, retry exhausted, cancellation during sleep), contract exports (version bump, cloud types in contract/init/package), and integration (submit+wait success/failure, cancel running, concurrent tasks, persistence across restart, progress tracking in queue).
+- **Cloud package** (`cloud/`): new package providing async task queue infrastructure — includes `models.py` (task lifecycle data structures), `storage.py` (JSON-based persistence), `queue.py` (in-process task queue), and `worker.py` (pipeline execution with progress tracking and retry).
+- **Task models** (`cloud/models.py`): `TaskStatus`, `TaskPriority`, `TaskRequest`, `TaskProgress`, `TaskResult`, `Task` with lifecycle timestamps and summary export. `TERMINAL_STATES` and `ACTIVE_STATES` frozensets.
+- **Task storage** (`cloud/storage.py`): `TaskStorage` — JSON-based persistence with atomic writes, thread-safe operations, index file for fast listing. Survives process restarts.
+- **Task queue** (`cloud/queue.py`): `TaskQueue` protocol and `LocalTaskQueue` implementation using `ThreadPoolExecutor` — supports submit, cancel, wait, cleanup, and graceful shutdown.
+- **Worker** (`cloud/worker.py`): `CancelController` (cooperative cancellation), `ProgressConsole` (progress tracking), `run_task` (pipeline execution with retry support — exponential backoff, retryable error detection).
+- **CLI task queue commands** (`cli.py`): `mn submit`, `mn status`, `mn tasks`, `mn cancel`, `mn wait`, `mn cleanup`.
+- **Contract exports**: `CONTRACT_VERSION` bumped from `(0, 5, 1)` to `(0, 6, 0)` — 10 new cloud types exported via SDK.
+- **Tests** (`tests/test_v060_task_queue.py`): +86 tests covering task models, storage, queue, worker, contract exports, and integration (submit+wait, cancel, concurrent tasks, persistence across restart).
 
 ### Changed (v0.6.0)
 
-- `contract.py`: `CONTRACT_VERSION` bumped from `(0, 5, 1)` to `(0, 6, 0)` — backward incompatible (MINOR bump for new cloud/task queue exports). Cloud types imported at bottom of module to avoid circular import (`cloud.worker` imports from `pipeline.runner` which imports from `contract`).
-- `__init__.py`: Cloud types added to SDK exports alongside existing pipeline, registry, and plugin exports.
-- `tests/test_contract.py`: Contract version test updated to expect `(0, 6, 0)`.
-- `tests/test_m5_community.py`: `check_version_raises_when_below` test updated to use `(0, 7, 0)` as the future version.
-
-### Notes
-
-- `CONTRACT_VERSION` bumped from `(0, 5, 1)` to `(0, 6, 0)` — MINOR bump for new cloud/task queue exports (backward compatible, new exports only).
-- All 1313 tests pass (31 skipped in CI/codec-limited mode, 0 failures).
-- Total test count increased from 1227 (v0.5.12) to 1313 (+86 new tests).
-- The `LocalTaskQueue` is the first implementation of the `TaskQueue` protocol — future cloud backends (Celery, RQ, SQS + Lambda) can implement the same protocol as drop-in replacements.
-- Cooperative cancellation uses `CancelController` implementing the existing `RunController` protocol — pipeline steps check `check_cancelled(controller)` at step boundaries, enabling graceful termination without thread termination.
+- `contract.py`: `CONTRACT_VERSION` bumped from `(0, 5, 1)` to `(0, 6, 0)` — MINOR bump (backward compatible, new exports only).
+- `__init__.py`: Cloud types added to SDK exports.
+- `tests/test_contract.py` / `tests/test_m5_community.py`: Contract version tests updated.
+- All 1313 tests pass (31 skipped in CI, 0 failures). +86 new tests vs v0.5.12.
 
 ## [0.5.12] - 2026-07-29
 
 ### Added (v0.5.12 — Holistic QA & Quality Dashboard)
 
-- **Video encoding QA** (`utils/video_qa.py`): new module providing video encoding quality validation — `probe_video_encoding` (extracts codec, profile, resolution, fps, bitrate, pixel format, audio codec/bitrate/channels/sample_rate via ffprobe), `check_encoding_quality` (validates codec against accepted list {h264, hevc, h265}, minimum resolution 1280x720, minimum bitrate 1500 kbps, fps range 23–31, audio codec acceptance {aac, mp3, opus}, pixel format compatibility, and standard aspect ratio 16:9 or 9:16), and `evaluate_video_quality` (convenience wrapper that probes then validates). All checks are advisory — issues stored in `ctx.metadata["video_qa"]` with recommendations.
-- **Quality dashboard** (`utils/quality_dashboard.py`): new module for cross-step quality score aggregation — `collect_quality_dimensions` (extracts scores from 8 dimensions: script, audio, alignment, match, subtitle, translation, deliverable, video_encoding), `compute_overall_score` (weighted average with automatic weight redistribution for missing dimensions), `build_quality_dashboard` (builds complete `QualityDashboard` with overall score, per-dimension breakdown, issue counts, and regression baseline comparison), and `_compare_with_baseline` (compares current dimension scores against a previous `metadata.json` for regression detection). Dashboard stored in `ctx.metadata["quality_dashboard"]`.
-- **QA report export** (`utils/qa_report.py`): new module for structured QA report generation — `generate_qa_report_dict` (assembles comprehensive report with overall score, per-dimension breakdown, regression analysis, issue summary, recommendations, and raw QA data), `format_qa_report_text` (human-readable text report with formatted tables), and `export_qa_report` (writes `qa_report.json` and `qa_report.txt` alongside deliverables).
-- **Intermediate QA gate** (`pipeline/qa_gate.py`): new soft pipeline step `run_qa_gate` inserted between `generate_subtitle` and `render_video`. Validates intermediate products before the expensive render step — checks script QA issue count (>10 = critical), audio clipping (>1% = critical), subtitle issue ratio (>50% = critical), alignment low-confidence ratio (>50% = critical), and translation coverage (>30% untranslated = critical). Soft gate: issues logged as warnings, never block unless `--strict`. Skipped in CI unless `qa_enabled=True`.
-- **Pipeline integration** (`pipeline/qa.py`): `validate_deliverable` now also runs video encoding quality checks, builds quality dashboard, and exports structured QA report after the existing deliverable validation.
-- **Metadata export** (`utils/metadata_export.py`): `build_metadata_json` now includes `quality_dashboard` and `video_qa` fields.
-- **Model extension** (`models.py`): `PipelineStatus` extended with `qa_gate: StepStatus` field for the new soft step.
-- **v0.5.12 holistic QA tests** (`tests/test_v0512_holistic_qa.py`): 122 new tests covering video encoding metrics (defaults, serialization, fps rounding), video QA report (defaults, serialization), encoding quality checks (all-pass, bad codec, low resolution, low bitrate, low/high fps, bad audio codec, bad pixel format, non-standard aspect ratio, portrait ok, empty/zero skipped, custom thresholds, multiple issues, hevc accepted), ffprobe probing (file not found, success, fractional fps, format bitrate fallback, no ffprobe, invalid fps, zero denominator), evaluate wrapper (file not found, mocked probe, custom thresholds), quality dimension (labels, serialization), regression delta (improved/regressed/stable, serialization), quality dashboard (defaults, labels, serialization), dimension extractors (all 8 dimensions with data/no-data/edge cases), collect dimensions (empty, all, custom weights, default weights), overall score (empty, single, weighted average, zero weight, redistribution), build dashboard (empty, with data, baseline improved/regressed/stable/not-found, custom weights), baseline comparison (matching, no match, invalid JSON), QA report dict (empty, with data, issue summary, raw reports, timestamp, version), summarize helpers (audio/subtitle), text formatting (basic, empty, regression, recommendations, issue summary, movie name), file export (creates files, creates dir, with baseline, return matches JSON), and QA gate (CI skip, CI with qa_enabled, no CI, script pass/critical, audio clipping/ok, subtitle too-many/ok, alignment low-conf/ok, translation too-many/ok, strict raises, non-strict no raise, multiple issues, result structure, warnings vs issues, zero untranslated).
+- **Video encoding QA** (`utils/video_qa.py`): ffprobe-based encoding validation (codec, resolution, bitrate, fps, audio, aspect ratio). Advisory — issues stored in `ctx.metadata["video_qa"]`.
+- **Quality dashboard** (`utils/quality_dashboard.py`): cross-step score aggregation across 8 dimensions with weighted average and regression baseline comparison. Stored in `ctx.metadata["quality_dashboard"]`.
+- **QA report export** (`utils/qa_report.py`): structured `qa_report.json` + human-readable `qa_report.txt` written alongside deliverables.
+- **Intermediate QA gate** (`pipeline/qa_gate.py`): new soft step `run_qa_gate` inserted before render — validates script/audio/subtitle/alignment/translation quality. Soft gate; `--strict` to abort.
+- **Pipeline integration** (`pipeline/qa.py`): `validate_deliverable` now also runs encoding QA, builds the dashboard, and exports the QA report.
+- **Metadata export** (`utils/metadata_export.py`): `quality_dashboard` and `video_qa` fields added to `metadata.json`.
+- **Model extension** (`models.py`): `PipelineStatus` gains a `qa_gate` field.
+- **Tests** (`tests/test_v0512_holistic_qa.py`): +122 tests covering encoding QA, quality dashboard, QA report export, and QA gate.
 
 ### Changed (v0.5.12)
 
-- `pipeline/runner.py`: Pipeline expanded from 15 to 16 steps with the addition of `run_qa_gate`. Step registry, soft step set, and status field mappings updated.
-- `pipeline/qa.py`: `validate_deliverable` now performs video encoding QA, quality dashboard construction, and QA report export after deliverable validation passes.
-- `utils/metadata_export.py`: Metadata JSON now includes `quality_dashboard` and `video_qa` fields for downstream analysis.
+- `pipeline/runner.py`: Pipeline expanded from 15 to 16 steps with the addition of `run_qa_gate`.
+- `pipeline/qa.py`: `validate_deliverable` now performs video encoding QA, quality dashboard construction, and QA report export.
+- `utils/metadata_export.py`: Metadata JSON now includes `quality_dashboard` and `video_qa` fields.
 - `models.py`: `PipelineStatus` includes `qa_gate` field.
-- `utils/quality_dashboard.py`: `build_quality_dashboard` now checks baseline file existence before attempting regression comparison — keeps `regression_summary` as `"no_baseline"` when the file doesn't exist.
-
-### Notes
-
-- `CONTRACT_VERSION` remains `(0, 5, 1)` — no SDK surface changes.
-- All 1227 tests pass (31 skipped in CI/codec-limited mode, 0 failures).
-- Total test count increased from 1105 (v0.5.11) to 1227 (+122 new tests).
+- `CONTRACT_VERSION` remains `(0, 5, 1)`. All 1227 tests pass (31 skipped in CI, 0 failures). +122 new tests vs v0.5.11.
 
 ## [0.5.11] - 2026-07-29
 
 ### Added (v0.5.11 — Match & Alignment Precision)
 
-- **Alignment QA utilities** (`utils/alignment_qa.py`): new module providing word-level alignment quality validation — `extract_word_segments` (extracts word-level timestamps from WhisperX `align()` output), `assign_words_to_segments` (maps words to timed segments by time-range overlap with chronological pointer advancement), `word_level_remap` (tightens segment boundaries using word-level start/end for sub-segment precision while enforcing monotonic non-overlap and no-widening constraints), `compute_segment_confidence` (mean of word-level scores, 0.0 when no word data), `validate_alignment` (aggregates per-segment confidence into `AlignmentQAReport` with low-confidence flagging at < 0.6 threshold), and `check_drift` (validates ASR reliability by comparing single-segment duration against total narration duration, tightened threshold from 0.5 to 0.3). All checks are advisory — low-confidence segments logged as warnings, never block the pipeline.
-- **Match quality scoring** (`utils/match_quality.py`): new module for composite match quality aggregation — `compute_composite_score` (weighted average of embedding 60% + rhythm 25% + diversity 15%, with automatic weight redistribution for missing dimensions), `compute_diversity_scores` (per-clip scene reuse penalty within sliding window, 15% penalty per overuse beyond `max_reuse`), `score_clips` (assigns per-dimension scores to `MatchedClip` fields), `aggregate_match_quality` (pipeline-level `MatchQualitySummary` with avg/min/max composite, low-quality flagging at < 0.4, diversity penalty count), and `MatchQualitySummary` dataclass with `to_dict()` for `metadata.json` serialization.
-- **Word-level alignment pipeline integration** (`pipeline/align.py`): `align_audio` now extracts word segments from WhisperX `align()` result, assigns them to timed segments, applies word-level remapping for tighter boundaries, and runs alignment QA validation. Metadata stored in `ctx.metadata["align_word_segments"]`, `ctx.metadata["align_words_assigned"]`, `ctx.metadata["align_word_tightened"]`, and `ctx.metadata["alignment_qa"]`. Drift threshold tightened from 0.5 to 0.3 based on L2 test data analysis.
-- **Composite match scoring pipeline integration** (`pipeline/match.py`): `match_clips` now computes per-clip composite scores across embedding + rhythm + diversity dimensions, applies diversity penalty for repeated scene usage within sliding window, and aggregates match quality summary. Metadata stored in `ctx.metadata["match_quality"]`. Low-quality clips flagged via `console.inline_warn`.
-- **Model extensions** (`models.py`): new `WordSegment` model (word, start, end, score) for WhisperX word-level alignment data. `TimedSegment` extended with `words: List[WordSegment]` and `confidence: float` fields. `MatchedClip` extended with `embedding_score`, `rhythm_score`, `diversity_score`, and `composite_score` optional float fields for per-dimension quality tracking.
-- **v0.5.11 match & alignment tests** (`tests/test_v0511_match_align.py`): 46 new tests covering word segment extraction (normal/empty/skips-empty/missing-fields), word-to-segment assignment (normal/empty/partial-overlap), confidence computation (normal/empty/zero-scores/mixed), low-confidence flagging (default/custom-threshold), word-level remapping (tightens/no-words/monotonic/no-widening), drift detection (within/exceeds/boundary/multiple-segments/threshold-is-0.3), alignment validation (no-words/with-confidence/to-dict), composite scoring (all-dimensions/partial/all-none/clamped/custom-weights), diversity scoring (no-reuse/with-reuse/none-scene/window), clip scoring (embedding/heuristic/with-rhythm), aggregation (normal/with-diversity-penalty/empty/to-dict), and model fields (WordSegment/TimedSegment-defaults/TimedSegment-with-words/MatchedClip-defaults/MatchedClip-dump-includes-new-fields).
+- **Alignment QA** (`utils/alignment_qa.py`): word-level alignment validation — word segment extraction, per-segment confidence scoring, low-confidence flagging, and ASR drift check (threshold tightened 0.5 → 0.3). Advisory.
+- **Match quality scoring** (`utils/match_quality.py`): composite score (embedding + rhythm + diversity) with sliding-window scene-reuse penalty. `MatchQualitySummary` serialized to `metadata.json`.
+- **Alignment integration** (`pipeline/align.py`): word-level boundary remapping + QA validation; drift threshold tightened 0.5 → 0.3 based on L2 data.
+- **Match integration** (`pipeline/match.py`): per-clip composite scoring and diversity penalty; summary stored in `ctx.metadata["match_quality"]`.
+- **Model extensions** (`models.py`): new `WordSegment` model; `TimedSegment` and `MatchedClip` gain quality metric fields.
+- **Tests** (`tests/test_v0511_match_align.py`): +46 tests covering word alignment, confidence scoring, remapping, drift detection, and composite scoring.
 
 ### Changed (v0.5.11)
 
-- `pipeline/align.py`: Drift threshold tightened from 0.5 to 0.3 (`_DRIFT_THRESHOLD`). Word-level alignment, confidence scoring, and QA validation now integrated into the WhisperX alignment path.
-- `pipeline/match.py`: Composite quality scoring and diversity penalty now applied to all matched clips after the assignment phase.
-- `models.py`: `WordSegment` class added before `TimedSegment` (forward reference fix). `TimedSegment` and `MatchedClip` extended with quality metric fields.
-
-### Notes
-
-- `CONTRACT_VERSION` remains `(0, 5, 1)` — no SDK surface changes.
-- All 1105 tests pass (31 skipped in CI/codec-limited mode, 0 failures).
-- Total test count increased from 1059 (v0.5.10) to 1105 (+46 new tests).
+- `pipeline/align.py`: Drift threshold tightened from 0.5 to 0.3. Word-level alignment, confidence scoring, and QA validation integrated into the WhisperX alignment path.
+- `pipeline/match.py`: Composite quality scoring and diversity penalty applied to all matched clips.
+- `models.py`: `WordSegment` class added; `TimedSegment` and `MatchedClip` extended with quality metric fields.
+- `CONTRACT_VERSION` remains `(0, 5, 1)`. All 1105 tests pass (31 skipped in CI, 0 failures). +46 new tests vs v0.5.10.
 
 ## [0.5.10] - 2026-07-29
 
 ### Added (v0.5.10 — Subtitle & Translation Quality)
 
-- **Subtitle QA utilities** (`utils/subtitle_qa.py`): new module providing per-cue subtitle quality validation — `check_cps` (characters per second with CJK-weighted effective length, script-aware thresholds: ≤20 CPS Latin / ≤15 CPS CJK), `check_line_length` (line count estimation and max-chars-per-line compliance), `check_overlaps` (cue overlap detection), `check_display_fit` (render area overflow estimation using font-metric heuristics), `analyze_cue` (aggregates all checks into `SubtitleCueMetrics`), and `validate_subtitles` / `aggregate_cue_metrics` (pipeline-level summary for `metadata.json`). All checks are advisory (soft gate) — issues logged as warnings, never block the pipeline.
-- **Translation glossary** (`utils/glossary.py`): new module for cross-chunk terminology consistency — `extract_terms` (quoted phrases and capitalized proper nouns with deduplication and substring filtering), `build_glossary` (builds source→translation mapping across chunks, flags inconsistent translations), `check_translation_consistency` (wrapper returning `GlossaryReport`), and `mark_untranslated_lines` (identifies lines where translation equals source text). Results stored in `ctx.metadata["translation_glossary"]` and `ctx.metadata["untranslated_indices"]`.
-- **Bilingual line balancing** (`utils/text_image.py`): new `_balance_lines` function that redistributes CJK text across lines for even visual appearance. Applied in `_render_bottom` after word-wrap — only affects CJK text (Latin word boundaries are preserved). Improves readability of bilingual subtitles where one line is significantly longer than the other.
-- **Subtitle QA pipeline integration** (`pipeline/subtitle.py`): `generate_subtitle` now runs `validate_subtitles` on both original and translated tracks, stores results in `ctx.metadata["subtitle_qa"]`, and checks display fit for translated text against render area dimensions (vertical/horizontal aware). Overflow cues flagged in `ctx.metadata["subtitle_qa"]["display_fit_issues"]`.
-- **Translation quality pipeline integration** (`pipeline/translate.py`): `translate_subtitles` now marks untranslated lines (where translation equals source) and runs cross-chunk glossary consistency check. Untranslated indices stored in `ctx.metadata["untranslated_indices"]`; glossary report stored in `ctx.metadata["translation_glossary"]`. Warnings surfaced via `console.inline_warn`.
-- **v0.5.10 subtitle quality tests** (`tests/test_v0510_subtitle.py`): 57 new tests covering CJK detection, CPS calculation (normal/high/zero-duration), line length (short/long-CJK/long-Latin/multiline), overlap detection, display fit (short/long-CJK/vertical/exact-fit), per-cue analysis, full validation, aggregation, glossary term extraction (quoted-CJK/English/capitalized/empty/short-filtered), glossary consistency (consistent/inconsistent/single-occurrence-filtered), untranslated line marking, subtitle pipeline integration (metadata storage, translated track, display fit issues, overlaps), and bilingual line balancing (CJK/Latin-skipped/single/empty/exceeds-max).
+- **Subtitle QA** (`utils/subtitle_qa.py`): per-cue validation — CPS (CJK-weighted), line length, overlaps, and render-area display fit. Advisory soft gate.
+- **Translation glossary** (`utils/glossary.py`): cross-chunk terminology consistency check + untranslated line marking.
+- **Bilingual line balancing** (`utils/text_image.py`): CJK line redistribution for visually even bilingual subtitles.
+- **Subtitle integration** (`pipeline/subtitle.py`): QA on original + translated tracks; display-fit check against render area.
+- **Translation integration** (`pipeline/translate.py`): untranslated line marking + glossary consistency diagnostics.
+- **Tests** (`tests/test_v0510_subtitle.py`): +57 tests covering subtitle QA, glossary consistency, untranslated detection, and line balancing.
 
 ### Changed (v0.5.10)
 
 - `utils/text_image.py`: `_render_bottom` now applies `_balance_lines` after wrapping each bilingual piece, improving CJK subtitle visual balance.
 - `pipeline/subtitle.py`: `generate_subtitle` now produces subtitle QA metrics for diagnostics.
 - `pipeline/translate.py`: `translate_subtitles` now produces translation quality diagnostics (untranslated lines, glossary consistency).
-
-### Notes
-
-- `CONTRACT_VERSION` remains `(0, 5, 1)` — no SDK surface changes.
-- All 1059 tests pass (31 skipped in CI/codec-limited mode, 0 failures).
-- Total test count increased from 1002 (v0.5.9) to 1059 (+57 new tests).
+- `CONTRACT_VERSION` remains `(0, 5, 1)`. All 1059 tests pass (31 skipped in CI, 0 failures). +57 new tests vs v0.5.9.
 
 ## [0.5.9] - 2026-07-29
 
 ### Added (v0.5.9 — Voice & Audio Quality)
 
-- **Audio QA utilities** (`utils/audio_qa.py`): new module providing per-segment audio quality validation — `detect_clipping` (samples near max amplitude ratio), `estimate_snr` (signal-to-noise ratio via 50ms window partitioning), `check_silence` (silent window fraction), `analyze_segment` (aggregates all checks into `SegmentAudioMetrics`), and `aggregate_metrics` (pipeline-level summary for `metadata.json`). All checks are advisory (soft gate) — issues logged as warnings, never block the pipeline.
-- **Emotion-aware prosody** (`utils/prosody.py`): new module mapping beat emotion labels to speed multipliers (`intense`→1.12x, `suspense`→0.88x, `calm`→0.94x, `twist`→1.06x, `laughter`→1.08x). `apply_speed` uses pydub's frame-rate override trick for speed+pitch shift. `map_segment_emotions` distributes beat emotions across TTS segments with proportional allocation and forward-fill for missing labels.
-- **TTS duration feedback v2** (`pipeline/tts.py`): second-stage overflow correction — after v1 pause reduction, if narration still exceeds target by >10%, applies a uniform speedup (capped at 1.15x) to all segments via post-processing. Avoids costly TTS re-synthesis while bringing duration closer to target.
-- **BGM dynamic transition** (`pipeline/bgm.py`): emotion zone detection (`_detect_emotion_zones`) identifies contiguous same-emotion regions; `_apply_emotion_transitions` applies per-zone gain adjustments (`_EMOTION_BGM_GAIN`) with smooth crossfade at zone boundaries. Transition metadata stored in `ctx.metadata["bgm_transitions"]`.
-- **Crossfade utility** (`utils/audio_mix.py`): `crossfade_segments` function for overlapping audio segment concatenation with configurable crossfade duration.
-- **Audio quality aggregation** (`pipeline/tts.py`): per-segment metrics (`SegmentAudioMetrics`) and summary stored in `ctx.metadata["audio_quality"]` with prosody log and v2 speed info for diagnostics.
-- **v0.5.9 audio quality tests** (`tests/test_v059_audio.py`): 52 new tests covering audio QA (clipping, SNR, silence, segment analysis, aggregation), prosody (emotion-to-speed, apply_speed, segment mapping), crossfade, BGM emotion zone detection and transitions, and TTS pipeline integration (prosody application, quality metrics, v2 speed feedback).
+- **Audio QA** (`utils/audio_qa.py`): per-segment clipping, SNR, and silence detection. Advisory soft gate.
+- **Emotion-aware prosody** (`utils/prosody.py`): beat emotion labels map to TTS speed multipliers (intense/suspense/calm/twist/laughter) via pydub frame-rate override.
+- **TTS duration feedback v2** (`pipeline/tts.py`): second-stage uniform speedup (capped 1.15x) when narration still exceeds target after pause reduction.
+- **BGM dynamic transition** (`pipeline/bgm.py`): emotion zone detection with per-zone gain adjustment and crossfade.
+- **Crossfade utility** (`utils/audio_mix.py`): overlapping audio segment concatenation.
+- **Audio quality aggregation** (`pipeline/tts.py`): per-segment metrics stored in `ctx.metadata["audio_quality"]`.
+- **Tests** (`tests/test_v059_audio.py`): +52 tests covering audio QA, prosody, crossfade, BGM transitions, and TTS integration.
 
 ### Changed (v0.5.9)
 
 - `pipeline/tts.py`: `generate_voice` now applies emotion prosody before audio assembly, runs v2 speed feedback after v1 pause adjustment, and validates audio quality on each segment post-synthesis.
 - `pipeline/bgm.py`: `mix_bgm` now detects emotion zones from `beats_meta` and applies dynamic gain transitions with crossfade.
 - `utils/audio_qa.py`: `estimate_snr` uses a small epsilon floor for pure-silence noise windows so SNR reports as a high value instead of `None`.
-
-### Notes
-
-- `CONTRACT_VERSION` remains `(0, 5, 1)` — no SDK surface changes.
-- All 1002 tests pass (31 skipped in CI/codec-limited mode, 0 failures).
-- Total test count increased from 958 (v0.5.8) to 1002 (+44 new tests, 8 skipped on codec-limited environments).
+- `CONTRACT_VERSION` remains `(0, 5, 1)`. All 1002 tests pass (31 skipped in CI, 0 failures). +44 new tests vs v0.5.8.
 
 ## [0.5.8] - 2026-07-29
 
@@ -178,11 +139,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `pipeline/script.py`: `generate_script` now includes Phase 1.5 (deduplication) and Phase 4 (QA validation) in the pipeline; `judge_script` `max_tokens` increased from 256 to 320 for the larger 5-dimension JSON response.
 - `docs/ROADMAP.md` / `ROADMAP.zh-CN.md`: v0.5.8 items marked as completed.
 
-### Notes
-
-- `CONTRACT_VERSION` remains `(0, 5, 1)` — no SDK surface changes.
-- All 958 tests pass (23 skipped in CI mode, 0 failures).
-- Total test count increased from 921 (v0.5.7) to 958 (+37 new tests).
+- `CONTRACT_VERSION` remains `(0, 5, 1)`. All 958 tests pass (23 skipped in CI, 0 failures). +37 new tests vs v0.5.7.
 
 ## [0.5.7] - 2026-07-29
 
@@ -202,11 +159,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `README.md`: added v0.5.7 milestone entry.
 - `docs/QUICKSTART.md`: updated version reference to 0.5.7.
 
-### Notes
-
-- `CONTRACT_VERSION` remains `(0, 5, 1)` — no SDK surface changes.
-- All 921 tests pass (23 skipped in CI mode, 0 failures).
-- Total test count increased from 876 (v0.5.6) to 921 (+45 new tests).
+- `CONTRACT_VERSION` remains `(0, 5, 1)`. All 921 tests pass (23 skipped in CI, 0 failures). +45 new tests vs v0.5.6.
 
 ## [0.5.6] - 2026-07-28
 
@@ -232,7 +185,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - **TMDB provider registration** (`pipeline/research.py`): added explicit `from ..providers import tmdb` import at module level to ensure `@register_research("tmdb")` executes at import time. Without this, the tmdb provider was only registered when `enrich_movie_card_with_tmdb` was lazily imported inside `_research_via_llm`, causing `research_provider: "tmdb"` to fail with "unknown provider" because the registry check runs before the lazy import.
 - **YAML whitelist comments** (`examples/job.example.yaml`): added 12 missing keys to the params whitelist documentation — `match_skip_intro_sec`, `match_drop_dark_luma`, `match_source_window`, `bgm_loudnorm`, `bgm_metadata_path`, `hook_templates`, `set_pieces`, `target_platform`, `lang`, `render_template`, `narrator_perspective`, `focus_character`.
-- **L2 YAML outdated comments** (`examples/l2/job.l2.douyin.yaml`): updated WP1 short-key comments from "不生效" to "已生效"; corrected the false `prompt_target_segment_duration` comment (it is a valid JobParams field, not a load-failure risk).
+- **L2 YAML outdated comments** (`examples/l2/job.l2.douyin.yaml`): updated WP1 short-key comments from "not effective" to "effective"; corrected the false `prompt_target_segment_duration` comment (it is a valid JobParams field, not a load-failure risk).
 - **Lang params backward compatibility** (`models.py`): `lang` is only added to params when explicitly set by user, preventing unintended behavior changes for existing configs.
 
 ### Changed (v0.5.6)
@@ -242,10 +195,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `docs/ROADMAP.md` / `ROADMAP.zh-CN.md`: added v0.5.6 narrative quality & external data section.
 - `docs/AI_GUIDE.md` / `docs/ARCHITECTURE.md` / `docs/ARCHITECTURE.zh-CN.md`: updated env var count (24→32) and params count (48/52→77) to match current codebase; simplified inline param lists to reference `examples/job.example.yaml`.
 
-### Notes
-
-- `CONTRACT_VERSION` remains `(0, 5, 1)` — no SDK surface changes.
-- All 853 tests pass (23 skipped in CI mode, 0 failures).
+- `CONTRACT_VERSION` remains `(0, 5, 1)`. All 853 tests pass (23 skipped in CI, 0 failures).
 
 ## [0.5.5] - 2026-07-27
 
@@ -276,12 +226,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `examples/l2/README.md`: updated WP1 limitations (short keys now effective).
 - `examples/l2/job.l2.douyin.no_align.yaml`: deleted (temporary diagnostic, v0.4.27 issue resolved).
 - `examples/l2/tools/llm_check.py`: fixed dependency description.
-- `.gitignore`: replaced `docs/规划/` with `docs-nocommit/` for local-only docs.
+- `.gitignore`: replaced `docs/planning/` with `docs-nocommit/` for local-only docs.
 
-### Notes
-
-- `CONTRACT_VERSION` remains `(0, 5, 1)` — no SDK surface changes.
-- All 779 tests pass (23 skipped in CI mode, 0 failures).
+- `CONTRACT_VERSION` remains `(0, 5, 1)`. All 779 tests pass (23 skipped in CI, 0 failures).
 
 ## [0.5.4] - 2026-07-27
 
@@ -301,10 +248,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `examples/job.example.yaml`: documented `vision_captioner` param.
 - `README.md`: added `mn race` and `mn imitate` command examples.
 
-### Notes
-
-- `CONTRACT_VERSION` remains `(0, 5, 1)` — no new SDK exports; Q-M5/Q-P2/Q-P7 are CLI-level features, not SDK surface additions.
-- All 779 tests pass (23 skipped in CI mode, 0 failures).
+- `CONTRACT_VERSION` remains `(0, 5, 1)`. All 779 tests pass (23 skipped in CI, 0 failures).
 
 ## [0.5.3] - 2026-07-27
 
@@ -357,14 +301,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `providers/registry.py`: added `set_protocol()` method for deferred protocol binding (avoids circular imports); added `contains()` method to `ProviderRegistry`.
 - `providers/__init__.py`: exports `llm_registry`, `research_registry`, `register_llm`, `register_research`.
 - `workflow/schema.py`: updated `vision_captioner` comment to reflect plugin-based providers.
-
-### Documentation
-
-- Updated `ROADMAP.md` / `ROADMAP.zh-CN.md`: added M4 section.
-- Updated `ARCHITECTURE.md` / `ARCHITECTURE.zh-CN.md`: provider registry table now includes LLM/Research; extension points updated.
-- Updated `CONTRIBUTING.md` / `CONTRIBUTING.zh-CN.md`: directory tree reflects new provider registrations.
-- Updated `AI_GUIDE.md`: directory tree and contract version updated.
-- Fixed `http_vlm` references across all docs — `http_vlm` was never merged; vision providers are now extensible via Plugin API.
+- Updated `ROADMAP.md` / `ROADMAP.zh-CN.md`, `ARCHITECTURE.md` / `ARCHITECTURE.zh-CN.md`, `CONTRIBUTING.md` / `CONTRIBUTING.zh-CN.md`, `AI_GUIDE.md` to reflect provider registry changes. Fixed `http_vlm` references across all docs.
 
 ## [0.5.0] - 2026-07-26
 
@@ -450,7 +387,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 #### EP4 — Hook templates & set pieces (PR #84)
 
 - **`hook_templates`** (`presets/*`): genre-appropriate scroll-stopping hook sentence templates injected into `EXPAND_PROMPT` via `build_hook_hint()`. Each preset gets 5–8 templates with `{movie}` slot (#84).
-- **`set_pieces`** (`presets/*`): named-scene injection into `BEATS_PROMPT` via `build_set_pieces_hint()`. Lets presets seed known set pieces (e.g. "公交车战", "封神桥段") into Phase 1 beat generation (#84).
+- **`set_pieces`** (`presets/*`): named-scene injection into `BEATS_PROMPT` via `build_set_pieces_hint()`. Lets presets seed known set pieces (e.g. "bus chase", "epic battle") into Phase 1 beat generation (#84).
 - **2 new params** — `hook_templates` + `set_pieces` added to whitelist across all 4 files (`schema.py`, `merge.py`, `load.py`, `runner.py`) (#84).
 
 #### EP2 — Beat time anchor (PR #84)
@@ -489,11 +426,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **`PARAM_WHITELIST`** (`pipeline/runner.py`): added `vision_captioner`, `bgm_loudnorm`, `hook_templates`, `set_pieces`, `render_title_card_sec` — all 4-file whitelist sync maintained (#83, #84, #85).
 - **All 3 presets** (`presets/douyin_fast.py`, `mainstream_dry.py`, `bilibili_long.py`): added `hook_templates`, `set_pieces`, `render_title_card_sec`, `bgm_loudnorm` (douyin only) with genre-appropriate values (#84).
 - **`BEATS_PROMPT`** (`utils/prompts.py`): upgraded to request structured JSON output with `act` + `approx_ratio` fields (#84).
-
-### Verified
-
-- Full test suite: 566 passed, 0 failures (CI verified).
-- Merge conflict in `runner.py` `PARAM_WHITELIST` resolved: `vision_captioner` (EP8) + `bgm_loudnorm` (EP6) both kept — independent entries, no semantic conflict.
+- Merge conflict in `runner.py` `PARAM_WHITELIST` resolved: `vision_captioner` (EP8) + `bgm_loudnorm` (EP6) both kept — independent entries, no semantic conflict. All 566 tests pass (0 failures).
 
 ## [0.4.25] - 2026-07-24
 
@@ -519,20 +452,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **EP3 audit fields** (`match_summary.topk` + `match_summary.source_counts`): `topk.{k, reuse_penalty, topk_count, top1_count}` records the rerank configuration and how many segments used top-K vs top-1. `source_counts.{embedding_topk, embedding_top1}` breaks down the embedding sub-path (#80).
 - **9 new EP3 tests** (`tests/test_match.py`): reuse penalty swap, disabled top-1 mode, zero-penalty no-swap, audit fields (topk + top1), `_cosine_topk` unit (sorted descending, k exceeds candidates, empty matrix), `_greedy_topk_assign` unit (#80).
 
-### L2 Hand-Test G2 (2026-07-24)
+### Changed
 
-EP3 cross-movie validation on second feature film (西虹市首富, 4.45 GB comedy):
-
-| Verification | G1 (飞驰人生3) | G2 (西虹市首富) | Result |
-|---|---|---|---|
-| `embedding_topk` count | 18/18 | 18/18 | ✅ 100% top-K path |
-| `top1_count` (degraded) | 0 | 0 | ✅ no top-1 fallback |
-| `heuristic_count` | 0 | 0 | ✅ no heuristic fallback |
-| `qa_report.ok` | true | true | ✅ no P0 defects |
-| `degraded_reason` | null | null | ✅ no degradation |
-| `footage_coverage.ratio` | 1.0 | 1.0 | ✅ full coverage |
-
-L2 exit §12.2 §1 "≥2 样片两轮连续无 P0" achieved. See [`docs/checklists/L2_HANDTEST_G2_20260724.md`](docs/checklists/L2_HANDTEST_G2_20260724.md) for full report.
+- EP3 cross-movie validation passed on second feature film (Hello Mr. Billionaire, 4.45 GB comedy): 100% top-K path, no top-1/heuristic fallback, no P0 defects, full footage coverage across both test films. L2 exit criteria achieved. See [`docs/checklists/L2_HANDTEST_G2_20260724.md`](docs/checklists/L2_HANDTEST_G2_20260724.md) for full report.
 
 ## [0.4.23] - 2026-07-23
 
@@ -546,12 +468,8 @@ L2 exit §12.2 §1 "≥2 样片两轮连续无 P0" achieved. See [`docs/checklis
 
 - **ST-09 Phase1 max_tokens scaling** (`pipeline/script.py`): `max_tokens = max(settings.research_max_tokens, target_count * 60)`. Prevents JSON truncation on high-segment presets (e.g. douyin 120s → n=36 segments would exceed the old fixed cap) (#79).
 - **AQ-07 duck_bgm O(n²) → O(n)** (`utils/audio_mix.py`): replaced pydub chunk slicing + `+` concatenation with numpy array multiplication. Per-sample amplitude envelope applied in one operation. Expected speedup: 300s audio ~53s → <2s (#79).
-- **MS-10 min_score comment** (`examples/job.example.yaml`): corrected from "低于此值丢弃" to "低于此值回退 heuristic 基线，不丢弃" — matches actual code behavior (#79).
-
-### Verified (no code change needed)
-
-- **AQ-08 empty ASR status**: `align.py` lines 189-197, 241-248, 286-293 already set `status.align="skipped"` on empty WhisperX/faster-whisper results — not `"success"`.
-- **ST-10 CI mock segments**: tests use dynamic `range(n)` segment counts, not fixed — verified across `test_match.py`, `test_render.py`, `test_align.py`.
+- **MS-10 min_score comment** (`examples/job.example.yaml`): corrected from "below this value, discard" to "below this value, fall back to heuristic baseline, do not discard" — matches actual code behavior (#79).
+- Verified existing behavior: `align.py` already sets `status.align="skipped"` (not `"success"`) on empty ASR results; CI tests use dynamic segment counts, not fixed values (#79).
 
 ## [0.4.22] - 2026-07-23
 
@@ -569,12 +487,7 @@ L2 exit §12.2 §1 "≥2 样片两轮连续无 P0" achieved. See [`docs/checklis
 
 - **Heuristic loop O(n²) → O(n)**: pre-computed `act_seg_map` dict before the loop instead of `list(enumerate).filter` per segment (#78).
 - **`job.example.yaml`**: added `match_timeline_mode` + `match_act_weights` examples + whitelist comment update (#78).
-
-### Verified
-
-- 18 new EP1 tests: 3 unit test classes (partition, assign, candidates) + 6 integration tests (act-constrained heuristic, fallback gating, uniform default, custom weights, src_start distribution).
-- Full test suite: 495 passed (+18), 23 skipped, 0 failures.
-- User code review verified: gating, empty bucket fallback, `_cosine_top1 < 0` fallback, 4-file whitelist sync, `scene.index` safety in fancy indexing.
+- 18 new EP1 tests added (partition, assign, candidates unit tests + integration tests). Full test suite: 495 passed (+18), 23 skipped, 0 failures.
 
 ## [0.4.21] - 2026-07-23
 
@@ -589,11 +502,7 @@ L2 exit §12.2 §1 "≥2 样片两轮连续无 P0" achieved. See [`docs/checklis
 - **`_build_audio()` extraction** (`pipeline/tts.py`): audio assembly logic extracted from inline `generate_voice` into a standalone helper function, used by both initial build and pause-feedback rebuild (#77).
 - **`render_profile` added to whitelist** (`workflow/schema.py`, `workflow/load.py`, `workflow/merge.py`): new param aligned across all 4 whitelist files, consistent with PR #72 pattern (#77).
 - **`job.example.yaml`**: added `render_profile` example + whitelist comment update (#77).
-
-### Verified
-
-- D-3 AQ-02 (soft-step degraded_steps): confirmed F3 patch in `runner.py` already covers soft-step internal failures — no code change needed.
-- Full test suite: 499 passed, 1 skipped, 0 failed (user-verified, 40 min).
+- Confirmed F3 patch in `runner.py` already covers soft-step internal failures for degraded steps. Full test suite: 499 passed, 1 skipped, 0 failures.
 
 ## [0.4.20] - 2026-07-23
 
@@ -619,20 +528,7 @@ L2 exit §12.2 §1 "≥2 样片两轮连续无 P0" achieved. See [`docs/checklis
 
 - **WP4 render.py docstring**: explicitly documented as "WARN-ONLY gate, not an abort gate" — the video is already rendered by the time coverage is calculated, so the gate can only flag, not prevent (#71).
 - **ROADMAP.md**: added v0.4.20 section.
-
-### L2+ Hand-Test Results (2026-07-23)
-
-Stage D audit + PR #72 whitelist trigger verified end-to-end:
-
-| Verification | Result |
-|--------------|--------|
-| PR #72 whitelist end-to-end | ✅ `max_reuse:1` + `max_chars:3` reached `ctx.metadata` |
-| WP5 script_truncated | ✅ `count:18` (all 18 segments truncated from 6-10 chars to 3) |
-| WP3 diversity.swaps | 0 (2424 scenes — naturally diverse, not a bug) |
-| WP4 footage_coverage | ✅ `ratio:1.0` |
-| Total wall-clock | 50 min (PySceneDetect on 130-min movie = 45 min) |
-
-See [`docs/checklists/L2_HANDTEST_20260723.md`](docs/checklists/L2_HANDTEST_20260723.md) for full report.
+- Stage D audit + PR #72 whitelist verified end-to-end: all whitelist params reached `ctx.metadata`, script truncation and footage coverage working as expected. See [`docs/checklists/L2_HANDTEST_20260723.md`](docs/checklists/L2_HANDTEST_20260723.md) for full report.
 
 ## [0.4.19] - 2026-07-22
 
@@ -660,27 +556,12 @@ See [`docs/checklists/L2_HANDTEST_20260723.md`](docs/checklists/L2_HANDTEST_2026
 
 - **3 stale remote branches deleted**: `feature/core-engine-production-quality` (merged via PR #37), `feature/docs-sync-with-code` (merged via PR #51), `release/v0.4.11` (merged via PR #32, version long superseded).
 - **`probe()` supports `faster_whisper`**: added to `_HINTS` and `module_names` in `utils/optional_deps.py`.
-
-### L2 Hand-Test Results (2026-07-21/22)
-
-4-PR fix chain resolved the WhisperX compatibility blocker and unlocked O10 (`embedding_ratio > 0`):
-
-| PR | Fix | Key metric change |
-|----|-----|-------------------|
-| #65 | align.py faster-whisper backend | `align_segments`: 0 → 9 |
-| #66 | extract `_remap_segments` + document semantics | (refactor, no behavior change) |
-| #67 | match.py faster-whisper fallback | `embedding_ratio`: 0.00 → 1.00 |
-| #68 | faster-whisper success path → `success` | `degraded_steps`: `["align_audio"]` → `[]` |
-
-L2 objective exit criteria (O1-O10) **100% achieved** across two films (G1 满江红 + G3 飞驰人生3):
-- `align_status: success`, `degraded_steps: []`, `embedding_ratio: 1.00`, `qa.ok: true`
-
-See [`docs/checklists/L2_HANDTEST_20260721.md`](docs/checklists/L2_HANDTEST_20260721.md) for full v1→v4 progression.
+- L2 hand-test passed: 4-PR fix chain resolved the WhisperX compatibility blocker — `embedding_ratio` improved from 0.00 to 1.00, `degraded_steps` cleared, all O1-O10 exit criteria achieved across two films (Full River Red + Pegasus 3). See [`docs/checklists/L2_HANDTEST_20260721.md`](docs/checklists/L2_HANDTEST_20260721.md) for full progression.
 
 ## [0.4.18] - 2026-07-19
 
 ### Added (Core engine hardening — 8 PRs, L2-ready observability + degradation visibility)
-- **`match_summary` full schema (21 fields + 4 back-compat)**: `metadata.json` now records complete match-quality breakdown — `version`, `status`, `segments`, `scenes_in/after_merge/after_drop`, `merge_min_duration`, `drop_min_duration`, `min_score`, `speed_clamp`, `source_counts`, `heuristic_ratio`, `embedding_ratio`, `score` (adopted), `raw_score` (all attempted, with `n`), `speed_factor`, `low_score_fallback_count`, `captioning`, `embedding_model`, `degraded_reason`, `diversity` (reserved). Legacy fields (`total`/`embedding`/`heuristic`/`captions_fake`) preserved for back-compat.
+- **`match_summary` full schema (21 fields + 4 back-compat)**: `metadata.json` now records complete match-quality breakdown including source counts, embedding/heuristic ratios, score adoption, speed factors, and degradation reasons. Legacy fields preserved for backward compatibility.
 - **`align_backward_skipped` metadata**: count of segments that kept TTS estimates because the monotonic clamp would have crushed them to 100ms (F4 backward-jump detection).
 - **Runner `_degraded_steps` for non-exception paths**: soft steps that internally catch exceptions and set `status='failed'` + `step_state.result=WARNING` (e.g. `align_fallback`) are now accumulated into `_degraded_steps` — visible in CLI summary, not just metadata.
 - **CI concurrency control**: stale CI runs are cancelled on PR amend + force-push; main-branch pushes run to completion.
@@ -703,7 +584,7 @@ See [`docs/checklists/L2_HANDTEST_20260721.md`](docs/checklists/L2_HANDTEST_2026
 ## [0.4.17] - 2026-07-18
 
 ### Added (Dynamic sentence count + L2 E2E tests)
-- **Dynamic sentence count by duration (方案 B)**: `generate_script()` now computes `n = round(duration / prompt_target_segment_duration)` when preset defines `prompt_target_segment_duration`. Longer videos get more sentences, not longer sentences — keeping per-sentence length in the natural 19-25 char range. At 60s, dynamic count equals preset's `prompt_target_sentences` (backward compatible).
+- **Dynamic sentence count by duration (Option B)**: `generate_script()` now computes `n = round(duration / prompt_target_segment_duration)` when preset defines `prompt_target_segment_duration`. Longer videos get more sentences, not longer sentences — keeping per-sentence length in the natural 19-25 char range. At 60s, dynamic count equals preset's `prompt_target_sentences` (backward compatible).
 - **New preset field**: `prompt_target_segment_duration` added to all three presets (douyin=3.3s, mainstream=5.0s, bilibili=7.5s). Added to `ALLOWED_PARAM_KEYS` + `PARAM_WHITELIST`.
 - **`script_target_count` metadata**: records the calculated target count n, distinguishing "requested 16" from "got 16" for debugging.
 - **L2 automated E2E smoke tests**: CI-runnable end-to-end pipeline tests that verify the full `generate_script` → `synthesize_tts` → render chain contract. See Added section below.
@@ -723,7 +604,7 @@ See [`docs/checklists/L2_HANDTEST_20260721.md`](docs/checklists/L2_HANDTEST_2026
 ### Added (Two-phase script generation + CLI/Config improvements)
 - **Two-phase script generation**: `generate_script()` now splits into Phase 1 (plot beat extraction at low temperature) + Phase 2 (beat expansion at moderate temperature) + fallback trim. Decouples count control from style expression, making `prompt_target_sentences` actually enforceable.
 - **First-run config notice**: `ensure_user_config()` now prints a one-time informational message to stderr when creating `~/.movie-narrator/.env`, telling the user which fields to edit. Non-interactive (no prompt), CI mode skips the notice.
-- **CLI help improvements**: `no_args_is_help=True` (bare `mn` now shows help instead of "Missing command"), `rich_markup_mode="rich"` for colored output, all 9 commands now have bilingual (中文/English) help text and docstrings.
+- **CLI help improvements**: `no_args_is_help=True` (bare `mn` now shows help instead of "Missing command"), `rich_markup_mode="rich"` for colored output, all 9 commands now have bilingual (Chinese/English) help text and docstrings.
 - **`-h` conflict resolved**: `web` command's `--host` no longer binds `-h` short option, freeing `-h` for `--help` across all commands.
 - New config field: `script_expand_temperature=0.5` (Phase 2 temperature, separate from `script_temperature=0.7`).
 
@@ -744,8 +625,8 @@ See [`docs/checklists/L2_HANDTEST_20260721.md`](docs/checklists/L2_HANDTEST_2026
 - **Pluggable preset framework**: new `src/movie_narrator/presets/` package with `Preset` Protocol, closed-vocabulary validation (`ALLOWED_PARAM_KEYS` + `ALLOWED_PROMPT_TAGS`), and registry. Preset params are the BASELINE; user params (CLI / YAML) always override.
 - **Three built-in presets** covering the most popular recap styles:
   - `douyin-fast` (default, backward-compatible): 18 sentences × 3.3s, fast cuts, deep BGM ducking (-10dB), brisk cadence
-  - `mainstream-dry`: 12 sentences × 5s, slow cuts (speed_clamp 0.90–1.05), light BGM (-15dB), measured cadence (谷阿莫/影视飓风 rhythm)
-  - `bilibili-long`: 8 sentences × 7.5s, large scene merge (5s), very light BGM (-18dB), languid cadence (粉丝留存型长解说)
+  - `mainstream-dry`: 12 sentences × 5s, slow cuts (speed_clamp 0.90–1.05), light BGM (-15dB), measured cadence (Gu Amo / Media Storm rhythm)
+  - `bilibili-long`: 8 sentences × 7.5s, large scene merge (5s), very light BGM (-18dB), languid cadence (fan-retention long-form narration)
 - **CLI**: `--narration-preset` / `-p` flag on `mn create`; new `mn preset` command to list presets or show full params/tags (`mn preset mainstream-dry`).
 - **YAML config**: `narration_preset` top-level field in `job.yaml` (CLI flag overrides YAML).
 - **Web API**: `FormData.narration_preset` field.
@@ -754,10 +635,7 @@ See [`docs/checklists/L2_HANDTEST_20260721.md`](docs/checklists/L2_HANDTEST_2026
 ### Changed
 - **Single-source whitelist**: `PARAM_WHITELIST` frozenset in `runner.py` is now the authoritative param whitelist. `build_context` iterates it instead of a hardcoded tuple. `ALLOWED_PARAM_KEYS` in `presets/base.py` is validated as a subset at registry build time.
 - `prompts.py` `SCRIPT_PROMPT` now uses `{target_sentences}`, `{max_chars}`, `{hook_seconds}`, `{cadence_hint}` placeholders instead of hardcoded "15-20 sentences" / "15 characters" / "3 seconds".
-
-### Hand-test findings (2026-07-17 满江红对比实验)
-- **Preset prompt tags verified effective**: cadence/register/connectors all produced perceptible style differences (brisk → 61% exclamation sentences; written → literary vocabulary; interjection → interactive calls).
-- **Known limitation**: `prompt_target_sentences` constraint is weak — LLM output 18 sentences for all three presets regardless of the 12/8 targets. Style differences were carried by sentence length and rhetoric instead of sentence count. Planned fix: stronger prompt wording + post-processing truncation.
+- Hand-test (Full River Red comparison): preset prompt tags verified effective (cadence/register/connectors produced perceptible style differences). Known limitation: `prompt_target_sentences` constraint is weak — LLM output 18 sentences regardless of 12/8 targets; style differences carried by sentence length and rhetoric instead of count.
 
 ## [0.4.14] - 2026-07-17
 
@@ -785,7 +663,7 @@ See [`docs/checklists/L2_HANDTEST_20260721.md`](docs/checklists/L2_HANDTEST_2026
 - **Match defaults**: `match_speed_clamp_min` 0.5 → 0.85, `match_speed_clamp_max` 3.0 → 1.25, `scene_merge_min_duration` 0.0 → 2.0 — keeps pacing publishable. Scenes shorter than `match_drop_scene_min_duration` (default 0.4s) are dropped after merge with re-indexing (last-resort keeps all if every scene would be dropped).
 - **Render encode**: CRF 18, preset `slow`, `+faststart` movflag by default for VOD-friendly output.
 - **QA duration tolerance**: `qa_max_duration_ratio` default 1.15 → 1.25 — TTS natural output routinely exceeds the target duration by 10-20%; the tighter 1.15 threshold falsely rejected valid renders in hand-testing.
-- Pipeline is now **15 steps** (was 14): `validate_deliverable` inserted between `render_video` and `export_clips`. Frontend `PIPELINE_STEPS` and `STEP_LABELS` synced (`成片质检`).
+- Pipeline is now **15 steps** (was 14): `validate_deliverable` inserted between `render_video` and `export_clips`. Frontend `PIPELINE_STEPS` and `STEP_LABELS` synced (`deliverable QA`).
 
 ### Fixed (Hand-test P0 bugs on Windows + Python 3.14)
 - **Two-stage render** (`render.py`): MoviePy 2.x `write_videofile` on Windows + Python 3.14 raises `OSError [Errno 22] Invalid argument` partway through the rawvideo stdin pipe when encoding video+audio together, leaving `final.mp4` with a corrupted ftyp/mdat layout (no moov atom — ffprobe returns empty, file unplayable). Split into stage 1 (MoviePy writes video-only mp4, stable in isolation) + stage 2 (ffmpeg muxes audio with `-c:v copy` + applies `+faststart` atomically). Eliminates the stdin pipe failure mode entirely.
@@ -853,7 +731,7 @@ See [`docs/checklists/L2_HANDTEST_20260721.md`](docs/checklists/L2_HANDTEST_2026
 - **align.py**: WhisperX alignment switched from index-based (1:1) to time-overlap matching. Index-based caused drift on long videos when WhisperX produced a different number of segments than the script (silence/music sections).
 - **render.py**: `VideoFileClip` open failure upgraded from `debug` to `inline_warn` with clear message: "Falling back to text-only video — no footage will be shown."
 
-### Refactored (code audit optimizations)
+### Changed (code audit optimizations)
 - **utils/sanitize.py**: Extracted `sanitize_filename()` to shared module (was duplicated in `cli.py` and `web/utils.py`).
 - **runner.py**: Added module-level assertion enforcing `SOFT_STATUS_STEPS` ↔ `STATUS_FIELD_FOR_STEP` key consistency.
 - **match.py**: `SentenceTransformer` model loading cached via `lru_cache` (was reloaded twice per `match_clips` call, saving 1-3 seconds).
@@ -887,17 +765,7 @@ See [`docs/checklists/L2_HANDTEST_20260721.md`](docs/checklists/L2_HANDTEST_2026
 ## [0.4.7] - 2026-07-15
 
 ### Added (v0.4.7 — config system overhaul)
-- 33 hardcoded constants promoted to configurable Settings fields with `MN_*` env var support:
-  - LLM call tuning: `llm_timeout`, `script_temperature`, `script_max_tokens`, `script_retries`, `script_retry_delay`, `research_temperature`, `research_max_tokens`, `translate_max_tokens`
-  - TTS: `tts_max_concurrent`, `tts_audio_format`, `tts_audio_bitrate`
-  - WhisperX: `whisperx_device`, `whisperx_model`, `whisperx_language`
-  - Translate: `translate_source_lang`
-  - Render: `render_bg_color`, `render_font_size`, `render_output_name`, `render_ffmpeg_timeout`
-  - Async: `async_timeout`, `async_max_workers`
-  - Match: `embedding_model_name`, `match_speed_clamp_min`, `match_speed_clamp_max`, `scene_merge_min_duration`
-  - BGM: `bgm_gain_db`
-  - TTS pacing: `tts_pause_ms`
-  - Video: `video_sizes` (JSON string)
+- 33 hardcoded constants promoted to configurable Settings fields with `MN_*` env var support, covering LLM tuning, TTS, WhisperX, translate, render, async, match, BGM, and video settings.
 - YAML config auto-discovery: `--config` not passed → `cwd/job.yaml` → packaged `examples/job.example.yaml` → none. New users can run `mn create --movie X` without creating any config file
 - `ensure_user_config()` now reads `.env.example` as single source of truth (was divergent inline template)
 - `examples/job.example.yaml` updated with all 14 whitelisted params + inline comments
@@ -985,9 +853,7 @@ See [`docs/checklists/L2_HANDTEST_20260721.md`](docs/checklists/L2_HANDTEST_2026
 - CI duration calibration: `_EST_CHARS_PER_SEC = 10.0` (was 2.86) — closer to real speech rate
 - OpenAI TTS voice whitelist validation (`alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`); Edge-TTS does not validate (lets API report)
 - OpenAI SDK lazy import in `OpenAITTSProvider.__init__` — keeps startup lighter and allows future optional packaging
-
-### Tests
-- `tests/test_tts_providers.py` (47 cases): TTSCacheKey, cache_path_for, is_ci, _estimate_duration_s, BaseTTSProvider CI routing, EdgeTTSProvider delegation, OpenAITTSProvider constructor/voice validation, factory, Settings TTS fields, ConfigError, metadata_export tts_provider
+- 47 new TTS provider tests (`tests/test_tts_providers.py`): TTSCacheKey, cache paths, CI routing, Edge/OpenAI provider behavior, factory, and Settings TTS fields.
 
 ## [0.3.5] - 2026-07-13
 
@@ -1016,45 +882,70 @@ See [`docs/checklists/L2_HANDTEST_20260721.md`](docs/checklists/L2_HANDTEST_2026
 - Tests: `tests/test_translate.py` covering disabled/skipped/empty/provider-unknown/CI-passthrough/length-mismatch/blank-item paths; subtitle SRT tests extended for translated + bilingual file outputs and render_subtitle_path resolution
 
 ### Changed
-- 移除 `render.py` 中重复的自定义 tqdm 进度条；MoviePy 内部 `logger="bar"` 接管进度展示（commit `7980ccd`）
+- Removed duplicate custom tqdm progress bar in `render.py`; MoviePy's internal `logger="bar"` now handles progress display (commit `7980ccd`).
 
 ## [0.3.2] - 2026-07-13
 
 ### Added
-- `workflow_dispatch` 手动触发 CI（GitHub Actions UI 可手动跑测试，无需 push）
+- `workflow_dispatch` manual CI trigger (GitHub Actions UI can run tests without push).
 
 ### Changed
-- 控制台日志重构补完：`workflow_steps` 键统一为 step 函数名（`research_plot` / `align_audio` / `detect_scenes` / `match_clips` / `mix_bgm` / `export_clips`）
-- `console.done()` 取代裸 `print(f"\nDone in {elapsed}s")`（commit `36436d8`）
+- Console log refactoring completed: `workflow_steps` keys standardized to step function names (`research_plot` / `align_audio` / `detect_scenes` / `match_clips` / `mix_bgm` / `export_clips`).
+- `console.done()` replaces bare `print(f"\nDone in {elapsed}s")` (commit `36436d8`).
 
 ## [0.3.1] - 2026-07-13
 
 ### Added
-- 简化 Gitflow 工作流：feature + hotfix 双分支模型（无 develop / release 长期分支）
-- `importlib.metadata` 动态版本读取（消除双写失配）
-- TestPyPI 支持（tag 带 `-test` 后缀时自动发测试源）
-- CI 自动 PyPI 发布 + GitHub Release 创建
-- 控制台日志重构落地：`utils/console.py` + `utils/log.py` + `utils/retention.py` 引入 Console Protocol / AppLogger / `build_console()`；`models.py` 新增 `StepResult` / `StepState` / `Services`
-- `runner.py` 统一状态渲染：每步只设置 `ctx.step_state`，runner 负责 console 输出；soft/hard try/except 分叉；`STATUS_FIELD_FOR_STEP` 提升为模块级常量
-- MoviePy 临时音频路由到 `output/.tmp/`（避免污染源码目录）
-- 14 个 pipeline step 全部迁移：裸 `print()` → `ctx.services.console`；`match.py` 补 try/except
-- CI smoke test（`mn create --config` YAML 配置样例测试）
+- Simplified Gitflow workflow: feature + hotfix dual-branch model (no develop / release long-lived branches).
+- `importlib.metadata` dynamic version reading (eliminates dual-write mismatch).
+- TestPyPI support (tags with `-test` suffix auto-publish to test repository).
+- CI auto PyPI publish + GitHub Release creation.
+- Console log refactoring landed: `utils/console.py` + `utils/log.py` + `utils/retention.py` introduce Console Protocol / AppLogger / `build_console()`; `models.py` adds `StepResult` / `StepState` / `Services`.
+- `runner.py` unified status rendering: each step only sets `ctx.step_state`, runner handles console output; soft/hard try/except branching; `STATUS_FIELD_FOR_STEP` promoted to module-level constant.
+- MoviePy temporary audio routed to `output/.tmp/` (avoids polluting source directory).
+- All 14 pipeline steps migrated: bare `print()` → `ctx.services.console`; `match.py` adds try/except.
+- CI smoke test (`mn create --config` YAML config sample test).
 
 ### Changed
-- CI 拆分为 ci.yml（PR/push 测试）+ publish.yml（tag 触发发布）
+- CI split into ci.yml (PR/push tests) + publish.yml (tag-triggered publish).
 
 ### Fixed
-- `runner.py` 补充缺失的 `Dict, Any` import
-- 修复 ci.yml 在插入 smoke test 后的 YAML 语法错误
+- `runner.py`: added missing `Dict, Any` import.
+- Fixed ci.yml YAML syntax error after inserting smoke test.
 
 ## [0.3.0] - 2026-07-05
 
 ### Added
-- `mn create --config` 支持 YAML 配置文件
-- workflow_steps 和 params 元数据注入
-- 控制台日志重构设计
+- `mn create --config` supports YAML config files.
+- `workflow_steps` and `params` metadata injection.
+- Console log refactoring design.
 
-[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.17...HEAD
+[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/zcbacxc/movie-narrator/compare/v0.6.0...v0.6.1
+[0.6.0]: https://github.com/zcbacxc/movie-narrator/compare/v0.5.12...v0.6.0
+[0.5.12]: https://github.com/zcbacxc/movie-narrator/compare/v0.5.11...v0.5.12
+[0.5.11]: https://github.com/zcbacxc/movie-narrator/compare/v0.5.10...v0.5.11
+[0.5.10]: https://github.com/zcbacxc/movie-narrator/compare/v0.5.9...v0.5.10
+[0.5.9]: https://github.com/zcbacxc/movie-narrator/compare/v0.5.8...v0.5.9
+[0.5.8]: https://github.com/zcbacxc/movie-narrator/compare/v0.5.7...v0.5.8
+[0.5.7]: https://github.com/zcbacxc/movie-narrator/compare/v0.5.6...v0.5.7
+[0.5.6]: https://github.com/zcbacxc/movie-narrator/compare/v0.5.5...v0.5.6
+[0.5.5]: https://github.com/zcbacxc/movie-narrator/compare/v0.5.4...v0.5.5
+[0.5.4]: https://github.com/zcbacxc/movie-narrator/compare/v0.5.3...v0.5.4
+[0.5.3]: https://github.com/zcbacxc/movie-narrator/compare/v0.5.2...v0.5.3
+[0.5.2]: https://github.com/zcbacxc/movie-narrator/compare/v0.5.1...v0.5.2
+[0.5.1]: https://github.com/zcbacxc/movie-narrator/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.27...v0.5.0
+[0.4.27]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.26...v0.4.27
+[0.4.26]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.25...v0.4.26
+[0.4.25]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.24...v0.4.25
+[0.4.24]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.23...v0.4.24
+[0.4.23]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.22...v0.4.23
+[0.4.22]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.21...v0.4.22
+[0.4.21]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.20...v0.4.21
+[0.4.20]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.19...v0.4.20
+[0.4.19]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.18...v0.4.19
+[0.4.18]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.17...v0.4.18
 [0.4.17]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.16...v0.4.17
 [0.4.16]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.15...v0.4.16
 [0.4.15]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.14...v0.4.15
@@ -1068,13 +959,11 @@ See [`docs/checklists/L2_HANDTEST_20260721.md`](docs/checklists/L2_HANDTEST_2026
 [0.4.7]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.5...v0.4.6
 [0.4.5]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.2...v0.4.5
-[0.4.3]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/zcbacxc/movie-narrator/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/zcbacxc/movie-narrator/compare/v0.3.5...v0.4.0
 [0.3.5]: https://github.com/zcbacxc/movie-narrator/compare/v0.3.4...v0.3.5
-[0.3.4]: https://github.com/zcbacxc/movie-narrator/compare/v0.3.3...v0.3.4
-[0.3.3]: https://github.com/zcbacxc/movie-narrator/compare/v0.3.2...v0.3.3
+[0.3.4]: https://github.com/zcbacxc/movie-narrator/compare/v0.3.2...v0.3.4
 [0.3.2]: https://github.com/zcbacxc/movie-narrator/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/zcbacxc/movie-narrator/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/zcbacxc/movie-narrator/compare/v0.2.2...v0.3.0

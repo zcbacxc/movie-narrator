@@ -4,7 +4,7 @@
 # 🎬 Movie Narrator
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
-![License](https://img.shields.io/github/license/zcbacxc/movie-narrator)
+![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![CI](https://github.com/zcbacxc/movie-narrator/actions/workflows/ci.yml/badge.svg)
 ![PyPI](https://img.shields.io/pypi/v/movie-narrator)
 ![Downloads](https://img.shields.io/pypi/dm/movie-narrator)
@@ -17,26 +17,24 @@ Movie Narrator 是一个开源工具包，可通过简单命令自动生成带�
 
 ## 功能特性
 
-- 🎬 使用 LLM 生成电影解说脚本
+- 🎬 LLM 驱动的电影解说脚本生成
 - 🔊 文字转语音解说（默认使用 Edge-TTS）
 - 💬 自动生成 SRT 字幕文件
-- 🌐 多语言字幕（`--subtitle-lang en` 通过 LLM 翻译解说文案，输出 `subtitle.<lang>.srt` + `subtitle.bilingual.srt`）
-- 🏁 多候选赛马（`mn race` — 同输入跑 N 套变体，打分排名，自动选优）
-- 🎯 参考片模仿（`mn imitate` — 从爆款解说提取风格，生成同风格新片）
-- 👁️ VLM 视觉场景描述（`vision_captioner: vlm` — 通过云端 VLM API 生成真实视觉描述）
-- 🎭 解说视角（`--narrator-perspective` / `--focus-character` — 全知 / 角色 / 悬疑视角）
-- 🎨 渲染模板系统（`render_template` — 按 preset 自定义标题卡、水印、口号）
-- 🔍 TMDB 事实验证（`research_provider: tmdb` — 交叉验证电影卡片，降低幻觉）
-- 🖥️ Web UI — 由独立的 [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web) 包提供（FastAPI + React 浏览器应用，支持表单输入、协作式取消、产物下载，通过 WebSocket 实时推送进度）
+- 🌐 多语言字幕（LLM 翻译）
+- 🏁 多候选赛马 — 同输入跑 N 套变体，打分排名，自动选优
+- 🎯 参考片模仿 — 从爆款解说提取风格
+- 👁️ VLM 视觉场景描述（云端 VLM API）
+- 🎭 解说视角（全知 / 角色 / 悬疑）
+- 🎨 渲染模板系统（标题卡、水印、口号）
+- 🔍 TMDB 事实验证
+- 🖥️ Web UI（独立 `movie-narrator-web` 包 — FastAPI + React）
 - 🎞️ 使用 MoviePy 和 FFmpeg 渲染视频
-- 📝 脚本 Markdown 导出（`script.md`）
-- 🎵 背景音乐集成（BGM 混音）
-- 🎬 场景级片段导出
+- 📝 脚本 Markdown 导出
+- 🎵 背景音乐集成
 - 📦 元数据导出
-- 🔌 可扩展的流水线架构
-- 🐍 纯 Python 实现
-- ☁️ 异步任务队列（mn submit/status/tasks/cancel/wait/cleanup — 本地 + 远程任务提交、进度轮询、重试）
-- 🌐 远程推理（mn serve/download — 通过 REST API 将 LLM/TTS/渲染卸载到云端 Worker）
+- 🔌 可扩展的插件架构
+- ☁️ 异步任务队列（本地 + 远程任务提交、进度轮询、重试）
+- 🌐 通过 REST API 远程推理
 
 ---
 
@@ -113,6 +111,8 @@ pip install movie-narrator-web
 pip install "movie-narrator[full]"
 ```
 
+> **Python 3.14+ 注意**：`[ml]` 扩展（WhisperX + sentence-transformers）因上游依赖 wheel 可用性限制，目前仅支持 Python < 3.14。在 Python 3.14+ 上，`pip install "movie-narrator[full]"` 会安装其他所有扩展并**静默跳过** ML 组件。`align` 和 `match` 步骤会软降级（见[软步骤](#流水线)）而非报错。
+
 开发模式安装：
 
 ```bash
@@ -125,8 +125,8 @@ pip install -e ".[dev]"
 
 ### 前置条件
 
-- **LLM**: 默认使用本地 Ollama（先运行 `ollama serve`）。也可通过 `.env` 文件配置远程 LLM。
-- **FFmpeg**: 视频渲染必需。
+- **LLM**：默认使用本地 Ollama（先运行 `ollama serve`）。也可通过 `.env` 文件配置远程 LLM。
+- **FFmpeg**：视频渲染必需。
 
 ### 基本用法
 
@@ -136,104 +136,23 @@ mn create --movie "飞驰人生" --style "热血搞笑" --duration 60
 
 # 自定义音色和视频比例
 mn create --movie "飞驰人生" --voice "zh-CN-XiaoxiaoNeural" --format "9:16"
-
-# 保留 TTS 缓存用于调试
-mn create --movie "飞驰人生" --keep-cache
 ```
 
-### CLI 参数
+### 更多命令
 
 ```bash
-# 基础用法
-mn create --movie "飞驰人生" --style "热血搞笑" --duration 60
-```
-
-全部 24 个 CLI 参数及各场景用法示例（基础、视频/库、调研/BGM/片段、多语言字幕、解说预设、视角、日志、YAML 配置）请参考 [`examples/cli-usage.sh`](examples/cli-usage.sh)。主要参数：`--movie/-m`、`--style/-s`、`--duration/-d`、`--voice/-v`、`--format/-f`、`--video`、`--library-dir`、`--research`、`--bgm`、`--no-bgm`、`--no-clips`、`--strict`、`--keep-cache`、`--retry`、`--subtitle-lang`、`--subtitle-mode`、`--narration-preset/-p`、`--narrator-perspective`、`--focus-character`、`--log-level`、`--verbose`、`--config`。
-
-### Job YAML 配置
-
-```bash
-# 通过 YAML 文件驱动任务（movie 可只写在 YAML 中）
-mn create --config examples/job.example.yaml
-
-# CLI 参数优先级高于 YAML
-mn create --config examples/job.example.yaml --movie "其他电影" --no-clips
-```
-
-未传 `--config` 时，CLI 按以下优先级自动发现 YAML 配置：
-1. `cwd/job.yaml`（项目级用户配置）
-2. 打包的 `examples/job.example.yaml`（新用户默认值）
-3. 无（纯 CLI 参数）
-
-这意味着新用户可以直接 `mn create --movie X` 而无需创建任何配置文件——示例 YAML 会自动提供默认的 steps/params。
-
-详细白名单请参考 [`examples/job.example.yaml`](examples/job.example.yaml)：软步骤开关（`steps:` 下的 `research` / `align` / `scene` / `match` / `bgm` / `export` / `translate`）、全部 77 个 `params:` 键（场景检测、匹配、视觉、BGM、TTS 速率、翻译、调研、WhisperX、渲染、质检、文案塑形、异步、视频分辨率、平台、视角），以及多语言字幕顶层键 `subtitle_lang` / `subtitle_mode`。相对路径 `video` / `bgm` / `library_dir` 相对于 YAML 所在目录解析。LLM 凭据请保留在 `.env` / `MN_*` 环境变量中。
-
-### 多语言字幕
-
-```bash
-# 将解说文案翻译为英文并叠加到视频画面
-mn create --movie "Inception" --subtitle-lang en --subtitle-mode bilingual
-
-# 或仅生成翻译版 SRT 文件（不改变画面字幕）
-mn create --movie "Inception" --subtitle-lang en
-```
-
-设置 `--subtitle-lang` 后，`generate_subtitle` 始终会输出三个 SRT 文件：
-
-- `subtitle.srt` —— 原版解说（始终存在，`subtitle_path` 不变）
-- `subtitle.<lang>.srt` —— 翻译版（如 `subtitle.en.srt`）
-- `subtitle.bilingual.srt` —— 双语版（cue 主体 `f"{原文}\n{译文}"`，LF 分隔）
-
-`--subtitle-mode` 决定 `render_video` 读哪个文件：
-
-| 模式 | 叠加文本源 |
-|------|-----------|
-| `original`（默认） | `subtitle.srt` |
-| `translated` | `subtitle.<lang>.srt`（缺失时降级到 `subtitle.srt` 并告警） |
-| `bilingual` | `subtitle.bilingual.srt`（缺失时同样降级） |
-
-设置 `subtitle_mode=translated|bilingual` 但未指定 `subtitle_lang` 时，会在 merge 阶段抛 `JobConfigError`。失败策略：LLM 重试 `MN_TRANSLATE_RETRIES` 次后软降级 —— 用原文填到翻译轨并把警告写入 `metadata.warnings`。
-
-### Web UI
-
-Web UI 现已拆分为独立包。安装并启动：
-
-```bash
-# 安装独立的 Web UI 包
-pip install movie-narrator-web
-
-# 启动本地浏览器应用（默认：http://127.0.0.1:8760）
-mn-web
-```
-
-完整使用说明（自定义主机/端口、生产构建、开发模式、表单字段、产物下载等）请参见 [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web) 仓库。
-
-### 离线演示（无需 LLM）
-
-```bash
-# CI=1 使用静音回退音频，跳过 LLM 和 Edge-TTS
-CI=1 mn create --movie "Demo" --duration 10
-```
-
-### 其他命令
-
-```bash
-mn version   # 查看版本
-mn --help    # 查看帮助
-mn preset              # 列出/查看解说预设
-mn plugin list         # 列出已安装插件
-mn resume --state <path>  # 恢复暂停的流水线
-mn submit -m <movie>   # 提交异步任务 (v0.6.0+)
-mn status <task_id>    # 查看任务状态
-mn tasks               # 列出最近任务
-mn cancel <task_id>    # 取消运行中的任务
-mn wait <task_id>      # 等待任务完成
-mn cleanup             # 清理已完成任务
+mn create --config examples/job.example.yaml     # 通过 YAML 配置驱动
+mn create --subtitle-lang en --subtitle-mode bilingual  # 多语言字幕
+mn race --movie "飞驰人生" --video movie.mp4 --candidates 3  # 多候选赛马
+mn imitate --reference viral_ref.mp4 --movie "飞驰人生"  # 参考片模仿
 mn serve               # 启动远程推理 API 服务 (v0.6.1+)
-mn download <task_id>  # 从远程服务器下载产物 (v0.6.1+)
-mn submit --remote http://worker:8765  # 提交到远程服务器
+mn submit -m <movie>   # 提交异步任务
+mn tasks               # 列出最近任务
+mn version             # 查看版本
+mn --help              # 完整帮助（含全部 24 个 CLI 参数）
 ```
+
+全部 24 个 CLI 参数及各场景用法示例请参考 [`examples/cli-usage.sh`](examples/cli-usage.sh)。
 
 ---
 
@@ -243,7 +162,7 @@ mn submit --remote http://worker:8765  # 提交到远程服务器
 
 ### 通过 `.env` 文件（推荐）
 
-在项目目录创建 `.env`（或 `~/.movie-narrator/.env` 作为全局配置——首次运行时自动创建并填入默认值，该文件在包目录之外，`pip install/upgrade/uninstall` 均不会触碰）：
+`~/.movie-narrator/.env` 在首次运行时自动创建并填入默认值 — 编辑此文件配置 LLM、TTS 等设置。该文件位于包目录之外，`pip install/upgrade/uninstall` 均不会触碰。也可在工作目录创建 `.env` 进行项目级覆盖。
 
 ```bash
 MN_LLM_BASE_URL=http://localhost:11434/v1
@@ -273,13 +192,13 @@ mn create --movie "飞驰人生" --duration 60
 | 优先级 | 位置 | 说明 |
 |--------|------|------|
 | 1 | 环境变量（`MN_*`） | 最高优先 |
-| 2 | `当前目录/.env` | 项目级 |
+| 2 | `cwd/.env` | 项目级 |
 | 3 | `~/.movie-narrator/.env` | 用户级，pip install/upgrade/uninstall 均不会丢失 |
 | 4 | 内置默认值 | 本地 Ollama |
 
 ### 完整配置项
 
-完整环境变量列表（共 32 项，仅 LLM + TTS 基础配置）及默认值和说明，请查看 [`.env.example`](.env.example)。所有流水线行为参数（77 项）通过 [`examples/job.example.yaml`](examples/job.example.yaml) 配置，涵盖场景检测、匹配、视觉、BGM、TTS 速率、翻译、调研、WhisperX、渲染、质检、文案塑形、异步、视频分辨率、平台、视角等。
+完整环境变量列表（仅 LLM + TTS 基础配置）及默认值和说明，请查看 [`.env.example`](.env.example)。所有流水线行为参数通过 [`examples/job.example.yaml`](examples/job.example.yaml) 配置，涵盖场景检测、匹配、渲染、翻译、BGM、WhisperX、异步、视频分辨率等。
 
 ### LLM 服务商导航
 
@@ -297,29 +216,13 @@ Movie Narrator 支持任何 OpenAI 兼容的 LLM。新用户不知道选哪个�
 
 ## 输出结构
 
-```text
-output/
-└── 飞驰人生/
-    ├── narration.mp3       # TTS 解说音频
-    ├── mixed.mp3            # 解说 + BGM 混音（启用 BGM 时）
-    ├── subtitle.srt
-    ├── subtitle.<lang>.srt    # 设置 --subtitle-lang 时输出（如 subtitle.en.srt）
-    ├── subtitle.bilingual.srt # 设置 --subtitle-lang 时输出（原文 + LF + 译文，每行 cue）
-    ├── script.md
-    ├── research.json        # （使用 --research 时）
-    ├── matches.json         # （提供视频时）
-    ├── metadata.json
-    ├── final.mp4
-    └── clips/               # （未设置 --no-clips 时）
-```
-
 | 文件 | 说明 |
 |------|------|
 | `narration.mp3` | AI 生成的解说音频 |
 | `mixed.mp3` | 解说 + BGM 混音（启用 BGM 时；否则直接使用 `narration.mp3`） |
 | `subtitle.srt` | 同步字幕文件（原版解说） |
 | `subtitle.<lang>.srt` | 翻译字幕（设置 `--subtitle-lang` 时输出） |
-| `subtitle.bilingual.srt` | 双语字幕（设置 `--subtitle-lang` 时输出；cue 主体 `f"{原文}\n{译文}"`） |
+| `subtitle.bilingual.srt` | 双语字幕（设置 `--subtitle-lang` 时输出） |
 | `script.md` | 人类可读的脚本 |
 | `research.json` | 电影调研数据（使用 `--research` 时） |
 | `metadata.json` | 片段时间戳、流水线状态、配置 |
@@ -349,173 +252,32 @@ run_qa_gate → render_video → validate_deliverable → export_clips
 ```text
 movie-narrator/
 ├── src/movie_narrator/
-│   ├── __init__.py          # 包元数据（__version__）
 │   ├── cli.py               # Typer CLI 入口
 │   ├── config.py            # Pydantic 配置
 │   ├── models.py            # 数据模型（Context、Status 等）
-│   ├── pipeline/
-│   │   ├── runner.py        # 16 步流水线协调器
-│   │   ├── resolve.py       # 源视频解析
-│   │   ├── assets.py        # 素材验证
-│   │   ├── research.py      # LLM 电影调研
-│   │   ├── script.py        # LLM 脚本生成
-│   │   ├── script_export.py # 脚本 Markdown 导出
-│   │   ├── tts.py           # TTS 编排（使用 tts/ 包；缓存 + 并发）
-│   │   ├── align.py         # WhisperX 音频对齐
-│   │   ├── scenes.py        # PySceneDetect 场景检测
-│   │   ├── match.py         # 启发式片段匹配
-│   │   ├── bgm.py           # 背景音乐混音
-│   │   ├── translate.py     # 多语言字幕翻译（LLM）
-│   │   ├── subtitle.py      # SRT 生成（原版 / 翻译 / 双语）
-│   │   ├── render.py        # MoviePy 2.x 视频渲染
-│   │   ├── qa.py            # 成片质检（硬步骤）
-│   │   ├── export_clips.py  # 场景片段导出（直调 ffmpeg）
-│   │   ├── preflight.py     # 运行前 LLM/TTS 校验（快速失败）
-│   │   └── errors.py        # PipelineStrictError, PipelineCancelled, RunController, StepAction
-│   ├── cloud/                  # 任务队列 + 远程推理 (v0.6.x)
-│   │   ├── __init__.py         # 公共导出
-│   │   ├── models.py           # Task, TaskRequest, TaskResult, TaskStatus
-│   │   ├── queue.py            # LocalTaskQueue, TaskQueue 协议
-│   │   ├── remote_queue.py     # RemoteTaskQueue (v0.6.1)
-│   │   ├── storage.py          # TaskStorage (JSON 持久化)
-│   │   ├── worker.py           # run_task, CancelController, ProgressConsole
-│   │   ├── api.py              # TaskAPIServer (REST API, v0.6.1)
-│   │   ├── daemon.py           # WorkerDaemon, run_daemon (v0.6.1)
-│   │   └── remote_provider.py  # 远程 LLM/TTS + 产物下载 (v0.6.1)
-│   ├── workflow/
-│   │   ├── schema.py        # JobConfig / JobSteps / JobParams
-│   │   ├── load.py          # YAML 加载与验证
-│   │   ├── merge.py         # CLI > YAML > Settings 合并
-│   │   └── errors.py        # JobConfigError
-│   ├── tts/                     # TTS 抽象层
-│   │   ├── __init__.py          # 导出公共 API
-│   │   ├── protocol.py          # TTSProvider ABC
-│   │   ├── base.py              # BaseTTSProvider（CI 静音回退）、is_ci()
-│   │   ├── edge.py              # EdgeTTSProvider
-│   │   ├── openai_provider.py   # OpenAITTSProvider（voice 白名单、延迟 SDK 导入）
-│   │   ├── mimo_provider.py     # MimoTTSProvider（3 模型：指定音色、声音克隆、声音设计）
-│   │   ├── factory.py           # get_tts_provider(settings)
-│   │   └── cache.py             # TTSCacheKey、cache_path_for、PROVIDER_CACHE_VERSIONS
-│   ├── utils/
-│   │   ├── async_utils.py   # 同步/异步桥接
-│   │   ├── console.py       # Console Protocol + PlainConsole + build_console
-│   │   ├── environment.py   # 环境信息采集
-│   │   ├── errors.py        # ConfigError（横切配置错误类）
-│   │   ├── font.py          # CJK 字体回退
-│   │   ├── json_parser.py   # LLM JSON 抽取
-│   │   ├── llm.py           # OpenAI 客户端封装
-│   │   ├── log.py           # AppLogger（文件日志层）
-│   │   ├── metadata_export.py # metadata.json 构造器
-│   │   ├── optional_deps.py # 可选依赖探测
-│   │   ├── prompts.py       # 提示词模板
-│   │   └── retention.py     # 日志文件保留策略
-├── tests/
-│   ├── test_context.py
-│   ├── test_settings.py
-│   ├── test_errors.py
-│   ├── test_align.py
-│   ├── test_assets.py
-│   ├── test_bgm.py
-│   ├── test_cli_config.py
-│   ├── test_cli_resolve.py
-│   ├── test_match.py
-│   ├── test_optional_deps.py
-│   ├── test_render_real.py
-│   ├── test_research.py
-│   ├── test_resolve.py
-│   ├── test_runner_strict.py
-│   ├── test_runner_workflow_metadata.py
-│   ├── test_scenes.py
-│   ├── test_script_export.py
-│   ├── test_translate.py
-│   ├── test_json_parser.py
-│   ├── test_pipeline_cancel.py
-│   ├── test_workflow_steps.py
-│   ├── test_v060_task_queue.py
-│   └── test_v061_remote.py
-├── docs/
-├── assets/
-└── .github/workflows/
+│   ├── contract.py          # 稳定 API 契约层
+│   ├── pipeline/            # 16 步流水线（runner、steps、errors）
+│   ├── cloud/               # 任务队列 + 远程推理 (v0.6.x)
+│   ├── workflow/            # YAML 任务配置（schema、loader、merge）
+│   ├── tts/                 # TTS provider 抽象层
+│   └── utils/               # 共享工具（console、log、font 等）
+├── tests/                   # 单元 + 集成测试
+├── docs/                    # 架构、指南、路线图
+├── examples/                # Job YAML、CLI 用法、插件
+└── .github/workflows/       # CI/CD
 ```
 
 ---
 
 ## 路线图
 
-### v0.1.x — 核心流水线 ✅
-
-- [x] CLI 接口（`mn create`、`mn version`）
-- [x] LLM 脚本生成（JSON 输出）
-- [x] Edge-TTS 语音合成（并发生成）
-- [x] SRT 字幕生成（毫秒精度）
-- [x] MoviePy 视频渲染（16:9 / 9:16）
-- [x] TTS 结果缓存（内容寻址）
-- [x] 元数据导出（JSON）
-- [x] CI 流水线（单元测试 + 冒烟测试）
-
-### v0.2.x — 场景与媒体 ✅
-
-- [x] 电影剧情调研 Agent（`--research`）
-- [x] WhisperX 音频-文本对齐
-- [x] 电影视频场景检测
-- [x] 基于脚本的自动素材匹配
-- [x] 语义化场景搜索（Embedding，需要 `[ml]`）
-- [x] 背景音乐集成（BGM 混音）
-- [x] 脚本 Markdown 导出（`script.md`）
-- [x] 场景级片段输出（`clips/`）
-
-### v0.3.x — 平台与工作流 ✅
-
-- [x] 声明式工作流配置（软步骤开关 + 参数调节）
-- [x] YAML 任务配置文件（`mn create --config`）
-- [x] 控制台 / 结构化 StepState 日志重构（`ctx.services.console`、`StepState`）
-- [x] 多语言字幕（`--subtitle-lang` / `--subtitle-mode`；LLM 翻译 + 重试软降级；输出 `subtitle.<lang>.srt` + `subtitle.bilingual.srt`）
-- [x] Web UI（Gradio 本地浏览器应用，`mn web`；协作式取消；需安装 `[web]` extra）（v0.4.10：重构为 FastAPI + React；后续拆分为独立 repo [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web)）
-
-### v0.4.x — TTS 抽象与基础设施 ✅
-
-- [x] Web UI 重写：Gradio → FastAPI + React 18 + WebSocket（v0.4.10；后续拆分为独立 repo [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web)）
-- [x] TTS Provider 抽象（`TTSProvider` 协议、Edge + OpenAI + MiMo 后端）
-- [x] 通过 `MN_TTS_PROVIDER` 选择后端（`edge` / `openai` / `mimo`）
-- [x] OpenAI TTS 支持（voice 白名单、凭证回退、延迟 SDK 导入）
-- [x] MiMo TTS 支持（3 模型：指定音色、声音克隆、声音设计；限时免费）
-- [x] 缓存键升级（sha256、7 维度、两级散列、per-provider 版本映射）
-- [x] CI 临时文件隔离（静音音频不进入缓存）
-- [x] `is_ci()` CI 检测单一来源
-- [x] `ConfigError` 横切配置错误类
-- [x] MoviePy 1.x → 2.x 升级（Python 3.13+ 兼容）
-- [x] 运行前 LLM/TTS 预检（preflight 校验）
-- [x] 步骤级重试机制（`--retry` 标志，`StepAction` 枚举）
-- [x] 首次运行自动创建 `~/.movie-narrator/.env`
-- [x] `export_clips` 直调 ffmpeg 子进程（设计选择，非临时方案）
-- [x] 配置系统全面重构：严格 env/yaml 边界 — `.env`（Settings）仅含 21 个 LLM + TTS 基础配置字段；`job.yaml`（params）含全部 77 个流水线行为键（v0.4.x 时为 32，后续版本持续扩展）；YAML 自动发现（未传 `--config` → `cwd/job.yaml` → 打包示例）；`.env.example` 和 `job.example.yaml` 作为单一真相源；无代码常量模块——内联字面量与示例文件一致
-
-### v0.5.x — 生态系统
-
-> **目标**：在 Cloud 功能依赖之前，冻结公开 API 表面（Pipeline、Workflow、Plugin、SDK）。
-
-- [x] 插件 API —— StepRegistry + ProviderRegistry，支持 `@register_step` / `@register_provider` 装饰器 (#91)
-- [x] Python SDK —— `from movie_narrator import ...`，稳定的 `contract.py` 接口 (#92)
-- [x] 通过 `importlib.metadata` entry points 发现插件（`movie_narrator.plugins` 组）(#92)
-- [x] `Services.logger` 供插件结构化日志使用 (#92)
-- [x] 树外示例插件（`examples/plugins/watermark/`）(#92)
-- [x] WP6 场景过滤 —— 片头跳过、黑帧检测、高亮窗口 (#93)
-- [x] WebUI 拆分 —— `movie-narrator-web` 独立仓库，核心引擎现为纯 CLI (#94, #95)
-
-> SDK 与 Plugin API 一起设计——两者必须在同一版本中稳定。
-
-### v0.6.x — 云端
-
-- [x] 任务队列（v0.6.0: LocalTaskQueue, mn submit/status/tasks/cancel/wait/cleanup）
-- [x] 远程推理（v0.6.1: REST API, RemoteTaskQueue, mn serve/download, --remote flag）
-- [x] Web 服务部署（v0.6.1: TaskAPIServer REST API）— 认证/多租户仍规划中
-- [ ] 分布式渲染（跨节点拆分视频片段）
+当前重点：云端基础设施（分布式渲染、API 网关、云存储）。完整版本路线图见 [路线图](docs/ROADMAP.zh-CN.md)，涵盖 v0.6.2 到 v1.0 的逐版本规划。
 
 ---
 
 ## 文档
 
-- [路线图](docs/ROADMAP.md)
+- [路线图](docs/ROADMAP.zh-CN.md)
 - [架构设计](docs/ARCHITECTURE.md)
 - [LLM 服务商导航](docs/LLM_PROVIDERS.md)
 - [贡献指南](docs/CONTRIBUTING.md)
