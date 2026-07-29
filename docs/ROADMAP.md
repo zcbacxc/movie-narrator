@@ -209,6 +209,47 @@
 - [x] Feature-level benchmark profiling — judge LLM, TMDB, BGM emotion per-feature timing
 - [x] Total test count: 876 → 921 (+45 new tests, 0 failures)
 
+### v0.5.8 — Script Quality Deep Dive (Planned)
+
+- [ ] Fix `_score_bgm_candidate` multi-functionality reward bug (branch condition `emo == mood` always False)
+- [ ] Multilingual anti-AI tone — expand banned phrase list beyond Chinese (English, Japanese, Korean)
+- [ ] Enhanced Judge — 5 dimensions (hook, spoiler, accuracy, anti-AI compliance, narrative principle adherence)
+- [ ] Beat deduplication — detect and merge duplicate plot beats before Phase 2 expansion
+- [ ] Built-in hook template library — fallback hook patterns when user doesn't provide `hook_templates`
+- [ ] Script-level QA gate — validate script before TTS (length, diversity, hook presence)
+
+### v0.5.9 — Voice & Audio Quality (Planned)
+
+- [ ] TTS duration feedback v2 — re-synthesis with speed adjustment for overflow segments (replaces v1 pause-only approach)
+- [ ] TTS output quality validation — clipping detection, SNR estimation, silence check
+- [ ] Emotion-aware TTS — SSML prosody tags driven by beat emotion labels (intense/suspense/calm)
+- [ ] BGM dynamic transition — crossfade between tracks on emotion zone changes
+- [ ] Audio quality aggregation — per-segment audio metrics in metadata.json
+
+### v0.5.10 — Subtitle & Translation Quality (Planned)
+
+- [ ] Subtitle QA — CPS (characters per second), overlap detection, line length compliance
+- [ ] Translation terminology consistency — cross-chunk glossary extraction and enforcement
+- [ ] Subtitle display length validation — ensure translated text fits render area
+- [ ] Bilingual subtitle optimization — line balancing for bilingual mode
+- [ ] Mark untranslated lines in output metadata
+
+### v0.5.11 — Match & Alignment Precision (Planned)
+
+- [ ] Word-level alignment — leverage WhisperX word timestamps for sub-segment precision
+- [ ] Match quality scoring aggregation — composite score across embedding + rhythm + diversity
+- [ ] Scene diversity check — detect and penalize repeated scene usage across segments
+- [ ] Stricter alignment drift threshold — tighten from 0.5 to 0.3 based on L2 test data
+- [ ] Alignment confidence scoring — flag low-confidence segments for review
+
+### v0.5.12 — Holistic QA & Quality Dashboard (Planned)
+
+- [ ] Intermediate product QA gates — audio, subtitle, script quality checks before render
+- [ ] Quality score aggregation — cross-step quality dashboard in metadata.json
+- [ ] Quality regression baseline — track quality metrics across runs for trend analysis
+- [ ] Video encoding quality check — bitrate, codec, resolution validation
+- [ ] QA report export — structured quality report alongside deliverables
+
 ## v0.6.x — Cloud
 
 - [ ] Remote inference (offload LLM / TTS / rendering to cloud workers)
