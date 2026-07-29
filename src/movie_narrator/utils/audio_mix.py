@@ -160,6 +160,42 @@ def duck_bgm(
     return narration.overlay(ducked_bgm)
 
 
+def crossfade_segments(
+    segments: list[tuple[AudioSegment, float]],
+    crossfade_ms: int = 500,
+) -> AudioSegment:
+    """Concatenate audio segments with crossfade transitions.
+
+    v0.5.9: BGM dynamic transition — crossfade between BGM sections
+    at emotion zone boundaries to avoid abrupt mood changes.
+
+    Args:
+        segments: list of ``(audio, start_offset_s)`` tuples. The
+            ``start_offset_s`` is the position in the final track where
+            this segment should begin (used only for metadata; the
+            actual concatenation is sequential).
+        crossfade_ms: crossfade duration in milliseconds.
+
+    Returns:
+        A single AudioSegment with all segments crossfaded together.
+    """
+    if not segments:
+        return AudioSegment.empty()
+    if len(segments) == 1:
+        return segments[0][0]
+
+    result = segments[0][0]
+    for i in range(1, len(segments)):
+        seg = segments[i][0]
+        # Clamp crossfade to the shorter of the two adjacent segments
+        cf = min(crossfade_ms, len(result), len(seg))
+        if cf <= 0:
+            result = result + seg
+        else:
+            result = result.append(seg, crossfade=cf)
+    return result
+
+
 def _smooth_envelope(
     envelope: list[float],
     attack_ms: int,

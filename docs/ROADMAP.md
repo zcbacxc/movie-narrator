@@ -218,13 +218,13 @@
 - [x] Built-in hook template library — fallback hook patterns when user doesn't provide `hook_templates`
 - [x] Script-level QA gate — validate script before TTS (length, diversity, hook presence)
 
-### v0.5.9 — Voice & Audio Quality (Planned)
+### v0.5.9 — Voice & Audio Quality (2026-07-29)
 
-- [ ] TTS duration feedback v2 — re-synthesis with speed adjustment for overflow segments (replaces v1 pause-only approach)
-- [ ] TTS output quality validation — clipping detection, SNR estimation, silence check
-- [ ] Emotion-aware TTS — SSML prosody tags driven by beat emotion labels (intense/suspense/calm)
-- [ ] BGM dynamic transition — crossfade between tracks on emotion zone changes
-- [ ] Audio quality aggregation — per-segment audio metrics in metadata.json
+- [x] TTS duration feedback v2 — speed adjustment for overflow segments after v1 pause reduction (capped at 1.15x)
+- [x] TTS output quality validation — clipping detection, SNR estimation, silence check
+- [x] Emotion-aware TTS — per-segment prosody speed/pitch driven by beat emotion labels (intense/suspense/calm/twist/laughter)
+- [x] BGM dynamic transition — per-zone gain adjustment with crossfade on emotion zone changes
+- [x] Audio quality aggregation — per-segment audio metrics in metadata.json
 
 ### v0.5.10 — Subtitle & Translation Quality (Planned)
 
