@@ -1017,3 +1017,274 @@ def preset(
         typer.echo("Prompt tags:")
         for key in sorted(p.tag_dict):
             typer.echo(f"  {key:<40} {p.tag_dict[key]}")
+
+
+# ── Task Queue commands (v0.6.0) ──────────────────────────
+
+
+def _get_queue():
+    """Create a LocalTaskQueue for CLI use."""
+    from .cloud import LocalTaskQueue
+    return LocalTaskQueue(auto_start=False)
+
+
+@app.command()
+def submit(
+    movie: str = typer.Option(..., "--movie", "-m", help="电影名称 / Movie name"),
+    style: str = typer.Option("热血搞笑", "--style", "-s", help="解说风格 / Narration style"),
+    duration: int = typer.Option(60, "--duration", "-d", help="目标时长(秒) / Target duration"),
+    voice: Optional[str] = typer.Option(None, "--voice", "-v", help="TTS 语音 / TTS voice"),
+    format: str = typer.Option("16:9", "--format", "-f", help="视频格式 / Video format"),
+    video: Optional[str] = typer.Option(None, "--video", help="源视频路径 / Source video path"),
+    library_dir: Optional[str] = typer.Option(None, "--library-dir", help="影视库目录 / Movie library"),
+    research: Optional[bool] = typer.Option(None, "--research/--no-research", help="启用研究 / Enable research"),
+    bgm: Optional[str] = typer.Option(None, "--bgm", help="背景音乐 / Background music"),
+    no_bgm: bool = typer.Option(False, "--no-bgm", help="禁用BGM / Disable BGM"),
+    no_clips: bool = typer.Option(False, "--no-clips", help="跳过片段导出 / Skip clips"),
+    strict: bool = typer.Option(False, "--strict", help="严格模式 / Strict mode"),
+    subtitle_lang: Optional[str] = typer.Option(None, "--subtitle-lang", help="字幕语言 / Subtitle language"),
+    subtitle_mode: Optional[str] = typer.Option(None, "--subtitle-mode", help="字幕模式 / Subtitle mode"),
+    narration_preset: Optional[str] = typer.Option(None, "--narration-preset", "-p", help="解说预设 / Narration preset"),
+    lang: str = typer.Option("zh", "--lang", help="解说语言 / Narration language"),
+    output_dir: Optional[str] = typer.Option(None, "--output-dir", "-o", help="输出目录 / Output directory"),
+    max_retries: int = typer.Option(3, "--max-retries", help="最大重试次数 / Max retries"),
+    wait: bool = typer.Option(False, "--wait", help="提交后等待完成 / Wait for completion"),
+    timeout: Optional[float] = typer.Option(None, "--timeout", help="等待超时(秒) / Wait timeout (seconds)"),
+):
+    """异步提交解说任务 / Submit an async narration task.
+
+    \b
+    示例 / Examples:
+        mn submit -m 飞驰人生 -p douyin-fast
+        mn submit -m 满江红 --wait --timeout 600
+        mn submit -m 飞驰人生 --output-dir ./output/my_task
+    """
+    from .cloud import LocalTaskQueue, TaskRequest
+
+    request = TaskRequest(
+        movie_name=movie,
+        style=style,
+        duration=duration,
+        voice=voice,
+        format=format,
+        video=video,
+        library_dir=library_dir,
+        research=research,
+        bgm=bgm,
+        no_bgm=no_bgm,
+        no_clips=no_clips,
+        strict=strict,
+        subtitle_lang=subtitle_lang,
+        subtitle_mode=subtitle_mode,
+        narration_preset=narration_preset,
+        lang=lang,
+        output_dir=output_dir,
+        max_retries=max_retries,
+    )
+
+    queue = LocalTaskQueue()
+    try:
+        task_id = queue.submit(request)
+        typer.echo(f"Task submitted: {task_id}")
+        typer.echo(f"  Movie: {movie}")
+        typer.echo(f"  Status: pending")
+        typer.echo(f"  Track: mn status {task_id}")
+
+        if wait:
+            typer.echo(f"\nWaiting for task {task_id}...")
+            result = queue.wait(task_id, timeout=timeout)
+            if result is None:
+                typer.echo(f"Task {task_id} did not complete (timeout or cancelled).", err=True)
+                raise typer.Exit(1)
+            if result.succeeded:
+                typer.echo(f"\n✓ Task completed: {result.video_path}")
+            else:
+                typer.echo(f"\n✗ Task failed: {result.error}", err=True)
+                raise typer.Exit(1)
+    finally:
+        queue.shutdown()
+
+
+@app.command()
+def status(
+    task_id: str = typer.Argument(..., help="任务ID / Task ID"),
+):
+    """查看任务状态 / Show task status.
+
+    \b
+    示例 / Example:
+        mn status abc123def456
+    """
+    queue = _get_queue()
+    task = queue.get_task(task_id)
+    if not task:
+        typer.echo(f"Task not found: {task_id}", err=True)
+        raise typer.Exit(1)
+
+    typer.echo(f"Task: {task.id}")
+    typer.echo(f"  Movie: {task.request.movie_name}")
+    typer.echo(f"  Status: {task.status.value}")
+    typer.echo(f"  Created: {task.created_at}")
+    if task.started_at:
+        typer.echo(f"  Started: {task.started_at}")
+    if task.completed_at:
+        typer.echo(f"  Completed: {task.completed_at}")
+    if task.retries > 0:
+        typer.echo(f"  Retries: {task.retries}")
+
+    if task.progress:
+        p = task.progress
+        typer.echo(f"  Progress: {p.current_step_index}/{p.total_steps} "
+                    f"({p.percentage:.0f}%)")
+        if p.current_step:
+            typer.echo(f"  Current step: {p.current_step}")
+        if p.elapsed_seconds > 0:
+            typer.echo(f"  Elapsed: {p.elapsed_seconds:.1f}s")
+        if p.steps_completed:
+            typer.echo(f"  Completed steps: {', '.join(p.steps_completed)}")
+        if p.steps_skipped:
+            typer.echo(f"  Skipped steps: {', '.join(p.steps_skipped)}")
+        if p.steps_failed:
+            typer.echo(f"  Failed steps: {', '.join(p.steps_failed)}")
+
+    if task.result:
+        r = task.result
+        if r.error:
+            typer.echo(f"  Error: {r.error}")
+            if r.error_type:
+                typer.echo(f"  Error type: {r.error_type}")
+        else:
+            typer.echo(f"  Video: {r.video_path}")
+            if r.audio_path:
+                typer.echo(f"  Audio: {r.audio_path}")
+            if r.subtitle_path:
+                typer.echo(f"  Subtitle: {r.subtitle_path}")
+            typer.echo(f"  Output: {r.output_dir}")
+
+
+@app.command()
+def tasks(
+    status_filter: Optional[str] = typer.Option(
+        None, "--status", "-s",
+        help="过滤状态 pending|running|completed|failed|cancelled / Filter by status"
+    ),
+    limit: int = typer.Option(20, "--limit", "-n", help="显示数量 / Number of tasks to show"),
+):
+    """列出任务 / List tasks.
+
+    \b
+    示例 / Examples:
+        mn tasks                 # 列出最近20个任务
+        mn tasks --status running # 只显示运行中的任务
+        mn tasks -n 50           # 显示50个任务
+    """
+    from .cloud.models import TaskStatus
+
+    status_enum = None
+    if status_filter:
+        try:
+            status_enum = TaskStatus(status_filter.lower())
+        except ValueError:
+            typer.echo(
+                f"Invalid status: {status_filter}. "
+                f"Valid: pending, running, completed, failed, cancelled, retrying",
+                err=True,
+            )
+            raise typer.Exit(1)
+
+    queue = _get_queue()
+    task_list = queue.list_tasks(status=status_enum, limit=limit)
+
+    if not task_list:
+        typer.echo("No tasks found.")
+        return
+
+    typer.echo(f"{'ID':<14} {'Movie':<20} {'Status':<12} {'Progress':<10} {'Step':<20} {'Created'}")
+    typer.echo("-" * 100)
+    for t in task_list:
+        progress = "—"
+        step = ""
+        if t.progress and t.progress.current_step:
+            progress = f"{t.progress.percentage:.0f}%"
+            step = t.progress.current_step
+        typer.echo(
+            f"{t.id:<14} {t.request.movie_name:<20} {t.status.value:<12} "
+            f"{progress:<10} {step:<20} {t.created_at[:19]}"
+        )
+
+
+@app.command()
+def cancel(
+    task_id: str = typer.Argument(..., help="任务ID / Task ID"),
+):
+    """取消任务 / Cancel a running task.
+
+    \b
+    示例 / Example:
+        mn cancel abc123def456
+    """
+    queue = _get_queue()
+    success = queue.cancel(task_id)
+    if success:
+        typer.echo(f"Task {task_id}: cancellation requested.")
+    else:
+        typer.echo(
+            f"Task {task_id}: could not cancel "
+            f"(not found or already in terminal state).",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+
+@app.command()
+def wait(
+    task_id: str = typer.Argument(..., help="任务ID / Task ID"),
+    timeout: Optional[float] = typer.Option(
+        None, "--timeout", "-t",
+        help="等待超时(秒) / Timeout in seconds (default: infinite)"
+    ),
+    poll_interval: float = typer.Option(
+        1.0, "--poll-interval",
+        help="轮询间隔(秒) / Poll interval in seconds"
+    ),
+):
+    """等待任务完成 / Wait for task completion.
+
+    \b
+    示例 / Examples:
+        mn wait abc123def456              # 无限等待
+        mn wait abc123def456 -t 600       # 10分钟超时
+        mn wait abc123def456 --poll-interval 0.5
+    """
+    queue = _get_queue()
+    result = queue.wait(task_id, timeout=timeout, poll_interval=poll_interval)
+    if result is None:
+        typer.echo(f"Task {task_id}: did not complete (timeout, cancelled, or not found).", err=True)
+        raise typer.Exit(1)
+    if result.succeeded:
+        typer.echo(f"✓ Task {task_id} completed: {result.video_path}")
+    else:
+        typer.echo(f"✗ Task {task_id} failed: {result.error}", err=True)
+        raise typer.Exit(1)
+
+
+@app.command()
+def cleanup(
+    all_tasks: bool = typer.Option(
+        False, "--all",
+        help="清除所有任务(包括运行中) / Clear all tasks including active ones"
+    ),
+):
+    """清理已完成任务 / Clean up terminal tasks.
+
+    \b
+    示例 / Examples:
+        mn cleanup           # 清除已完成/失败/取消的任务
+        mn cleanup --all     # 清除所有任务
+    """
+    queue = _get_queue()
+    if all_tasks:
+        count = queue.cleanup_all()
+    else:
+        count = queue.cleanup_terminal()
+    typer.echo(f"Cleaned up {count} task(s).")

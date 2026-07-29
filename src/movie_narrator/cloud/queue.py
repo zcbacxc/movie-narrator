@@ -1,0 +1,340 @@
+"""Task queue — async job submission and tracking (v0.6.0).
+
+Provides the ``TaskQueue`` protocol and a ``LocalTaskQueue``
+implementation using ``ThreadPoolExecutor`` for in-process async
+execution.
+
+Future cloud backends (Celery, RQ, SQS, etc.) can implement the
+same protocol by providing a duck-typed replacement.
+"""
+
+from __future__ import annotations
+
+import logging
+import threading
+import time
+from concurrent.futures import Future, ThreadPoolExecutor
+from pathlib import Path
+from typing import Dict, List, Optional, Protocol, runtime_checkable
+
+from .models import Task, TaskProgress, TaskRequest, TaskResult, TaskStatus
+from .storage import TaskStorage
+from .worker import CancelController, run_task
+
+logger = logging.getLogger(__name__)
+
+# Default polling interval for ``wait()``
+_POLL_INTERVAL: float = 0.5
+
+
+# ── Protocol ───────────────────────────────────────────────
+
+
+@runtime_checkable
+class TaskQueue(Protocol):
+    """Abstract task queue for async pipeline execution.
+
+    Implementations may be local (in-process), remote (Redis/RQ),
+    or cloud (SQS + Lambda). The protocol covers the essential
+    operations: submit, query, cancel, and wait.
+    """
+
+    def submit(self, request: TaskRequest) -> str:
+        """Submit a new task. Returns the task ID."""
+        ...
+
+    def get_task(self, task_id: str) -> Optional[Task]:
+        """Get full task details by ID."""
+        ...
+
+    def get_status(self, task_id: str) -> Optional[TaskStatus]:
+        """Get task status. Returns None if task not found."""
+        ...
+
+    def get_progress(self, task_id: str) -> Optional[TaskProgress]:
+        """Get task progress. Returns None if task not found or not started."""
+        ...
+
+    def get_result(self, task_id: str) -> Optional[TaskResult]:
+        """Get task result. Returns None if task not found or not completed."""
+        ...
+
+    def cancel(self, task_id: str) -> bool:
+        """Request cancellation of a running task.
+
+        Returns True if cancellation was requested (task was active),
+        False if the task was not found or already terminal.
+        """
+        ...
+
+    def list_tasks(
+        self,
+        status: Optional[TaskStatus] = None,
+        limit: int = 50,
+    ) -> List[Task]:
+        """List tasks, optionally filtered by status."""
+        ...
+
+    def wait(
+        self,
+        task_id: str,
+        timeout: Optional[float] = None,
+        poll_interval: float = _POLL_INTERVAL,
+    ) -> Optional[TaskResult]:
+        """Block until task reaches a terminal state.
+
+        Returns the ``TaskResult`` if the task completed (success or
+        failure), or None if the task was not found, was cancelled,
+        or timed out.
+        """
+        ...
+
+    def shutdown(self, wait: bool = True) -> None:
+        """Shut down the queue. Optionally wait for running tasks."""
+        ...
+
+
+# ── LocalTaskQueue ─────────────────────────────────────────
+
+
+class LocalTaskQueue:
+    """In-process task queue using ``ThreadPoolExecutor``.
+
+    Tasks run in background threads. State is persisted to disk via
+    ``TaskStorage`` so tasks survive process restarts (though running
+    tasks are lost on crash — they remain in ``RUNNING`` state and
+    can be manually cleaned up).
+
+    Args:
+        storage_dir: Directory for task persistence.
+        max_workers: Maximum concurrent task executions.
+        auto_start: If True, the executor starts immediately.
+    """
+
+    def __init__(
+        self,
+        *,
+        storage_dir: Optional[Path] = None,
+        max_workers: int = 2,
+        auto_start: bool = True,
+    ) -> None:
+        self._storage = TaskStorage(storage_dir)
+        self._max_workers = max_workers
+        self._executor: Optional[ThreadPoolExecutor] = None
+        self._futures: Dict[str, Future] = {}
+        self._controllers: Dict[str, CancelController] = {}
+        self._lock = threading.Lock()
+        self._started = False
+
+        if auto_start:
+            self.start()
+
+    # ── Lifecycle ────────────────────────────────────────────
+
+    def start(self) -> None:
+        """Start the executor if not already started."""
+        if self._started:
+            return
+        self._executor = ThreadPoolExecutor(
+            max_workers=self._max_workers,
+            thread_name_prefix="mn-worker",
+        )
+        self._started = True
+
+    def shutdown(self, wait: bool = True) -> None:
+        """Shut down the executor."""
+        with self._lock:
+            if self._executor:
+                self._executor.shutdown(wait=wait, cancel_futures=not wait)
+                self._executor = None
+            self._started = False
+
+    # ── TaskQueue protocol ───────────────────────────────────
+
+    def submit(self, request: TaskRequest) -> str:
+        """Submit a new task for async execution.
+
+        Returns the task ID immediately. The task will be queued and
+        executed when a worker thread becomes available.
+        """
+        if not self._started or not self._executor:
+            raise RuntimeError("TaskQueue is not started. Call start() first.")
+
+        task = Task(request=request)
+        self._storage.save(task)
+
+        # Create cancellation controller
+        controller = CancelController()
+        with self._lock:
+            self._controllers[task.id] = controller
+
+        # Submit to executor
+        future = self._executor.submit(
+            self._run_task_threadsafe,
+            task.id,
+            controller,
+        )
+        with self._lock:
+            self._futures[task.id] = future
+
+        return task.id
+
+    def get_task(self, task_id: str) -> Optional[Task]:
+        """Get full task details."""
+        return self._storage.load(task_id)
+
+    def get_status(self, task_id: str) -> Optional[TaskStatus]:
+        """Get task status."""
+        task = self._storage.load(task_id)
+        return task.status if task else None
+
+    def get_progress(self, task_id: str) -> Optional[TaskProgress]:
+        """Get task progress."""
+        task = self._storage.load(task_id)
+        return task.progress if task else None
+
+    def get_result(self, task_id: str) -> Optional[TaskResult]:
+        """Get task result (only available for terminal tasks)."""
+        task = self._storage.load(task_id)
+        if task and task.is_terminal:
+            return task.result
+        return None
+
+    def cancel(self, task_id: str) -> bool:
+        """Request cancellation of a running task.
+
+        Returns True if the task was active and cancellation was
+        requested. Returns False if the task was not found, already
+        terminal, or not yet started.
+        """
+        task = self._storage.load(task_id)
+        if not task or task.is_terminal:
+            return False
+
+        with self._lock:
+            controller = self._controllers.get(task_id)
+        if controller:
+            controller.cancel()
+            return True
+
+        # Task is pending but not yet running — mark as cancelled
+        task.status = TaskStatus.CANCELLED
+        from datetime import datetime, timezone
+        task.completed_at = datetime.now(timezone.utc).isoformat()
+        self._storage.save(task)
+        return True
+
+    def list_tasks(
+        self,
+        status: Optional[TaskStatus] = None,
+        limit: int = 50,
+    ) -> List[Task]:
+        """List tasks, optionally filtered by status."""
+        return self._storage.list_tasks(status=status, limit=limit)
+
+    def wait(
+        self,
+        task_id: str,
+        timeout: Optional[float] = None,
+        poll_interval: float = _POLL_INTERVAL,
+    ) -> Optional[TaskResult]:
+        """Block until task reaches a terminal state.
+
+        Returns the ``TaskResult`` if the task completed (success or
+        failure). Returns None if:
+        - The task was not found
+        - The task was cancelled
+        - The timeout was reached
+        """
+        start = time.time()
+        while True:
+            task = self._storage.load(task_id)
+            if not task:
+                return None
+            if task.is_terminal:
+                return task.result if task.result else None
+
+            if timeout is not None and (time.time() - start) > timeout:
+                return None
+
+            time.sleep(poll_interval)
+
+    # ── Cleanup ──────────────────────────────────────────────
+
+    def cleanup_terminal(self) -> int:
+        """Remove all tasks in terminal states. Returns count removed."""
+        return self._storage.clear_terminal()
+
+    def cleanup_all(self) -> int:
+        """Remove all tasks. Returns count removed."""
+        return self._storage.clear_all()
+
+    # ── Internal ─────────────────────────────────────────────
+
+    def _run_task_threadsafe(
+        self,
+        task_id: str,
+        controller: CancelController,
+    ) -> None:
+        """Worker thread entry point.
+
+        Loads the task from storage, runs it, and saves the result.
+        All exceptions are caught and logged — the worker thread must
+        never raise.
+        """
+        try:
+            task = self._storage.load(task_id)
+            if not task:
+                logger.error("Task %s not found in storage", task_id)
+                return
+
+            def on_status_change(updated: Task) -> None:
+                self._storage.save(updated)
+
+            def on_progress(updated: Task) -> None:
+                self._storage.save(updated)
+
+            task = run_task(
+                task,
+                controller=controller,
+                on_progress=on_progress,
+                on_status_change=on_status_change,
+            )
+            self._storage.save(task)
+
+        except Exception as e:
+            logger.exception("Worker thread error for task %s: %s", task_id, e)
+            # Try to mark the task as failed
+            try:
+                task = self._storage.load(task_id)
+                if task and not task.is_terminal:
+                    task.status = TaskStatus.FAILED
+                    task.last_error = f"Worker thread error: {e}"
+                    from datetime import datetime, timezone
+                    task.completed_at = datetime.now(timezone.utc).isoformat()
+                    self._storage.save(task)
+            except Exception:
+                pass
+
+        finally:
+            with self._lock:
+                self._futures.pop(task_id, None)
+                self._controllers.pop(task_id, None)
+
+    # ── Properties ───────────────────────────────────────────
+
+    @property
+    def storage(self) -> TaskStorage:
+        """The underlying task storage."""
+        return self._storage
+
+    @property
+    def is_started(self) -> bool:
+        """Whether the executor is running."""
+        return self._started
+
+    @property
+    def active_count(self) -> int:
+        """Number of currently running/pending tasks."""
+        tasks = self._storage.list_tasks()
+        return sum(1 for t in tasks if t.is_active)
