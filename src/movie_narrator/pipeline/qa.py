@@ -4,6 +4,10 @@ Runs after ``render_video`` and before ``export_clips``. Probes the output
 video and rejects it if it is missing streams, the wrong length, near-silent,
 or implausibly small. In CI, the step is skipped unless ``qa_enabled`` is
 explicitly set, to keep the smoke test fast and free of binary-probing flakiness.
+
+v0.5.12: Also runs video encoding quality checks (codec, bitrate, resolution),
+builds a cross-step quality dashboard, and exports a structured QA report
+(``qa_report.json`` + ``qa_report.txt``) alongside deliverables.
 """
 
 from __future__ import annotations
@@ -11,6 +15,9 @@ from __future__ import annotations
 from ..models import Context
 from ..tts.base import is_ci
 from ..utils.deliverable_qa import evaluate_deliverable
+from ..utils.video_qa import evaluate_video_quality
+from ..utils.quality_dashboard import build_quality_dashboard
+from ..utils.qa_report import export_qa_report
 
 
 def validate_deliverable(ctx: Context) -> Context:
@@ -75,4 +82,33 @@ def validate_deliverable(ctx: Context) -> Context:
         f"QA passed: duration={report.metrics.get('duration', 0):.1f}s, "
         f"vol={report.metrics.get('mean_volume')}dB"
     )
+
+    # ── v0.5.12: Video encoding quality checks ──────────────
+    video_report = evaluate_video_quality(video_path)
+    ctx.metadata["video_qa"] = video_report.to_dict()
+    if not video_report.ok:
+        ctx.services.console.inline_warn(
+            f"Video encoding QA: {len(video_report.issues)} issue(s) found"
+        )
+        for issue in video_report.issues:
+            ctx.services.console.debug(f"  - {issue}")
+
+    # ── v0.5.12: Build quality dashboard ────────────────────
+    # Aggregate all per-step QA metrics into a unified dashboard.
+    baseline = ctx.metadata.get("qa_baseline_path")
+    dashboard = build_quality_dashboard(ctx.metadata, baseline_path=baseline)
+    ctx.metadata["quality_dashboard"] = dashboard.to_dict()
+    ctx.services.console.debug(
+        f"Quality dashboard: overall={dashboard.overall_score:.1%} [{dashboard.label}], "
+        f"{dashboard.total_issues} total issues"
+    )
+
+    # ── v0.5.12: Export structured QA report ────────────────
+    export_qa_report(
+        ctx.metadata,
+        ctx.output_dir,
+        movie_name=ctx.movie_name,
+        baseline_path=baseline,
+    )
+
     return ctx

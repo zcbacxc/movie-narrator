@@ -137,6 +137,8 @@ class PipelineStatus(BaseModel):
     # — distinct semantics from "disabled" (explicit workflow_steps=false or
     # provider unknown). See multi-language-subtitle-design.md §4.1.
     translate: StepStatus = "skipped"
+    # v0.5.12: QA gate step status
+    qa_gate: StepStatus = "disabled"
 
 
 class Assets(BaseModel):

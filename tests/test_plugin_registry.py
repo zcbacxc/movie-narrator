@@ -279,8 +279,8 @@ class TestStepRegistryDecorator:
 class TestGlobalStepRegistry:
     """The global step_registry instance with built-in steps."""
 
-    def test_has_15_builtin_steps(self):
-        assert len(step_registry.names()) == 15
+    def test_has_16_builtin_steps(self):
+        assert len(step_registry.names()) == 16
 
     def test_ordered_names_match_pipeline(self):
         from movie_narrator.pipeline.runner import STEPS
@@ -298,6 +298,7 @@ class TestGlobalStepRegistry:
         expected = {
             "research_plot", "align_audio", "detect_scenes",
             "match_clips", "mix_bgm", "export_clips", "translate_subtitles",
+            "run_qa_gate",
         }
         assert step_registry.soft_step_names() == expected
 
@@ -309,6 +310,7 @@ class TestGlobalStepRegistry:
         assert step_registry.status_field_for("mix_bgm") == "bgm"
         assert step_registry.status_field_for("export_clips") == "export"
         assert step_registry.status_field_for("translate_subtitles") == "translate"
+        assert step_registry.status_field_for("run_qa_gate") == "qa_gate"
 
     def test_consequence_messages_exist(self):
         for name in step_registry.soft_step_names():
