@@ -375,10 +375,17 @@ class TestArtifactManagement:
         assert "subtitle.srt" in filenames
         assert "metadata.json" in filenames
 
-    def test_list_artifacts_no_output(self, api_server, remote_queue):
+    def test_list_artifacts_no_output(self, api_server):
         """GET /tasks/{id}/artifacts returns empty for tasks without output."""
-        task_id = remote_queue.submit(TaskRequest(movie_name="NoOutput", max_retries=0))
-        artifacts = list_artifacts(api_server.base_url, task_id)
+        from movie_narrator.cloud.models import Task
+
+        # Create a pending task directly in storage (bypassing worker execution)
+        task = Task(
+            request=TaskRequest(movie_name="NoOutput", max_retries=0),
+            status=TaskStatus.PENDING,
+        )
+        api_server.queue._storage.save(task)
+        artifacts = list_artifacts(api_server.base_url, task.id)
         assert artifacts == []
 
     def test_download_artifact(self, api_server, completed_task_with_files, tmp_path):
