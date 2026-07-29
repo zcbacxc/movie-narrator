@@ -263,6 +263,15 @@
 - [x] CLI task queue commands — `mn submit`, `mn status`, `mn tasks`, `mn cancel`, `mn wait`, `mn cleanup`
 - [x] Contract exports — `CONTRACT_VERSION` bumped to `(0, 6, 0)`, cloud types exported via SDK
 
-- [ ] Remote inference (offload LLM / TTS / rendering to cloud workers)
+### v0.6.1 — Remote Inference (2026-07-29)
+
+- [x] REST API server — `TaskAPIServer` with stdlib `http.server`, endpoints for task CRUD + artifact download
+- [x] Remote task queue client — `RemoteTaskQueue` implementing `TaskQueue` protocol via HTTP, stdlib `urllib` only
+- [x] Worker daemon — `WorkerDaemon` / `run_daemon()` combining `LocalTaskQueue` + `TaskAPIServer` with graceful shutdown
+- [x] Artifact management — `list_artifacts()`, `download_artifact()`, `download_all_artifacts()` with path-traversal protection
+- [x] Remote provider proxies — `register_remote_llm()` / `register_remote_tts()` for offloading inference to remote workers
+- [x] CLI remote commands — `mn serve`, `mn download`, `--remote` flag on `mn submit`/`status`/`tasks`/`cancel`/`wait`
+- [x] Contract exports — `CONTRACT_VERSION` bumped to `(0, 6, 1)`, remote inference types exported via SDK
+
 - [ ] Distributed rendering (split video segments across nodes)
 - [ ] Web service deployment (REST API, authentication, multi-tenant) — note: the Web UI itself is now an independent package ([movie-narrator-web](https://github.com/zcbacxc/movie-narrator-web)); this item covers cloud deployment/hosting concerns, not the UI codebase

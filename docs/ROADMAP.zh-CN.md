@@ -252,7 +252,26 @@
 
 ## v0.6.x — Cloud
 
-- [ ] 远程推理（offload LLM / TTS / 渲染到云 worker）
+### v0.6.0 — 任务队列与异步 Job 系统 (2026-07-29)
+
+- [x] 任务队列（异步 job 提交、进度轮询、重试）— `LocalTaskQueue` + `TaskQueue` 协议
+- [x] 任务模型 — `TaskStatus`、`TaskPriority`、`TaskRequest`、`TaskProgress`、`TaskResult`、`Task` 完整生命周期
+- [x] 任务持久化 — JSON 存储 `TaskStorage`，原子写入，线程安全，支持进程重启
+- [x] 协作式取消 — `CancelController` 实现 `RunController` 协议，可中断重试休眠
+- [x] 进度跟踪 — `ProgressConsole` 包装器拦截步骤事件，实时进度更新
+- [x] 指数退避重试 — 错误类型匹配检测可重试错误，可中断休眠
+- [x] CLI 任务队列命令 — `mn submit`、`mn status`、`mn tasks`、`mn cancel`、`mn wait`、`mn cleanup`
+- [x] Contract 导出 — `CONTRACT_VERSION` 升至 `(0, 6, 0)`，cloud 类型通过 SDK 导出
+
+### v0.6.1 — 远程推理 (2026-07-29)
+
+- [x] REST API 服务器 — `TaskAPIServer`，基于 stdlib `http.server`，任务 CRUD + 产物下载端点
+- [x] 远程任务队列客户端 — `RemoteTaskQueue` 通过 HTTP 实现 `TaskQueue` 协议，仅依赖 stdlib
+- [x] Worker 守护进程 — `WorkerDaemon` / `run_daemon()` 组合 `LocalTaskQueue` + `TaskAPIServer`，优雅关闭
+- [x] 产物管理 — `list_artifacts()`、`download_artifact()`、`download_all_artifacts()`，路径遍历保护
+- [x] 远程 Provider 代理 — `register_remote_llm()` / `register_remote_tts()` 推理 offload 到远程 worker
+- [x] CLI 远程命令 — `mn serve`、`mn download`、`--remote` 标志
+- [x] Contract 导出 — `CONTRACT_VERSION` 升至 `(0, 6, 1)`，远程推理类型通过 SDK 导出
+
 - [ ] 分布式渲染（将视频段分散到多节点）
-- [ ] 任务队列（异步 job 提交、进度轮询、重试）
 - [ ] Web 服务部署（REST API、鉴权、多租户）—— 注：Web UI 本身现已是独立包（[movie-narrator-web](https://github.com/zcbacxc/movie-narrator-web)）；本条目关注云端部署/托管，而非 UI 代码库

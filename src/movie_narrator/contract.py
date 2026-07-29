@@ -46,7 +46,7 @@ from typing import Any, Callable, Dict, Optional, Protocol, runtime_checkable
 #   MAJOR — breaking changes to exported symbols or signatures
 #   MINOR — new exports added (backward compatible)
 #   PATCH — bug fixes, doc changes (no API surface change)
-CONTRACT_VERSION: tuple[int, int, int] = (0, 6, 0)
+CONTRACT_VERSION: tuple[int, int, int] = (0, 6, 1)
 
 
 def check_version(required: tuple[int, int, int]) -> None:
@@ -298,6 +298,17 @@ __all__ = [
     "TaskStatus",
     "TaskStorage",
     "run_task",
+    # Cloud / Remote Inference (v0.6.1)
+    "RemoteTaskQueue",
+    "RemoteQueueError",
+    "TaskAPIServer",
+    "WorkerDaemon",
+    "run_daemon",
+    "download_artifact",
+    "download_all_artifacts",
+    "list_artifacts",
+    "register_remote_llm",
+    "register_remote_tts",
 ]
 
 
@@ -333,4 +344,18 @@ from .cloud import (  # noqa: E402
     TaskStatus,
     TaskStorage,
     run_task,
+)
+
+# Cloud / remote inference (v0.6.1) — new exports, backward compatible.
+from .cloud import (  # noqa: E402
+    RemoteQueueError,
+    RemoteTaskQueue,
+    TaskAPIServer,
+    WorkerDaemon,
+    download_all_artifacts,
+    download_artifact,
+    list_artifacts,
+    register_remote_llm,
+    register_remote_tts,
+    run_daemon,
 )

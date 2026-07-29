@@ -1022,9 +1022,17 @@ def preset(
 # ── Task Queue commands (v0.6.0) ──────────────────────────
 
 
-def _get_queue():
-    """Create a LocalTaskQueue for CLI use."""
+def _get_queue(remote: Optional[str] = None):
+    """Create a task queue for CLI use.
+
+    Args:
+        remote: If provided, returns a RemoteTaskQueue pointing to the
+            given URL. Otherwise, returns a LocalTaskQueue.
+    """
     from .cloud import LocalTaskQueue
+    if remote:
+        from .cloud import RemoteTaskQueue
+        return RemoteTaskQueue(remote)
     return LocalTaskQueue(auto_start=False)
 
 
@@ -1050,6 +1058,10 @@ def submit(
     max_retries: int = typer.Option(3, "--max-retries", help="最大重试次数 / Max retries"),
     wait: bool = typer.Option(False, "--wait", help="提交后等待完成 / Wait for completion"),
     timeout: Optional[float] = typer.Option(None, "--timeout", help="等待超时(秒) / Wait timeout (seconds)"),
+    remote: Optional[str] = typer.Option(
+        None, "--remote", "-r",
+        help="远程服务器URL / Remote server URL (e.g. http://worker:8765)"
+    ),
 ):
     """异步提交解说任务 / Submit an async narration task.
 
@@ -1057,9 +1069,9 @@ def submit(
     示例 / Examples:
         mn submit -m 飞驰人生 -p douyin-fast
         mn submit -m 满江红 --wait --timeout 600
-        mn submit -m 飞驰人生 --output-dir ./output/my_task
+        mn submit -m 飞驰人生 --remote http://worker:8765 --wait
     """
-    from .cloud import LocalTaskQueue, TaskRequest
+    from .cloud import TaskRequest
 
     request = TaskRequest(
         movie_name=movie,
@@ -1082,13 +1094,15 @@ def submit(
         max_retries=max_retries,
     )
 
-    queue = LocalTaskQueue()
+    queue = _get_queue(remote=remote)
     try:
         task_id = queue.submit(request)
         typer.echo(f"Task submitted: {task_id}")
         typer.echo(f"  Movie: {movie}")
         typer.echo(f"  Status: pending")
-        typer.echo(f"  Track: mn status {task_id}")
+        if remote:
+            typer.echo(f"  Remote: {remote}")
+        typer.echo(f"  Track: mn status {task_id}" + (f" --remote {remote}" if remote else ""))
 
         if wait:
             typer.echo(f"\nWaiting for task {task_id}...")
@@ -1108,14 +1122,19 @@ def submit(
 @app.command()
 def status(
     task_id: str = typer.Argument(..., help="任务ID / Task ID"),
+    remote: Optional[str] = typer.Option(
+        None, "--remote", "-r",
+        help="远程服务器URL / Remote server URL"
+    ),
 ):
     """查看任务状态 / Show task status.
 
     \b
     示例 / Example:
         mn status abc123def456
+        mn status abc123def456 --remote http://worker:8765
     """
-    queue = _get_queue()
+    queue = _get_queue(remote=remote)
     task = queue.get_task(task_id)
     if not task:
         typer.echo(f"Task not found: {task_id}", err=True)
@@ -1169,6 +1188,10 @@ def tasks(
         help="过滤状态 pending|running|completed|failed|cancelled / Filter by status"
     ),
     limit: int = typer.Option(20, "--limit", "-n", help="显示数量 / Number of tasks to show"),
+    remote: Optional[str] = typer.Option(
+        None, "--remote", "-r",
+        help="远程服务器URL / Remote server URL"
+    ),
 ):
     """列出任务 / List tasks.
 
@@ -1176,7 +1199,7 @@ def tasks(
     示例 / Examples:
         mn tasks                 # 列出最近20个任务
         mn tasks --status running # 只显示运行中的任务
-        mn tasks -n 50           # 显示50个任务
+        mn tasks --remote http://worker:8765
     """
     from .cloud.models import TaskStatus
 
@@ -1192,7 +1215,7 @@ def tasks(
             )
             raise typer.Exit(1)
 
-    queue = _get_queue()
+    queue = _get_queue(remote=remote)
     task_list = queue.list_tasks(status=status_enum, limit=limit)
 
     if not task_list:
@@ -1216,14 +1239,19 @@ def tasks(
 @app.command()
 def cancel(
     task_id: str = typer.Argument(..., help="任务ID / Task ID"),
+    remote: Optional[str] = typer.Option(
+        None, "--remote", "-r",
+        help="远程服务器URL / Remote server URL"
+    ),
 ):
     """取消任务 / Cancel a running task.
 
     \b
     示例 / Example:
         mn cancel abc123def456
+        mn cancel abc123def456 --remote http://worker:8765
     """
-    queue = _get_queue()
+    queue = _get_queue(remote=remote)
     success = queue.cancel(task_id)
     if success:
         typer.echo(f"Task {task_id}: cancellation requested.")
@@ -1247,6 +1275,10 @@ def wait(
         1.0, "--poll-interval",
         help="轮询间隔(秒) / Poll interval in seconds"
     ),
+    remote: Optional[str] = typer.Option(
+        None, "--remote", "-r",
+        help="远程服务器URL / Remote server URL"
+    ),
 ):
     """等待任务完成 / Wait for task completion.
 
@@ -1254,9 +1286,9 @@ def wait(
     示例 / Examples:
         mn wait abc123def456              # 无限等待
         mn wait abc123def456 -t 600       # 10分钟超时
-        mn wait abc123def456 --poll-interval 0.5
+        mn wait abc123def456 --remote http://worker:8765
     """
-    queue = _get_queue()
+    queue = _get_queue(remote=remote)
     result = queue.wait(task_id, timeout=timeout, poll_interval=poll_interval)
     if result is None:
         typer.echo(f"Task {task_id}: did not complete (timeout, cancelled, or not found).", err=True)
@@ -1288,3 +1320,79 @@ def cleanup(
     else:
         count = queue.cleanup_terminal()
     typer.echo(f"Cleaned up {count} task(s).")
+
+
+# ── Remote serve command (v0.6.1) ──────────────────────────
+
+
+@app.command()
+def serve(
+    host: str = typer.Option("0.0.0.0", "--host", help="绑定地址 / Bind address"),
+    port: int = typer.Option(8765, "--port", help="监听端口 / Listen port"),
+    max_workers: int = typer.Option(2, "--max-workers", help="最大并发任务 / Max concurrent tasks"),
+    storage_dir: Optional[str] = typer.Option(
+        None, "--storage-dir",
+        help="任务存储目录 / Task storage directory"
+    ),
+):
+    """启动远程推理服务 / Start the remote inference API server.
+
+    启动一个 HTTP API 服务器,允许远程客户端提交和管理解说任务.
+    适用于将推理负载卸载到 GPU 机器或云端服务器.
+
+    \b
+    Start a worker daemon that accepts remote task submissions:
+        mn serve --host 0.0.0.0 --port 8765
+        mn serve --max-workers 4
+
+    \b
+    From another machine, submit tasks:
+        mn submit -m 飞驰人生 --remote http://worker:8765 --wait
+    """
+    from .cloud import run_daemon
+    from pathlib import Path
+
+    storage = Path(storage_dir) if storage_dir else None
+    run_daemon(
+        host=host,
+        port=port,
+        storage_dir=storage,
+        max_workers=max_workers,
+        blocking=True,
+    )
+
+
+@app.command()
+def download(
+    task_id: str = typer.Argument(..., help="任务ID / Task ID"),
+    remote: str = typer.Option(..., "--remote", "-r", help="远程服务器URL / Remote server URL"),
+    filename: Optional[str] = typer.Option(
+        None, "--filename", "-f",
+        help="指定文件名(不指定则下载全部) / Specific file (default: all)"
+    ),
+    dest_dir: Optional[str] = typer.Option(
+        None, "--dest-dir", "-o",
+        help="保存目录 / Destination directory"
+    ),
+):
+    """从远程服务器下载产物 / Download artifacts from a remote server.
+
+    \b
+    示例 / Examples:
+        mn download abc123 --remote http://worker:8765
+        mn download abc123 -r http://worker:8765 -f final.mp4
+        mn download abc123 -r http://worker:8765 -o ./output
+    """
+    from .cloud import download_all_artifacts, download_artifact
+
+    if filename:
+        path = download_artifact(remote, task_id, filename, dest_dir=dest_dir)
+        typer.echo(f"Downloaded: {path}")
+    else:
+        paths = download_all_artifacts(remote, task_id, dest_dir=dest_dir)
+        if not paths:
+            typer.echo("No artifacts found.", err=True)
+            raise typer.Exit(1)
+        typer.echo(f"Downloaded {len(paths)} file(s):")
+        for p in paths:
+            typer.echo(f"  {p}")
