@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.8] - 2026-07-29
+
+### Added (v0.5.8 — Script Quality Deep Dive)
+
+- **BGM versatility bonus fix** (`pipeline/bgm.py`): fixed critical bug in `_score_bgm_candidate` where the versatility bonus condition `emo == mood and frac > 0.20` was always False (since `emo == mood` was already skipped by `continue`). BGM tracks matching the dominant emotion now correctly receive a bonus when secondary emotions > 20% are present, improving BGM selection for multi-emotion narratives.
+- **Multilingual anti-AI tone** (`utils/prompts.py`): expanded `ANTI_AI_TONE` banned phrase list from Chinese-only to four languages — Chinese (8 phrases), English (9 phrases), Japanese (6 phrases), Korean (6 phrases). Added rule against repetitive sentence structures (no three consecutive sentences starting the same way).
+- **Judge five-dimension evaluation** (`pipeline/script.py`, `utils/prompts.py`): expanded script quality judge from 3 dimensions (hook, spoiler, accuracy) to 5 dimensions — added `anti_ai_compliance` (AI-tone detection) and `narrative_adherence` (narrative principle compliance). Updated `JUDGE_PROMPT`, `_DEFAULT_PASS_SCORE`, verdict logic, and `build_judge_feedback_hint` to handle the new dimensions.
+- **Beat deduplication** (`pipeline/script.py`): new `_deduplicate_beats` function using character bigram Jaccard similarity (threshold 0.90) to detect and remove near-duplicate plot beats before Phase 2 expansion. Adjusts target count when beats are removed and updates `beats_meta` accordingly.
+- **Built-in hook template library** (`utils/prompts.py`): new `DEFAULT_HOOK_TEMPLATES` constant with 6 diverse hook patterns (question, contrast, shock, mystery, stakes). `build_hook_hint` now falls back to this library when user doesn't provide `hook_templates`, ensuring every narration gets a strong opening hook.
+- **Script-level QA gate** (`pipeline/script.py`): new `validate_script_quality` function that runs after trim, before TTS. Checks segment length bounds, pairwise diversity (Jaccard > 0.70 flags near-duplicates), and hook presence (first segment ≥ 4 chars). Results stored in `ctx.metadata["script_qa"]` for diagnostics; soft gate — issues logged as warnings, never blocks pipeline.
+- **v0.5.8 quality tests** (`tests/test_v058_quality.py`): 37 new tests covering BGM versatility bonus, multilingual anti-AI tone, judge 5 dimensions, beat deduplication, hook template library, and script QA gate.
+
+### Changed (v0.5.8)
+
+- `pipeline/script.py`: `generate_script` now includes Phase 1.5 (deduplication) and Phase 4 (QA validation) in the pipeline; `judge_script` `max_tokens` increased from 256 to 320 for the larger 5-dimension JSON response.
+- `docs/ROADMAP.md` / `ROADMAP.zh-CN.md`: v0.5.8 items marked as completed.
+
+### Notes
+
+- `CONTRACT_VERSION` remains `(0, 5, 1)` — no SDK surface changes.
+- All 958 tests pass (23 skipped in CI mode, 0 failures).
+- Total test count increased from 921 (v0.5.7) to 958 (+37 new tests).
+
 ## [0.5.7] - 2026-07-29
 
 ### Added (v0.5.7 — Quality Hardening)

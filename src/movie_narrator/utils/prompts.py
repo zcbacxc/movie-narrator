@@ -19,7 +19,12 @@ Anti-AI-tone rules (MUST follow):
 - Write in spoken, colloquial language — avoid formal summaries or encyclopedic phrasing.
 - Use short, punchy sentences. Vary length for rhythm.
 - Tag emotional beats naturally within the narration (e.g., implying tension, excitement, or surprise through word choice).
-- Never use generic filler like "总的来说" "值得一提的是" "不仅如此" — these are AI tells.
+- Never use generic filler or transition phrases that are AI tells. BANNED phrases by language:
+  Chinese: "总的来说" "值得一提的是" "不仅如此" "综上所述" "与此同时" "事实上" "众所周知" "毫无疑问"
+  English: "In conclusion" "It's worth noting that" "Not only that" "Furthermore" "Moreover" "Additionally" "It goes without saying" "Needless to say" "As a matter of fact"
+  Japanese: "まとめると" "注目すべきは" "それだけでなく" "さらに" "言うまでもなく" "実のところ"
+  Korean: "요약하자면" "주목할 점은" "그뿐만 아니라" "게다가" "말할 것도 없이" "사실상"
+- Avoid repetitive sentence structures — do not start three consecutive sentences the same way.
 - Prefer concrete visual descriptions over abstract statements.
 """
 
@@ -171,6 +176,8 @@ def build_judge_feedback_hint(prev_scores: dict | None) -> str:
     hook = prev_scores.get("hook_strength", 10)
     spoiler = prev_scores.get("spoiler_level", 0)
     accuracy = prev_scores.get("plot_accuracy", 10)
+    anti_ai = prev_scores.get("anti_ai_compliance", 10)
+    narrative = prev_scores.get("narrative_adherence", 10)
 
     parts: list[str] = []
     if hook is not None:
@@ -200,6 +207,30 @@ def build_judge_feedback_hint(prev_scores: dict | None) -> str:
                     "- PREVIOUS ATTEMPT FAILED: Plot accuracy was too low "
                     "(score {}/10). Stick to verified facts from the research "
                     "context — do not fabricate scenes or character actions.".format(accuracy)
+                )
+        except (TypeError, ValueError):
+            pass
+    if anti_ai is not None:
+        try:
+            if int(anti_ai) < 6:
+                parts.append(
+                    "- PREVIOUS ATTEMPT FAILED: AI-tone detected "
+                    "(score {}/10). Remove generic filler, encyclopedic "
+                    "phrasing, and banned transition phrases. Write in "
+                    "spoken, colloquial language with varied sentence "
+                    "structures.".format(anti_ai)
+                )
+        except (TypeError, ValueError):
+            pass
+    if narrative is not None:
+        try:
+            if int(narrative) < 5:
+                parts.append(
+                    "- PREVIOUS ATTEMPT FAILED: Narrative principles not "
+                    "followed (score {}/10). Ensure: strong hook within "
+                    "5s, suspense beats every 20-30s, emotional payoff at "
+                    "peaks, at least one quotable line, and an ending "
+                    "reversal or reframe.".format(narrative)
                 )
         except (TypeError, ValueError):
             pass
@@ -329,13 +360,15 @@ Score each dimension from 1 to 10:
 - hook_strength: How compelling is the opening hook? Does the first line grab attention within seconds?
 - spoiler_level: How much plot is spoiled? Higher means MORE spoiler (we want this LOW). A score of 10 means the entire ending/twist is revealed.
 - plot_accuracy: How accurate is the plot retelling? Does it faithfully represent the movie without fabrications?
+- anti_ai_compliance: Does the script avoid AI-tone tells (generic filler, encyclopedic phrasing, repetitive sentence structures, banned transition phrases)? 10 = fully natural human narration, 1 = obvious AI output.
+- narrative_adherence: Does the script follow narrative principles (hook within 5s, suspense beats every 20-30s, emotional payoff at peaks, quotable lines, ending reversal)? 10 = all principles present, 1 = none.
 
 Decision rule:
-- verdict = "pass" if hook_strength >= 6 AND spoiler_level <= 7 AND plot_accuracy >= 6
+- verdict = "pass" if hook_strength >= 6 AND spoiler_level <= 7 AND plot_accuracy >= 6 AND anti_ai_compliance >= 6 AND narrative_adherence >= 5
 - verdict = "retry" otherwise
 
 Return ONLY a JSON object (no markdown, no extra text):
-{{"hook_strength": 8, "spoiler_level": 3, "plot_accuracy": 9, "verdict": "pass", "issues": ["short description of any problem, or empty list if none"]}}
+{{"hook_strength": 8, "spoiler_level": 3, "plot_accuracy": 9, "anti_ai_compliance": 7, "narrative_adherence": 7, "verdict": "pass", "issues": ["short description of any problem, or empty list if none"]}}
 """
 
 
@@ -398,16 +431,34 @@ def build_hook_hint(hook_templates: list[str] | None, movie: str) -> str:
     """Build the {hook_hint} block for EXPAND_PROMPT.
 
     Injects hook template candidates for the first sentence.
-    Returns empty string when no hook_templates are provided.
+    When ``hook_templates`` is not provided, falls back to the built-in
+    :data:`DEFAULT_HOOK_TEMPLATES` library so every narration gets a
+    strong opening hook even without user configuration.
     """
-    if not hook_templates:
+    templates = hook_templates if hook_templates else DEFAULT_HOOK_TEMPLATES
+    if not templates:
         return ""
     lines = ["6. Hook templates for the FIRST sentence (pick one or write inspired by one — fill {movie} with the actual title):"]
-    for i, tmpl in enumerate(hook_templates, 1):
+    for i, tmpl in enumerate(templates, 1):
         filled = tmpl.replace("{movie}", movie)
         lines.append(f"   {i}. {filled}")
     lines.append("   The first sentence MUST be a scroll-stopping hook. Do NOT copy verbatim — adapt to the plot.")
     return "\n".join(lines)
+
+
+# ── Built-in hook template library (v0.5.8) ───────────────
+# Fallback hook patterns used when the user does not provide
+# ``hook_templates``. Covers diverse hook types (question, contrast,
+# shock, mystery, stakes) that work across movie genres.
+# Independently authored, generic narrative techniques.
+DEFAULT_HOOK_TEMPLATES: list[str] = [
+    "你敢信？{movie}里这个细节，99%的人都没看懂。",
+    "注意看，{movie}开场这三分钟，藏着整部电影的结局。",
+    "如果说{movie}只讲了一件事，那一定是——别相信你看到的。",
+    "看完{movie}，我盯着屏幕整整五分钟没动。",
+    "{movie}最狠的不是反转，是你发现所有线索早就摆在你面前。",
+    "没有人能想到，{movie}里这个角色从头到尾都在骗你。",
+]
 
 # Translation prompt — multi-language subtitle (v0.3).
 # The LLM must return a JSON object with a "translations" array aligned
