@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.1] - 2026-07-29
+
+### Added (v0.6.1 — Remote Inference)
+
+- **REST API server** (`cloud/api.py`): `TaskAPIServer` — lightweight HTTP server built on Python stdlib `http.server` (no extra dependencies). Exposes REST endpoints for remote task management: `POST /tasks` (submit), `GET /tasks` (list with `?status=` filter), `GET /tasks/{id}` (details), `DELETE /tasks/{id}` (cancel), `GET /tasks/{id}/result` (terminal result), `GET /tasks/{id}/artifacts` (output file listing), `GET /tasks/{id}/download/{file}` (file download with path-traversal protection), `GET /health` (health check), `GET /info` (server version + worker count). Uses `ThreadingHTTPServer` for concurrent request handling. Supports non-blocking start for testing and blocking start with SIGINT handling for production.
+- **Remote task queue client** (`cloud/remote_queue.py`): `RemoteTaskQueue` — implements the `TaskQueue` protocol by delegating all operations to a remote `TaskAPIServer` via HTTP. Uses stdlib `urllib.request` (no extra dependencies). Methods: `submit`, `get_task`, `get_status`, `get_progress`, `get_result`, `cancel`, `list_tasks`, `wait` (blocking with timeout + poll), `health_check`, `server_info`, `shutdown` (no-op). `RemoteQueueError` exception for connection/protocol failures. Supports `X-API-Key` header for authentication. `base_url` property for endpoint discovery.
+- **Worker daemon** (`cloud/daemon.py`): `WorkerDaemon` class and `run_daemon()` function — server-side component that combines a `LocalTaskQueue` (actual pipeline execution) with a `TaskAPIServer` (remote API). Supports context manager protocol, non-blocking start for testing, blocking start with SIGINT/SIGTERM graceful shutdown. `is_running` property and `base_url` property. This is the main entry point for `mn serve`.
+- **Artifact management** (`cloud/remote_provider.py`): `list_artifacts()` — lists output files (filename, size, path) for a completed task; `download_artifact()` — downloads a single output file with streaming (64KB chunks) and path-traversal protection; `download_all_artifacts()` — downloads all artifacts from a task. All support optional `api_key` for authenticated servers.
+- **Remote provider registration** (`cloud/remote_provider.py`): `register_remote_llm()` — registers a "remote" LLM provider that proxies inference calls to a remote worker via OpenAI-compatible API; `register_remote_tts()` — registers a "remote" TTS provider. Both use the existing `@register_llm` / `@register_tts` decorators and include duplicate-registration guards.
+- **CLI remote commands** (`cli.py`): new `mn serve` command (start the remote inference API server with `--host`, `--port`, `--max-workers`, `--storage-dir` options); new `mn download` command (download task artifacts from a remote server); `--remote` / `-r` flag added to `mn submit`, `mn status`, `mn tasks`, `mn cancel`, `mn wait` commands to operate against a remote server instead of local queue.
+- **Contract exports**: `CONTRACT_VERSION` bumped from `(0, 6, 0)` to `(0, 6, 1)` — new remote inference types exported via `contract.py` and `__init__.py`: `RemoteTaskQueue`, `RemoteQueueError`, `TaskAPIServer`, `WorkerDaemon`, `download_artifact`, `download_all_artifacts`, `list_artifacts`, `register_remote_llm`, `register_remote_tts`, `run_daemon`.
+- **v0.6.1 remote inference tests** (`tests/test_v061_remote.py`): 44 new tests covering API server (health check, server info, submit/get/list/cancel tasks, status filter, not-found handling, invalid JSON, invalid task request, unknown path 404), remote task queue (base_url property, health check success/failure, server info, wait timeout/not-found, shutdown no-op, connection error, API key header), worker daemon (start/stop, context manager, base_url property, double-start raises), artifact management (list artifacts, list with no output, download artifact, download all, download non-existent, path traversal protection), and remote provider registration (register LLM/TTS, duplicate registration guard).
+
+### Changed (v0.6.1)
+
+- `contract.py`: `CONTRACT_VERSION` bumped from `(0, 6, 0)` to `(0, 6, 1)` — backward compatible (new exports only). Remote inference types imported alongside existing cloud types.
+- `cloud/__init__.py`: Remote inference types added to public API exports.
+- `__init__.py`: Remote inference types added to SDK exports.
+- `cli.py`: `_get_queue()` helper extended to support `--remote` flag, returning `RemoteTaskQueue` when a remote URL is provided.
+- `tests/test_contract.py`: Contract version test updated to expect `(0, 6, 1)`.
+- `tests/test_v060_task_queue.py`: Contract version assertion updated from `(0, 6, 0)` to `(0, 6, 1)`.
+
+### Notes
+
+- `CONTRACT_VERSION` bumped from `(0, 6, 0)` to `(0, 6, 1)` — MINOR bump for new remote inference exports (backward compatible, new exports only).
+- All 1388 tests pass (31 skipped in CI/codec-limited mode, 0 failures).
+- Total test count increased from 1313 (v0.6.0) to 1388 (+44 new tests, +31 pre-existing skipped).
+- The `TaskAPIServer` uses only Python stdlib (`http.server`, `urllib`) — zero additional dependencies required for remote inference.
+- The `RemoteTaskQueue` is the second implementation of the `TaskQueue` protocol — clients can submit and monitor tasks on remote workers without local pipeline execution.
+- Remote provider proxies (`register_remote_llm`, `register_remote_tts`) allow offloading LLM/TTS inference to a remote worker via OpenAI-compatible API forwarding.
+
 ## [0.6.0] - 2026-07-29
 
 ### Added (v0.6.0 — Cloud Task Queue & Async Job System)

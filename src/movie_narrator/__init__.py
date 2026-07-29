@@ -56,4 +56,15 @@ from .contract import (  # noqa: F401
     TaskStatus,
     TaskStorage,
     run_task,
+    # Cloud / Remote Inference (v0.6.1)
+    RemoteTaskQueue,
+    RemoteQueueError,
+    TaskAPIServer,
+    WorkerDaemon,
+    download_artifact,
+    download_all_artifacts,
+    list_artifacts,
+    register_remote_llm,
+    register_remote_tts,
+    run_daemon,
 )
