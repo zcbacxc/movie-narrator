@@ -1,0 +1,21 @@
+# Default owner — all files not explicitly listed
+* @zcbacxc
+
+# Core pipeline
+/src/movie_narrator/pipeline/ @zcbacxc
+
+# Cloud / remote inference
+/src/movie_narrator/cloud/ @zcbacxc
+
+# TTS & vision providers
+/src/movie_narrator/tts/ @zcbacxc
+/src/movie_narrator/vision/ @zcbacxc
+
+# CLI
+/src/movie_narrator/cli.py @zcbacxc
+
+# Contract / SDK boundary
+/src/movie_narrator/contract.py @zcbacxc
+
+# CI/CD workflows
+/.github/workflows/ @zcbacxc

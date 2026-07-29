@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/zcbacxc/movie-narrator/blob/main/docs/
+    about: Check the docs directory for usage guides and API references
+  - name: Discussions
+    url: https://github.com/zcbacxc/movie-narrator/discussions
+    about: Ask questions and discuss ideas in the Discussions tab
