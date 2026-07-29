@@ -226,13 +226,13 @@
 - [x] BGM dynamic transition — per-zone gain adjustment with crossfade on emotion zone changes
 - [x] Audio quality aggregation — per-segment audio metrics in metadata.json
 
-### v0.5.10 — Subtitle & Translation Quality (Planned)
+### v0.5.10 — Subtitle & Translation Quality (2026-07-29)
 
-- [ ] Subtitle QA — CPS (characters per second), overlap detection, line length compliance
-- [ ] Translation terminology consistency — cross-chunk glossary extraction and enforcement
-- [ ] Subtitle display length validation — ensure translated text fits render area
-- [ ] Bilingual subtitle optimization — line balancing for bilingual mode
-- [ ] Mark untranslated lines in output metadata
+- [x] Subtitle QA — CPS (characters per second), overlap detection, line length compliance
+- [x] Translation terminology consistency — cross-chunk glossary extraction and enforcement
+- [x] Subtitle display length validation — ensure translated text fits render area
+- [x] Bilingual subtitle optimization — line balancing for bilingual mode
+- [x] Mark untranslated lines in output metadata
 
 ### v0.5.11 — Match & Alignment Precision (Planned)
 

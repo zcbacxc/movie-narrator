@@ -41,6 +41,44 @@ def _wrap_line(text: str, draw: ImageDraw.ImageDraw, font, max_width: int) -> li
     return lines or [""]
 
 
+def _balance_lines(lines: list[str], max_lines: int) -> list[str]:
+    """Balance text across lines for better visual appearance.
+
+    When bilingual subtitles produce uneven line lengths (e.g. one very
+    long line and one very short), this function redistributes the text
+    to make the lines more balanced.  Only applies to CJK text (where
+    characters can be freely broken at any point).
+
+    For Latin text, balancing is not attempted (word boundaries matter).
+    """
+    if len(lines) <= 1 or len(lines) > max_lines:
+        return lines
+
+    # Check if this is CJK text (no spaces in any line)
+    has_spaces = any(" " in line for line in lines)
+    if has_spaces:
+        return lines  # Latin text — don't break words
+
+    # Concatenate all text and redistribute evenly
+    all_chars = "".join(lines)
+    if not all_chars:
+        return lines
+
+    total_len = len(all_chars)
+    n = min(len(lines), max_lines)
+    per_line = total_len // n
+    remainder = total_len % n
+
+    balanced: list[str] = []
+    pos = 0
+    for i in range(n):
+        take = per_line + (1 if i < remainder else 0)
+        balanced.append(all_chars[pos:pos + take])
+        pos += take
+
+    return balanced
+
+
 def create_text_image(
     text: str,
     size: tuple,
@@ -147,10 +185,15 @@ def _render_bottom(
     max_width = int(width * max_width_ratio)
 
     # Pre-split on explicit newlines (bilingual), then wrap each piece.
+    # v0.5.10: Apply line balancing for CJK bilingual subtitles.
     raw_pieces = text.split("\n")
     wrapped: list[str] = []
     for piece in raw_pieces:
-        wrapped.extend(_wrap_line(piece, draw, font, max_width))
+        piece_lines = _wrap_line(piece, draw, font, max_width)
+        # Balance CJK lines within each piece for better appearance
+        if len(piece_lines) > 1:
+            piece_lines = _balance_lines(piece_lines, max_lines)
+        wrapped.extend(piece_lines)
 
     # Cap total lines: keep the first ``max_lines``, ellipsis on the cut line.
     if len(wrapped) > max_lines:

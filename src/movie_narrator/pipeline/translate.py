@@ -29,6 +29,12 @@ from ..utils.prompts import TRANSLATE_PROMPT
 from ..utils.warnings import append_warning
 from ..workflow.errors import is_network_error
 
+# v0.5.10: glossary consistency and untranslated line tracking
+from ..utils.glossary import (
+    check_translation_consistency,
+    mark_untranslated_lines,
+)
+
 # Default chunking thresholds. Tunable via params / Settings
 # (see multi-language-subtitle-design.md §6.2 — magic numbers explained).
 DEFAULT_CHUNK_CHARS = 4000
@@ -303,6 +309,30 @@ def translate_subtitles(ctx: Context) -> Context:
         ctx.step_state.result = StepResult.WARNING
         ctx.step_state.message = "length mismatch"
         return ctx
+
+    # ── v0.5.10: Translation quality diagnostics ───────────
+    # 1. Mark untranslated lines (where translation == source text)
+    untranslated = mark_untranslated_lines(texts, ctx.translated_texts)
+    if untranslated:
+        ctx.metadata["untranslated_indices"] = untranslated
+        ctx.metadata["untranslated_count"] = len(untranslated)
+        console = ctx.services.console if ctx.services else None
+        if console:
+            console.inline_warn(
+                f"Translation: {len(untranslated)}/{len(texts)} lines "
+                f"appear untranslated (identical to source)."
+            )
+
+    # 2. Cross-chunk terminology consistency check
+    glossary_report = check_translation_consistency(texts, ctx.translated_texts)
+    ctx.metadata["translation_glossary"] = glossary_report.to_dict()
+    if glossary_report.inconsistent_count > 0:
+        console = ctx.services.console if ctx.services else None
+        if console:
+            console.inline_warn(
+                f"Translation: {glossary_report.inconsistent_count} term(s) "
+                f"have inconsistent translations across chunks."
+            )
 
     ctx.status.translate = "success"
     ctx.step_state.result = StepResult.SUCCESS
