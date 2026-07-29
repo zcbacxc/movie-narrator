@@ -63,6 +63,7 @@ def test_pipeline_status_fields():
         "bgm": "disabled",
         "export": "disabled",
         "translate": "skipped",
+        "qa_gate": "disabled",
     }
 
 

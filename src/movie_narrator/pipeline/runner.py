@@ -24,6 +24,7 @@ from .script_export import export_script_md
 from .subtitle import generate_subtitle
 from .translate import translate_subtitles
 from .tts import generate_voice
+from .qa_gate import run_qa_gate
 from .render import render_video
 from .qa import validate_deliverable
 from ..workflow.schema import JobParams
@@ -61,6 +62,8 @@ _BUILTIN_STEP_META = {
     "translate_subtitles": (translate_subtitles, True,  "translate",
         "translation failed — only original-language subtitles will be available"),
     "generate_subtitle":   (generate_subtitle,   False, None, ""),
+    "run_qa_gate":         (run_qa_gate,         True,  "qa_gate",
+        "QA gate skipped — intermediate product validation not performed"),
     "render_video":        (render_video,        False, None, ""),
     "validate_deliverable":(validate_deliverable,False, None, ""),
     "export_clips":        (export_clips,        True,  "export",
@@ -341,7 +344,7 @@ def run_pipeline(
     controller: Optional[RunController] = None,
     start_step: Optional[str] = None,
 ) -> Context:
-    """Execute the 15-step pipeline against *ctx*.
+    """Execute the 16-step pipeline against *ctx*.
 
     ``controller=None`` means CLI mode — no cancel checks fire. Web
     passes a ``GradioController`` so the user can request a cooperative

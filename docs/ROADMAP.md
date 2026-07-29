@@ -234,21 +234,21 @@
 - [x] Bilingual subtitle optimization — line balancing for bilingual mode
 - [x] Mark untranslated lines in output metadata
 
-### v0.5.11 — Match & Alignment Precision (Planned)
+### v0.5.11 — Match & Alignment Precision (2026-07-29)
 
-- [ ] Word-level alignment — leverage WhisperX word timestamps for sub-segment precision
-- [ ] Match quality scoring aggregation — composite score across embedding + rhythm + diversity
-- [ ] Scene diversity check — detect and penalize repeated scene usage across segments
-- [ ] Stricter alignment drift threshold — tighten from 0.5 to 0.3 based on L2 test data
-- [ ] Alignment confidence scoring — flag low-confidence segments for review
+- [x] Word-level alignment — leverage WhisperX word timestamps for sub-segment precision
+- [x] Match quality scoring aggregation — composite score across embedding + rhythm + diversity
+- [x] Scene diversity check — detect and penalize repeated scene usage across segments
+- [x] Stricter alignment drift threshold — tighten from 0.5 to 0.3 based on L2 test data
+- [x] Alignment confidence scoring — flag low-confidence segments for review
 
-### v0.5.12 — Holistic QA & Quality Dashboard (Planned)
+### v0.5.12 — Holistic QA & Quality Dashboard (2026-07-29)
 
-- [ ] Intermediate product QA gates — audio, subtitle, script quality checks before render
-- [ ] Quality score aggregation — cross-step quality dashboard in metadata.json
-- [ ] Quality regression baseline — track quality metrics across runs for trend analysis
-- [ ] Video encoding quality check — bitrate, codec, resolution validation
-- [ ] QA report export — structured quality report alongside deliverables
+- [x] Intermediate product QA gates — audio, subtitle, script quality checks before render
+- [x] Quality score aggregation — cross-step quality dashboard in metadata.json
+- [x] Quality regression baseline — track quality metrics across runs for trend analysis
+- [x] Video encoding quality check — bitrate, codec, resolution validation
+- [x] QA report export — structured quality report alongside deliverables
 
 ## v0.6.x — Cloud
 

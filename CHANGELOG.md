@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.12] - 2026-07-29
+
+### Added (v0.5.12 — Holistic QA & Quality Dashboard)
+
+- **Video encoding QA** (`utils/video_qa.py`): new module providing video encoding quality validation — `probe_video_encoding` (extracts codec, profile, resolution, fps, bitrate, pixel format, audio codec/bitrate/channels/sample_rate via ffprobe), `check_encoding_quality` (validates codec against accepted list {h264, hevc, h265}, minimum resolution 1280x720, minimum bitrate 1500 kbps, fps range 23–31, audio codec acceptance {aac, mp3, opus}, pixel format compatibility, and standard aspect ratio 16:9 or 9:16), and `evaluate_video_quality` (convenience wrapper that probes then validates). All checks are advisory — issues stored in `ctx.metadata["video_qa"]` with recommendations.
+- **Quality dashboard** (`utils/quality_dashboard.py`): new module for cross-step quality score aggregation — `collect_quality_dimensions` (extracts scores from 8 dimensions: script, audio, alignment, match, subtitle, translation, deliverable, video_encoding), `compute_overall_score` (weighted average with automatic weight redistribution for missing dimensions), `build_quality_dashboard` (builds complete `QualityDashboard` with overall score, per-dimension breakdown, issue counts, and regression baseline comparison), and `_compare_with_baseline` (compares current dimension scores against a previous `metadata.json` for regression detection). Dashboard stored in `ctx.metadata["quality_dashboard"]`.
+- **QA report export** (`utils/qa_report.py`): new module for structured QA report generation — `generate_qa_report_dict` (assembles comprehensive report with overall score, per-dimension breakdown, regression analysis, issue summary, recommendations, and raw QA data), `format_qa_report_text` (human-readable text report with formatted tables), and `export_qa_report` (writes `qa_report.json` and `qa_report.txt` alongside deliverables).
+- **Intermediate QA gate** (`pipeline/qa_gate.py`): new soft pipeline step `run_qa_gate` inserted between `generate_subtitle` and `render_video`. Validates intermediate products before the expensive render step — checks script QA issue count (>10 = critical), audio clipping (>1% = critical), subtitle issue ratio (>50% = critical), alignment low-confidence ratio (>50% = critical), and translation coverage (>30% untranslated = critical). Soft gate: issues logged as warnings, never block unless `--strict`. Skipped in CI unless `qa_enabled=True`.
+- **Pipeline integration** (`pipeline/qa.py`): `validate_deliverable` now also runs video encoding quality checks, builds quality dashboard, and exports structured QA report after the existing deliverable validation.
+- **Metadata export** (`utils/metadata_export.py`): `build_metadata_json` now includes `quality_dashboard` and `video_qa` fields.
+- **Model extension** (`models.py`): `PipelineStatus` extended with `qa_gate: StepStatus` field for the new soft step.
+- **v0.5.12 holistic QA tests** (`tests/test_v0512_holistic_qa.py`): 122 new tests covering video encoding metrics (defaults, serialization, fps rounding), video QA report (defaults, serialization), encoding quality checks (all-pass, bad codec, low resolution, low bitrate, low/high fps, bad audio codec, bad pixel format, non-standard aspect ratio, portrait ok, empty/zero skipped, custom thresholds, multiple issues, hevc accepted), ffprobe probing (file not found, success, fractional fps, format bitrate fallback, no ffprobe, invalid fps, zero denominator), evaluate wrapper (file not found, mocked probe, custom thresholds), quality dimension (labels, serialization), regression delta (improved/regressed/stable, serialization), quality dashboard (defaults, labels, serialization), dimension extractors (all 8 dimensions with data/no-data/edge cases), collect dimensions (empty, all, custom weights, default weights), overall score (empty, single, weighted average, zero weight, redistribution), build dashboard (empty, with data, baseline improved/regressed/stable/not-found, custom weights), baseline comparison (matching, no match, invalid JSON), QA report dict (empty, with data, issue summary, raw reports, timestamp, version), summarize helpers (audio/subtitle), text formatting (basic, empty, regression, recommendations, issue summary, movie name), file export (creates files, creates dir, with baseline, return matches JSON), and QA gate (CI skip, CI with qa_enabled, no CI, script pass/critical, audio clipping/ok, subtitle too-many/ok, alignment low-conf/ok, translation too-many/ok, strict raises, non-strict no raise, multiple issues, result structure, warnings vs issues, zero untranslated).
+
+### Changed (v0.5.12)
+
+- `pipeline/runner.py`: Pipeline expanded from 15 to 16 steps with the addition of `run_qa_gate`. Step registry, soft step set, and status field mappings updated.
+- `pipeline/qa.py`: `validate_deliverable` now performs video encoding QA, quality dashboard construction, and QA report export after deliverable validation passes.
+- `utils/metadata_export.py`: Metadata JSON now includes `quality_dashboard` and `video_qa` fields for downstream analysis.
+- `models.py`: `PipelineStatus` includes `qa_gate` field.
+- `utils/quality_dashboard.py`: `build_quality_dashboard` now checks baseline file existence before attempting regression comparison — keeps `regression_summary` as `"no_baseline"` when the file doesn't exist.
+
+### Notes
+
+- `CONTRACT_VERSION` remains `(0, 5, 1)` — no SDK surface changes.
+- All 1227 tests pass (31 skipped in CI/codec-limited mode, 0 failures).
+- Total test count increased from 1105 (v0.5.11) to 1227 (+122 new tests).
+
 ## [0.5.11] - 2026-07-29
 
 ### Added (v0.5.11 — Match & Alignment Precision)
