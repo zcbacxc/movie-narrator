@@ -1,11 +1,14 @@
 from pathlib import Path
 from typing import Dict, Optional
 
+import numpy as np
 import yaml
 from pydub import AudioSegment
+from pydub.utils import db_to_float
 
-from ..models import Context, StepResult
+from ..models import Context, StepResult, TimedSegment
 from ..utils.audio_mix import duck_bgm, normalize_loudnorm, normalize_peak
+from ..utils.prosody import map_segment_emotions
 
 
 def _export_robust(seg: AudioSegment, out: Path) -> str:
@@ -229,6 +232,153 @@ def select_bgm_by_emotion(ctx: Context) -> Optional[str]:
     return best_path
 
 
+# ── v0.5.9: BGM dynamic transition ───────────────────────────
+
+# Emotion → BGM gain adjustment (dB).  Positive = louder, negative = quieter.
+# Applied as a per-zone envelope on top of the ducking curve so the BGM
+# subtly responds to emotional shifts in the narration.
+_EMOTION_BGM_GAIN: dict[str, float] = {
+    "intense": +2.0,
+    "suspense": -1.0,
+    "calm": -3.0,
+    "twist": +1.0,
+    "laughter": +1.5,
+}
+
+
+def _detect_emotion_zones(
+    timed_segments: list[TimedSegment],
+    segment_emotions: list[str | None],
+) -> list[dict]:
+    """Detect contiguous emotion zones from per-segment emotions.
+
+    Returns a list of ``{start, end, emotion, segment_range}`` dicts
+    representing contiguous regions where the narration emotion is
+    constant.  Zone boundaries are the points where the emotion label
+    changes between consecutive segments.
+    """
+    if not timed_segments or not segment_emotions:
+        return []
+
+    zones: list[dict] = []
+    current_emotion = segment_emotions[0]
+    current_start = timed_segments[0].start
+    current_indices = [0]
+
+    for i in range(1, len(timed_segments)):
+        emo = segment_emotions[i] if i < len(segment_emotions) else None
+        if emo != current_emotion:
+            zones.append({
+                "start": round(current_start, 3),
+                "end": round(timed_segments[i].start, 3),
+                "emotion": current_emotion,
+                "segment_range": [current_indices[0], current_indices[-1]],
+            })
+            current_emotion = emo
+            current_start = timed_segments[i].start
+            current_indices = [i]
+        else:
+            current_indices.append(i)
+
+    # Final zone
+    zones.append({
+        "start": round(current_start, 3),
+        "end": round(timed_segments[-1].end, 3),
+        "emotion": current_emotion,
+        "segment_range": [current_indices[0], current_indices[-1]],
+    })
+    return zones
+
+
+def _apply_emotion_transitions(
+    bgm: AudioSegment,
+    zones: list[dict],
+    transition_ms: int = 500,
+) -> tuple[AudioSegment, list[dict]]:
+    """Apply per-zone gain with smooth ramps at emotion boundaries.
+
+    Builds a per-sample amplitude envelope that applies different gains
+    to different emotion zones.  At zone boundaries, a linear ramp
+    transitions from the previous zone's gain to the new zone's gain
+    over ``transition_ms`` milliseconds, avoiding abrupt volume jumps.
+
+    Returns ``(adjusted_bgm, transitions)`` where ``transitions`` is a
+    list of ``{position_s, from_emotion, to_emotion, transition_ms}``
+    dicts for diagnostics.
+    """
+    if not zones or len(bgm) == 0:
+        return bgm, []
+
+    n_samples = len(bgm.get_array_of_samples())
+    sample_rate = bgm.frame_rate
+    if n_samples == 0 or sample_rate == 0:
+        return bgm, []
+
+    envelope = np.ones(n_samples, dtype=np.float64)
+    transitions: list[dict] = []
+
+    for i, zone in enumerate(zones):
+        start_sample = int(zone["start"] * sample_rate)
+        end_sample = int(zone["end"] * sample_rate)
+        start_sample = max(0, min(start_sample, n_samples))
+        end_sample = max(0, min(end_sample, n_samples))
+        if start_sample >= end_sample:
+            continue
+
+        emotion = zone.get("emotion")
+        gain_db = _EMOTION_BGM_GAIN.get(emotion, 0.0) if emotion else 0.0
+        gain_factor = float(db_to_float(gain_db)) if gain_db != 0.0 else 1.0
+
+        # Apply gain to this zone
+        envelope[start_sample:end_sample] *= gain_factor
+
+        # Transition ramp at the start of this zone (except the first)
+        if i > 0:
+            transition_samples = min(
+                int(transition_ms * sample_rate / 1000),
+                end_sample - start_sample,
+                start_sample,
+            )
+            if transition_samples > 0:
+                prev_emotion = zones[i - 1].get("emotion")
+                prev_gain_db = (
+                    _EMOTION_BGM_GAIN.get(prev_emotion, 0.0)
+                    if prev_emotion else 0.0
+                )
+                prev_factor = (
+                    float(db_to_float(prev_gain_db))
+                    if prev_gain_db != 0.0 else 1.0
+                )
+
+                ramp_start = max(0, start_sample - transition_samples)
+                ramp_len = start_sample - ramp_start
+                if ramp_len > 0:
+                    ramp = np.linspace(prev_factor, gain_factor, ramp_len)
+                    envelope[ramp_start:start_sample] = ramp
+
+                transitions.append({
+                    "position_s": zone["start"],
+                    "from_emotion": prev_emotion,
+                    "to_emotion": emotion,
+                    "transition_ms": transition_ms,
+                })
+
+    # Apply envelope to BGM samples
+    raw = np.array(bgm.get_array_of_samples(), dtype=np.float64)
+    raw *= envelope[: len(raw)]
+    raw = np.clip(raw, np.iinfo(np.int16).min, np.iinfo(np.int16).max)
+    raw = raw.astype(np.int16)
+
+    adjusted = AudioSegment(
+        raw.tobytes(),
+        frame_rate=bgm.frame_rate,
+        sample_width=bgm.sample_width,
+        channels=bgm.channels,
+    )
+
+    return adjusted, transitions
+
+
 def mix_bgm(ctx: Context) -> Context:
     if not ctx.audio_path:
         ctx.status.bgm = "skipped"
@@ -265,6 +415,18 @@ def mix_bgm(ctx: Context) -> Context:
         gain_db = ctx.metadata.get("bgm_gain_db", -18.0)
         duck_db = ctx.metadata.get("bgm_duck_db", -10.0)
         bgm_raw = AudioSegment.from_file(ctx.assets.bgm)
+
+        # v0.5.9: BGM dynamic transition — adjust BGM gain per emotion zone
+        # with smooth ramps at zone boundaries to avoid abrupt mood changes.
+        beats_meta = ctx.metadata.get("beats_meta") or []
+        segment_emotions = map_segment_emotions(
+            len(ctx.timed_segments), beats_meta
+        )
+        zones = _detect_emotion_zones(ctx.timed_segments, segment_emotions)
+        if zones and len(zones) > 1:
+            bgm_raw, transitions = _apply_emotion_transitions(bgm_raw, zones)
+            if transitions:
+                ctx.metadata["bgm_transitions"] = transitions
 
         mixed = duck_bgm(
             narration, bgm_raw,

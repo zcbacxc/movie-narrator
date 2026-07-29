@@ -521,6 +521,7 @@ movie-narrator/
 - [x] v0.5.6 — Narrative Quality & External Data: narrative principles, platform tone, rhythm marking, perspective, script judge, movie card, TMDB, BGM emotion, render template, lang consistency, retryable errors
 - [x] v0.5.7 — Quality Hardening: TMDB caching/retry/degradation, +45 tests (render template, edge cases), feature-level benchmark profiling
 - [x] v0.5.8 — Script Quality Deep Dive: BGM versatility fix, multilingual anti-AI tone, 5-dimension judge, beat deduplication, hook template library, script QA gate, +37 tests
+- [x] v0.5.9 — Voice & Audio Quality: audio QA (clipping/SNR/silence), emotion-aware prosody, TTS duration feedback v2, BGM dynamic transition, audio quality aggregation, +44 tests
 
 > SDK and Plugin API are designed together — both must stabilize in the same release.
 

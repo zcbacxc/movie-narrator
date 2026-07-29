@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.9] - 2026-07-29
+
+### Added (v0.5.9 — Voice & Audio Quality)
+
+- **Audio QA utilities** (`utils/audio_qa.py`): new module providing per-segment audio quality validation — `detect_clipping` (samples near max amplitude ratio), `estimate_snr` (signal-to-noise ratio via 50ms window partitioning), `check_silence` (silent window fraction), `analyze_segment` (aggregates all checks into `SegmentAudioMetrics`), and `aggregate_metrics` (pipeline-level summary for `metadata.json`). All checks are advisory (soft gate) — issues logged as warnings, never block the pipeline.
+- **Emotion-aware prosody** (`utils/prosody.py`): new module mapping beat emotion labels to speed multipliers (`intense`→1.12x, `suspense`→0.88x, `calm`→0.94x, `twist`→1.06x, `laughter`→1.08x). `apply_speed` uses pydub's frame-rate override trick for speed+pitch shift. `map_segment_emotions` distributes beat emotions across TTS segments with proportional allocation and forward-fill for missing labels.
+- **TTS duration feedback v2** (`pipeline/tts.py`): second-stage overflow correction — after v1 pause reduction, if narration still exceeds target by >10%, applies a uniform speedup (capped at 1.15x) to all segments via post-processing. Avoids costly TTS re-synthesis while bringing duration closer to target.
+- **BGM dynamic transition** (`pipeline/bgm.py`): emotion zone detection (`_detect_emotion_zones`) identifies contiguous same-emotion regions; `_apply_emotion_transitions` applies per-zone gain adjustments (`_EMOTION_BGM_GAIN`) with smooth crossfade at zone boundaries. Transition metadata stored in `ctx.metadata["bgm_transitions"]`.
+- **Crossfade utility** (`utils/audio_mix.py`): `crossfade_segments` function for overlapping audio segment concatenation with configurable crossfade duration.
+- **Audio quality aggregation** (`pipeline/tts.py`): per-segment metrics (`SegmentAudioMetrics`) and summary stored in `ctx.metadata["audio_quality"]` with prosody log and v2 speed info for diagnostics.
+- **v0.5.9 audio quality tests** (`tests/test_v059_audio.py`): 52 new tests covering audio QA (clipping, SNR, silence, segment analysis, aggregation), prosody (emotion-to-speed, apply_speed, segment mapping), crossfade, BGM emotion zone detection and transitions, and TTS pipeline integration (prosody application, quality metrics, v2 speed feedback).
+
+### Changed (v0.5.9)
+
+- `pipeline/tts.py`: `generate_voice` now applies emotion prosody before audio assembly, runs v2 speed feedback after v1 pause adjustment, and validates audio quality on each segment post-synthesis.
+- `pipeline/bgm.py`: `mix_bgm` now detects emotion zones from `beats_meta` and applies dynamic gain transitions with crossfade.
+- `utils/audio_qa.py`: `estimate_snr` uses a small epsilon floor for pure-silence noise windows so SNR reports as a high value instead of `None`.
+
+### Notes
+
+- `CONTRACT_VERSION` remains `(0, 5, 1)` — no SDK surface changes.
+- All 1002 tests pass (31 skipped in CI/codec-limited mode, 0 failures).
+- Total test count increased from 958 (v0.5.8) to 1002 (+44 new tests, 8 skipped on codec-limited environments).
+
 ## [0.5.8] - 2026-07-29
 
 ### Added (v0.5.8 — Script Quality Deep Dive)
