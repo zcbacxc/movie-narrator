@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.11] - 2026-07-29
+
+### Added (v0.5.11 — Match & Alignment Precision)
+
+- **Alignment QA utilities** (`utils/alignment_qa.py`): new module providing word-level alignment quality validation — `extract_word_segments` (extracts word-level timestamps from WhisperX `align()` output), `assign_words_to_segments` (maps words to timed segments by time-range overlap with chronological pointer advancement), `word_level_remap` (tightens segment boundaries using word-level start/end for sub-segment precision while enforcing monotonic non-overlap and no-widening constraints), `compute_segment_confidence` (mean of word-level scores, 0.0 when no word data), `validate_alignment` (aggregates per-segment confidence into `AlignmentQAReport` with low-confidence flagging at < 0.6 threshold), and `check_drift` (validates ASR reliability by comparing single-segment duration against total narration duration, tightened threshold from 0.5 to 0.3). All checks are advisory — low-confidence segments logged as warnings, never block the pipeline.
+- **Match quality scoring** (`utils/match_quality.py`): new module for composite match quality aggregation — `compute_composite_score` (weighted average of embedding 60% + rhythm 25% + diversity 15%, with automatic weight redistribution for missing dimensions), `compute_diversity_scores` (per-clip scene reuse penalty within sliding window, 15% penalty per overuse beyond `max_reuse`), `score_clips` (assigns per-dimension scores to `MatchedClip` fields), `aggregate_match_quality` (pipeline-level `MatchQualitySummary` with avg/min/max composite, low-quality flagging at < 0.4, diversity penalty count), and `MatchQualitySummary` dataclass with `to_dict()` for `metadata.json` serialization.
+- **Word-level alignment pipeline integration** (`pipeline/align.py`): `align_audio` now extracts word segments from WhisperX `align()` result, assigns them to timed segments, applies word-level remapping for tighter boundaries, and runs alignment QA validation. Metadata stored in `ctx.metadata["align_word_segments"]`, `ctx.metadata["align_words_assigned"]`, `ctx.metadata["align_word_tightened"]`, and `ctx.metadata["alignment_qa"]`. Drift threshold tightened from 0.5 to 0.3 based on L2 test data analysis.
+- **Composite match scoring pipeline integration** (`pipeline/match.py`): `match_clips` now computes per-clip composite scores across embedding + rhythm + diversity dimensions, applies diversity penalty for repeated scene usage within sliding window, and aggregates match quality summary. Metadata stored in `ctx.metadata["match_quality"]`. Low-quality clips flagged via `console.inline_warn`.
+- **Model extensions** (`models.py`): new `WordSegment` model (word, start, end, score) for WhisperX word-level alignment data. `TimedSegment` extended with `words: List[WordSegment]` and `confidence: float` fields. `MatchedClip` extended with `embedding_score`, `rhythm_score`, `diversity_score`, and `composite_score` optional float fields for per-dimension quality tracking.
+- **v0.5.11 match & alignment tests** (`tests/test_v0511_match_align.py`): 46 new tests covering word segment extraction (normal/empty/skips-empty/missing-fields), word-to-segment assignment (normal/empty/partial-overlap), confidence computation (normal/empty/zero-scores/mixed), low-confidence flagging (default/custom-threshold), word-level remapping (tightens/no-words/monotonic/no-widening), drift detection (within/exceeds/boundary/multiple-segments/threshold-is-0.3), alignment validation (no-words/with-confidence/to-dict), composite scoring (all-dimensions/partial/all-none/clamped/custom-weights), diversity scoring (no-reuse/with-reuse/none-scene/window), clip scoring (embedding/heuristic/with-rhythm), aggregation (normal/with-diversity-penalty/empty/to-dict), and model fields (WordSegment/TimedSegment-defaults/TimedSegment-with-words/MatchedClip-defaults/MatchedClip-dump-includes-new-fields).
+
+### Changed (v0.5.11)
+
+- `pipeline/align.py`: Drift threshold tightened from 0.5 to 0.3 (`_DRIFT_THRESHOLD`). Word-level alignment, confidence scoring, and QA validation now integrated into the WhisperX alignment path.
+- `pipeline/match.py`: Composite quality scoring and diversity penalty now applied to all matched clips after the assignment phase.
+- `models.py`: `WordSegment` class added before `TimedSegment` (forward reference fix). `TimedSegment` and `MatchedClip` extended with quality metric fields.
+
+### Notes
+
+- `CONTRACT_VERSION` remains `(0, 5, 1)` — no SDK surface changes.
+- All 1105 tests pass (31 skipped in CI/codec-limited mode, 0 failures).
+- Total test count increased from 1059 (v0.5.10) to 1105 (+46 new tests).
+
 ## [0.5.10] - 2026-07-29
 
 ### Added (v0.5.10 — Subtitle & Translation Quality)
