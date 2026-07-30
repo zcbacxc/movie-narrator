@@ -82,7 +82,7 @@ run_qa_gate → render_video → validate_deliverable → export_clips
 | translate_subtitles | soft | Per-chunk translation via configured provider (default `llm`); retry-then-soft-degrade policy; CI passthrough | `ctx.translated_texts` |
 | generate_subtitle | hard | Format SRT from timed segments; bilingual support (`subtitle.<lang>.srt`, `subtitle.bilingual.srt`) | `subtitle.srt` + variants |
 | run_qa_gate | soft | Quality validation gate | QA report |
-| render_video | hard | MoviePy composite: background + text/footage overlays + audio; CRF 18 / preset `slow` / `+faststart` | `final.mp4` + `metadata.json` |
+| render_video | hard | MoviePy composite: background + text/footage overlays + audio; two-stage encode (video stream → ffmpeg audio mux); GPU encoder auto-detection (NVENC/VAAPI/VideoToolbox, v0.7.0+); optional scene transitions (v0.7.1+) and text animation (v0.7.1+); preview mode (v0.7.2+) | `final.mp4` + `metadata.json` |
 | validate_deliverable | hard | ffprobe validation: streams, audio level, duration ratio, file size; CI skips by default | `ctx.metadata["qa_report"]` |
 | export_clips | soft | Extract per-segment clips | `clips/` directory |
 

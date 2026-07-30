@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+import logging
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -12,6 +13,8 @@ from pydub.utils import db_to_float
 from ..models import Context, StepResult, TimedSegment
 from ..utils.audio_mix import duck_bgm, normalize_loudnorm, normalize_peak
 from ..utils.prosody import map_segment_emotions
+
+logger = logging.getLogger(__name__)
 
 
 def _export_robust(seg: AudioSegment, out: Path) -> str:
@@ -25,7 +28,10 @@ def _export_robust(seg: AudioSegment, out: Path) -> str:
     try:
         seg.export(out, format="mp3")
         return str(out)
-    except Exception:
+    except Exception as e:
+        logger.debug(
+            "MP3 export failed for %s, falling back to WAV", out, exc_info=True
+        )
         wav_out = out.with_suffix(".wav")
         seg.export(wav_out, format="wav")
         return str(wav_out)
@@ -70,7 +76,12 @@ def ensure_final_audio(ctx: Context) -> Context:
     try:
         narration = AudioSegment.from_file(ctx.audio_path)
         ctx.final_audio_path = _normalize_narration(ctx, narration)
-    except Exception:
+    except Exception as e:
+        logger.debug(
+            "Normalization failed for %s, falling back to raw audio",
+            ctx.audio_path,
+            exc_info=True,
+        )
         # Last resort: use raw audio as-is (better than nothing)
         ctx.final_audio_path = ctx.audio_path
 
@@ -196,7 +207,12 @@ def select_bgm_by_emotion(ctx: Context) -> Optional[str]:
     try:
         with metadata_path.open("r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
-    except Exception:
+    except Exception as e:
+        logger.debug(
+            "Failed to parse BGM metadata %s, returning None",
+            metadata_path,
+            exc_info=True,
+        )
         return None
     if not isinstance(data, dict):
         return None
@@ -402,6 +418,7 @@ def _mix_ambient_track(
     try:
         ambient = AudioSegment.from_file(ambient_path)
     except Exception as e:
+        logger.debug("ambient track load failed", exc_info=True)
         return narration_or_mixed, {"error": f"ambient load failed: {e}"}
 
     target_ms = len(narration_or_mixed)
@@ -524,6 +541,7 @@ def mix_bgm(ctx: Context) -> Context:
         ctx.status.bgm = "success"
         return ctx
     except Exception as e:
+        logger.debug("BGM mix failed, falling back to narration", exc_info=True)
         ctx.step_state.result = StepResult.WARNING
         ctx.step_state.message = str(e)
         ctx.status.bgm = "failed"

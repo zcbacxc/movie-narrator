@@ -65,7 +65,7 @@ def _transcribe_video_audio(
         try:
             return json.loads(cache_path.read_text(encoding="utf-8"))
         except Exception:
-            pass  # corrupt cache, re-transcribe
+            logger.debug("corrupt transcription cache at %s", cache_path, exc_info=True)
 
     # Try WhisperX first (preserves forced alignment if available)
     try:
@@ -91,7 +91,7 @@ def _transcribe_video_audio(
             )
         return segments if segments else None
     except Exception as wx_err:
-        logger.warning("WhisperX video transcription failed: %s", wx_err)
+        logger.warning("WhisperX video transcription failed: %s", wx_err, exc_info=True)
         # Fall through to faster-whisper
 
     # Fallback: faster-whisper (works on Windows CPU where k2-fsa missing)
@@ -112,7 +112,7 @@ def _transcribe_video_audio(
             )
         return segments if segments else None
     except Exception as fw_err:
-        logger.warning("faster-whisper video transcription failed: %s", fw_err)
+        logger.warning("faster-whisper video transcription failed: %s", fw_err, exc_info=True)
         return None
 
 
@@ -765,6 +765,7 @@ def match_clips(ctx: Context) -> Context:
         ctx.status.match = "failed"
         ctx.step_state.result = StepResult.WARNING
         ctx.step_state.message = str(e)
+        logger.debug("match_clips failed", exc_info=True)
         return ctx
 
 
@@ -1064,6 +1065,7 @@ def _match_clips_impl(
                         f"  EP8 vision captioner failed ({ve}); "
                         f"using audio-transcript captions"
                     )
+                    logger.debug("EP8 vision captioner failed", exc_info=True)
 
             # ── MS-02: Truth in match (Q-M1) ──────────────
             # Detect fake captions (placeholder labels without real transcript).
@@ -1124,6 +1126,7 @@ def _match_clips_impl(
             ctx.services.console.inline_warn(
                 f"embedding re-rank unavailable ({e}); using heuristic"
             )
+            logger.debug("embedding re-rank failed", exc_info=True)
             final = [(h, 1.0, None, "heuristic") for h in heuristic]
     else:
         final = [(h, 1.0, None, "heuristic") for h in heuristic]

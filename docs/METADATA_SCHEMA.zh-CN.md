@@ -211,6 +211,22 @@
 |-------|------|-------------|
 | `render_profile` | str | `"publish"`（默认）或 `"draft"`（快速迭代：crf=28, preset=ultrafast） |
 | `render_title_card_sec` | float\|absent | 标题卡时长（秒）；0 或缺省 = 禁用 |
+| `render_encoder` | str\|absent | 使用的 GPU 编码器：`auto`/`cpu`/`nvenc`/`vaapi`/`videotoolbox`（v0.7.0+） |
+| `render_transition` | str\|absent | 场景转场效果：`none`/`fade`/`dissolve`/`slide`（v0.7.1+） |
+| `render_text_animation` | str\|absent | 文字动画效果：`none`/`fade`/`slide_up`/`slide_left`（v0.7.1+） |
+| `render_preview_mode` | bool\|absent | 是否使用了预览模式（v0.7.2+） |
+
+### `cost_summary`
+
+单次运行成本追踪（LLM token 用量 + TTS 调用）（v0.7.0+）。
+
+| 字段 | 类型 | 描述 |
+|-------|------|-------------|
+| `llm_tokens` | object | token 用量：`{prompt, completion, total}` |
+| `llm_calls` | int | LLM API 调用次数 |
+| `tts_chars` | int | TTS 合成总字符数 |
+| `tts_calls` | int | TTS 合成调用次数 |
+| `cached_calls` | int | 缓存命中次数（不计入成本） |
 
 ---
 

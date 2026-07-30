@@ -114,3 +114,22 @@ class AppLogger:
 def generate_run_id() -> str:
     """Generate a short unique run ID for log correlation."""
     return uuid.uuid4().hex[:8]
+
+
+# ── Log-level resolution (shared by CLI + worker) ───────────
+
+_LEVEL_MAP: dict[str, int] = {
+    "DEBUG": logging.DEBUG,
+    "INFO": logging.INFO,
+    "WARNING": logging.WARNING,
+    "ERROR": logging.ERROR,
+}
+
+
+def resolve_log_level(log_level: str) -> int:
+    """Resolve a case-insensitive level name to a ``logging`` constant.
+
+    Falls back to ``logging.DEBUG`` when the name is unrecognised, which
+    is the safest default for pipeline debugging.
+    """
+    return _LEVEL_MAP.get(log_level.upper(), logging.DEBUG)

@@ -82,7 +82,7 @@ run_qa_gate → render_video → validate_deliverable → export_clips
 | translate_subtitles | 软 | 按配置的 provider 分段翻译（默认 `llm`）；重试后软降级；CI 直通 | `ctx.translated_texts` |
 | generate_subtitle | 硬 | 从 timed_segments 格式化 SRT；双语支持（`subtitle.<lang>.srt`、`subtitle.bilingual.srt`） | `subtitle.srt` 及变体 |
 | run_qa_gate | 软 | 质量校验门 | QA 报告 |
-| render_video | 硬 | MoviePy 合成：背景 + 文本/素材叠加 + 音频；CRF 18 / preset `slow` / `+faststart` | `final.mp4` + `metadata.json` |
+| render_video | 硬 | MoviePy 合成：背景 + 文本/素材叠加 + 音频；两阶段编码（视频流 → ffmpeg 混音）；GPU 编码器自动检测（NVENC/VAAPI/VideoToolbox，v0.7.0+）；可选场景转场（v0.7.1+）和文字动画（v0.7.1+）；预览模式（v0.7.2+） | `final.mp4` + `metadata.json` |
 | validate_deliverable | 硬 | ffprobe 校验：流、音量、时长比、文件大小；CI 默认跳过 | `ctx.metadata["qa_report"]` |
 | export_clips | 软 | 抽取每段素材片段 | `clips/` 目录 |
 

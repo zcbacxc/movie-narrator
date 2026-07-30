@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 import json
+import logging
 import shutil
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
@@ -20,6 +21,8 @@ from ..utils.video_layout import compute_fit_box
 from ..utils.transitions import apply_transition, get_transition_duration
 from ..utils.text_anim import apply_text_animation, get_animation_duration
 from .bgm import ensure_final_audio
+
+logger = logging.getLogger(__name__)
 
 # RS-07: Minimum segment duration floor for speed scaling.
 # Prevents division-by-zero when seg_duration is extremely short
@@ -195,6 +198,7 @@ def _export_cover_image(
         )
     except Exception as e:
         ctx.services.console.debug(f"  EP5 cover: overlay error: {e}")
+        logger.debug("EP5 cover: overlay failed", exc_info=True)
     finally:
         # Clean up raw frame
         cover_raw.unlink(missing_ok=True)
@@ -317,6 +321,7 @@ def render_video(ctx: Context) -> Context:
                 f"Cannot open source video ({ctx.source_video_path}): {e}. "
                 f"Falling back to text-only video — no footage will be shown."
             )
+            logger.debug("source video open failed", exc_info=True)
             usable_clips = []
         else:
             for mc in usable_clips:
@@ -357,6 +362,7 @@ def render_video(ctx: Context) -> Context:
                     clips.append(fitted.with_start(mc.narr_start))
                 except Exception as ie:
                     ctx.services.console.debug(f"  fallback for segment {mc.segment_index}: {ie}")
+                    logger.debug("clip fallback for segment %d", mc.segment_index, exc_info=True)
                     img_array = _create_text_image(
                         _overlay_text(ctx, mc.segment_index, ctx.timed_segments[mc.segment_index]),
                         size, fontsize=font_size, position=subtitle_position,
@@ -441,7 +447,7 @@ def render_video(ctx: Context) -> Context:
             fade_dur = min(0.3, title_card_sec / 3)
             title_clip = title_clip.with_effects([FadeIn(fade_dur), FadeOut(fade_dur)])
         except Exception:
-            pass  # no fade — title card still visible
+            logger.debug("title card fade effect failed", exc_info=True)
         clips.append(title_clip)
         ctx.services.console.debug(
             f"  EP5 title card: {title_card_text} ({title_card_sec}s)"
@@ -468,7 +474,7 @@ def render_video(ctx: Context) -> Context:
             fade_dur = min(0.3, end_card_sec / 3)
             end_clip = end_clip.with_effects([FadeIn(fade_dur), FadeOut(fade_dur)])
         except Exception:
-            pass  # no fade — end card still visible
+            logger.debug("end card fade effect failed", exc_info=True)
         clips.append(end_clip)
         ctx.services.console.debug(
             f"  NA-M6-S1 end card: {end_card_text} ({end_card_sec}s)"
@@ -588,6 +594,7 @@ def render_video(ctx: Context) -> Context:
                     f"GPU encoding ({gpu_codec}) failed: {gpu_err}. "
                     f"Retrying with libx264 (CPU)."
                 )
+                logger.debug("GPU encoding failed, falling back to CPU", exc_info=True)
                 gpu_codec = "libx264"
                 video_write_kwargs["codec"] = "libx264"
                 video_write_kwargs["ffmpeg_params"] = ["-crf", str(crf), "-preset", str(preset)]
@@ -616,7 +623,7 @@ def render_video(ctx: Context) -> Context:
                 try:
                     obj.close()
                 except Exception:  # noqa: BLE001
-                    pass
+                    logger.debug("resource close failed for %s", obj, exc_info=True)
         # `final_video` already closed above; slice the audio so we can
         # write the final mux without keeping the original AudioFileClip alive.
         del audio_clip

@@ -8,9 +8,11 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, TYPE_CHECKING, TypedDict
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, SkipValidation, model_validator
 
 from .utils.console import Console, SilentConsole
+from .utils.cost_tracker import CostTracker
+from .utils.log import AppLogger
 
 StepStatus = Literal["disabled", "skipped", "success", "failed"]
 
@@ -98,7 +100,7 @@ class Services:
     """
 
     console: Console
-    logger: Optional[Any] = None
+    logger: Optional[AppLogger] = None
 
 
 class ScriptSegment(BaseModel):
@@ -269,7 +271,7 @@ class Context(BaseModel):
     step_state: StepState = Field(default_factory=StepState)
 
     # v0.7.0: per-run cost tracking
-    cost_tracker: Optional[Any] = None
+    cost_tracker: Optional[SkipValidation[CostTracker]] = None
 
     metadata: _MetadataType = Field(default_factory=dict)
 

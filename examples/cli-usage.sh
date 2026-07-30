@@ -195,8 +195,9 @@ mn cleanup --all
 # ============================================================
 
 # 启动远程推理服务（GPU 机器 / 云端服务器）
-mn serve --host 0.0.0.0 --port 8765
-mn serve --max-workers 4
+# 默认仅监听 127.0.0.1（本机访问），使用 --public 监听所有接口
+mn serve --port 8765
+mn serve --public --port 8765 --max-workers 4
 
 # 提交任务到远程服务器
 mn submit -m 飞驰人生 --remote http://worker:8765 --wait
