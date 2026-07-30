@@ -13,7 +13,7 @@
 | v0.2.x | Scene & Media | Research agent, WhisperX alignment, scene detection, clip matching, BGM, graceful degradation |
 | v0.3.x | Platform & Workflow | YAML job config, multi-language subtitles, Gradio WebUI (superseded) |
 | v0.4.x | TTS Abstraction & Infrastructure | TTS provider abstraction, config overhaul, FastAPI + React WebUI, render quality, L2 hand-test passed, match intelligence, effect portfolio, contract layer |
-| v0.5.x | Ecosystem | Plugin API / SDK freeze / scene filtering / WebUI split / narrative & audio quality / subtitle QA / holistic QA dashboard. `CONTRACT_VERSION` → `(0, 5, 1)` |
+| v0.5.x | Ecosystem | Plugin API / SDK freeze / plugin discovery (entry_points) / VLM vision provider / narrative presets (3 styles) / scene filtering / WebUI split / narrative & audio quality / subtitle QA / holistic QA dashboard. `CONTRACT_VERSION` → `(0, 5, 1)` |
 | v0.6.0 | Task Queue | Async job system, task persistence, cancellation, progress tracking, retry, CLI commands. `CONTRACT_VERSION` → `(0, 6, 0)` |
 | v0.6.1 | Remote Inference | REST API server, remote task queue, worker daemon, artifact management, remote provider proxies, CLI commands. `CONTRACT_VERSION` → `(0, 6, 1)` |
 
@@ -34,7 +34,7 @@
 
 #### v0.6.3 — API Gateway & Authentication (planned)
 
-- [ ] API key authentication — `X-API-Key` header validation middleware
+- [ ] API key authentication — server-side `X-API-Key` header validation middleware (client-side header already sent by `RemoteTaskQueue` / `remote_provider`)
 - [ ] JWT token support — issued tokens for authenticated sessions
 - [ ] Multi-tenant isolation — tenant-scoped task storage and artifacts
 - [ ] Rate limiting — per-tenant request throttling (token bucket algorithm)
@@ -53,6 +53,8 @@
 ### v0.7.x — Production Deployment
 
 > **Goal**: Make the engine production-ready with containerization, observability, and fault tolerance.
+>
+> **Architecture migration note**: The current cloud layer uses Python stdlib `ThreadingHTTPServer` + `ThreadPoolExecutor`. Before v0.7.0, a decision is needed on whether to introduce FastAPI (replacing stdlib HTTP) and/or Redis/Celery (replacing `ThreadPoolExecutor`) for the K8s deployment target. This decision does not require a separate version bump — it is an implementation choice within v0.7.0.
 
 #### v0.7.0 — Containerization & Orchestration (planned)
 
@@ -61,7 +63,7 @@
 - [ ] Helm chart — K8s deployment templates (worker deployment, API deployment, storage)
 - [ ] Worker auto-scaling — HPA based on queue depth
 - [ ] ConfigMap/Secret management — env injection from K8s secrets
-- [ ] Health/readiness probes — `/health` and `/ready` endpoints
+- [ ] Health/readiness probes — `/ready` endpoint + deep health check with dependency connectivity (`/health` already exists in v0.6.1 `TaskAPIServer`)
 
 #### v0.7.1 — Observability & Monitoring (planned)
 
@@ -77,7 +79,7 @@
 - [ ] Dead letter queue — failed tasks moved to DLQ for inspection and replay
 - [ ] Graceful shutdown — drain in-flight tasks before process exit
 - [ ] Job checkpointing — save intermediate state for long-running tasks
-- [ ] Retry policy framework — configurable per-step retry strategies
+- [ ] Retry policy framework — configurable per-step retry strategies (task-level retry with exponential backoff already exists in `cloud/worker.py`)
 - [ ] Health check framework — dependency health (LLM, TTS, storage)
 
 ### v0.8.x — Advanced Features

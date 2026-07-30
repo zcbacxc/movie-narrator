@@ -13,7 +13,7 @@
 | v0.2.x | 场景与媒体 | 研究 agent、WhisperX 对齐、场景检测、片段匹配、BGM、优雅降级 |
 | v0.3.x | 平台与工作流 | YAML job 配置、多语言字幕、Gradio WebUI（后被取代） |
 | v0.4.x | TTS 抽象与基础设施 | TTS provider 抽象、配置体系重做、FastAPI + React WebUI、渲染质量、L2 手测通过、匹配智能、效果组合、契约层 |
-| v0.5.x | 生态 | Plugin API / SDK 冻结 / 场景过滤 / WebUI 拆分 / 叙事与音频质量 / 字幕 QA / 全链路 QA 仪表盘。`CONTRACT_VERSION` → `(0, 5, 1)` |
+| v0.5.x | 生态 | Plugin API / SDK 冻结 / 插件发现（entry_points）/ VLM 视觉 Provider / 叙事预设（3 种风格）/ 场景过滤 / WebUI 拆分 / 叙事与音频质量 / 字幕 QA / 全链路 QA 仪表盘。`CONTRACT_VERSION` → `(0, 5, 1)` |
 | v0.6.0 | 任务队列 | 异步 job 系统、任务持久化、取消、进度跟踪、重试、CLI 命令。`CONTRACT_VERSION` → `(0, 6, 0)` |
 | v0.6.1 | 远程推理 | REST API 服务器、远程任务队列、Worker 守护进程、产物管理、远程 Provider 代理、CLI 命令。`CONTRACT_VERSION` → `(0, 6, 1)` |
 
@@ -34,7 +34,7 @@
 
 #### v0.6.3 — API 网关与鉴权（规划中）
 
-- [ ] API Key 鉴权 — `X-API-Key` 请求头校验中间件
+- [ ] API Key 鉴权 — 服务端 `X-API-Key` 请求头校验中间件（客户端 header 已由 `RemoteTaskQueue` / `remote_provider` 预留发送）
 - [ ] JWT 令牌支持 — 为认证会话签发令牌
 - [ ] 多租户隔离 — 租户隔离的任务存储与产物
 - [ ] 限流 — 按租户的请求限速（令牌桶算法）
@@ -53,6 +53,8 @@
 ### v0.7.x — 生产部署
 
 > **目标**：通过容器化、可观测性和容错机制使引擎达到生产可用。
+>
+> **架构迁移说明**：当前云层使用 Python 标准库 `ThreadingHTTPServer` + `ThreadPoolExecutor`。在 v0.7.0 前需要决策是否为 K8s 部署目标引入 FastAPI（替换标准库 HTTP）和/或 Redis/Celery（替换 `ThreadPoolExecutor`）。此决策不需要单独版本号变更 — 属于 v0.7.0 内的实现选择。
 
 #### v0.7.0 — 容器化与编排（规划中）
 
@@ -61,7 +63,7 @@
 - [ ] Helm chart — K8s 部署模板（worker deployment、API deployment、存储）
 - [ ] Worker 自动伸缩 — 基于队列深度的 HPA
 - [ ] ConfigMap/Secret 管理 — 从 K8s secrets 注入环境变量
-- [ ] 健康/就绪探针 — `/health` 和 `/ready` 端点
+- [ ] 健康/就绪探针 — `/ready` 端点 + 带依赖连通性的深度健康检查（`/health` 已在 v0.6.1 `TaskAPIServer` 中实现）
 
 #### v0.7.1 — 可观测性与监控（规划中）
 
@@ -77,7 +79,7 @@
 - [ ] 死信队列 — 失败任务转入 DLQ 供检查和重放
 - [ ] 优雅关闭 — 退出前排空在途任务
 - [ ] 任务检查点 — 为长时间运行的任务保存中间状态
-- [ ] 重试策略框架 — 可配置的逐步骤重试策略
+- [ ] 重试策略框架 — 可配置的逐步骤重试策略（任务级带指数退避的重试已在 `cloud/worker.py` 中实现）
 - [ ] 健康检查框架 — 依赖健康（LLM、TTS、存储）
 
 ### v0.8.x — 高级功能
