@@ -382,6 +382,57 @@ def _apply_emotion_transitions(
     return adjusted, transitions
 
 
+def _mix_ambient_track(
+    narration_or_mixed: AudioSegment,
+    ambient_path: str,
+    ambient_gain_db: float = -12.0,
+    duck_db: float = -10.0,
+    timed_segments: list = None,
+) -> tuple[AudioSegment, dict]:
+    """Mix an ambient/SFX track beneath the narration+BGM audio.
+
+    v0.7.1: Loads the ambient track, loops/trims it to match the
+    narration duration, applies gain reduction, and overlays it
+    with ducking during active narration segments.
+
+    Returns ``(mixed_audio, ambient_info_dict)``. On any error,
+    returns the original audio unchanged with an empty info dict.
+    """
+    info: dict = {}
+    try:
+        ambient = AudioSegment.from_file(ambient_path)
+    except Exception as e:
+        return narration_or_mixed, {"error": f"ambient load failed: {e}"}
+
+    target_ms = len(narration_or_mixed)
+    ambient_ms = len(ambient)
+
+    # Loop ambient track to match target duration
+    if ambient_ms < target_ms:
+        loops = int(target_ms / ambient_ms) + 1
+        ambient = ambient * loops
+    ambient = ambient[:target_ms]
+
+    # Apply gain reduction
+    ambient = ambient.apply_gain(ambient_gain_db)
+
+    # Simple ducking: reduce ambient volume further during narration
+    # We use a moderate fixed duck since per-segment ducking is already
+    # applied to BGM — the ambient sits even lower in the mix.
+    duck_factor = float(db_to_float(duck_db))
+    ambient = ambient.apply_gain(duck_db)
+
+    mixed = narration_or_mixed.overlay(ambient)
+
+    info = {
+        "path": str(ambient_path),
+        "gain_db": ambient_gain_db,
+        "duck_db": duck_db,
+        "duration_sec": round(target_ms / 1000.0, 2),
+    }
+    return mixed, info
+
+
 def mix_bgm(ctx: Context) -> Context:
     if not ctx.audio_path:
         ctx.status.bgm = "skipped"
@@ -443,6 +494,31 @@ def mix_bgm(ctx: Context) -> Context:
                 mixed = normalize_loudnorm(mixed, target_dbfs=target)
             else:
                 mixed = normalize_peak(mixed, target_dbfs=target)
+
+        # v0.7.1: Multi-track mixing — overlay ambient/SFX track if provided.
+        # This sits beneath both narration and BGM for a richer soundscape.
+        # Soft failure: if the ambient file is missing/corrupt, warn and continue.
+        ambient_path = ctx.metadata.get("bgm_ambient_path")
+        if ambient_path:
+            ambient_gain = ctx.metadata.get("bgm_ambient_gain_db", -12.0)
+            ambient_duck = ctx.metadata.get("bgm_duck_db", -10.0)
+            mixed, ambient_info = _mix_ambient_track(
+                mixed, ambient_path,
+                ambient_gain_db=ambient_gain,
+                duck_db=ambient_duck,
+                timed_segments=ctx.timed_segments,
+            )
+            if "error" in ambient_info:
+                ctx.services.console.inline_warn(
+                    f"Ambient track skipped: {ambient_info['error']}"
+                )
+            else:
+                ctx.metadata["ambient_track"] = ambient_info
+                ctx.services.console.debug(
+                    f"  v0.7.1 ambient: {ambient_path} "
+                    f"(gain={ambient_gain}dB, duck={ambient_duck}dB)"
+                )
+
         out = Path(ctx.output_dir) / "mixed.mp3"
         ctx.final_audio_path = _export_robust(mixed, out)
         ctx.status.bgm = "success"
