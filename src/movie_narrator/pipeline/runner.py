@@ -239,6 +239,12 @@ def build_context(
             "research_provider": (params or {}).get("research_provider", "llm"),
             # R2-NA-LANG: single source of truth for narration language.
             "lang": lang,
+            # v0.7.2: preview mode — render only the first N seconds for quick
+            # iteration.  OFF by default (backward compatible).  These keys are
+            # also propagated via PARAM_WHITELIST below when explicitly set;
+            # setting defaults here keeps them visible in metadata.json.
+            "render_preview_mode": (params or {}).get("render_preview_mode", False),
+            "render_preview_sec": (params or {}).get("render_preview_sec", 10.0),
         }
     )
 
@@ -415,6 +421,19 @@ def run_pipeline(
             continue
 
         check_cancelled(controller)
+
+        # v0.7.2: Skip non-essential steps in preview mode.
+        # Only SOFT steps (research_plot, translate_subtitles, run_qa_gate,
+        # export_clips) are skipped — hard steps always run so the preview is
+        # a faithful representation of the final output.
+        if ctx.metadata.get("render_preview_mode"):
+            from ..utils.preview import should_skip_step_for_preview
+            if should_skip_step_for_preview(name, True):
+                ctx.step_state = StepState(
+                    result=StepResult.SKIPPED, message="skipped in preview mode"
+                )
+                console.debug(f"  Preview: skipping {name}")
+                continue
 
         # ── Execute step with soft/hard exception fork ───────
         # Soft steps: exception → ⚠ + continue (no abort).

@@ -253,6 +253,28 @@ def render_video(ctx: Context) -> Context:
     audio_clip = AudioFileClip(audio_path)
     total_duration = audio_clip.duration
 
+    # v0.7.2: Preview mode — truncate to first N seconds for fast iteration.
+    # When enabled the audio, background clip and subtitle segments are all
+    # cut to the preview window so the rendered file is a faithful (short)
+    # representation of the final output.  Preview mode is OFF by default
+    # (backward compatible).
+    preview_mode = ctx.metadata.get("render_preview_mode", False)
+    if preview_mode:
+        from ..utils.preview import get_preview_duration, truncate_segments_for_preview
+        preview_sec = get_preview_duration(
+            ctx.metadata.get("render_preview_sec", 10.0), total_duration
+        )
+        total_duration = min(total_duration, preview_sec)
+        ctx.services.console.info(f"  Preview mode: rendering first {preview_sec:.0f}s")
+        # Truncate the audio so the muxed output is exactly preview_sec long.
+        audio_clip = audio_clip.subclipped(0, total_duration)
+        # Truncate timed segments so subtitle overlays respect the preview
+        # window (segments beyond the cut are dropped; spanning segments are
+        # clamped to end at the boundary).
+        ctx.timed_segments = truncate_segments_for_preview(
+            ctx.timed_segments, total_duration
+        )
+
     # Production-quality render knobs (spec §7.2).
     fit_mode = ctx.metadata.get("render_fit_mode", "cover")
     subtitle_position = ctx.metadata.get("render_subtitle_position", "bottom")
@@ -493,7 +515,11 @@ def render_video(ctx: Context) -> Context:
     # and dropping it lets GC reclaim the list shell during the expensive
     # write_videofile call below.
     del clips
-    video_path = output_dir / ctx.metadata.get("render_output_name", "final.mp4")
+    # v0.7.2: In preview mode, default the output name to preview.mp4 so the
+    # short render is never mistaken for the final deliverable.  An explicit
+    # render_output_name from the user always takes precedence.
+    default_output_name = "preview.mp4" if preview_mode else "final.mp4"
+    video_path = output_dir / ctx.metadata.get("render_output_name", default_output_name)
 
 
     tmp_dir = output_dir / ".tmp"

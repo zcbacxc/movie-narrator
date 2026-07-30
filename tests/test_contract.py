@@ -210,8 +210,8 @@ class TestContractVersion:
     """CONTRACT_VERSION is the stable API boundary for external consumers."""
 
     def test_contract_version_value(self):
-        """CONTRACT_VERSION is (0, 7, 1) — bumped for v0.7.1 scene transitions and text animation."""
-        assert CONTRACT_VERSION == (0, 7, 1)
+        """CONTRACT_VERSION is (0, 7, 2) — bumped for v0.7.2 preview mode."""
+        assert CONTRACT_VERSION == (0, 7, 2)
 
     def test_contract_version_is_tuple(self):
         """CONTRACT_VERSION is a 3-tuple of ints (semver)."""
