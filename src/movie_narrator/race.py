@@ -296,7 +296,7 @@ def run_race(
     Returns:
         List of :class:`CandidateResult`, sorted by score descending.
     """
-    from .pipeline.runner import build_context, run_pipeline
+    from .pipeline.runner import build_context, common_build_kwargs, run_pipeline
     from .pipeline.errors import PipelinePaused
     from .pipeline.preflight import PreflightError
     from .utils.sanitize import sanitize_filename
@@ -313,7 +313,7 @@ def run_race(
         )
 
         try:
-            ctx = build_context(
+            ctx = build_context(**common_build_kwargs(
                 movie=movie,
                 style=style,
                 duration=duration,
@@ -334,7 +334,7 @@ def run_race(
                 subtitle_mode=subtitle_mode,
                 narration_preset=cand.narration_preset,
                 lang="zh",  # R2-NA-LANG: race mode defaults to Chinese
-            )
+            ))
 
             ctx = run_pipeline(ctx)
 

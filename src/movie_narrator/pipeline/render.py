@@ -145,6 +145,7 @@ def _export_cover_image(
             return
     except Exception as e:
         ctx.services.console.debug(f"  EP5 cover: extract error: {e}")
+        logger.debug("EP5 cover: ffmpeg extract failed", exc_info=True)
         return
 
     # Overlay movie name with PIL

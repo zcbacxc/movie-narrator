@@ -13,7 +13,7 @@ from . import __version__
 from .models import Context
 from .pipeline.resolve import resolve_video
 from .pipeline.research import research_plot
-from .pipeline.runner import build_context, run_pipeline
+from .pipeline.runner import build_context, common_build_kwargs, run_pipeline
 from .utils.log import resolve_log_level
 
 
@@ -286,7 +286,7 @@ def create(
 
     _resolved_level = resolve_log_level(log_level)
 
-    ctx = build_context(
+    ctx = build_context(**common_build_kwargs(
         movie=resolved.movie,
         style=resolved.style,
         duration=resolved.duration,
@@ -310,7 +310,7 @@ def create(
         lang=resolved.lang,
         log_level=_resolved_level,
         verbose=verbose,
-    )
+    ))
     controller = InteractiveCLIController() if retry else None
 
     # EP9: Store pause-at request in context metadata
@@ -568,7 +568,7 @@ def imitate(
 
     _resolved_level = resolve_log_level(log_level)
 
-    ctx = build_context(
+    ctx = build_context(**common_build_kwargs(
         movie=movie,
         style=style,
         duration=duration,
@@ -591,7 +591,7 @@ def imitate(
         lang="zh",  # R2-NA-LANG: imitate command defaults to Chinese
         log_level=_resolved_level,
         verbose=verbose,
-    )
+    ))
 
     controller = InteractiveCLIController() if retry else None
 

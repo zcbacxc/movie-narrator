@@ -2,7 +2,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 from importlib import import_module
+import logging
 from typing import Tuple
+
+logger = logging.getLogger(__name__)
 
 _HINTS = {
     "scenedetect": 'pip install "movie-narrator[media]"',
@@ -25,4 +28,5 @@ def probe(name: str) -> Tuple[bool, str]:
         import_module(mod)
         return True, ""
     except Exception:
+        logger.debug("Optional dependency '%s' not available", name, exc_info=True)
         return False, _HINTS.get(name, f"install dependency for {name}")

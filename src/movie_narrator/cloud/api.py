@@ -24,7 +24,7 @@ Typical usage::
 
     from movie_narrator.cloud import TaskAPIServer
 
-    server = TaskAPIServer(host="0.0.0.0", port=8765)
+    server = TaskAPIServer(host="127.0.0.1", port=8765)
     server.start(blocking=True)
 """
 
@@ -38,6 +38,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, Optional
 
+from .. import __version__
 from .models import Task, TaskRequest, TaskStatus
 from .queue import LocalTaskQueue
 
@@ -110,7 +111,7 @@ class _APIHandler(BaseHTTPRequestHandler):
         # Server info
         if path == "/info":
             self._send_json({
-                "version": "0.6.1",
+                "version": __version__,
                 "active_tasks": self.queue.active_count,
                 "is_started": self.queue.is_started,
             })
@@ -286,7 +287,7 @@ class _APIHandler(BaseHTTPRequestHandler):
         try:
             file_path = file_path.resolve()
             output_dir = output_dir.resolve()
-            if not str(file_path).startswith(str(output_dir)):
+            if not file_path.is_relative_to(output_dir):
                 self._send_error(HTTPStatus.FORBIDDEN, "Access denied")
                 return
         except Exception:

@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.4] - 2026-07-31
+
+### Security
+
+- `daemon.py` and `WorkerDaemon` default host changed from `0.0.0.0` to `127.0.0.1`, aligning the server-side default with the CLI-level fix from v0.7.3.
+- Path traversal protection in `api.py` artifact download hardened: replaced `str.startswith()` with `Path.is_relative_to()` to prevent same-prefix directory bypass.
+
+### Changed
+
+- Extracted `common_build_kwargs()` helper to `pipeline/runner.py`, eliminating duplicated `build_context()` kwargs construction across `cli.py` (create, imitate), `race.py`, and `cloud/worker.py`.
+- Replaced `Optional[Any]` and `clip: Any` type annotations with proper types (`Optional[SubtitlePaths]`, `VideoClip`) in `contract.py`, `utils/transitions.py`, and `utils/text_anim.py` via `TYPE_CHECKING` imports.
+- `/info` API endpoint now returns the dynamic package version (`__version__`) instead of a hardcoded `"0.6.1"` string.
+- Version bumped to 0.7.4. CONTRACT_VERSION unchanged at (0, 7, 2) — no API surface change.
+
+### Fixed
+
+- Added `logger.debug(exc_info=True)` to 8 additional silent `except Exception` blocks in `queue.py`, `research.py`, `video_qa.py`, `optional_deps.py`, `workflow/errors.py`, `pipeline/qa.py`, `vision/vlm.py`, and `pipeline/render.py` (cover extraction) to prevent silent error swallowing.
+- Updated stale roadmap summary in `README.md` / `README.zh-CN.md` (was referencing v0.6.2 cloud infrastructure; now reflects v0.8.0 service deployment focus).
+- Updated `.env.example` remote worker command to use `--public` flag (aligned with v0.7.3 host binding change).
+
 ## [0.7.3] - 2026-07-30
 
 ### Security

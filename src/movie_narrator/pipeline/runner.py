@@ -141,6 +141,68 @@ def _step_enabled(workflow_steps: Optional[Dict[str, bool]], step_name: str) -> 
 # ── Context construction (shared by CLI and Web) ───────────
 
 
+def common_build_kwargs(
+    *,
+    movie: str,
+    style: str,
+    duration: int,
+    voice: Optional[str],
+    format: str,
+    output_dir: Path,
+    keep_cache: bool = False,
+    video: Optional[str] = None,
+    library_dir: Optional[str] = None,
+    research: Optional[bool] = None,
+    bgm: Optional[str] = None,
+    no_bgm: bool = False,
+    no_clips: bool = False,
+    strict: bool = False,
+    workflow_steps: Optional[Dict[str, bool]] = None,
+    params: Optional[Dict[str, Any]] = None,
+    config_path: Optional[str] = None,
+    subtitle_lang: Optional[str] = None,
+    subtitle_mode: Optional[str] = None,
+    services: Optional[Services] = None,
+    narration_preset: Optional[str] = None,
+    lang: str = "zh",
+    log_level: int = logging.DEBUG,
+    verbose: bool = False,
+) -> dict:
+    """Build a kwargs dict for :func:`build_context` from common parameters.
+
+    Eliminates duplicated kwargs construction across ``cli.py`` (create,
+    imitate), ``race.py``, and ``cloud/worker.py``.  Callers spread the
+    result with ``**`` and may override individual keys before passing
+    to :func:`build_context`.
+    """
+    return {
+        "movie": movie,
+        "style": style,
+        "duration": duration,
+        "voice": voice,
+        "format": format,
+        "output_dir": output_dir,
+        "keep_cache": keep_cache,
+        "video": video,
+        "library_dir": library_dir,
+        "research": research,
+        "bgm": bgm,
+        "no_bgm": no_bgm,
+        "no_clips": no_clips,
+        "strict": strict,
+        "workflow_steps": workflow_steps,
+        "params": params,
+        "config_path": config_path,
+        "subtitle_lang": subtitle_lang,
+        "subtitle_mode": subtitle_mode,
+        "services": services,
+        "narration_preset": narration_preset,
+        "lang": lang,
+        "log_level": log_level,
+        "verbose": verbose,
+    }
+
+
 def build_context(
     movie: str,
     style: str,

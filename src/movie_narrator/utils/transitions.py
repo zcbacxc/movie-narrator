@@ -11,7 +11,10 @@ MoviePy effects/clips that the render pipeline applies.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from moviepy import VideoClip
 
 logger = logging.getLogger(__name__)
 
@@ -148,7 +151,7 @@ def apply_transition(
     return clip
 
 
-def _safe_clip_duration(clip: Any) -> float:
+def _safe_clip_duration(clip: VideoClip) -> float:
     """Return the clip's duration as a float, or 0.0 when unknown."""
     try:
         d = getattr(clip, "duration", None)
@@ -160,7 +163,7 @@ def _safe_clip_duration(clip: Any) -> float:
         return 0.0
 
 
-def _read_base_position(clip: Any) -> tuple[float, float]:
+def _read_base_position(clip: VideoClip) -> tuple[float, float]:
     """Return the clip's resting (x, y) position as a numeric tuple.
 
     MoviePy 2.x stores the position set via ``with_position`` on
@@ -179,13 +182,13 @@ def _read_base_position(clip: Any) -> tuple[float, float]:
 
 
 def _apply_slide(
-    clip: Any,
+    clip: VideoClip,
     trans_dur: float,
     position: str,
     clip_duration: float,
-    FadeIn: Optional[Any],
-    FadeOut: Optional[Any],
-) -> Optional[Any]:
+    FadeIn: Optional[type],
+    FadeOut: Optional[type],
+) -> Optional[VideoClip]:
     """Apply a horizontal slide entrance/exit.
 
     Uses MoviePy's ``with_position`` with a callable that interpolates

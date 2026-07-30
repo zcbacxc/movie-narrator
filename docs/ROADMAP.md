@@ -16,6 +16,7 @@
 | v0.5.x | Ecosystem | Plugin API / SDK freeze / plugin discovery (entry_points) / VLM vision provider / narrative presets (3 styles) / scene filtering / WebUI split / narrative & audio quality / subtitle QA / holistic QA dashboard. `CONTRACT_VERSION` → `(0, 5, 1)` |
 | v0.6.0 | Task Queue | Async job system, task persistence, cancellation, progress tracking, retry, CLI commands. `CONTRACT_VERSION` → `(0, 6, 0)` |
 | v0.6.1 | Remote Inference | REST API server, remote task queue, worker daemon, artifact management, remote provider proxies, CLI commands. `CONTRACT_VERSION` → `(0, 6, 1)` |
+| v0.7.x | Output Experience | GPU encoding, cost tracking, preview mode, scene transitions, text animation, multi-track audio, security hardening. `CONTRACT_VERSION` → `(0, 7, 2)` |
 
 ---
 
@@ -32,20 +33,6 @@ The original v0.6.2–v0.6.4 plan (distributed rendering, API gateway & auth, cl
 - **JWT / multi-tenant isolation / token bucket rate limiting** — deferred to post-v1.0, pending community demand
 
 ---
-
-### v0.7.0 — Output Experience (planned)
-
-> **Goal**: Local users should immediately feel "faster renders, better-looking output" after upgrading.
-
-- [ ] Scene transitions — crossfade, hard cut, wipe between segments
-- [ ] Text animations — kinetic typography for hooks and titles
-- [ ] Multi-track audio mixing — narration + BGM + SFX on separate tracks
-- [ ] GPU encoding acceleration — auto-detect NVENC / VAAPI / VideoToolbox availability and switch encoder (`render_encoder` parameter)
-- [ ] Render parallelization — concurrent segment encoding to reduce total render time
-- [ ] Preview mode — render first N seconds for quick confirmation before full render (`mn create --preview`)
-- [ ] Memory optimization — streaming processing for large videos to avoid OOM
-- [ ] Per-run cost tracking — LLM token + TTS call cost summary written to `metadata.json`
-- [ ] CONTRACT_VERSION → `(0, 7, 0)` — rendering and preview types exported via SDK
 
 ### v0.8.0 — Service Deployment Basics (planned)
 

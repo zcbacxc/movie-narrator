@@ -23,7 +23,7 @@ from typing import Optional
 
 from ..models import Context, Services
 from ..pipeline.errors import PipelineCancelled, RunController, check_cancelled
-from ..pipeline.runner import build_context, run_pipeline, STEPS
+from ..pipeline.runner import build_context, common_build_kwargs, run_pipeline, STEPS
 from ..utils.console import (
     BaseConsole,
     Console,
@@ -208,7 +208,7 @@ def _execute_task(
     )
 
     # Build pipeline context
-    ctx = build_context(
+    ctx = build_context(**common_build_kwargs(
         movie=request.movie_name,
         style=request.style,
         duration=request.duration,
@@ -233,7 +233,7 @@ def _execute_task(
         lang=request.lang,
         log_level=log_level,
         verbose=request.verbose,
-    )
+    ))
 
     # Execute pipeline
     try:

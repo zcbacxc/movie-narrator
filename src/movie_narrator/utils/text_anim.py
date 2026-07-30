@@ -63,7 +63,7 @@ def _import_fade_effect():
         return None
 
 
-def _safe_clip_duration(clip: Any) -> float:
+def _safe_clip_duration(clip: VideoClip) -> float:
     """Return the clip's duration as a float, or 0.0 when unknown."""
     try:
         d = getattr(clip, "duration", None)
@@ -94,10 +94,10 @@ def _read_base_position(clip: Any) -> tuple[float, float]:
 
 
 def apply_text_animation(
-    clip: Any,
+    clip: VideoClip,
     animation_type: str,
     duration: float = 0.3,
-) -> Any:
+) -> VideoClip:
     """Apply an entrance animation to a subtitle text ImageClip.
 
     Args:
@@ -157,12 +157,12 @@ def apply_text_animation(
 
 
 def _apply_slide_entrance(
-    clip: Any,
+    clip: VideoClip,
     animation_type: str,
     anim_dur: float,
     clip_duration: float,
-    FadeIn: Optional[Any],
-) -> Optional[Any]:
+    FadeIn: Optional[type],
+) -> Optional[VideoClip]:
     """Apply a slide-up or slide-left entrance animation.
 
     Interpolates the clip's position from a small offset to its resting

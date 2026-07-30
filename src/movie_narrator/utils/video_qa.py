@@ -14,11 +14,15 @@ wired as a hard gate via ``--strict``.
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
+
+
+logger = logging.getLogger(__name__)
 
 
 # ── Thresholds ───────────────────────────────────────────
@@ -127,6 +131,7 @@ def _run_ffprobe(path: str, timeout: int = 30) -> Optional[dict]:
             return None
         return json.loads(proc.stdout)
     except Exception:
+        logger.debug("ffprobe execution failed", exc_info=True)
         return None
 
 

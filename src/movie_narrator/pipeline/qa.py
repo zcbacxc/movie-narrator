@@ -15,12 +15,17 @@ builds a cross-step quality dashboard, and exports a structured QA report
 
 from __future__ import annotations
 
+import logging
+
 from ..models import Context
 from ..tts.base import is_ci
 from ..utils.deliverable_qa import evaluate_deliverable
 from ..utils.video_qa import evaluate_video_quality
 from ..utils.quality_dashboard import build_quality_dashboard
 from ..utils.qa_report import export_qa_report
+
+
+logger = logging.getLogger(__name__)
 
 
 def validate_deliverable(ctx: Context) -> Context:
@@ -58,6 +63,7 @@ def validate_deliverable(ctx: Context) -> Context:
         try:
             expected = probe_media(ctx.final_audio_path).get("duration", 0.0) or 0.0
         except Exception:
+            logger.debug("Audio probe failed for duration estimation", exc_info=True)
             expected = 0.0
 
     report = evaluate_deliverable(
