@@ -217,6 +217,8 @@ def build_context(
         assets=Assets(bgm=bgm_path),
         services=services,
     )
+    from ..utils.cost_tracker import CostTracker
+    ctx.cost_tracker = CostTracker()
     ctx.metadata.update(
         {
             "voice": voice,

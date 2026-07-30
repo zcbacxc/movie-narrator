@@ -102,6 +102,8 @@ class JobParams(BaseModel):
     render_cover_export: Optional[bool] = None
     # EP5: auto-adjust subtitle margins for 9:16 vertical safe area (bool, default True)
     render_vertical_safe_area: Optional[bool] = None
+    # v0.7.0: GPU encoding — "auto" (default) | "cpu" | "nvenc" | "vaapi" | "videotoolbox"
+    render_encoder: Optional[str] = None
     # ── QA ──
     qa_enabled: Optional[bool] = None
     qa_max_silence_db: Optional[float] = None

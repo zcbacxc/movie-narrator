@@ -268,6 +268,9 @@ class Context(BaseModel):
     # Single-step return state — consumed by runner, reset after each step
     step_state: StepState = Field(default_factory=StepState)
 
+    # v0.7.0: per-run cost tracking
+    cost_tracker: Optional[Any] = None
+
     metadata: _MetadataType = Field(default_factory=dict)
 
     @model_validator(mode="before")

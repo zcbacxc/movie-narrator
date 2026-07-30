@@ -76,4 +76,9 @@ def build_metadata_json(ctx: Context) -> Dict[str, Any]:
         # ── WP5: script truncation audit ──
         "script_truncated": ctx.metadata.get("script_truncated"),
     }
+
+    # v0.7.0: cost tracking summary
+    if hasattr(ctx, 'cost_tracker') and ctx.cost_tracker is not None:
+        meta["cost"] = ctx.cost_tracker.summary()
+
     return meta
