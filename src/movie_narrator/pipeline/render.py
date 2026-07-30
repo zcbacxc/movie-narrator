@@ -529,7 +529,23 @@ def render_video(ctx: Context) -> Context:
         ffmpeg_params=video_ffmpeg_params,
     )
     try:
-        final_video.write_videofile(str(video_only_path), **video_write_kwargs)
+        try:
+            final_video.write_videofile(str(video_only_path), **video_write_kwargs)
+        except Exception as gpu_err:
+            if gpu_codec != "libx264":
+                # v0.7.0: GPU encoding failed (no hardware, driver issue,
+                # unsupported option, etc.) — retry with CPU libx264 so the
+                # pipeline degrades gracefully instead of aborting.
+                ctx.services.console.inline_warn(
+                    f"GPU encoding ({gpu_codec}) failed: {gpu_err}. "
+                    f"Retrying with libx264 (CPU)."
+                )
+                gpu_codec = "libx264"
+                video_write_kwargs["codec"] = "libx264"
+                video_write_kwargs["ffmpeg_params"] = ["-crf", str(crf), "-preset", str(preset)]
+                final_video.write_videofile(str(video_only_path), **video_write_kwargs)
+            else:
+                raise
     finally:
         # Exception-safe cleanup: each close is guarded so one failure
         # doesn't prevent the remaining resources from being released.

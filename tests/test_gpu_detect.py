@@ -21,8 +21,9 @@ _GPU_DETECT_MOD = "movie_narrator.utils.gpu_detect"
 
 
 @pytest.fixture(autouse=True)
-def _clear_lru_cache():
-    """Reset the ``detect_gpu_encoder`` cache between tests."""
+def _clear_lru_cache(monkeypatch):
+    """Reset the ``detect_gpu_encoder`` cache and clear CI env between tests."""
+    monkeypatch.delenv("CI", raising=False)
     detect_gpu_encoder.cache_clear()
     yield
     detect_gpu_encoder.cache_clear()
@@ -35,6 +36,20 @@ def _fake_proc(stdout: str = "", returncode: int = 0, stderr: str = "") -> Magic
 def test_detect_returns_none_when_ffmpeg_missing():
     """No ffmpeg on PATH -> detection short-circuits to None."""
     with patch(f"{_GPU_DETECT_MOD}.shutil.which", return_value=None):
+        assert detect_gpu_encoder() is None
+
+
+def test_detect_returns_none_in_ci_environment(monkeypatch):
+    """CI env var set -> detection skips even when ffmpeg has GPU encoders."""
+    monkeypatch.setenv("CI", "1")
+    fake_stdout = (
+        " V..... h264_nvenc            NVIDIA NVENC H.264 encoder (codec h264)\n"
+    )
+    with patch(f"{_GPU_DETECT_MOD}.shutil.which", return_value="/usr/bin/ffmpeg"), \
+         patch(
+             f"{_GPU_DETECT_MOD}.subprocess.run",
+             return_value=_fake_proc(stdout=fake_stdout),
+         ):
         assert detect_gpu_encoder() is None
 
 

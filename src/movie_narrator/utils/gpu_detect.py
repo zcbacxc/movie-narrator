@@ -13,6 +13,7 @@ during a single render are cheap and deterministic.
 
 from __future__ import annotations
 
+import os
 import platform
 import re
 import shutil
@@ -30,11 +31,17 @@ _BASE_ORDER: list[str] = [_NVENC, _VAAPI, _VIDEOTOOLBOX]
 
 # Recommended ffmpeg params per backend.  These are conservative quality
 # presets — NVENC ``p4`` + VBR/CQ 20 is the standard quality/speed
-# sweet spot, VAAPI ``fast`` targets the renderD128 node, and
-# VideoToolbox uses a single quality factor.
+# sweet spot, VAAPI uses a fast preset, and VideoToolbox uses a single
+# quality factor.
+#
+# NOTE: ``-vaapi_device`` is a *global* ffmpeg option that must appear
+# before ``-i`` — MoviePy's ``ffmpeg_params`` are output-side, so we
+# cannot pass it.  The VAAPI encoder will use the default device
+# (``/dev/dri/renderD128`` on most Linux systems) or fail gracefully
+# with a fallback to libx264 in the render pipeline.
 _GPU_PARAMS: dict[str, list[str]] = {
     _NVENC: ["-preset", "p4", "-rc", "vbr", "-cq", "20"],
-    _VAAPI: ["-preset", "fast", "-vaapi_device", "/dev/dri/renderD128"],
+    _VAAPI: ["-preset", "fast"],
     _VIDEOTOOLBOX: ["-q:v", "65"],
 }
 
@@ -92,6 +99,13 @@ def detect_gpu_encoder() -> Optional[str]:
     is registered.
     """
     if shutil.which("ffmpeg") is None:
+        return None
+
+    # CI environments (GitHub Actions, etc.) list GPU encoders in
+    # ``ffmpeg -encoders`` but have no actual GPU hardware.  Using them
+    # produces ``Unrecognized option`` or ``Broken pipe`` errors.  Skip
+    # detection entirely so CI always uses libx264.
+    if os.getenv("CI"):
         return None
 
     try:
