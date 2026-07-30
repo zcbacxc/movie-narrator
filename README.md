@@ -271,7 +271,7 @@ movie-narrator/
 
 ## Roadmap
 
-Current focus: cloud infrastructure (distributed rendering, API gateway, cloud storage). See the full [Roadmap](docs/ROADMAP.md) for version-by-version details from v0.6.2 to v1.0.
+Current focus: service deployment basics (v0.8.0). See the full [Roadmap](docs/ROADMAP.md) for version-by-version details.
 
 ---
 

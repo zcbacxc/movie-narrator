@@ -68,5 +68,6 @@ def is_network_error(exc: BaseException) -> bool:
     try:
         from openai import APITimeoutError, APIConnectionError, RateLimitError
     except Exception:
+        logger.debug("openai SDK not importable; cannot check transient errors", exc_info=True)
         return False
     return isinstance(exc, (APITimeoutError, APIConnectionError, RateLimitError))

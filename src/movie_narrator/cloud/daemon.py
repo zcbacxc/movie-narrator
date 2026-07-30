@@ -12,8 +12,13 @@ Typical usage::
 
     from movie_narrator.cloud import run_daemon
 
-    run_daemon(host="0.0.0.0", port=8765, max_workers=4)
-"""
+    run_daemon(host="127.0.0.1", port=8765, max_workers=4)
+
+    To listen on all interfaces (e.g. inside a container or behind a
+    reverse proxy), pass ``host="0.0.0.0"`` explicitly.  Binding to
+    loopback by default prevents unintended public exposure of the
+    unauthenticated API server.
+    """
 
 from __future__ import annotations
 
@@ -31,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 
 def run_daemon(
-    host: str = "0.0.0.0",
+    host: str = "127.0.0.1",
     port: int = 8765,
     *,
     storage_dir: Optional[Path] = None,
@@ -116,7 +121,7 @@ class WorkerDaemon:
 
     def __init__(
         self,
-        host: str = "0.0.0.0",
+        host: str = "127.0.0.1",
         port: int = 8765,
         *,
         storage_dir: Optional[Path] = None,

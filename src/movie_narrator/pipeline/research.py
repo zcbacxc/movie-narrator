@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 import json
+import logging
 from pathlib import Path
 from time import sleep
 
@@ -18,6 +19,8 @@ from ..utils.llm import get_llm_client
 # which means `research_provider: "tmdb"` would fail with "unknown provider"
 # because the registry check in research_plot runs before the lazy import.
 from ..providers import tmdb as _tmdb_module  # noqa: F401
+
+logger = logging.getLogger(__name__)
 
 RESEARCH_PROMPT = """\
 You are a film research assistant. Provide structured information about the movie "{movie}".
@@ -93,6 +96,7 @@ def _research_via_llm(ctx: Context, settings) -> ResearchInfo:
                 set_pieces=data.get("set_pieces") or [],
             )
         except Exception:
+            logger.debug("Failed to parse movie card from LLM response", exc_info=True)
             ctx.metadata.pop("movie_card", None)
 
         # NA-M2-S1+: TMDB cross-validation. When an API key is configured,
@@ -107,7 +111,7 @@ def _research_via_llm(ctx: Context, settings) -> ResearchInfo:
                 enriched = enrich_movie_card_with_tmdb(card, ctx, settings)
                 ctx.metadata["movie_card"] = enriched
             except Exception:
-                pass  # TMDB enrichment is best-effort
+                logger.debug("TMDB enrichment failed (best-effort)", exc_info=True)
 
         return ResearchInfo(
             title=data.get("title", ctx.movie_name),

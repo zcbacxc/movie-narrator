@@ -317,7 +317,7 @@ class LocalTaskQueue:
                     task.completed_at = datetime.now(timezone.utc).isoformat()
                     self._storage.save(task)
             except Exception:
-                pass
+                logger.debug("Failed to mark task as failed after worker error", exc_info=True)
 
         finally:
             with self._lock:

@@ -107,6 +107,7 @@ class VLMCaptioner(VisionCaptioner):
                 caption = self._caption_frame(frame_b64, scene)
                 captions.append(caption)
             except Exception:
+                logger.debug("VLM captioning failed for scene, using fallback", exc_info=True)
                 captions.append(self._fallback_label(scene))
 
         return captions
