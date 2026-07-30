@@ -53,7 +53,7 @@ def build_metadata_json(ctx: Context) -> Dict[str, Any]:
         ),
         "render_subtitle_path": ctx.render_subtitle_path,
         "warnings": ctx.metadata.get("warnings", []),
-        # ── WP1: diagnostic fields (for L2 hand-test & debugging) ──
+        # ── WP1: diagnostic fields (for manual QA & debugging) ──
         # These let you verify pipeline health from metadata.json alone,
         # without inspecting logs.
         "script_target_count": ctx.metadata.get("script_target_count"),

@@ -1,13 +1,13 @@
-# Layer 0 运行手册 — 零代码提效指南
+[![English](https://img.shields.io/badge/English-Best_Practices-blue)](BEST_PRACTICES.md)
+[![简体中文](https://img.shields.io/badge/简体中文-最佳实践-green)](BEST_PRACTICES.zh-CN.md)
 
-> **核心观点**：成片质量的 40% 由源材料决定，30% 由 LLM 脚本质量决定，20% 由 BGM 和发布包装决定。
-> 引擎算法只能优化剩余的 10%。先检查这些「旁路」因素，再调代码参数。
->
-> 对应 QUALITY_UPLIFT_METHODS §1.8 Q-X1~X6。
+# 最佳实践
+
+> **核心观点**：成片质量的 40% 由源材料决定，30% 由 LLM 脚本质量决定，20% 由 BGM 和发布包装决定。引擎算法只能优化剩余的 10%。先检查这些「旁路」因素，再调代码参数。
 
 ---
 
-## Q-X1 更好的源片
+## 源片选择
 
 同一引擎、同一脚本，预告片/高清/有字幕轨的源片产出质量远超枪版正片。源片是效果天花板的第一决定因素。
 
@@ -26,7 +26,7 @@
 运行辅助工具检查源片质量：
 
 ```bash
-python examples/l2/tools/source_check.py /path/to/your-film.mp4
+python scripts/source_check.py /path/to/your-film.mp4
 ```
 
 人工检查项：
@@ -45,7 +45,7 @@ python examples/l2/tools/source_check.py /path/to/your-film.mp4
 
 ---
 
-## Q-X2 更好的 LLM
+## LLM 选择
 
 脚本阶段（Phase 1 beats + Phase 2 expand）的 LLM 质量直接决定叙事天花板。弱模型生成的 beats 结构松散、钩子无力，后续 match 和 render 无论怎么调都救不回来。
 
@@ -81,7 +81,7 @@ MN_LLM_BASE_URL=https://api.deepseek.com/v1
 运行辅助工具检查 LLM 连通性和响应质量：
 
 ```bash
-python examples/l2/tools/llm_check.py
+python scripts/llm_check.py
 ```
 
 ### 脚本质量自检
@@ -101,7 +101,7 @@ python examples/l2/tools/llm_check.py
 
 ---
 
-## Q-X3 更好的 BGM
+## BGM 选择
 
 BGM 是听感的 50%。一个鼓点齐、频段不抢人声的无版权 BGM，比任何 duck 参数调优都有效。
 
@@ -120,7 +120,7 @@ BGM 是听感的 50%。一个鼓点齐、频段不抢人声的无版权 BGM，�
 运行辅助工具分析 BGM 特征：
 
 ```bash
-python examples/l2/tools/bgm_analyze.py /path/to/bgm.mp3
+python scripts/bgm_analyze.py /path/to/bgm.mp3
 ```
 
 输出包含：时长、估算 BPM、能量分布、是否适合当前 preset。
@@ -146,7 +146,7 @@ BGM 选好后，根据 preset 微调闪避参数：
 
 ---
 
-## Q-X4 片种分流
+## 片种分流
 
 不同类型的电影需要不同的 preset 和高光策略。一个 douyin-fast 打天下会导致喜剧片不够欢快、恐怖片不够紧张、文艺片节奏太赶。
 
@@ -165,7 +165,7 @@ BGM 选好后，根据 preset 微调闪避参数：
 ### 使用辅助工具
 
 ```bash
-python examples/l2/tools/genre_advisor.py --genre 动作 --duration 60
+python scripts/genre_advisor.py --genre 动作 --duration 60
 ```
 
 输出推荐的 preset 和参数覆盖。
@@ -190,7 +190,7 @@ params:
 
 ---
 
-## Q-X5 60 秒只讲一个卖点
+## 叙事聚焦
 
 信息架构问题，不是剪辑问题。60 秒试图讲完整部电影 = 缩时浏览 = 观众划走。
 
@@ -223,7 +223,7 @@ params:
 
 ---
 
-## Q-X6 发布包装
+## 发布包装
 
 标题、封面、前 1 秒动效在站外决定完播率。引擎产出的是「可发」的成片，但「能火」需要发布包装。
 
@@ -243,7 +243,7 @@ params:
 
 ### 封面
 
-引擎在 EP5 之后会自动导出 `cover.jpg`（取最高分镜头中点帧 + 电影名叠加）。
+引擎会自动导出 `cover.jpg`（取最高分镜头中点帧 + 电影名叠加）。
 
 提升封面效果：
 
@@ -279,31 +279,30 @@ params:
 
 ```
 成片效果不够好？
-  ├─ 画面模糊/音质差？ → Q-X1 换源片
-  ├─ 脚本无聊/钩子弱？ → Q-X2 换 LLM + Q-X5 聚焦卖点
-  ├─ BGM 抢人声/不搭？ → Q-X3 换 BGM
-  ├─ 节奏不对/类型不搭？ → Q-X4 换 Preset
-  ├─ 完播率低？ → Q-X5 聚焦 + Q-X6 包装
-  └─ 以上都对了还不行？ → 再调代码参数 / 上 VLM (Q-M5)
+  ├─ 画面模糊/音质差？ → 源片选择：换源片
+  ├─ 脚本无聊/钩子弱？ → LLM 选择：换 LLM + 叙事聚焦：聚焦卖点
+  ├─ BGM 抢人声/不搭？ → BGM 选择：换 BGM
+  ├─ 节奏不对/类型不搭？ → 片种分流：换 Preset
+  ├─ 完播率低？ → 叙事聚焦 + 发布包装：聚焦 + 包装
+  └─ 以上都对了还不行？ → 再调代码参数 / 上 VLM
 ```
 
 ---
 
-## 辅助工具索引
+## 辅助工具
 
-| 工具 | 用途 | 对应 |
-|------|------|------|
-| `tools/source_check.py` | 检查源片质量（分辨率/音轨/时长） | Q-X1 |
-| `tools/llm_check.py` | 检查 LLM 连通性和响应质量 | Q-X2 |
-| `tools/bgm_analyze.py` | 分析 BGM 特征（BPM/能量/时长） | Q-X3 |
-| `tools/genre_advisor.py` | 按片种推荐 preset 和参数 | Q-X4 |
+| 工具 | 用途 | 对应章节 |
+|------|------|----------|
+| `scripts/source_check.py` | 检查源片质量（分辨率/音轨/时长） | 源片选择 |
+| `scripts/llm_check.py` | 检查 LLM 连通性和响应质量 | LLM 选择 |
+| `scripts/bgm_analyze.py` | 分析 BGM 特征（BPM/能量/时长） | BGM 选择 |
+| `scripts/genre_advisor.py` | 按片种推荐 preset 和参数 | 片种分流 |
 
 所有工具均为独立脚本，不依赖 movie_narrator 包安装，可直接运行：
 
 ```bash
-cd examples/l2
-python tools/source_check.py /path/to/video.mp4
-python tools/bgm_analyze.py /path/to/bgm.mp3
-python tools/genre_advisor.py --genre 动作 --duration 60
-python tools/llm_check.py
+python scripts/source_check.py /path/to/video.mp4
+python scripts/bgm_analyze.py /path/to/bgm.mp3
+python scripts/genre_advisor.py --genre 动作 --duration 60
+python scripts/llm_check.py
 ```

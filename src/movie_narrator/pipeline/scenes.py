@@ -46,7 +46,7 @@ def detect_scenes(ctx: Context) -> Context:
                 )
             )
 
-        # ── MS-01: 0-scene fallback (Q-X7) ─────────────
+        # ── MS-01: 0-scene fallback ─────────────
         # ContentDetector can return 0 scenes for low-contrast videos
         # (black bars, static shots). Without this fallback, scenes=[]
         # + status=success silently turns downstream into a text-only

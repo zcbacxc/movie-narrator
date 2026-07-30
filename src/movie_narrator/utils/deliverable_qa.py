@@ -267,7 +267,7 @@ def evaluate_deliverable(
             f"mean volume {mean_vol:.1f}dB <= silence floor {max_silence_db:.1f}dB",
         ))
 
-    # ── AQ-05: fail-closed for unknown volume (Q-X10) ──
+    # ── AQ-05: fail-closed for unknown volume ──
     # If the file claims to have audio but volumedetect failed to parse
     # (mean_volume=None), we cannot verify the audio is not silent.
     # Previously this silently skipped the silence check, allowing

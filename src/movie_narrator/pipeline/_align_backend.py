@@ -10,7 +10,7 @@ omegaconf pickle. These are upstream issues that make WhisperX unusable
 on Windows CPU and fragile on Linux CPU.
 
 faster-whisper is a CTranslate2 reimplementation that does not depend on
-pyannote / speechbrain / k2-fsa. L2 handtest showed it transcribes 60s
+pyannote / speechbrain / k2-fsa. Manual QA showed it transcribes 60s
 of Chinese audio in 1.9s on CPU with the ``small`` model, producing 18
 accurate segments. The only thing it lacks is word-level forced
 alignment, but ``subtitle.py`` only consumes segment-level timestamps

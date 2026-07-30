@@ -36,7 +36,7 @@
 
 ### `match_summary`
 
-Records the match-quality breakdown for L2 hand-test and downstream consumers.
+Records the match-quality breakdown for manual QA verification and downstream consumers.
 
 | Field | Type | Description |
 |-------|------|-------------|

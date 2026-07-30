@@ -17,7 +17,7 @@ from ._align_backend import select_align_backend, run_faster_whisper, BackendUna
 # Drift threshold: if the single ASR segment's duration differs from the
 # total narration duration by more than this ratio, the ASR is unreliable
 # (likely all-silence detected as one blob).
-# v0.5.11: tightened from 0.5 to 0.3 based on L2 test data analysis.
+# v0.5.11: tightened from 0.5 to 0.3 based on manual test data analysis.
 _DRIFT_THRESHOLD = 0.3
 
 # F4 backward-jump threshold: if the wx segment maps far behind prev_end
@@ -112,7 +112,7 @@ def _remap_segments(ctx: Context, wx_segments: list) -> int:
 def align_audio(ctx: Context) -> Context:
     """Align timed segments using WhisperX transcription + forced alignment.
 
-    AQ-01 fix (Q-X11): Now runs the full WhisperX pipeline
+    AQ-01 fix: Now runs the full WhisperX pipeline
     (transcribe → align) instead of only midpoint remapping.
     Adds monotonic/non-overlap validation and drift detection.
     Degrades to ``status='skipped'`` when ASR is empty or unreliable.
@@ -209,7 +209,7 @@ def _align_with_whisperx(ctx: Context) -> Context:
             ctx.metadata["align_degraded"] = True
             return ctx
 
-        # ── AQ-01: Run full forced alignment (Q-X11) ──
+        # ── AQ-01: Run full forced alignment ──
         # Previously only midpoint remapping was done. Now we run
         # whisperx.align() for word-level timestamps, then validate.
         # v0.5.11: preserve word-level segments for sub-segment precision.
@@ -340,7 +340,7 @@ def _align_with_faster_whisper(ctx: Context) -> Context:
     # from appearing in _degraded_steps (runner.py:386 checks for
     # 'failed'/'skipped'), since the output quality is not degraded —
     # subtitle.py only needs segment-level timestamps, and embedding
-    # re-rank works at full ratio (L2 handtest: embedding_ratio=1.0).
+    # re-rank works at full ratio (manual QA: embedding_ratio=1.0).
     ctx.metadata["align_fallback"] = True
     ctx.status.align = "success"
     ctx.step_state.message = "faster-whisper (segment-level, no forced alignment)"

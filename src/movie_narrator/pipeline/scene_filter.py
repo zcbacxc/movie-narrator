@@ -7,7 +7,7 @@ These filters run *after* scene detection and *before* match, reducing
 the candidate pool to scenes that are likely to carry meaningful footage.
 
 All three filters are opt-in via job params (defaults preserve existing
-behavior). Each filter is independently toggleable so L2 hand-test can
+behavior). Each filter is independently toggleable so manual QA can
 isolate the effect of each.
 """
 

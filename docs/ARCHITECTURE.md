@@ -108,7 +108,7 @@ via `steps.translate=false` or unknown provider".
 
 ### metadata.json
 
-Every pipeline run writes `metadata.json` — the audit and diagnostics file consumed by L2 hand-tests, CI quality gates, and downstream tooling. Key domains: `match_summary` (match-quality breakdown for jq queries), `duration_metrics` (narration timing vs target), align diagnostics (backend selection and fallback tracking), and `quality_dashboard` (cross-step score aggregation). Full field-by-field schema is documented in [METADATA_SCHEMA.md](METADATA_SCHEMA.md), organized by functional domain (match, align, script, audio, render, quality).
+Every pipeline run writes `metadata.json` — the audit and diagnostics file consumed by manual QA verification, CI quality gates, and downstream tooling. Key domains: `match_summary` (match-quality breakdown for jq queries), `duration_metrics` (narration timing vs target), align diagnostics (backend selection and fallback tracking), and `quality_dashboard` (cross-step score aggregation). Full field-by-field schema is documented in [METADATA_SCHEMA.md](METADATA_SCHEMA.md), organized by functional domain (match, align, script, audio, render, quality).
 
 ## Job config merge layer
 

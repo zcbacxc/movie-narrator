@@ -12,7 +12,7 @@
 | v0.1.x | 核心流水线 | CLI、LLM 解说稿、Edge-TTS、SRT 字幕、MoviePy 渲染、TTS 缓存、CI |
 | v0.2.x | 场景与媒体 | 研究 agent、WhisperX 对齐、场景检测、片段匹配、BGM、优雅降级 |
 | v0.3.x | 平台与工作流 | YAML job 配置、多语言字幕、Gradio WebUI（后被取代） |
-| v0.4.x | TTS 抽象与基础设施 | TTS provider 抽象、配置体系重做、FastAPI + React WebUI、渲染质量、L2 手测通过、匹配智能、效果组合、契约层 |
+| v0.4.x | TTS 抽象与基础设施 | TTS provider 抽象、配置体系重做、FastAPI + React WebUI、渲染质量、手工 QA 通过、匹配智能、效果组合、契约层 |
 | v0.5.x | 生态 | Plugin API / SDK 冻结 / 插件发现（entry_points）/ VLM 视觉 Provider / 叙事预设（3 种风格）/ 场景过滤 / WebUI 拆分 / 叙事与音频质量 / 字幕 QA / 全链路 QA 仪表盘。`CONTRACT_VERSION` → `(0, 5, 1)` |
 | v0.6.0 | 任务队列 | 异步 job 系统、任务持久化、取消、进度跟踪、重试、CLI 命令。`CONTRACT_VERSION` → `(0, 6, 0)` |
 | v0.6.1 | 远程推理 | REST API 服务器、远程任务队列、Worker 守护进程、产物管理、远程 Provider 代理、CLI 命令。`CONTRACT_VERSION` → `(0, 6, 1)` |

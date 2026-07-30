@@ -1,4 +1,4 @@
-"""L2 automated E2E smoke tests.
+"""Automated E2E smoke tests.
 
 These tests run the full pipeline (build_context → run_pipeline) in CI mode
 and verify the end-to-end contract:

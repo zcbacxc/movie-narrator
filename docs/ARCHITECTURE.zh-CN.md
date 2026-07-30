@@ -106,7 +106,7 @@ class PipelineStatus(BaseModel):
 
 ### metadata.json
 
-每次流水线运行都会写出 `metadata.json` —— 供 L2 手工测试、CI 质量门和下游工具消费的审计与诊断文件。关键域：`match_summary`（匹配质量分布，可用 jq 查询）、`duration_metrics`（旁白时长 vs 目标）、align 诊断（后端选择与回退追踪）、`quality_dashboard`（跨步骤评分聚合）。完整的逐字段 schema 见 [METADATA_SCHEMA.md](METADATA_SCHEMA.md)，按功能域（match、align、script、audio、render、quality）组织。
+每次流水线运行都会写出 `metadata.json` —— 供手工 QA 验证、CI 质量门和下游工具消费的审计与诊断文件。关键域：`match_summary`（匹配质量分布，可用 jq 查询）、`duration_metrics`（旁白时长 vs 目标）、align 诊断（后端选择与回退追踪）、`quality_dashboard`（跨步骤评分聚合）。完整的逐字段 schema 见 [METADATA_SCHEMA.md](METADATA_SCHEMA.md)，按功能域（match、align、script、audio、render、quality）组织。
 
 ## Job 配置合并层
 

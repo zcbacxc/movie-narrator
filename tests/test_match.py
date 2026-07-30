@@ -328,7 +328,7 @@ def test_build_scene_captions_mixed_real_and_fake():
 def test_match_summary_keys_compatible_with_old_metadata_export(tmp_path, monkeypatch):
     """F1 back-compat: match_summary preserves the 4 legacy fields
     (total/embedding/heuristic/captions_fake) so existing consumers
-    (metadata_export, L2 checklist jq queries, older scripts) don't break.
+    (metadata_export, QA checklist jq queries, older scripts) don't break.
     """
     ctx = _make_ctx(tmp_path)
     (tmp_path / "video.mp4").write_bytes(b"00")

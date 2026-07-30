@@ -1,6 +1,6 @@
 """P1+P2: Integration tests for Stage D audit fields.
 
-Replaces the 50-min L2+ handtest driver with CI-friendly tests that
+Replaces the 50-min manual QA+ driver with CI-friendly tests that
 verify audit fields (diversity.swaps_log + script_truncated) are
 correctly written to metadata under controlled conditions.
 
@@ -9,7 +9,7 @@ with many narration segments (10) and tight max_reuse=1 to naturally
 trigger swaps — no production code changes needed.
 
 P1 (audit field schema validation): asserts the exact schema from
-the L2+ handtest (2026-07-23) is present and populated.
+the manual QA+ test (2026-07-23) is present and populated.
 """
 
 import json

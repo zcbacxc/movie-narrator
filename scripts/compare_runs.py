@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare two pipeline run metadata.json files for L2+ hand-test verification.
+"""Compare two pipeline run metadata.json files for manual QA verification.
 
 Usage:
     python scripts/compare_runs.py \
@@ -352,7 +352,7 @@ def generate_report(
 ) -> str:
     """Generate full comparison report."""
     lines = [
-        "# L2+ Hand-Test Comparison Report\n",
+        "# QA Comparison Report\n",
         f"- Baseline: `{baseline_path}`",
         f"- New: `{new_path}`",
         f"- Focus: `{focus}`",
@@ -431,7 +431,7 @@ def generate_report(
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Compare two pipeline run metadata.json files "
-                    "for L2+ hand-test verification."
+                    "for manual QA verification."
     )
     parser.add_argument(
         "--baseline", required=True,

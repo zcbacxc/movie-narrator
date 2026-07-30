@@ -1252,7 +1252,7 @@ def _match_clips_impl(
     )
 
     # ── F1: match_summary for metadata.json (full schema) ──────
-    # Records the match quality breakdown so L2 hand-test can verify
+    # Records the match quality breakdown so manual QA can verify
     # the main path isn't "全 heuristic 糊弄" (O9/O10 in checklist).
     # Schema per CORE_ENGINE_TREATMENT_PLAN §5.2.3.
     # EP3: sources can be "embedding_topk", "embedding_top1", or "heuristic"

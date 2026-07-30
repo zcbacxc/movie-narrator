@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- **L2 directory restructure**: extracted operational knowledge from `examples/l2/RUNBOOK.md` into `docs/BEST_PRACTICES.md` (EN) + `docs/BEST_PRACTICES.zh-CN.md` (ZH) with internal terminology removed. Promoted 4 helper tools (`source_check.py`, `bgm_analyze.py`, `genre_advisor.py`, `llm_check.py`) from `examples/l2/tools/` to `scripts/` with SPDX headers added. Removed internal QA scaffolding (`README.md`, `samples.yaml`, `job.l2.douyin.yaml`, `run_g1.example.*`) from the repository (backed up locally to `docs-nocommit/l2-scaffolding/`). Deleted `examples/l2/` directory entirely.
+- `mkdocs.yml`: added "Best Practices" navigation entry.
+- **Internal terminology cleanup**: replaced all "L2 hand-test" / "L2+" / "Q-X" internal QA references with community-friendly terms ("manual QA verification") across documentation (`ROADMAP`, `ARCHITECTURE`, `METADATA_SCHEMA` — EN/ZH), source code comments (`align.py`, `match.py`, `scene_filter.py`, `_align_backend.py`, `metadata_export.py`, `scenes.py`, `deliverable_qa.py`), test files (`test_audit_integration.py`, `test_e2e_smoke.py`, `test_match.py`), and scripts (`compare_runs.py`). CHANGELOG historical entries preserved as immutable records.
+
 ## [0.6.1] - 2026-07-29
 
 ### Added (v0.6.1 — Remote Inference)
