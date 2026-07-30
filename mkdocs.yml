@@ -17,6 +17,7 @@ theme:
 nav:
   - Home: index.md
   - Quickstart: QUICKSTART.md
+  - Best Practices: BEST_PRACTICES.md
   - Plugin Development: PLUGIN_DEVELOPMENT.md
   - Architecture: ARCHITECTURE.md
   - Roadmap: ROADMAP.md
