@@ -13,6 +13,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `mkdocs.yml`: added "Best Practices" navigation entry.
 - **Internal terminology cleanup**: replaced all "L2 hand-test" / "L2+" / "Q-X" internal QA references with community-friendly terms ("manual QA verification") across documentation (`ROADMAP`, `ARCHITECTURE`, `METADATA_SCHEMA` — EN/ZH), source code comments (`align.py`, `match.py`, `scene_filter.py`, `_align_backend.py`, `metadata_export.py`, `scenes.py`, `deliverable_qa.py`), test files (`test_audit_integration.py`, `test_e2e_smoke.py`, `test_match.py`), and scripts (`compare_runs.py`). CHANGELOG historical entries preserved as immutable records.
 
+## [0.7.0] - 2026-07-30
+
+### Added
+
+- GPU encoder auto-detection (NVENC/VAAPI/VideoToolbox) with fallback to libx264
+- Per-run cost tracking for LLM token usage and TTS calls in metadata.json
+- Parallel subtitle image generation using ThreadPoolExecutor
+- `render_encoder` job parameter ("auto"/"cpu"/"nvenc"/"vaapi"/"videotoolbox")
+- Encoder info recorded in render metadata
+
+### Changed
+
+- Render pipeline uses GPU-accelerated encoding when available
+- Version bumped to 0.7.0, CONTRACT_VERSION to (0, 7, 0)
+
 ## [0.6.1] - 2026-07-29
 
 ### Added (v0.6.1 — Remote Inference)

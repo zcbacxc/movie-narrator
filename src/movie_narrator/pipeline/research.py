@@ -69,6 +69,10 @@ def _research_via_llm(ctx: Context, settings) -> ResearchInfo:
                 temperature=settings.research_temperature,
                 max_tokens=settings.research_max_tokens,
             )
+        # v0.7.0: Record LLM cost for research
+        if ctx is not None and hasattr(ctx, 'cost_tracker') and ctx.cost_tracker is not None:
+            if hasattr(response, 'usage') and response.usage:
+                ctx.cost_tracker.record_llm_call("research", llm.model, response.usage.model_dump())
         raw = response.choices[0].message.content or ""
         data = extract_json(raw)
 

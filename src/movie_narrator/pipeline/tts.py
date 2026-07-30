@@ -155,6 +155,23 @@ def generate_voice(ctx: Context) -> Context:
     with step_timing(console, "tts_batch_synthesize"):
         results = run_async(_run_all())
 
+    # v0.7.0: Record TTS usage for cost tracking
+    if hasattr(ctx, 'cost_tracker') and ctx.cost_tracker is not None:
+        provider_name = settings.tts_provider.value
+        tts_model = (
+            settings.openai_tts_model if settings.tts_provider is TTSProviderType.OPENAI
+            else settings.mimo_tts_model if settings.tts_provider is TTSProviderType.MIMO
+            else ""
+        )
+        for seg in ctx.segments:
+            ctx.cost_tracker.record_tts_call(
+                provider=provider_name,
+                model=tts_model,
+                characters=len(seg.text),
+                segments=1,
+                cached=False,
+            )
+
     # ── v0.5.9: Emotion-aware prosody ───────────────────────
     # Apply per-segment speed/pitch adjustment based on beat emotion labels.
     # Uses pydub's frame-rate trick: changes both speed and pitch, which is

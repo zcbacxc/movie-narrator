@@ -95,6 +95,7 @@ def _call_llm_chunk(
     target_lang: str,
     source_lang: str,
     llm_factory=None,
+    cost_tracker=None,
 ) -> List[str]:
     """Make a single LLM call for one chunk. Returns translations aligned 1:1.
 
@@ -122,6 +123,9 @@ def _call_llm_chunk(
             messages=[{"role": "user", "content": prompt}],
             max_tokens=get_settings().translate_max_tokens,
         )
+        # v0.7.0: Record LLM cost for translation
+        if cost_tracker is not None and hasattr(resp, 'usage') and resp.usage:
+            cost_tracker.record_llm_call("translate", llm.model, resp.usage.model_dump())
     raw = (resp.choices[0].message.content or "").strip()
     parsed = extract_json(raw)
     translations = parsed.get("translations")
@@ -150,6 +154,7 @@ def _translate_via_llm(
     max_chars: int = DEFAULT_CHUNK_CHARS,
     max_items: int = DEFAULT_CHUNK_SIZE,
     llm_factory=None,
+    cost_tracker=None,
 ) -> List[str]:
     """Translate via the LLM provider, chunked, with per-chunk retry.
 
@@ -172,6 +177,7 @@ def _translate_via_llm(
                     target_lang=target_lang,
                     source_lang=source_lang,
                     llm_factory=llm_factory,
+                    cost_tracker=cost_tracker,
                 )
                 for idx, tr in zip(chunk_indices, translations):
                     result[idx] = tr
@@ -279,6 +285,7 @@ def translate_subtitles(ctx: Context) -> Context:
             retries=retries,
             max_chars=max_chars,
             max_items=max_items,
+            cost_tracker=ctx.cost_tracker if hasattr(ctx, 'cost_tracker') else None,
         )
     except _ChunkFailure as cf:
         # At least one chunk failed after retries. Fill failed slots

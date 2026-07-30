@@ -4,6 +4,7 @@
 import json
 import shutil
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from moviepy import AudioFileClip, ColorClip, CompositeVideoClip, ImageClip, VideoFileClip
@@ -12,6 +13,7 @@ from proglog import TqdmProgressBarLogger
 
 from ..models import Context, MatchedClip, StepResult, TimedSegment
 from ..utils.console import step_timing
+from ..utils.gpu_detect import get_encoder_info, resolve_encoder
 from ..utils.metadata_export import build_metadata_json
 from ..utils.text_image import create_text_image as _create_text_image
 from ..utils.video_layout import compute_fit_box
@@ -281,6 +283,10 @@ def render_video(ctx: Context) -> Context:
 
     if usable_clips and ctx.source_video_path:
         try:
+            # v0.7.0: VideoFileClip opens the source via a streaming reader
+            # that seeks on demand rather than decoding the entire file into
+            # memory. This keeps peak RAM bounded even for very large source
+            # files; avoid replacing it with a full-decode approach.
             source = VideoFileClip(ctx.source_video_path)
         except Exception as e:
             ctx.services.console.inline_warn(
@@ -337,8 +343,13 @@ def render_video(ctx: Context) -> Context:
     for mc in usable_clips:
         footage_segments.add(mc.segment_index)
 
-    for i, seg in enumerate(ctx.timed_segments):
-        pos = "bottom" if i in footage_segments else subtitle_position
+    # v0.7.0: Render parallelization — generate subtitle overlay images in a
+    # thread pool. Text rasterisation (PIL) is CPU-bound and releases the GIL
+    # during the native font/blend work, so a small worker pool cuts wall time
+    # for videos with many segments without complicating clip ordering (each
+    # future carries its own index/segment; results are appended in submit
+    # order which is deterministic).
+    def _make_subtitle_image(i, seg, pos):
         img_array = _create_text_image(
             _overlay_text(ctx, i, seg), size, fontsize=font_size,
             position=pos,
@@ -346,8 +357,15 @@ def render_video(ctx: Context) -> Context:
             bottom_margin_ratio=bottom_margin_ratio,
         )
         img_clip = ImageClip(img_array, is_mask=False)
-        img_clip = img_clip.with_duration(seg.end - seg.start).with_start(seg.start)
-        clips.append(img_clip)
+        return img_clip.with_duration(seg.end - seg.start).with_start(seg.start)
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        subtitle_futures = []
+        for i, seg in enumerate(ctx.timed_segments):
+            pos = "bottom" if i in footage_segments else subtitle_position
+            subtitle_futures.append(pool.submit(_make_subtitle_image, i, seg, pos))
+        for future in subtitle_futures:
+            clips.append(future.result())
 
     # EP5: Title card overlay — show movie name at the beginning for a
     # polished opening. Uses a larger centered font with fade in/out.
@@ -447,6 +465,12 @@ def render_video(ctx: Context) -> Context:
         )
 
     final_video = CompositeVideoClip(clips).with_audio(audio_clip)
+    # Free clip references before encoding to reduce peak memory (v0.7.0).
+    # The CompositeVideoClip retains its own references to the child clips via
+    # ``final_video.clips``; the standalone ``clips`` list is no longer needed
+    # and dropping it lets GC reclaim the list shell during the expensive
+    # write_videofile call below.
+    del clips
     video_path = output_dir / ctx.metadata.get("render_output_name", "final.mp4")
 
 
@@ -465,6 +489,15 @@ def render_video(ctx: Context) -> Context:
     preset = ctx.metadata.get("render_preset", "slow")
     faststart = ctx.metadata.get("render_faststart", True)
 
+    # v0.7.0: GPU encoder resolution. ``render_encoder`` accepts "auto"
+    # (default, probe + fall back to libx264), "cpu", or an explicit backend
+    # ("nvenc" / "vaapi" / "videotoolbox"). ``resolve_encoder`` returns a
+    # ``(codec, ffmpeg_params)`` tuple; the params are backend-specific and
+    # replace the libx264-only ``-crf``/``-preset`` knobs when a GPU encoder
+    # is active. See ..utils.gpu_detect for the probe + caching logic.
+    render_encoder_hint = ctx.metadata.get("render_encoder")
+    gpu_codec, gpu_params = resolve_encoder(render_encoder_hint)
+
     # TWO-STAGE ENCODE: write a video-only mp4 via MoviePy (which is
     # stable in isolation), then mux audio with ffmpeg in a second pass.
     #
@@ -476,27 +509,61 @@ def render_video(ctx: Context) -> Context:
     # See commit notes on PR #37 for the empirical reproduction.
     video_only_path = tmp_dir / "video_only.mp4"
 
-    video_ffmpeg_params = ["-crf", str(crf), "-preset", str(preset)]
+    # When using libx264 (CPU), pass CRF + preset. For GPU encoders
+    # (h264_nvenc / h264_vaapi / h264_videotoolbox) the GPU-specific params
+    # from resolve_encoder() replace crf/preset — those flags are not valid
+    # for hardware encoders and would be silently ignored or error out.
+    if gpu_codec == "libx264":
+        video_ffmpeg_params = ["-crf", str(crf), "-preset", str(preset)]
+    else:
+        video_ffmpeg_params = list(gpu_params)
     # NOTE: do NOT include +faststart here — we apply it deterministically
     # during the second-pass ffmpeg mux below, which is more reliable than
     # bundling it into MoviePy's subprocess invocation.
     video_write_kwargs = dict(
         fps=ctx.metadata.get("render_fps", 24),
-        codec=ctx.metadata.get("render_video_codec", "libx264"),
+        codec=gpu_codec,
         audio=False,  # ← key: defer audio mux to step 2
         threads=ctx.metadata.get("render_threads", 4),
         logger=_RenderProgressLogger(),
         ffmpeg_params=video_ffmpeg_params,
     )
     try:
-        final_video.write_videofile(str(video_only_path), **video_write_kwargs)
+        try:
+            final_video.write_videofile(str(video_only_path), **video_write_kwargs)
+        except Exception as gpu_err:
+            if gpu_codec != "libx264":
+                # v0.7.0: GPU encoding failed (no hardware, driver issue,
+                # unsupported option, etc.) — retry with CPU libx264 so the
+                # pipeline degrades gracefully instead of aborting.
+                ctx.services.console.inline_warn(
+                    f"GPU encoding ({gpu_codec}) failed: {gpu_err}. "
+                    f"Retrying with libx264 (CPU)."
+                )
+                gpu_codec = "libx264"
+                video_write_kwargs["codec"] = "libx264"
+                video_write_kwargs["ffmpeg_params"] = ["-crf", str(crf), "-preset", str(preset)]
+                final_video.write_videofile(str(video_only_path), **video_write_kwargs)
+            else:
+                raise
     finally:
         # Exception-safe cleanup: each close is guarded so one failure
         # doesn't prevent the remaining resources from being released.
         # NOTE: source must NOT be closed before write_videofile — MoviePy 2.x
         # subclipped() clips share the parent reader, so closing source early
         # would crash during encoding.
-        for obj in (final_video, audio_clip, source, *clips):
+        #
+        # v0.7.0: ``clips`` was deleted before encoding to reduce peak memory.
+        # MoviePy 2.1.x CompositeVideoClip.close() only closes its bg/audio —
+        # it does NOT cascade to the child clips — so we recover them via
+        # ``final_video.clips`` for explicit cleanup. ``list(...)`` is safe for
+        # both the real CompositeVideoClip (returns the clip list) and test
+        # mocks (MagicMock.__iter__ yields an empty sequence).
+        try:
+            child_clips = list(final_video.clips) if final_video is not None else []
+        except (AttributeError, TypeError):
+            child_clips = []
+        for obj in (final_video, audio_clip, source, *child_clips):
             if obj is not None:
                 try:
                     obj.close()
@@ -552,6 +619,11 @@ def render_video(ctx: Context) -> Context:
             shutil.rmtree(tmp_dir, ignore_errors=True)
         except OSError:
             pass
+
+    # v0.7.0: Record which encoder was actually used (requested vs detected
+    # vs active) so renders are reproducible/auditable. Stored before
+    # build_metadata_json so it is included in metadata.json.
+    ctx.metadata["encoder_info"] = get_encoder_info(render_encoder_hint)
 
     metadata = build_metadata_json(ctx)
     with open(output_dir / "metadata.json", "w", encoding="utf-8") as f:

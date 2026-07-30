@@ -160,6 +160,9 @@ def _generate_plot_beats(
         temperature=settings.research_temperature,
         max_tokens=scaled_max_tokens,
     )
+    # v0.7.0: record LLM token usage for cost tracking
+    if hasattr(ctx, 'cost_tracker') and ctx.cost_tracker is not None and hasattr(response, 'usage') and response.usage:
+        ctx.cost_tracker.record_llm_call("script", llm.model, response.usage.model_dump())
     raw = response.choices[0].message.content or ""
     data = extract_json(raw)
     beats = data.get("beats", [])
@@ -282,6 +285,9 @@ def _expand_beats_to_script(
         temperature=settings.script_expand_temperature,
         max_tokens=settings.script_max_tokens,
     )
+    # v0.7.0: record LLM token usage for cost tracking
+    if hasattr(ctx, 'cost_tracker') and ctx.cost_tracker is not None and hasattr(response, 'usage') and response.usage:
+        ctx.cost_tracker.record_llm_call("script", llm.model, response.usage.model_dump())
     raw = response.choices[0].message.content or ""
     data = extract_json(raw)
     raw_segments = data.get("segments", [])
@@ -345,7 +351,7 @@ _DEFAULT_PASS_SCORE = {
 
 
 def judge_script(
-    segments: List[ScriptSegment], movie_name: str, llm
+    segments: List[ScriptSegment], movie_name: str, llm, ctx=None,
 ) -> dict:
     """Judge the expanded script on five quality dimensions.
 
@@ -362,6 +368,7 @@ def judge_script(
         segments: The expanded narration segments (pre-trim).
         movie_name: Movie title for context in the judge prompt.
         llm: An :class:`LLMClient` (has ``.client`` and ``.model``).
+        ctx: Optional :class:`Context` for v0.7.0 cost tracking.
 
     Returns:
         A dict with keys ``hook_strength``, ``spoiler_level``,
@@ -386,6 +393,9 @@ def judge_script(
         temperature=0.3,
         max_tokens=320,
     )
+    # v0.7.0: record LLM token usage for cost tracking
+    if ctx is not None and hasattr(ctx, 'cost_tracker') and ctx.cost_tracker is not None and hasattr(response, 'usage') and response.usage:
+        ctx.cost_tracker.record_llm_call("script", llm.model, response.usage.model_dump())
     raw = response.choices[0].message.content or ""
     scores = extract_json(raw)
 
@@ -650,7 +660,7 @@ def generate_script(ctx: Context) -> Context:
                 # caught so it never breaks the pipeline (treat as pass).
                 try:
                     with step_timing(ctx.services.console, "llm_judge_script"):
-                        judge_scores = judge_script(segments, ctx.movie_name, llm)
+                        judge_scores = judge_script(segments, ctx.movie_name, llm, ctx=ctx)
                 except Exception as judge_err:
                     ctx.services.console.debug(
                         f"  generate_script: judge failed, treating as pass: {judge_err}"
