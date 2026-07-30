@@ -116,6 +116,10 @@ class JobParams(BaseModel):
     bgm_ambient_path: Optional[str] = None
     # v0.7.1: ambient track gain reduction in dB (default -12)
     bgm_ambient_gain_db: Optional[float] = None
+    # v0.7.2: preview mode — render only first N seconds for quick iteration
+    render_preview_mode: Optional[bool] = None
+    # v0.7.2: preview duration in seconds (default 10, range 3-60)
+    render_preview_sec: Optional[float] = None
     # ── QA ──
     qa_enabled: Optional[bool] = None
     qa_max_silence_db: Optional[float] = None
