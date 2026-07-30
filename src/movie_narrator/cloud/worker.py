@@ -30,6 +30,7 @@ from ..utils.console import (
     SilentConsole,
     build_console,
 )
+from ..utils.log import resolve_log_level
 from .models import Task, TaskProgress, TaskRequest, TaskResult, TaskStatus
 
 logger = logging.getLogger(__name__)
@@ -181,14 +182,7 @@ def _execute_task(
     task.progress = progress
     start_time = time.time()
 
-    # Determine log level
-    log_level_map = {
-        "DEBUG": logging.DEBUG,
-        "INFO": logging.INFO,
-        "WARNING": logging.WARNING,
-        "ERROR": logging.ERROR,
-    }
-    log_level = log_level_map.get(request.log_level.upper(), logging.DEBUG)
+    log_level = resolve_log_level(request.log_level)
 
     # Build console — use SilentConsole in CI, real console otherwise
     is_ci = bool(os.environ.get("CI"))

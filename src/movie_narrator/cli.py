@@ -14,6 +14,7 @@ from .models import Context
 from .pipeline.resolve import resolve_video
 from .pipeline.research import research_plot
 from .pipeline.runner import build_context, run_pipeline
+from .utils.log import resolve_log_level
 
 
 def _format_match_summary(ctx: Context) -> Optional[str]:
@@ -283,14 +284,7 @@ def create(
     out_dir = Path(output_dir) if output_dir else Path("output") / _sanitize_filename(resolved.movie)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # ── Log level resolution ──────────────────────────────
-    _LEVEL_MAP = {
-        "DEBUG": logging.DEBUG,
-        "INFO": logging.INFO,
-        "WARNING": logging.WARNING,
-        "ERROR": logging.ERROR,
-    }
-    _resolved_level = _LEVEL_MAP.get(log_level.upper(), logging.DEBUG)
+    _resolved_level = resolve_log_level(log_level)
 
     ctx = build_context(
         movie=resolved.movie,
@@ -572,13 +566,7 @@ def imitate(
     from .pipeline.errors import PipelinePaused
     from .pipeline.preflight import PreflightError
 
-    _LEVEL_MAP = {
-        "DEBUG": logging.DEBUG,
-        "INFO": logging.INFO,
-        "WARNING": logging.WARNING,
-        "ERROR": logging.ERROR,
-    }
-    _resolved_level = _LEVEL_MAP.get(log_level.upper(), logging.DEBUG)
+    _resolved_level = resolve_log_level(log_level)
 
     ctx = build_context(
         movie=movie,
@@ -663,14 +651,7 @@ def resume(
 
     ctx, completed_step = _load_pipeline_state(state_path)
 
-    # ── Log level resolution ──────────────────────────────
-    _LEVEL_MAP = {
-        "DEBUG": logging.DEBUG,
-        "INFO": logging.INFO,
-        "WARNING": logging.WARNING,
-        "ERROR": logging.ERROR,
-    }
-    _resolved_level = _LEVEL_MAP.get(log_level.upper(), logging.DEBUG)
+    _resolved_level = resolve_log_level(log_level)
 
     # Re-inject a real console (serialized state has SilentConsole)
     from .models import Services
@@ -1330,12 +1311,16 @@ def cleanup(
 
 @app.command()
 def serve(
-    host: str = typer.Option("0.0.0.0", "--host", help="绑定地址 / Bind address"),
+    host: str = typer.Option("127.0.0.1", "--host", help="绑定地址 / Bind address"),
     port: int = typer.Option(8765, "--port", help="监听端口 / Listen port"),
     max_workers: int = typer.Option(2, "--max-workers", help="最大并发任务 / Max concurrent tasks"),
     storage_dir: Optional[str] = typer.Option(
         None, "--storage-dir",
         help="任务存储目录 / Task storage directory"
+    ),
+    public: bool = typer.Option(
+        False, "--public",
+        help="监听所有网络接口(默认仅本机) / Listen on all interfaces (default: localhost only)"
     ),
 ):
     """启动远程推理服务 / Start the remote inference API server.
@@ -1345,15 +1330,36 @@ def serve(
 
     \b
     Start a worker daemon that accepts remote task submissions:
-        mn serve --host 0.0.0.0 --port 8765
+        mn serve --port 8765
         mn serve --max-workers 4
+        mn serve --public  # 监听所有接口(注意安全风险)
 
     \b
     From another machine, submit tasks:
         mn submit -m 飞驰人生 --remote http://worker:8765 --wait
+
+    \b
+    安全提示: 默认仅监听 127.0.0.1(本机访问). 使用 --public 监听
+    0.0.0.0 时,服务无认证保护,请确保网络环境可信或配合防火墙使用.
+    v0.8.0 将增加 X-API-Key 认证支持.
     """
     from .cloud import run_daemon
     from pathlib import Path
+
+    if public:
+        host = "0.0.0.0"
+        typer.echo(
+            "WARNING: serving on 0.0.0.0 without authentication.\n"
+            "Anyone with network access can submit tasks and download artifacts.\n"
+            "Use a firewall or wait for X-API-Key auth (planned v0.8.0).",
+            err=True,
+        )
+    elif host == "0.0.0.0":
+        typer.echo(
+            "WARNING: --host 0.0.0.0 without --public flag.\n"
+            "Service has no authentication. Consider using a firewall.",
+            err=True,
+        )
 
     storage = Path(storage_dir) if storage_dir else None
     run_daemon(

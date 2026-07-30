@@ -211,6 +211,22 @@ Video encoding quality validation results.
 |-------|------|-------------|
 | `render_profile` | str | `"publish"` (default) or `"draft"` (fast iteration: crf=28, preset=ultrafast) |
 | `render_title_card_sec` | float\|absent | Title card duration in seconds; 0 or absent = disabled |
+| `render_encoder` | str\|absent | GPU encoder used: `auto`/`cpu`/`nvenc`/`vaapi`/`videotoolbox` (v0.7.0+) |
+| `render_transition` | str\|absent | Scene transition effect: `none`/`fade`/`dissolve`/`slide` (v0.7.1+) |
+| `render_text_animation` | str\|absent | Text animation effect: `none`/`fade`/`slide_up`/`slide_left` (v0.7.1+) |
+| `render_preview_mode` | bool\|absent | Whether preview mode was used (v0.7.2+) |
+
+### `cost_summary`
+
+Per-run cost tracking for LLM token usage and TTS calls (v0.7.0+).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `llm_tokens` | object | Token usage: `{prompt, completion, total}` |
+| `llm_calls` | int | Number of LLM API calls |
+| `tts_chars` | int | Total TTS characters synthesized |
+| `tts_calls` | int | Number of TTS synthesis calls |
+| `cached_calls` | int | Calls served from cache (excluded from cost) |
 
 ---
 

@@ -7,11 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-07-30
+
+### Security
+
+- `mn serve` default host changed from `0.0.0.0` to `127.0.0.1` (loopback only). Added `--public` flag to explicitly bind `0.0.0.0` with a security warning. Prevents unintended public exposure of the unauthenticated API server.
+
 ### Changed
 
 - **L2 directory restructure**: extracted operational knowledge from `examples/l2/RUNBOOK.md` into `docs/BEST_PRACTICES.md` (EN) + `docs/BEST_PRACTICES.zh-CN.md` (ZH) with internal terminology removed. Promoted 4 helper tools (`source_check.py`, `bgm_analyze.py`, `genre_advisor.py`, `llm_check.py`) from `examples/l2/tools/` to `scripts/` with SPDX headers added. Removed internal QA scaffolding (`README.md`, `samples.yaml`, `job.l2.douyin.yaml`, `run_g1.example.*`) from the repository (backed up locally to `docs-nocommit/l2-scaffolding/`). Deleted `examples/l2/` directory entirely.
 - `mkdocs.yml`: added "Best Practices" navigation entry.
 - **Internal terminology cleanup**: replaced all "L2 hand-test" / "L2+" / "Q-X" internal QA references with community-friendly terms ("manual QA verification") across documentation (`ROADMAP`, `ARCHITECTURE`, `METADATA_SCHEMA` — EN/ZH), source code comments (`align.py`, `match.py`, `scene_filter.py`, `_align_backend.py`, `metadata_export.py`, `scenes.py`, `deliverable_qa.py`), test files (`test_audit_integration.py`, `test_e2e_smoke.py`, `test_match.py`), and scripts (`compare_runs.py`). CHANGELOG historical entries preserved as immutable records.
+- Extracted `resolve_log_level()` to `utils/log.py`, eliminating duplicated `_LEVEL_MAP` / `log_level_map` blocks in `cli.py` (3 occurrences) and `cloud/worker.py` (1 occurrence).
+- Replaced `Optional[Any]` type annotations in `models.py` with proper types: `cost_tracker: Optional[SkipValidation[CostTracker]]` and `logger: Optional[AppLogger]`.
+- Version bumped to 0.7.3. CONTRACT_VERSION unchanged at (0, 7, 2) — no API surface change.
+
+### Fixed
+
+- Added `logger.debug(..., exc_info=True)` to 31 silent `except Exception` blocks across 6 files (`render.py`, `bgm.py`, `match.py`, `deliverable_qa.py`, `text_anim.py`, `transitions.py`) to prevent silent error swallowing during graceful degradation.
 
 ## [0.7.2] - 2026-07-30
 

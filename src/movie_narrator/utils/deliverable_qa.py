@@ -12,6 +12,7 @@ All checks are advisory except when wired as a hard pipeline step.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import shutil
@@ -19,6 +20,9 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -53,6 +57,7 @@ def _ffmpeg_bin() -> str:
 
         return imageio_ffmpeg.get_ffmpeg_exe()
     except Exception:
+        logger.debug("ffmpeg bundled binary lookup failed, using fallback", exc_info=True)
         return "ffmpeg"  # last resort — let subprocess raise
 
 
@@ -93,6 +98,7 @@ def _probe_with_ffprobe(path: str) -> Optional[dict]:
             return None
         data = json.loads(proc.stdout)
     except Exception:
+        logger.debug("ffprobe probe failed", exc_info=True)
         return None
 
     streams = data.get("streams", [])
@@ -132,6 +138,7 @@ def _probe_with_ffmpeg(path: str) -> dict:
         # contains the stream info we need.
         stderr = proc.stderr or ""
     except Exception:
+        logger.debug("ffmpeg -i probe failed", exc_info=True)
         stderr = ""
 
     has_video = "Video:" in stderr
@@ -182,6 +189,7 @@ def _detect_volume(path: str) -> Optional[float]:
         )
         stderr = proc.stderr or ""
     except Exception:
+        logger.debug("volumedetect failed", exc_info=True)
         return None
 
     m = re.search(r"mean_volume:\s*([-\d.]+)\s*dB", stderr)

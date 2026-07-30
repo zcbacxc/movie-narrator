@@ -10,7 +10,10 @@ MoviePy effects/clips that the render pipeline applies.
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Optional
+
+logger = logging.getLogger(__name__)
 
 # Maximum fraction of a clip's duration that a transition may consume.
 # Keeping transitions short relative to the clip prevents a clip from
@@ -58,7 +61,8 @@ def _import_fade_effects():
     try:
         from moviepy.video.fx import FadeIn, FadeOut
         return FadeIn, FadeOut
-    except Exception:  # noqa: BLE001 — broad on purpose, see docstring
+    except Exception as e:  # noqa: BLE001 — broad on purpose, see docstring
+        logger.debug("Failed to import FadeIn/FadeOut effects", exc_info=True)
         return None, None
 
 
@@ -136,8 +140,9 @@ def apply_transition(
                 effects.append(FadeOut(min(trans_dur, clip_duration)))
             if effects:
                 return clip.with_effects(effects)
-    except Exception:  # noqa: BLE001 — graceful degradation
+    except Exception as e:  # noqa: BLE001 — graceful degradation
         # Any MoviePy fx failure must not abort the render.
+        logger.debug("Transition failed; returning original clip", exc_info=True)
         return clip
 
     return clip
@@ -150,7 +155,8 @@ def _safe_clip_duration(clip: Any) -> float:
         if d is None:
             return 0.0
         return float(d)
-    except Exception:  # noqa: BLE001
+    except Exception as e:  # noqa: BLE001
+        logger.debug("Failed to read clip duration", exc_info=True)
         return 0.0
 
 
@@ -241,5 +247,6 @@ def _apply_slide(
         if effects and callable(getattr(slid, "with_effects", None)):
             slid = slid.with_effects(effects)
         return slid
-    except Exception:  # noqa: BLE001 — graceful degradation
+    except Exception as e:  # noqa: BLE001 — graceful degradation
+        logger.debug("Slide transition failed", exc_info=True)
         return None
