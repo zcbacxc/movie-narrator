@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """LLM client factory backed by the provider registry.
 
 The built-in ``"openai"`` provider is registered at import time.

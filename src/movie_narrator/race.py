@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Multi-candidate horse race (Q-P2).
 
 Runs the pipeline N times with different parameter combinations (preset x

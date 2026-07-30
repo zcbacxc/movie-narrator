@@ -14,27 +14,19 @@ Then open <http://localhost:8000>.
 ## Contract module
 
 The `contract.py` module is the single import surface for external
-consumers (web package, plugins, SDK users).
+consumers (web package, plugins, SDK users). It re-exports all public
+symbols from internal modules and defines `CONTRACT_VERSION` for
+import-time compatibility checks.
 
 ::: movie_narrator.contract
 
-## Models
+## Related modules
 
-Core data models: `Context`, `Services`, `ResearchInfo`, `StepState`,
-`StepResult`, etc.
+The following modules have dedicated reference pages:
 
-::: movie_narrator.models
-
-## Provider registries
-
-The `ProviderRegistry` class and global registry instances for TTS,
-Vision, LLM, and Research providers.
-
-::: movie_narrator.providers.registry
-
-## Pipeline runner
-
-The `build_context` and `run_pipeline` functions, plus the
-`StepRegistry` and `PARAM_WHITELIST` exports.
-
-::: movie_narrator.pipeline.runner
+- [Models](models.md) — `Context`, `Services`, `PipelineStatus`, `StepState`, etc.
+- [Provider registries](registries.md) — `ProviderRegistry`, `register_tts` / `register_vision` / `register_llm` / `register_research`
+- [Pipeline runner](pipeline.md) — `build_context`, `run_pipeline`, `StepRegistry`, `STEPS`
+- [Presets](presets.md) — `Preset` protocol, `list_presets()`, `get_preset()`
+- [TTS](tts.md) — `TTSProvider` ABC, `BaseTTSProvider`
+- [Cloud](cloud.md) — `TaskQueue`, `LocalTaskQueue`, `TaskAPIServer`, `WorkerDaemon`

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Provider package: unified registry for TTS, Vision, LLM, Research providers.
 
 This package hosts the :class:`ProviderRegistry` and global registry

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """translate_subtitles — soft pipeline step that produces translated_texts.
 
 Per multi-language-subtitle-design.md §6 and §7.1:

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """TTSProvider abstract interface."""
 
 from abc import ABC, abstractmethod

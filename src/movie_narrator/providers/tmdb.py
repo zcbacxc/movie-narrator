@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """TMDB (The Movie Database) research provider.
 
 NA-M2-S1+: external fact-verification data source.

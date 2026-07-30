@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=77.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,11 +7,12 @@ name = "movie-narrator"
 version = "0.6.1"
 description = "Generate narrated movie recap videos from a single prompt."
 readme = "README.md"
-license = {text = "AGPL-3.0"}
+license = "AGPL-3.0-or-later"
 authors = [
     {name = "zcbacxc", email = "zcbacxc@users.noreply.github.com"}
 ]
 classifiers = [
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",

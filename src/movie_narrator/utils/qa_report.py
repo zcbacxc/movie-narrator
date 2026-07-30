@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Structured QA report export — human-readable + JSON quality report.
 
 v0.5.12: Generates a comprehensive QA report from all pipeline quality

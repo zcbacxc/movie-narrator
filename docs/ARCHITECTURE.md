@@ -387,7 +387,7 @@ movie-narrator-web  →  contract.py  →  pipeline/runner.py (build_context, ru
 |----------|-----------|
 | Flat sequential STEPS list | No event bus or DI container; flow is explicit and inspectable |
 | Soft/hard step split | Optional deps (PySceneDetect, WhisperX) don't break core pipeline |
-| Content-addressable TTS cache | Avoids redundant API calls; key includes version + pause config |
+| Content-addressable TTS cache | Avoids redundant API calls; key includes version + style_prompt |
 | `PipelineStatus` model | Every soft step's outcome is introspectable in `metadata.json` |
 | `--strict` flag | Turns soft failures into hard aborts for CI or production use |
 | `usable_clips` filter in render | Ignores accidental `source="fallback"` rows (construction default) |

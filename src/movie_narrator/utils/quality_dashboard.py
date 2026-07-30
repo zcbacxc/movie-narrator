@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Cross-step quality score aggregation — holistic quality dashboard.
 
 v0.5.12: Collects per-step QA metrics from ``ctx.metadata`` and aggregates

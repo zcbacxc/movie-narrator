@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Shared warning accumulation utility.
 
 Both ``translate_subtitles`` and ``export_clips`` need to append

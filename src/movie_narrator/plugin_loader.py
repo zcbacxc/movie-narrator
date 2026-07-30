@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Plugin discovery via Python entry points.
 
 This module implements automatic plugin discovery using the standard

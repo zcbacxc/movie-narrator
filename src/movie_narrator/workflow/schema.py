@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator

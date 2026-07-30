@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Step registry for the pipeline.
 
 Provides a registration mechanism so that pipeline steps can be

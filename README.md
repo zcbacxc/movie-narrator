@@ -4,7 +4,7 @@
 # 🎬 Movie Narrator
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
-![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
+![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue)
 ![CI](https://github.com/zcbacxc/movie-narrator/actions/workflows/ci.yml/badge.svg)
 ![PyPI](https://img.shields.io/pypi/v/movie-narrator)
 ![Downloads](https://img.shields.io/pypi/dm/movie-narrator)
@@ -287,4 +287,4 @@ Current focus: cloud infrastructure (distributed rendering, API gateway, cloud s
 
 ## License
 
-Licensed under the [AGPL-3.0](LICENSE) License.
+Licensed under the [AGPL-3.0-or-later](LICENSE) License.

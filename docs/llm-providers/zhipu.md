@@ -1,40 +1,42 @@
-# 智谱 AI（GLM）— GLM-4-Flash 永久免费 + 新用户 2000 万 Tokens
+# Zhipu AI (GLM) — GLM-4-Flash Free Forever + 20M Tokens for New Users
 
-## 简介
+> **Note**: This is the English version. For the Chinese version, see [智谱 AI](zhipu.zh-CN.md).
 
-智谱 AI 是清华系大模型团队，GLM 系列是国内编码和推理能力第一梯队的模型。开放平台 BigModel 提供 OpenAI 兼容接口，新用户注册即送 **2000 万免费 Tokens**，且 GLM-4-Flash 模型**永久免费、不限量调用**。
+## Introduction
 
-## 注册流程
+Zhipu AI is a Tsinghua-origin large model team. The GLM series ranks among China's top-tier models in coding and reasoning capabilities. Its open platform BigModel provides an OpenAI-compatible interface. New users receive **20 million free Tokens** upon registration, and the GLM-4-Flash model is **free forever with unlimited calls**.
 
-### 1. 访问平台
+## Registration Process
 
-打开 [open.bigmodel.cn](https://open.bigmodel.cn)，点击右上角「注册」。
+### 1. Visit the Platform
 
-### 2. 完成注册
+Open [open.bigmodel.cn](https://open.bigmodel.cn) and click "Register" in the top-right corner.
 
-- 支持手机号 / 邮箱注册
-- 完成实名认证（个人开发者选「个人认证」即可）
-- 认证后自动获得免费额度
+### 2. Complete Registration
 
-### 3. 创建 API Key
+- Supports phone number / email registration
+- Complete real-name verification (individual developers select "Personal Verification")
+- Free quota is granted automatically after verification
 
-1. 登录后进入「API Keys」页面
-2. 点击「添加新的 API Key」
-3. 复制生成的 Key（格式形如 `xxxxxxxx.xxxxxxxx`）
+### 3. Create an API Key
 
-### 4. 开通模型
+1. After logging in, go to the "API Keys" page
+2. Click "Add New API Key"
+3. Copy the generated Key (format like `xxxxxxxx.xxxxxxxx`)
 
-在「模型广场」搜索并开通需要的模型（免费额度覆盖以下模型）：
+### 4. Enable Models
 
-- `glm-4-plus` — 旗舰模型，能力最强
-- `glm-4-flash` — 轻量快速版，**永久免费、不限量**
-- `glm-4-air` — 性价比版
+Search for and enable the desired models in "Model Square" (the free quota covers the following models):
 
-> 推荐 `glm-4-flash`，永久免费且不限量，速度极快，适合 Movie Narrator 的剧本生成场景。
+- `glm-4-plus` — flagship model, strongest capabilities
+- `glm-4-flash` — lightweight and fast version, **free forever, unlimited**
+- `glm-4-air` — cost-effective version
 
-## 配置 Movie Narrator
+> `glm-4-flash` is recommended — free forever and unlimited, extremely fast, and well-suited for Movie Narrator's script generation scenarios.
 
-编辑 `~/.movie-narrator/.env`：
+## Configure Movie Narrator
+
+Edit `~/.movie-narrator/.env`:
 
 ```env
 MN_LLM_BASE_URL=https://open.bigmodel.cn/api/paas/v4
@@ -42,25 +44,25 @@ MN_LLM_API_KEY=你的API Key
 MN_LLM_MODEL=glm-4-flash
 ```
 
-## 免费额度说明
+## Free Quota Details
 
-| 模型 | 免费额度 | 有效期 |
+| Model | Free Quota | Validity |
 |------|---------|--------|
-| glm-4-flash | 不限量 | 永久免费 |
-| glm-4-plus | 2000 万 Tokens | 注册赠送 |
-| glm-4-air | 2000 万 Tokens | 注册赠送 |
+| glm-4-flash | Unlimited | Free forever |
+| glm-4-plus | 20M Tokens | Registration bonus |
+| glm-4-air | 20M Tokens | Registration bonus |
 
-> glm-4-flash 是目前国内唯一永久免费且不限量的旗舰级模型，强烈推荐作为 Movie Narrator 的默认 LLM。
+> glm-4-flash is currently the only flagship-level model in China that is permanently free and unlimited. It is highly recommended as the default LLM for Movie Narrator.
 
-## 优缺点
+## Pros & Cons
 
-| 优点 | 缺点 |
+| Pros | Cons |
 |------|------|
-| glm-4-flash 永久免费不限量 | 需要实名认证 |
-| 2000 万 Tokens 新用户赠送 | 旗舰 glm-4-plus 额度用完后按量付费 |
-| OpenAI 兼容接口 | — |
-| 中文能力强 | — |
+| glm-4-flash is free forever and unlimited | Requires real-name verification |
+| 20M Tokens bonus for new users | Flagship glm-4-plus is pay-per-use after quota is exhausted |
+| OpenAI-compatible interface | — |
+| Strong Chinese language capabilities | — |
 
-## TTS 额外说明
+## TTS Note
 
-智谱目前不提供 TTS 服务。如需 TTS，请搭配 Edge TTS（免费）或 MiMo TTS 使用。
+Zhipu does not currently offer TTS services. For TTS, use Edge TTS (free) or MiMo TTS.

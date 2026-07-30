@@ -1,50 +1,52 @@
-# Ollama — 本地部署（免费、离线）
+# Ollama — Local LLM Deployment (Completely Free)
 
-## 简介
+> **Note**: This is the English version. For the Chinese version, see [Ollama](ollama.zh-CN.md).
 
-Ollama 是一个本地大模型运行框架，支持在 Windows / macOS / Linux 上一键下载和运行开源大模型。完全免费、无需注册、无需网络（下载模型后），数据不出本机。
+## Introduction
 
-适合有 GPU（≥8GB 显存）或较强 CPU 的用户。Movie Narrator 默认使用 Ollama 作为 LLM 后端。
+Ollama is a local large model runtime framework that supports one-click download and execution of open-source large models on Windows / macOS / Linux. It is completely free, requires no registration, and works offline (after downloading models), with data never leaving your machine.
 
-## 安装步骤
+Suitable for users with a GPU (≥8GB VRAM) or a powerful CPU. Movie Narrator uses Ollama as the default LLM backend.
 
-### 1. 下载安装
+## Installation Steps
 
-访问 [ollama.com](https://ollama.com)，下载对应平台的安装包：
+### 1. Download and Install
 
-- **Windows**: `ollamasetup.exe`，双击安装即可
-- **macOS**: `Ollama-darwin.zip`，解压拖入 Applications
+Visit [ollama.com](https://ollama.com) and download the installer for your platform:
+
+- **Windows**: `ollamasetup.exe`, double-click to install
+- **macOS**: `Ollama-darwin.zip`, unzip and drag into Applications
 - **Linux**: `curl -fsSL https://ollama.com/install.sh | sh`
 
-安装完成后，终端验证：
+After installation, verify in the terminal:
 
 ```bash
 ollama --version
 ```
 
-### 2. 拉取模型
+### 2. Pull a Model
 
-Movie Narrator 推荐 `qwen2.5:7b`（约 4.7GB，需 8GB 显存）：
+Movie Narrator recommends `qwen2.5:7b` (about 4.7GB, requires 8GB VRAM):
 
 ```bash
 ollama pull qwen2.5:7b
 ```
 
-> 显存较小（4-6GB）可选 `qwen2.5:3b`；显存充足（16GB+）可选 `qwen2.5:14b`。
+> For smaller VRAM (4-6GB), choose `qwen2.5:3b`; for ample VRAM (16GB+), choose `qwen2.5:14b`.
 
-### 3. 启动服务
+### 3. Start the Service
 
-Ollama 安装后默认在后台运行，监听 `http://localhost:11434`。确认服务正常：
+Ollama runs in the background by default after installation, listening on `http://localhost:11434`. Confirm the service is working:
 
 ```bash
 ollama list
 ```
 
-能看到已拉取的模型列表即可。
+You should see the list of pulled models.
 
-## 配置 Movie Narrator
+## Configure Movie Narrator
 
-编辑 `~/.movie-narrator/.env`：
+Edit `~/.movie-narrator/.env`:
 
 ```env
 MN_LLM_BASE_URL=http://localhost:11434/v1
@@ -52,24 +54,24 @@ MN_LLM_API_KEY=ollama
 MN_LLM_MODEL=qwen2.5:7b
 ```
 
-> Ollama 的 API Key 可以填任意值（如 `ollama`），它不校验凭证。
+> The API Key for Ollama can be any value (e.g., `ollama`); it does not verify credentials.
 
-## 优缺点
+## Pros & Cons
 
-| 优点 | 缺点 |
+| Pros | Cons |
 |------|------|
-| 完全免费、无限制 | 需要 ≥8GB 显存才能流畅运行 |
-| 数据不出本机，隐私安全 | 首次下载模型较慢（几 GB） |
-| 离线可用 | 生成速度取决于硬件 |
-| OpenAI 兼容接口 | 7B 模型能力弱于百亿级云端模型 |
+| Completely free, no limits | Requires ≥8GB VRAM for smooth operation |
+| Data never leaves your machine, privacy-safe | First model download is slow (several GB) |
+| Works offline | Generation speed depends on hardware |
+| OpenAI-compatible interface | 7B models are weaker than cloud models with tens of billions of parameters |
 
-## 常见问题
+## FAQ
 
-**Q: CPU 能跑吗？**
-A: 能跑，但很慢。7B 模型在纯 CPU 上约 2-5 tokens/s，生成一段剧本可能需要 1-2 分钟。建议至少有独立 GPU。
+**Q: Can it run on CPU?**
+A: Yes, but slowly. A 7B model runs at about 2-5 tokens/s on pure CPU, and generating a script may take 1-2 minutes. A dedicated GPU is recommended.
 
-**Q: 如何切换其他模型？**
-A: `ollama pull <模型名>` 拉取后，修改 `.env` 中的 `MN_LLM_MODEL` 即可。推荐尝试 `deepseek-r1:7b`、`llama3.1:8b` 等。
+**Q: How do I switch to another model?**
+A: Run `ollama pull <model-name>` to pull it, then change `MN_LLM_MODEL` in `.env`. Recommended alternatives: `deepseek-r1:7b`, `llama3.1:8b`, etc.
 
-**Q: Windows 上如何用 GPU？**
-A: 安装 Ollama 后默认自动检测 NVIDIA GPU。如需启用 Vulkan（AMD/Intel GPU），添加环境变量 `OLLAMA_VULKAN=1`。
+**Q: How do I use GPU on Windows?**
+A: After installing Ollama, it auto-detects NVIDIA GPUs by default. To enable Vulkan (AMD/Intel GPU), add the environment variable `OLLAMA_VULKAN=1`.

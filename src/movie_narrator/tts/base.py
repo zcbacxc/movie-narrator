@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """BaseTTSProvider — owns CI silent fallback; subclasses implement _real_synthesize."""
 
 import os

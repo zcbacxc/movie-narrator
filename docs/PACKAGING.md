@@ -48,12 +48,11 @@ protocol (`name` attribute + `register(ctx)` method).
 
 ## CLI Plugin Commands
 
-The `mn plugin` command provides introspection:
+The `mn plugin` command provides introspection. See
+[Plugin Development Guide](PLUGIN_DEVELOPMENT.md) for details.
 
 ```bash
 mn plugin list          # List installed plugins (entry_points)
-mn plugin discover      # Discover and load all plugins
-mn plugin registries    # Show all registered steps and providers
 mn plugin version       # Show CONTRACT_VERSION
 ```
 
@@ -83,8 +82,9 @@ instructions.
 
 ## Git Workflow
 
+See [Contributing Guide](CONTRIBUTING.md) for branch model, PR workflow,
+and CI requirements. Key rules:
+
 - **NEVER push directly to `main`** — use `feature/*` or `hotfix/*` branch + PR.
-- CI must pass before merge (Python 3.10/3.11/3.12/3.13 test matrix + media).
-- Tag push must be executed separately (`git push origin vX.Y.Z`) and not
-  combined with branch pushes.
-- Feature branches are deleted after merge (both local and remote).
+- CI must pass before merge.
+- Tag push must be executed separately (`git push origin vX.Y.Z`).

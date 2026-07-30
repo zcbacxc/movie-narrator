@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Cross-cutting error classes shared across pipeline, workflow, and TTS layers."""
 
 

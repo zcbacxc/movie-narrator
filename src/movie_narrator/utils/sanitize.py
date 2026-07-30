@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Shared filename sanitization utility.
 
 Used by both CLI and Web UI to ensure consistent directory/file naming

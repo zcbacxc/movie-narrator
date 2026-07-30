@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Preset registry — registration, validation, and lookup.
 
 Stage 0.5: only built-in presets are registered (no SPI discover yet).

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Mainstream-dry preset — 12 句×5s, 慢切镜, 厚背板字幕.
 
 主流干货剪辑风格(谷阿莫/影视飓风节奏)。句速放慢,切镜稳,BGM 轻。

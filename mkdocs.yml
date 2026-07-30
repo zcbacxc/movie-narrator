@@ -26,11 +26,14 @@ nav:
   - SDK Reference:
       - Contract: sdk/contract.md
       - Models: sdk/models.md
-      - Registries: sdk/registries.md
       - Pipeline: sdk/pipeline.md
+      - Step Registry: sdk/step_registry.md
+      - Pipeline Errors: sdk/errors.md
+      - Registries: sdk/registries.md
       - TTS: sdk/tts.md
+      - Vision: sdk/vision.md
       - Presets: sdk/presets.md
-      # - Cloud: sdk/cloud.md  # TODO: create docs/sdk/cloud.md when cloud module is documented
+      - Cloud: sdk/cloud.md
 
 plugins:
   - mkdocstrings:

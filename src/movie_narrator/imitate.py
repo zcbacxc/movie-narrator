@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Reference video imitation (Q-P7).
 
 Analyzes a reference narration video to extract style metrics

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """REST API server for remote task management (v0.6.1).
 
 Provides a lightweight HTTP API built on Python stdlib ``http.server``

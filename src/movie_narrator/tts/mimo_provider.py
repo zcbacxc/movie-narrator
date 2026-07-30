@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """MiMo TTSProvider — wraps Xiaomi MiMo TTS via OpenAI-compatible chat.completions API.
 
 Supports three models (all limited-time free):

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Provider registry for TTS, Vision, LLM, Research, and other pluggable providers.
 
 Each provider category (TTS, Vision, LLM, Research, etc.) has a global

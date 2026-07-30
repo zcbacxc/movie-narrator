@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Remote task queue — delegates to a remote API server (v0.6.1).
 
 Implements the ``TaskQueue`` protocol by making HTTP requests to a

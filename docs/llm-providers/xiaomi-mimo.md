@@ -1,47 +1,49 @@
-# 小米 MiMo — LLM + TTS 一站式（限时免费）
+# Xiaomi MiMo — All-in-One LLM + TTS (Limited-Time Free)
 
-## 简介
+> **Note**: This is the English version. For the Chinese version, see [小米 MiMo](xiaomi-mimo.zh-CN.md).
 
-小米 MiMo 是小米旗下 AI 开放平台，同时提供 LLM（大语言模型）和 TTS（语音合成）服务。MiMo TTS 支持声音克隆和声音设计，是目前少数免费提供高级 TTS 能力的平台。LLM 和 TTS 均限时免费中。
+## Introduction
 
-Movie Narrator 已原生集成 MiMo TTS（三种模式：命名音色 / 声音克隆 / 声音设计）。
+Xiaomi MiMo is Xiaomi's AI open platform, offering both LLM (large language model) and TTS (text-to-speech) services. MiMo TTS supports voice cloning and voice design, and is one of the few platforms that provides advanced TTS capabilities for free. Both LLM and TTS are currently available for free on a limited-time basis.
 
-## 注册流程
+Movie Narrator has natively integrated MiMo TTS (three modes: named voice / voice cloning / voice design).
 
-### 1. 访问平台
+## Registration Process
 
-打开 [platform.xiaomimimo.com](https://platform.xiaomimimo.com?ref=5MG8AD)，点击「注册」。
+### 1. Visit the Platform
 
-> 使用邀请码 **5MG8AD** 注册，双方各得 ¥10 API 体验金 + 首单 9 折（体验金 40 天有效）。通过上方链接注册会自动填入邀请码。
+Open [platform.xiaomimimo.com](https://platform.xiaomimimo.com?ref=5MG8AD) and click "Register".
 
-### 2. 完成注册
+> Register with invite code **5MG8AD** — both you and the referrer receive ¥10 API trial credit + 10% off your first order (trial credit valid for 40 days). Registering via the link above fills in the invite code automatically.
 
-- 手机号注册
-- 完成实名认证（个人开发者选「个人认证」）
+### 2. Complete Registration
 
-### 3. 创建 API Key
+- Register with a phone number
+- Complete real-name verification (individual developers select "Personal Verification")
 
-1. 登录后进入控制台
-2. 在「API Keys」页面点击「创建 API Key」
-3. 复制生成的 Key（格式形如 `sk-xxxxxxxx`）
+### 3. Create an API Key
 
-### 4. 查看可用模型
+1. After logging in, go to the console
+2. On the "API Keys" page, click "Create API Key"
+3. Copy the generated Key (format like `sk-xxxxxxxx`)
 
-MiMo 平台提供以下模型（均为限时免费）：
+### 4. View Available Models
 
-**LLM（大语言模型）**：
-- `mimo-v2.5-7b` — 基础对话模型
+The MiMo platform offers the following models (all limited-time free):
 
-**TTS（语音合成）**：
-- `mimo-v2.5-tts` — 命名音色（如 Chloe、Alice 等）
-- `mimo-v2.5-tts-voiceclone` — 声音克隆（上传音频生成同款声音）
-- `mimo-v2.5-tts-voicedesign` — 声音设计（文字描述生成音色）
+**LLM (large language model)**:
+- `mimo-v2.5-7b` — base conversational model
 
-## 配置 Movie Narrator
+**TTS (text-to-speech)**:
+- `mimo-v2.5-tts` — named voice (e.g., Chloe, Alice, etc.)
+- `mimo-v2.5-tts-voiceclone` — voice cloning (upload audio to generate a matching voice)
+- `mimo-v2.5-tts-voicedesign` — voice design (generate a voice from a text description)
 
-### 作为 LLM
+## Configure Movie Narrator
 
-编辑 `~/.movie-narrator/.env`：
+### As an LLM
+
+Edit `~/.movie-narrator/.env`:
 
 ```env
 MN_LLM_BASE_URL=https://api.xiaomimimo.com/v1
@@ -49,7 +51,7 @@ MN_LLM_API_KEY=你的API Key
 MN_LLM_MODEL=mimo-v2.5-7b
 ```
 
-### 作为 TTS（推荐）
+### As TTS (Recommended)
 
 ```env
 MN_TTS_PROVIDER=mimo
@@ -60,49 +62,49 @@ MN_MIMO_STYLE_PROMPT=Bright, bouncy, slightly sing-song tone.
 MN_DEFAULT_VOICE=Chloe
 ```
 
-> 如果 LLM 和 TTS 使用同一个 MiMo 账号，`MN_MIMO_API_KEY` 可省略，自动回退到 `MN_LLM_API_KEY`。
+> If LLM and TTS use the same MiMo account, `MN_MIMO_API_KEY` can be omitted; it automatically falls back to `MN_LLM_API_KEY`.
 
-### 声音克隆模式
+### Voice Cloning Mode
 
-切换到声音克隆：
+Switch to voice cloning:
 
 ```env
 MN_MIMO_TTS_MODEL=mimo-v2.5-tts-voiceclone
 ```
 
-然后在 `--voice` 参数中传入音频文件路径，MiMo 会自动克隆该音频的声音特征。
+Then pass an audio file path to the `--voice` argument, and MiMo will automatically clone the voice characteristics of that audio.
 
-### 声音设计模式
+### Voice Design Mode
 
-切换到声音设计：
+Switch to voice design:
 
 ```env
 MN_MIMO_TTS_MODEL=mimo-v2.5-tts-voicedesign
 ```
 
-在 `--voice` 参数中传入声音描述文字（如 "温柔女声，语速偏慢"），MiMo 会根据描述生成对应音色。
+Pass a voice description as text to the `--voice` argument (e.g., "gentle female voice, slower pace"), and MiMo will generate a corresponding voice based on the description.
 
-## 免费额度说明
+## Free Quota Details
 
-| 服务 | 免费额度 | 有效期 |
+| Service | Free Quota | Validity |
 |------|---------|--------|
-| LLM (mimo-v2.5-7b) | 限时免费 | 官方公告为准 |
-| TTS (mimo-v2.5-tts) | 限时免费 | 官方公告为准 |
-| TTS (voiceclone) | 限时免费 | 官方公告为准 |
-| TTS (voicedesign) | 限时免费 | 官方公告为准 |
-| 邀请码奖励 (5MG8AD) | ¥10 体验金 + 首单 9 折 | 40 天 |
+| LLM (mimo-v2.5-7b) | Limited-time free | Per official announcements |
+| TTS (mimo-v2.5-tts) | Limited-time free | Per official announcements |
+| TTS (voiceclone) | Limited-time free | Per official announcements |
+| TTS (voicedesign) | Limited-time free | Per official announcements |
+| Invite code reward (5MG8AD) | ¥10 trial credit + 10% off first order | 40 days |
 
-> MiMo 目前处于限时免费阶段，具体额度和截止时间请以 [platform.xiaomimimo.com](https://platform.xiaomimimo.com?ref=5MG8AD) 官方公告为准。
+> MiMo is currently in a limited-time free phase. For the exact quota and end date, refer to the official announcements on [platform.xiaomimimo.com](https://platform.xiaomimimo.com?ref=5MG8AD).
 
-## 优缺点
+## Pros & Cons
 
-| 优点 | 缺点 |
+| Pros | Cons |
 |------|------|
-| LLM + TTS 一站式 | 限时免费，未来可能收费 |
-| TTS 支持声音克隆和设计 | LLM 能力弱于智谱/百炼旗舰 |
-| OpenAI 兼容接口 | 平台较新，稳定性待验证 |
-| 中文 TTS 效果优秀 | — |
+| All-in-one LLM + TTS | Limited-time free; may charge in the future |
+| TTS supports voice cloning and design | LLM capability is weaker than Zhipu/Bailian flagships |
+| OpenAI-compatible interface | Platform is relatively new; stability to be verified |
+| Excellent Chinese TTS quality | — |
 
-## 推荐组合
+## TTS Note
 
-**最佳免费组合**：智谱 GLM-4-flash（LLM，免费不限量）+ MiMo TTS（语音合成，限时免费）
+MiMo provides both LLM and TTS services. To pair it with another LLM, see the recommended combinations in the [LLM Providers Guide](../LLM_PROVIDERS.md#recommended-combinations).

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Douyin-fast preset — 18 句×3.3s, 快切镜, 紧凑.
 
 60s 短视频高完播率风格。句密高,切镜快,BGM 闪避深。

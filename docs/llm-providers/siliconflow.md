@@ -1,43 +1,45 @@
-# 硅基流动（SiliconFlow）— 多模型聚合，新用户赠送额度
+# SiliconFlow — Multi-Model Aggregator with Signup Credits
 
-## 简介
+> **Note**: This is the English version. For the Chinese version, see [硅基流动](siliconflow.zh-CN.md).
 
-硅基流动是国内领先的 AI 模型聚合平台，一个 API Key 即可调用数十个开源大模型（DeepSeek、Qwen、GLM 等）。完全兼容 OpenAI 接口，新用户注册并完成实名认证后赠送**代金券额度**，部分模型完全免费。适合需要灵活切换不同模型的用户。
+## Introduction
 
-## 注册流程
+SiliconFlow is a leading Chinese AI model aggregation platform. A single API Key lets you call dozens of open-source large models (DeepSeek, Qwen, GLM, etc.). It is fully OpenAI-compatible. New users receive **voucher credits** after registration and real-name verification, and some models are completely free. Suitable for users who need to flexibly switch between different models.
 
-### 1. 访问平台
+## Registration Process
 
-打开 [cloud.siliconflow.cn](https://cloud.siliconflow.cn)，点击「注册」。
+### 1. Visit the Platform
 
-### 2. 完成注册
+Open [cloud.siliconflow.cn](https://cloud.siliconflow.cn) and click "Register".
 
-- 支持手机号 / 微信 / GitHub 注册
-- 完成实名认证后获得赠送额度
+### 2. Complete Registration
 
-### 3. 创建 API Key
+- Supports phone number / WeChat / GitHub registration
+- Complete real-name verification to receive bonus credits
 
-1. 登录后进入「API 密钥」页面
-2. 点击「新建 API 密钥」
-3. 复制生成的 Key（格式形如 `sk-xxxxxxxx`）
+### 3. Create an API Key
 
-### 4. 选择模型
+1. After logging in, go to the "API Keys" page
+2. Click "Create API Key"
+3. Copy the generated Key (format like `sk-xxxxxxxx`)
 
-硅基流动聚合了数十个模型，推荐以下免费或低价模型：
+### 4. Select a Model
 
-**免费模型**（不消耗额度，具体以平台为准）：
-- `Qwen/Qwen2.5-7B-Instruct` — 通义千问 7B
+SiliconFlow aggregates dozens of models. The following free or low-cost models are recommended:
+
+**Free models** (do not consume credits, subject to platform updates):
+- `Qwen/Qwen2.5-7B-Instruct` — Qwen 7B
 - `deepseek-ai/DeepSeek-V2.5` — DeepSeek
 
-**付费模型**（消耗赠送额度）：
-- `Qwen/Qwen3.5-397B-A17B` — 通义千问旗舰
-- `deepseek-ai/DeepSeek-V3.2` — DeepSeek 旗舰
+**Paid models** (consume bonus credits):
+- `Qwen/Qwen3.5-397B-A17B` — Qwen flagship
+- `deepseek-ai/DeepSeek-V3.2` — DeepSeek flagship
 
-> 免费模型不消耗额度，可长期使用。付费模型用赠送的代金券额度体验。模型列表会持续更新，以 [cloud.siliconflow.cn/models](https://cloud.siliconflow.cn/models) 为准。
+> Free models do not consume credits and can be used long-term. Paid models can be tried using the bonus voucher credits. The model list is continuously updated; refer to [cloud.siliconflow.cn/models](https://cloud.siliconflow.cn/models) for the latest.
 
-## 配置 Movie Narrator
+## Configure Movie Narrator
 
-编辑 `~/.movie-narrator/.env`：
+Edit `~/.movie-narrator/.env`:
 
 ```env
 MN_LLM_BASE_URL=https://api.siliconflow.cn/v1
@@ -45,25 +47,25 @@ MN_LLM_API_KEY=你的API Key
 MN_LLM_MODEL=Qwen/Qwen2.5-7B-Instruct
 ```
 
-> 模型名需要带组织前缀（如 `Qwen/Qwen2.5-7B-Instruct`），这是硅基流动的命名规范。
+> Model names must include the organization prefix (e.g., `Qwen/Qwen2.5-7B-Instruct`); this is SiliconFlow's naming convention.
 
-## 免费额度说明
+## Free Quota Details
 
-| 类型 | 额度 | 有效期 |
+| Type | Quota | Validity |
 |------|------|--------|
-| 新用户赠送 | 代金券额度 | 以平台公告为准 |
-| 免费模型（Qwen2.5-7B 等） | 不限量 | 长期免费 |
-| 付费模型（旗舰级） | 消耗赠送额度 | 额度用完即止 |
+| New user bonus | Voucher credits | Per platform announcements |
+| Free models (Qwen2.5-7B, etc.) | Unlimited | Free long-term |
+| Paid models (flagship tier) | Consumes bonus credits | Until credits are exhausted |
 
-## 优缺点
+## Pros & Cons
 
-| 优点 | 缺点 |
+| Pros | Cons |
 |------|------|
-| 一个 Key 调用数十个模型 | 免费模型能力有限（7B 级） |
-| 部分模型完全免费 | 旗舰模型需付费 |
-| OpenAI 兼容接口 | 模型名需带组织前缀 |
-| 无需分别注册各家平台 | — |
+| One Key to call dozens of models | Free models have limited capability (7B tier) |
+| Some models are completely free | Flagship models require payment |
+| OpenAI-compatible interface | Model names require organization prefix |
+| No need to register with each platform separately | — |
 
-## 推荐场景
+## TTS Note
 
-如果你想同时体验 DeepSeek、通义千问、GLM 等多个模型，不想分别注册各家平台，硅基流动是最方便的聚合入口。
+SiliconFlow does not currently offer TTS services. For TTS, use Edge TTS (free) or MiMo TTS.

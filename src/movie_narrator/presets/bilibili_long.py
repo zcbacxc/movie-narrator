@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Bilibili-long preset — 8 句×7.5s, 大场景合并, 字幕小.
 
 B站长解说风格。慢节奏,突出源片,相邻 scene 合并,字幕更小更克制。

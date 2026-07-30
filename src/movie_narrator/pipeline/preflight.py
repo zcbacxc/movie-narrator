@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Pre-run validation of LLM and TTS availability.
 
 Called by ``run_pipeline`` before any step executes.  Fails fast with a

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Pipeline worker — executes tasks and reports progress (v0.6.0).
 
 Wraps the existing ``run_pipeline`` function with:

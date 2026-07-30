@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Subtitle quality validation — CPS, overlap detection, line length, display fit.
 
 v0.5.10: Per-cue subtitle quality metrics for the subtitle pipeline.

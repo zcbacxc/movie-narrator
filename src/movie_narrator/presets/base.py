@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Preset protocol and data structures.
 
 A :class:`Preset` is a named bundle of parameter defaults and prompt

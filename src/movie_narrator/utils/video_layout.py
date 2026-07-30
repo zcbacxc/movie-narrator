@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Pure geometry helper for fitting a source video onto a canvas.
 
 Computes crop + resize boxes for ``cover`` (fill canvas, crop overflow)

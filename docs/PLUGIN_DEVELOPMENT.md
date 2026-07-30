@@ -1,17 +1,19 @@
 # Plugin Development Guide
 
 This guide covers how to write, package, and distribute plugins for
-movie-narrator using the v0.5 Plugin SDK.
+movie-narrator using the v0.6 Plugin SDK.
 
 ## Overview
 
-movie-narrator v0.5 introduces a plugin system that allows external
+movie-narrator v0.5+ includes a plugin system that allows external
 code to extend the pipeline without modifying the core source. Plugins
 can:
 
 - **Add pipeline steps** — inject custom processing logic at any point
 - **Register TTS providers** — add new text-to-speech backends
 - **Register Vision captioners** — add new scene captioning backends
+- **Register LLM/Research providers** — swap inference backends (v0.5+)
+- **Register remote providers** — proxy LLM/TTS calls to a remote worker (v0.6+)
 
 All extensions use the same registry pattern: register at import time,
 discover at runtime.
@@ -80,6 +82,8 @@ The public SDK is importable from `movie_narrator`:
 | `register_vision` | Decorator to register a Vision captioner factory |
 | `register_llm` | Decorator to register an LLM provider factory |
 | `register_research` | Decorator to register a research provider factory |
+| `register_remote_llm` | Register a remote LLM proxy provider (v0.6+) |
+| `register_remote_tts` | Register a remote TTS proxy provider (v0.6+) |
 | `step_registry` | Global step registry instance |
 | `tts_registry` | Global TTS provider registry instance |
 | `vision_registry` | Global Vision provider registry instance |
@@ -262,19 +266,20 @@ The entry point value can be:
 
 ## Compatibility Strategy
 
-### What's stable in v0.5
+### What's stable (v0.6.1)
 
 - The `Plugin` protocol (`name` + `register(ctx)`)
 - The `PluginContext` interface (`steps`, `tts`, `vision`, `llm`, `research`)
 - `register_step` decorator signature
 - `register_tts` / `register_vision` / `register_llm` / `register_research` decorator signatures
+- `register_remote_llm` / `register_remote_tts` for remote inference proxying (v0.6+)
 - Built-in step names and execution order
 - `discover_plugins()` / `load_plugin()` function signatures
 - `Services` field names (`console`, `logger`)
 - `ResearchInfo` model fields (`title`, `year`, `summary`, `genres`, `cast`, `keywords`)
 - `check_version()` function for import-time compatibility validation
 
-### What may change in v0.6+
+### What may change in future versions
 
 - New `Services` fields may be added (always optional, never break existing code)
 - New registry categories may be added (e.g. `subtitles_registry`)

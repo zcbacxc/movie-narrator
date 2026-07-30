@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """JSON-based task persistence (v0.6.0).
 
 Stores task state to a local JSON file so that tasks survive process

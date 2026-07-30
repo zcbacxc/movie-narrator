@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Audio loudness helpers — peak normalization and BGM ducking.
 
 Uses pydub for I/O and numpy for envelope application (AQ-07: replaces

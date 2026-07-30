@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Console — output abstraction: UI rendering + log dispatch.
 
 改进点 (v0.5.4+):

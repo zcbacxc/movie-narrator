@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Narration preset system — pluggable style modes.
 
 A preset bundles a set of default parameter values (match cadence, BGM

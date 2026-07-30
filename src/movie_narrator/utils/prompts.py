@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # ── Narrative principles (NA-M1-S1) ─────────────────────────
 # Five storytelling principles distilled from general narrative craft
 # (hook, suspense, payoff, quotable line, cognitive reversal) plus

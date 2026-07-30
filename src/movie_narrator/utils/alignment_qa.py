@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Alignment quality utilities — word-level remapping, confidence scoring, drift validation.
 
 v0.5.11: Provides sub-segment precision alignment using WhisperX word-level

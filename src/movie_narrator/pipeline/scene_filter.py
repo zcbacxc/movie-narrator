@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """WP6: Scene filtering — intro skip, dark frame drop, highlight window.
 
 These filters run *after* scene detection and *before* match, reducing

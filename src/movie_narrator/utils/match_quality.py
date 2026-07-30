@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Match quality scoring — composite score aggregation across embedding, rhythm, diversity.
 
 v0.5.11: Provides per-clip composite quality scores by combining embedding

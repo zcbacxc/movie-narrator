@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """StubVisionCaptioner — placeholder captions for CI and dev (EP8).
 
 Returns deterministic placeholder labels so the embedding re-rank

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """AppLogger — 纯文件日志层，不负责 UI，不接触控制台。
 
 改进点 (v0.5.4+):

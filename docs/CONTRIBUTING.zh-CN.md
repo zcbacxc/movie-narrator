@@ -26,7 +26,7 @@ pytest -v
 ```
 movie-narrator/
 ├── src/movie_narrator/
-│   ├── pipeline/        # 15 步 pipeline、preflight、tts/render/match 等 step 模块
+│   ├── pipeline/        # 16 步 pipeline、preflight、tts/render/match 等 step 模块
 │   ├── pipeline/scene_filter.py  # WP6 场景过滤（片头跳过、黑帧检测、高亮窗口）
 │   ├── pipeline/registry.py      # StepRegistry 与 runner 集成
 │   ├── tts/             # TTS provider 抽象层（edge、openai、mimo、factory、cache）
@@ -36,12 +36,12 @@ movie-narrator/
 │   ├── utils/           # llm.py、errors.py、共享辅助
 │   ├── plugin_loader.py # 插件发现（entry_points）、StepRegistry、Plugin protocol
 │   ├── models.py        # Context、PipelineStatus、StepState、Services 等
-│   ├── contract.py      # 稳定 API 边界（CONTRACT_VERSION = (0, 5, 1)）
+│   ├── contract.py      # 稳定 API 边界（CONTRACT_VERSION = (0, 6, 1)）
 │   ├── cli.py           # `mn` Typer 入口（create、version 等）
 │   └── workflow/        # job.yaml 加载与合并（schema.py、load.py、merge.py、errors.py）
 ├── tests/               # pytest 套件（单元 + 烟雾测试）
-├── docs/                # ARCHITECTURE、ROADMAP、CONTRIBUTING、specs/
-└── examples/            # job.example.yaml、plugins/watermark/
+├── docs/                # ARCHITECTURE、ROADMAP、CONTRIBUTING、PACKAGING、specs/
+└── examples/            # job.example.yaml、plugins/watermark/、plugins/template/
 ```
 
 Web UI 在独立仓库 [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web) 中开发；它只通过 `contract.py` 定义的契约面消费核心引擎。本 repo 不含 `web_api/` 或 `webui/` 目录树。
@@ -81,11 +81,7 @@ Web UI（FastAPI + React 18 SPA，安装 `pip install movie-narrator-web` 后通
 
 1. 创建一个 Python 包，包含步骤函数 `def my_step(ctx: Context) -> Context`
 2. 使用 `@register_step("my_step", soft=True, after="render_video")` 注册
-3. 在 `pyproject.toml` 中声明 entry point：
-   ```toml
-   [project.entry-points."movie_narrator.plugins"]
-   my_plugin = "my_package:MyPlugin"
-   ```
+3. 在 `pyproject.toml` 中声明 entry point（格式见[插件开发指南](PLUGIN_DEVELOPMENT.md#quick-start)）
 4. 安装你的包后步骤会被自动发现
 
 完整参考实现见 `examples/plugins/watermark/`。
@@ -106,12 +102,9 @@ Web UI（FastAPI + React 18 SPA，安装 `pip install movie-narrator-web` 后通
 
 ## 开发插件
 
-插件通过自定义步骤和 provider 扩展流水线：
-
-1. **实现 Plugin protocol**：创建一个具有 `name` 属性和 `register(ctx: PluginContext)` 方法的类
-2. **注册步骤/provider**：在 `register()` 中调用 `ctx.steps.register(...)`、`ctx.tts.register(...)` 或 `ctx.vision.register(...)`
-3. **声明 entry point**：在 `pyproject.toml` 中添加 `[project.entry-points."movie_narrator.plugins"]`
-4. **使用服务**：通过 `ctx.services.logger` 进行结构化日志（M2）
-5. **测试**：验证插件通过 `discover_plugins()` 和 `list_available_plugins()` 正确加载
+插件通过自定义步骤和 provider 扩展流水线。完整指南见
+[插件开发指南](PLUGIN_DEVELOPMENT.md)，包含 entry point 声明、SDK 接口和参考实现。
 
 参考实现：`examples/plugins/watermark/`
+
+插件的打包、版本管理与 PyPI 发布，详见 [PACKAGING.md](PACKAGING.md)。

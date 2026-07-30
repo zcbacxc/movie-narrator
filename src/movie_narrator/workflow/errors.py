@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Workflow-level error classes.
 
 R2-NA-ORCH: introduces a ``retryable`` flag on provider/service errors so

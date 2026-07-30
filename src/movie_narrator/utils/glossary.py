@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Translation terminology consistency — cross-chunk glossary extraction and enforcement.
 
 v0.5.10: Detects inconsistent translations of proper nouns, character

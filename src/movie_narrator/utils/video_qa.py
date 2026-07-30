@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Video encoding quality checks — bitrate, codec, resolution, frame rate.
 
 v0.5.12: Extends the existing ``deliverable_qa.py`` with encoding-specific

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """TTS output quality validation — clipping, SNR, silence checks.
 
 v0.5.9: Per-segment audio quality metrics for the narration pipeline.

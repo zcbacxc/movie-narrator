@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Remote provider proxies and artifact management (v0.6.1).
 
 Provides utilities for:

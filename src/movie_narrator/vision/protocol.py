@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """VisionCaptioner abstract interface (EP8).
 
 Defines the contract for visual scene captioning — producing a

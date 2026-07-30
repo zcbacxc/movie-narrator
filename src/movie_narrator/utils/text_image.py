@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Text-to-image rendering utility for subtitle overlays.
 
 Extracted from ``render.py`` so the pure PIL text rendering logic is

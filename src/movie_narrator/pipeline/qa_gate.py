@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Soft pipeline step: intermediate product QA gate before render.
 
 v0.5.12: Runs before ``render_video`` to validate that all intermediate

@@ -26,7 +26,7 @@ pytest -v
 ```
 movie-narrator/
 ├── src/movie_narrator/
-│   ├── pipeline/        # 15-step runner, preflight, tts/render/match/... step modules
+│   ├── pipeline/        # 16-step runner, preflight, tts/render/match/... step modules
 │   ├── pipeline/scene_filter.py  # WP6 scene filtering (intro skip, dark frame, highlight window)
 │   ├── pipeline/registry.py      # StepRegistry integration with runner
 │   ├── tts/             # TTS provider abstraction (edge, openai, mimo, factory, cache)
@@ -36,7 +36,7 @@ movie-narrator/
 │   ├── utils/           # llm.py, errors.py, shared helpers
 │   ├── plugin_loader.py # Plugin discovery via entry_points, StepRegistry, Plugin protocol
 │   ├── models.py        # Context, PipelineStatus, StepState, Services, ...
-│   ├── contract.py      # Stable API boundary (CONTRACT_VERSION = (0, 5, 1))
+│   ├── contract.py      # Stable API boundary (CONTRACT_VERSION = (0, 6, 1))
 │   ├── cli.py           # `mn` Typer entry points (create, version, plugin, ...)
 │   └── workflow/        # job.yaml load/merge (schema.py, load.py, merge.py, errors.py)
 ├── tests/               # pytest suite (unit + smoke)
@@ -109,13 +109,9 @@ See `examples/plugins/watermark/` for a complete reference implementation.
 
 ## Developing a Plugin
 
-Plugins extend the pipeline with custom steps and providers:
-
-1. **Implement the Plugin protocol**: create a class with a `name` property and a `register(ctx: PluginContext)` method
-2. **Register steps/providers**: inside `register()`, call `ctx.steps.register(...)`, `ctx.tts.register(...)`, `ctx.vision.register(...)`, `ctx.llm.register(...)`, or `ctx.research.register(...)`
-3. **Declare entry point**: add `[project.entry-points."movie_narrator.plugins"]` to your `pyproject.toml`
-4. **Use services**: access `ctx.services.logger` for structured logging (M2)
-5. **Test**: verify your plugin loads via `discover_plugins()` and `list_available_plugins()`
+Plugins extend the pipeline with custom steps and providers. See the
+[Plugin Development Guide](PLUGIN_DEVELOPMENT.md) for the complete guide,
+including entry point declaration, SDK surface, and reference implementations.
 
 Reference implementation: `examples/plugins/watermark/`
 

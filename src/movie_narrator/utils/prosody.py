@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Emotion-to-prosody mapping for emotion-aware TTS.
 
 v0.5.9: Maps beat emotion labels (intense/suspense/calm/twist/laughter)
