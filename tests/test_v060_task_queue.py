@@ -918,7 +918,7 @@ class TestContractExports:
 
     def test_contract_version_bumped(self):
         from movie_narrator.contract import CONTRACT_VERSION
-        assert CONTRACT_VERSION == (0, 7, 0)
+        assert CONTRACT_VERSION == (0, 7, 1)
 
     def test_contract_exports_cloud_types(self):
         from movie_narrator.contract import (

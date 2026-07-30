@@ -17,6 +17,8 @@ from ..utils.gpu_detect import get_encoder_info, resolve_encoder
 from ..utils.metadata_export import build_metadata_json
 from ..utils.text_image import create_text_image as _create_text_image
 from ..utils.video_layout import compute_fit_box
+from ..utils.transitions import apply_transition, get_transition_duration
+from ..utils.text_anim import apply_text_animation, get_animation_duration
 from .bgm import ensure_final_audio
 
 # RS-07: Minimum segment duration floor for speed scaling.
@@ -321,6 +323,15 @@ def render_video(ctx: Context) -> Context:
                         pos_y = (size[1] - box.out_h) // 2
                         fitted = fitted.with_position((pos_x, pos_y))
 
+                    # v0.7.1: apply scene transition to video clips
+                    transition_type = ctx.metadata.get("render_transition", "none")
+                    if transition_type != "none":
+                        trans_dur = get_transition_duration(
+                            mc.narr_end - mc.narr_start,
+                            ctx.metadata.get("render_transition_duration", 0.5)
+                        )
+                        fitted = apply_transition(fitted, transition_type, trans_dur)
+
                     clips.append(fitted.with_start(mc.narr_start))
                 except Exception as ie:
                     ctx.services.console.debug(f"  fallback for segment {mc.segment_index}: {ie}")
@@ -357,7 +368,18 @@ def render_video(ctx: Context) -> Context:
             bottom_margin_ratio=bottom_margin_ratio,
         )
         img_clip = ImageClip(img_array, is_mask=False)
-        return img_clip.with_duration(seg.end - seg.start).with_start(seg.start)
+        img_clip = img_clip.with_duration(seg.end - seg.start).with_start(seg.start)
+
+        # v0.7.1: apply text animation to subtitle overlays
+        text_anim_type = ctx.metadata.get("render_text_animation", "none")
+        if text_anim_type != "none":
+            anim_dur = get_animation_duration(
+                seg.end - seg.start,
+                ctx.metadata.get("render_text_animation_duration", 0.3)
+            )
+            img_clip = apply_text_animation(img_clip, text_anim_type, anim_dur)
+
+        return img_clip
 
     with ThreadPoolExecutor(max_workers=4) as pool:
         subtitle_futures = []

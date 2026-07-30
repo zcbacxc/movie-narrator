@@ -104,6 +104,18 @@ class JobParams(BaseModel):
     render_vertical_safe_area: Optional[bool] = None
     # v0.7.0: GPU encoding — "auto" (default) | "cpu" | "nvenc" | "vaapi" | "videotoolbox"
     render_encoder: Optional[str] = None
+    # v0.7.1: scene transition type — "none" (default) | "fade" | "dissolve" | "slide"
+    render_transition: Optional[str] = None
+    # v0.7.1: transition duration in seconds (default 0.5)
+    render_transition_duration: Optional[float] = None
+    # v0.7.1: text animation type — "none" (default) | "fade" | "slide_up" | "slide_left"
+    render_text_animation: Optional[str] = None
+    # v0.7.1: text animation duration in seconds (default 0.3)
+    render_text_animation_duration: Optional[float] = None
+    # v0.7.1: ambient/SFX audio track for multi-track mixing
+    bgm_ambient_path: Optional[str] = None
+    # v0.7.1: ambient track gain reduction in dB (default -12)
+    bgm_ambient_gain_db: Optional[float] = None
     # ── QA ──
     qa_enabled: Optional[bool] = None
     qa_max_silence_db: Optional[float] = None

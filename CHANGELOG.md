@@ -13,6 +13,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `mkdocs.yml`: added "Best Practices" navigation entry.
 - **Internal terminology cleanup**: replaced all "L2 hand-test" / "L2+" / "Q-X" internal QA references with community-friendly terms ("manual QA verification") across documentation (`ROADMAP`, `ARCHITECTURE`, `METADATA_SCHEMA` — EN/ZH), source code comments (`align.py`, `match.py`, `scene_filter.py`, `_align_backend.py`, `metadata_export.py`, `scenes.py`, `deliverable_qa.py`), test files (`test_audit_integration.py`, `test_e2e_smoke.py`, `test_match.py`), and scripts (`compare_runs.py`). CHANGELOG historical entries preserved as immutable records.
 
+## [0.7.1] - 2026-07-30
+
+### Added
+
+- Scene transition effects (fade, dissolve, slide) between video clips
+- Text animation effects (fade, slide_up, slide_left) for subtitle overlays
+- `render_transition` and `render_text_animation` job parameters
+- Transition and animation duration configurable via job params
+- Multi-track audio mixing with optional ambient/SFX track
+- `bgm_ambient_path` and `bgm_ambient_gain_db` job parameters
+
+### Changed
+
+- Version bumped to 0.7.1, CONTRACT_VERSION to (0, 7, 1)
+
 ## [0.7.0] - 2026-07-30
 
 ### Added
