@@ -7,25 +7,6 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
-# Concurrency control: cancel in-progress runs for the same PR/branch
-# when a new push arrives. This avoids wasted CI minutes when a PR is
-# amended + force-pushed (e.g. PR #57 triggered 28 runs instead of 14).
-#
-# Trigger strategy:
-# - push: only main branch (feature/hotfix branches don't trigger CI
-#   on push — they get CI via the pull_request event instead, avoiding
-#   duplicate runs from push + PR sync)
-# - pull_request: all PRs targeting main
-# - workflow_dispatch: manual triggers
-#
-# Group strategy:
-# - PR: use pr-{number} so amend + force-push cancels old runs
-# - push to main: use ref name (one active run per branch)
-# - workflow_dispatch: use run_id (never cancels manual triggers)
-#
-# cancel-in-progress: cancel for PR events AND non-main branch pushes.
-# Main-branch pushes represent "release-ready" verification — each push
-# runs to completion so we always have a final pass/fail signal on main.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' || github.ref != 'refs/heads/main' }}
@@ -53,9 +34,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg fonts-noto-cjk
 
-      - run: pip install -e ".[dev]"
+      - run: |
+          pip install -e ".[dev]"
+          pip install pytest-timeout
       - name: Run unit tests
-        run: pytest tests/ -v
+        run: pytest tests/ -v --timeout=300
 
       - name: Verify CLI entry points
         run: |
@@ -86,9 +69,6 @@ jobs:
           test -f output/CI-YAML-Test/subtitle.srt
           echo "YAML config smoke test passed"
 
-  # Summary job — name "test" matches branch protection required check.
-  # Matrix jobs generate "test-matrix (3.10)" etc. which don't match.
-  # This job depends on all matrix jobs and is a no-op gate.
   test:
     needs: [test-matrix]
     runs-on: ubuntu-latest
@@ -125,3 +105,20 @@ jobs:
 
       - name: Run scene / match unit tests
         run: pytest tests/test_scenes.py tests/test_match.py tests/test_optional_deps.py -v
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install dev dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install 'ruff>=0.4' 'mypy>=1.10'
+      - name: Run ruff
+        run: ruff check src/
+      - name: Run mypy
+        run: mypy src/movie_narrator/workflow src/movie_narrator/cloud src/movie_narrator/utils
+        continue-on-error: true  # baseline mode
