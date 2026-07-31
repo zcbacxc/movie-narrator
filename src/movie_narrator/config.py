@@ -84,14 +84,14 @@ def _print_first_run_notice(env_path: Path) -> None:
     if os.getenv("CI"):
         return
     print(
-        f"\n[movie-narrator] 首次运行：已创建配置文件\n"
+        f"\n[movie-narrator] 首次运行：已创建��置文件\n"
         f"  路径: {env_path}\n"
-        f"  请编辑此文件，填入你的 LLM 和 TTS 配置：\n"
+        f"  请编辑此文件，填��你的 LLM 和 TTS ��置：\n"
         f"    MN_LLM_BASE_URL  — LLM API 地址 (如 http://localhost:11434/v1)\n"
         f"    MN_LLM_API_KEY   — LLM API 密钥\n"
         f"    MN_LLM_MODEL     — LLM 模型名称\n"
         f"    MN_DEFAULT_VOICE — TTS 语音 (如 zh-CN-YunxiNeural)\n"
-        f"  配置完成后重新运行即可。\n",
+        f"  ��置完成后重新运行即可。\n",
         file=sys.stderr,
     )
 
@@ -125,6 +125,8 @@ class Settings(BaseSettings):
     research_retries: int = 3
     research_retry_delay: float = 1.5
     translate_max_tokens: int = 4096
+    # ── API server (remote serve auth, v0.8.0) ──
+    api_key: Optional[str] = None
     # ── TMDB (external movie database for fact verification) ──
     tmdb_api_key: Optional[str] = None
     tmdb_base_url: str = "https://api.themoviedb.org/3"
