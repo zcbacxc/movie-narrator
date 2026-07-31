@@ -12,6 +12,10 @@ This module is intentionally dependency-free (no imports from other
 pipeline, tts, utils — without risking circular imports.
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class ProviderError(Exception):
     """Base class for provider/service errors carrying a ``retryable`` flag.
@@ -67,7 +71,7 @@ def is_network_error(exc: BaseException) -> bool:
     # module-load time, but always present at runtime in production).
     try:
         from openai import APITimeoutError, APIConnectionError, RateLimitError
-    except Exception:
+    except Exception:  # noqa: BLE001
         logger.debug("openai SDK not importable; cannot check transient errors", exc_info=True)
         return False
     return isinstance(exc, (APITimeoutError, APIConnectionError, RateLimitError))
