@@ -1,4 +1,4 @@
-"""Tests for TMDB research provider and card enrichment (NA-M2-S1+).
+"""Tests for TMDB research provider and card enrichment.
 
 Verifies that:
 1. TMDB provider is registered as "tmdb"

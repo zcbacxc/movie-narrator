@@ -128,6 +128,10 @@ class LocalTaskQueue:
         self._controllers: Dict[str, CancelController] = {}
         self._lock = threading.Lock()
         self._started = False
+        # O(1) active task counter (maintained by submit/cancel/completion)
+        self._active_count: int = 0
+        # Per-task completion events for efficient wait() (no busy-polling)
+        self._completion_events: Dict[str, threading.Event] = {}
 
         if auto_start:
             self.start()
@@ -135,7 +139,12 @@ class LocalTaskQueue:
     # ── Lifecycle ────────────────────────────────────────────
 
     def start(self) -> None:
-        """Start the executor if not already started."""
+        """Start the executor if not already started.
+
+        Also initializes the active task counter by scanning storage
+        for pre-existing active tasks (handles process restart with
+        leftover RUNNING/PENDING/RETRYING tasks).
+        """
         if self._started:
             return
         self._executor = ThreadPoolExecutor(
@@ -143,6 +152,9 @@ class LocalTaskQueue:
             thread_name_prefix="mn-worker",
         )
         self._started = True
+        # Initialize active_count from storage (handles process restart
+        # with leftover RUNNING/PENDING/RETRYING tasks)
+        self._init_active_count()
 
     def shutdown(self, wait: bool = True) -> None:
         """Shut down the executor."""
@@ -166,10 +178,13 @@ class LocalTaskQueue:
         task = Task(request=request)
         self._storage.save(task)
 
-        # Create cancellation controller
+        # Create cancellation controller and completion event
         controller = CancelController()
+        event = threading.Event()
         with self._lock:
             self._controllers[task.id] = controller
+            self._completion_events[task.id] = event
+            self._active_count += 1
 
         # Submit to executor
         future = self._executor.submit(
@@ -225,6 +240,13 @@ class LocalTaskQueue:
         from datetime import datetime, timezone
         task.completed_at = datetime.now(timezone.utc).isoformat()
         self._storage.save(task)
+        # Task transitioned from active to terminal — update counter
+        # and wake up any waiters blocked on the completion event
+        with self._lock:
+            self._active_count = max(0, self._active_count - 1)
+            event = self._completion_events.pop(task_id, None)
+        if event is not None:
+            event.set()
         return True
 
     def list_tasks(
@@ -248,19 +270,55 @@ class LocalTaskQueue:
         - The task was not found
         - The task was cancelled
         - The timeout was reached
+
+        Uses a ``threading.Event`` for efficient non-busy waiting when
+        the task was submitted through this queue instance. Falls back
+        to storage polling for cross-process scenarios (where no Event
+        is available). The ``poll_interval`` parameter is retained for
+        protocol compatibility and is only used in the polling fallback
+        path.
         """
         start = time.time()
-        while True:
-            task = self._storage.load(task_id)
-            if not task:
-                return None
-            if task.is_terminal:
-                return task.result if task.result else None
 
-            if timeout is not None and (time.time() - start) > timeout:
-                return None
+        # Fast path: check if already terminal (handles already-completed
+        # tasks and cross-process scenarios where no Event is available)
+        task = self._storage.load(task_id)
+        if not task:
+            return None
+        if task.is_terminal:
+            return task.result if task.result else None
 
-            time.sleep(poll_interval)
+        # Try the in-process Event path (efficient, no busy-waiting)
+        with self._lock:
+            event = self._completion_events.get(task_id)
+
+        if event is not None:
+            # Event path: block efficiently until signaled or timeout
+            if timeout is None:
+                event.wait(timeout=None)
+            else:
+                remaining = max(0.0, timeout - (time.time() - start))
+                event.wait(timeout=remaining)
+        else:
+            # No Event available (cross-process or externally-created task)
+            # — fall back to storage polling
+            while True:
+                task = self._storage.load(task_id)
+                if not task:
+                    return None
+                if task.is_terminal:
+                    return task.result if task.result else None
+                if timeout is not None and (time.time() - start) > timeout:
+                    return None
+                time.sleep(poll_interval)
+
+        # Reload final state from storage after Event is signaled
+        task = self._storage.load(task_id)
+        if not task:
+            return None
+        if task.is_terminal:
+            return task.result if task.result else None
+        return None  # timed out without reaching terminal
 
     # ── Cleanup ──────────────────────────────────────────────
 
@@ -323,6 +381,10 @@ class LocalTaskQueue:
             with self._lock:
                 self._futures.pop(task_id, None)
                 self._controllers.pop(task_id, None)
+                self._active_count = max(0, self._active_count - 1)
+                event = self._completion_events.pop(task_id, None)
+            if event is not None:
+                event.set()
 
     # ── Properties ───────────────────────────────────────────
 
@@ -338,6 +400,39 @@ class LocalTaskQueue:
 
     @property
     def active_count(self) -> int:
-        """Number of currently running/pending tasks."""
-        tasks = self._storage.list_tasks()
-        return sum(1 for t in tasks if t.is_active)
+        """Number of currently running/pending tasks.
+
+        When the queue is started, returns an O(1) counter maintained
+        by ``submit()`` / ``cancel()`` / task completion. When not
+        started, falls back to scanning storage for compatibility
+        with direct storage manipulation (e.g., in tests or
+        cross-process inspection).
+        """
+        if not self._started:
+            tasks = self._storage.list_tasks()
+            return sum(1 for t in tasks if t.is_active)
+        with self._lock:
+            return self._active_count
+
+    # ── Internal helpers ─────────────────────────────────────
+
+    def _init_active_count(self) -> None:
+        """Initialize ``_active_count`` by scanning storage.
+
+        This handles the process-restart scenario where leftover
+        RUNNING/PENDING/RETRYING tasks exist in storage from a
+        previous process that crashed.
+        """
+        try:
+            active = (
+                self._storage.count(TaskStatus.PENDING)
+                + self._storage.count(TaskStatus.RUNNING)
+                + self._storage.count(TaskStatus.RETRYING)
+            )
+            with self._lock:
+                self._active_count = active
+        except Exception:
+            logger.debug(
+                "Failed to initialize active_count from storage",
+                exc_info=True,
+            )

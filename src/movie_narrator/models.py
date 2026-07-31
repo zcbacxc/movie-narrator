@@ -78,7 +78,7 @@ class StepResult(Enum):
 class StepState:
     result: StepResult = StepResult.SUCCESS
     message: str | None = None
-    # R2-NA-ORCH: records whether the failure that produced this state was a
+    # Records whether the failure that produced this state was a
     # retryable (transient, network-type) error. Defaults to False so every
     # existing call site stays non-retryable unless it explicitly opts in.
     # Consumed for audit/diagnostics; the runner reads the exception's
@@ -176,7 +176,7 @@ class ResearchInfo(BaseModel):
 
 
 class MovieCard(BaseModel):
-    """Structured movie metadata card (NA-M2-S1).
+    """Structured movie metadata card.
 
     A focused, typed snapshot of movie metadata extracted during the
     research step. Carrying title / year / genres / director / cast /

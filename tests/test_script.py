@@ -848,7 +848,7 @@ def test_dynamic_count_60s_matches_preset_baseline(tmp_path):
         )
 
 
-# ── WP5: max_chars hard truncation tests ──
+# ── max_chars hard truncation tests ──
 
 
 def test_truncate_to_max_chars_no_truncation_needed():

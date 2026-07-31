@@ -1,4 +1,4 @@
-"""Unit tests for render_template (NA-M6-S1).
+"""Unit tests for render_template.
 
 Covers ``_substitute_movie`` placeholder replacement and the
 ``render_template`` parsing logic embedded in ``render_video``

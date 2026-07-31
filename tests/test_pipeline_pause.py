@@ -1,4 +1,4 @@
-"""Tests for EP9 pipeline pause/resume functionality.
+"""Tests for pipeline pause/resume functionality.
 
 Verifies:
 - PipelinePaused exception carries completed_step attribute
@@ -191,7 +191,7 @@ class TestLoadPipelineState:
             _load_pipeline_state(tmp_path / "nonexistent.json")
 
 
-# ── run_pipeline with start_step (EP9 resume) ──────────────
+# ── run_pipeline with start_step (resume) ──────────────
 
 
 class TestRunPipelineStartStep:

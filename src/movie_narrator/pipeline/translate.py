@@ -190,7 +190,7 @@ def _translate_via_llm(
             for idx in chunk_indices:
                 result[idx] = texts[idx]
             # Surface the reason at the caller's metadata layer.
-            # R2-NA-ORCH: flag transient network errors as retryable so the
+            # Flag transient network errors as retryable so the
             # soft step can record it (audit/diagnostics in step_state).
             raise _ChunkFailure(
                 chunk_indices=chunk_indices,
@@ -205,7 +205,7 @@ def _translate_via_llm(
 class _ChunkFailure(Exception):
     """Internal sentinel: a chunk failed after all retries.
 
-    R2-NA-ORCH: carries a ``retryable`` flag (default False) so the soft
+    Carries a ``retryable`` flag (default False) so the soft
     step can record whether the failure was a transient network error.
     ``translate_subtitles`` always soft-degrades, so the flag is used for
     audit/diagnostics in ``step_state.step_retryable`` rather than to drive
@@ -254,7 +254,7 @@ def translate_subtitles(ctx: Context) -> Context:
         append_warning(ctx, f"translate provider {provider!r} is not supported")
         return ctx
 
-    # R2-NA-LANG: use `lang` (single source of truth) as default source
+    # Use `lang` (single source of truth) as default source
     # language for translation, falling back to "zh" for backward compat.
     narration_lang = ctx.metadata.get("lang", "zh")
     source_lang = (ctx.metadata.get("translate_source_lang") or narration_lang)
@@ -295,7 +295,7 @@ def translate_subtitles(ctx: Context) -> Context:
         ctx.status.translate = "failed"
         ctx.step_state.result = StepResult.WARNING
         ctx.step_state.message = cf.reason
-        # R2-NA-ORCH: record whether the failure was a transient network
+        # Record whether the failure was a transient network
         # error (audit/diagnostics; translate is a soft step so it always
         # degrades rather than offering interactive retry).
         ctx.step_state.step_retryable = cf.retryable

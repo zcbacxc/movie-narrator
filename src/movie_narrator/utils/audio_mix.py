@@ -3,7 +3,7 @@
 
 """Audio loudness helpers — peak normalization and BGM ducking.
 
-Uses pydub for I/O and numpy for envelope application (AQ-07: replaces
+Uses pydub for I/O and numpy for envelope application (replaces
 O(n²) pydub chunk concatenation with O(n) numpy array multiplication).
 Ducking is a simple windowed envelope: when narration RMS in a window
 exceeds the speech threshold, BGM is attenuated by ``duck_db`` for that
@@ -31,7 +31,7 @@ def normalize_peak(seg: AudioSegment, target_dbfs: float = -14.0) -> AudioSegmen
 
 
 def normalize_loudnorm(seg: AudioSegment, target_dbfs: float = -16.0) -> AudioSegment:
-    """RMS-based loudness normalization (EP6).
+    """RMS-based loudness normalization.
 
     Approximates EBU R128 loudness normalization using RMS measurement.
     More consistent than peak normalization across different content types
@@ -98,7 +98,7 @@ def duck_bgm(
         if rms_db is None or rms_db <= -100:
             window_envelope.append(0.0)
         elif rms_db > speech_threshold_dbfs:
-            # EP6: Proportional duck curve — scale duck amount by narration
+            # Proportional duck curve — scale duck amount by narration
             # energy above the threshold, producing a smoother, more natural
             # ducking effect. Full duck_db is reached at +10dB above threshold.
             excess = rms_db - speech_threshold_dbfs
@@ -112,7 +112,7 @@ def duck_bgm(
     # amplitude factor, then interpolate across windows.
     smoothed = _smooth_envelope(window_envelope, attack_ms, release_ms, window_ms)
 
-    # AQ-07: Apply the envelope via numpy instead of pydub chunk slicing.
+    # Apply the envelope via numpy instead of pydub chunk slicing.
     # The old approach sliced BGM into n_windows chunks, applied gain per
     # chunk, then concatenated with `+` — O(n²) due to pydub copying all
     # previous data on each concatenation.

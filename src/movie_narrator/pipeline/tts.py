@@ -194,7 +194,7 @@ def generate_voice(ctx: Context) -> Context:
         results, ctx.segments, pause_ms
     )
 
-    # ── WP5: v1 duration pause feedback ─────────────────────
+    # ── v1 duration pause feedback ─────────────────────
     # If narration exceeds target duration by >15%, try reducing pause_ms
     # and rebuilding.  This is a v1 approach: only adjusts pause, does NOT
     # re-run TTS or trim sentences.

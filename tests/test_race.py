@@ -1,4 +1,4 @@
-"""Tests for Q-P2 multi-candidate horse race.
+"""Tests for multi-candidate horse race.
 
 Covers candidate generation, scoring formula, report formatting,
 and race orchestration with mocked pipeline.

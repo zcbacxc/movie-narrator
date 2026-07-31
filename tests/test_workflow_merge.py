@@ -136,7 +136,7 @@ def test_yaml_no_bgm_when_cli_false():
     assert r.no_bgm is True
 
 
-# ── NA-M1-S4: narrator_perspective / focus_character CLI exposure ──
+# ── narrator_perspective / focus_character CLI exposure ──
 
 
 def test_cli_narrator_perspective_flows_to_params():

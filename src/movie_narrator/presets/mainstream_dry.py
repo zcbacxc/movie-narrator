@@ -37,15 +37,15 @@ class MainstreamDryPreset:
             "prompt_target_segment_duration": 5.0,
             "prompt_max_chars_per_sentence": 22,
             "prompt_hook_seconds": 5,
-            # EP4: hook templates — measured, curiosity-driven openings
+            # Hook templates — measured, curiosity-driven openings
             "hook_templates": [
                 "{movie}是一部被低估的佳作",
                 "关于{movie}，有个细节你可能没注意",
                 "{movie}的故事，远比表面看到的复杂",
             ],
-            # NA-M1-S2: platform tone adaptation
+            # Platform tone adaptation
             "target_platform": "youtube",
-            # NA-M6-S1: render template — per-preset styling overlays
+            # Render template — per-preset styling overlays
             "render_template": {
                 "title_card_text": "{movie}",
                 "end_card_text": "感谢观看",

@@ -41,7 +41,7 @@ def _normalize_narration(ctx: Context, narration: AudioSegment) -> str:
     """Normalize narration and write to a side file, returning the path."""
     out = Path(ctx.output_dir) / "narration_normalized.mp3"
     target = ctx.metadata.get("audio_target_dbfs", -14.0)
-    # EP6: Use RMS-based loudnorm when configured, else peak normalization
+    # Use RMS-based loudnorm when configured, else peak normalization
     if ctx.metadata.get("bgm_loudnorm", False):
         normalized = normalize_loudnorm(narration, target_dbfs=target)
     else:
@@ -50,7 +50,7 @@ def _normalize_narration(ctx: Context, narration: AudioSegment) -> str:
 
 
 def ensure_final_audio(ctx: Context) -> Context:
-    """Guarantee that ctx.final_audio_path is normalized (AQ-04 fix).
+    """Guarantee that ctx.final_audio_path is normalized.
 
     All BGM exit paths (skip, fail, exception) must go through this
     function. If the final audio is still the raw narration (not mixed),
@@ -166,7 +166,7 @@ def _score_bgm_candidate(sample: dict, emotion_profile: dict[str, float]) -> flo
 def select_bgm_by_emotion(ctx: Context) -> Optional[str]:
     """Select a BGM file whose mood best matches the narration's emotion profile.
 
-    NA-M4-S1+: emotion-weighted BGM auto-selection.
+    Emotion-weighted BGM auto-selection.
 
     Instead of picking the first BGM matching the single dominant emotion,
     this computes the full emotion distribution and scores ALL candidates
@@ -458,7 +458,7 @@ def mix_bgm(ctx: Context) -> Context:
 
     req = ctx.metadata.get("bgm_request", "none")
 
-    # NA-M4-S1: emotion-based BGM auto-selection for "default" requests.
+    # Emotion-based BGM auto-selection for "default" requests.
     # If select_bgm_by_emotion returns a path, use it; otherwise fall
     # through to the existing logic below.
     if req == "default":
@@ -506,7 +506,7 @@ def mix_bgm(ctx: Context) -> Context:
         do_norm = ctx.metadata.get("bgm_normalize", True)
         if do_norm:
             target = ctx.metadata.get("audio_target_dbfs", -14.0)
-            # EP6: Use RMS-based loudnorm when configured, else peak normalization
+            # Use RMS-based loudnorm when configured, else peak normalization
             if ctx.metadata.get("bgm_loudnorm", False):
                 mixed = normalize_loudnorm(mixed, target_dbfs=target)
             else:

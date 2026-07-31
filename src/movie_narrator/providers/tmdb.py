@@ -3,7 +3,7 @@
 
 """TMDB (The Movie Database) research provider.
 
-NA-M2-S1+: external fact-verification data source.
+External fact-verification data source.
 
 Provides two capabilities:
 1. **Standalone research provider** — fetches movie metadata directly from

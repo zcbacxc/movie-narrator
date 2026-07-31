@@ -41,7 +41,7 @@ ALLOWED_PARAM_KEYS: frozenset[str] = frozenset({
     "scene_merge_min_duration",
     "match_drop_scene_min_duration",
     "match_min_score",
-    # WP6: scene filtering
+    # Scene filtering configuration
     "match_skip_intro_sec",
     "match_drop_dark_luma",
     "match_source_window",
@@ -51,7 +51,7 @@ ALLOWED_PARAM_KEYS: frozenset[str] = frozenset({
     "bgm_normalize",
     "audio_target_dbfs",
     "bgm_loudnorm",
-    # NA-M4-S1: BGM emotion-based selection metadata file
+    # BGM emotion-based selection metadata file
     "bgm_metadata_path",
     # Render / subtitle
     "render_subtitle_position",
@@ -74,20 +74,20 @@ ALLOWED_PARAM_KEYS: frozenset[str] = frozenset({
     "prompt_target_segment_duration",
     "prompt_max_chars_per_sentence",
     "prompt_hook_seconds",
-    # EP4: hook templates and set pieces
+    # Hook templates and set pieces
     "hook_templates",
     "set_pieces",
-    # EP5: title card + cover export + vertical safe area
+    # Title card, cover export, and vertical safe area
     "render_title_card_sec",
     "render_cover_export",
     "render_vertical_safe_area",
-    # NA-M1-S2: target platform for tone adaptation
+    # Target platform for tone adaptation
     "target_platform",
-    # R2-NA-LANG: narration language
+    # Narration language
     "lang",
-    # NA-M6-S1: render template — per-preset styling dict
+    # Render template — per-preset styling dict
     "render_template",
-    # NA-M1-S4: narrator perspective & character anchor
+    # Narrator perspective and character anchor
     "narrator_perspective",
     "focus_character",
 })

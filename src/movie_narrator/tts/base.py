@@ -43,7 +43,7 @@ class BaseTTSProvider(TTSProvider):
         if is_ci():
             await self._silent_synthesize(text, output_path)
             return
-        # R2-NA-ORCH: wrap the real (network-dependent) synthesis call so
+        # Wrap the real (network-dependent) synthesis call so
         # transient failures are flagged retryable. Network/timeout errors
         # (ConnectionError, TimeoutError, openai APITimeoutError /
         # APIConnectionError / RateLimitError) become a ProviderError with

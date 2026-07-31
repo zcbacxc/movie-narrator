@@ -1,4 +1,4 @@
-"""Tests for judge feedback loop (NA-M1-S5+).
+"""Tests for judge feedback loop.
 
 Verifies that:
 1. build_judge_feedback_hint returns "" on first attempt (None scores)

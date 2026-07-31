@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""WP6: Scene filtering — intro skip, dark frame drop, highlight window.
+"""Scene filtering — intro skip, dark frame drop, highlight window.
 
 These filters run *after* scene detection and *before* match, reducing
 the candidate pool to scenes that are likely to carry meaningful footage.
@@ -181,7 +181,7 @@ def filter_dark_scenes(
         if luma < luma_threshold:
             dropped += 1
             logger.debug(
-                "  WP6 dark drop: scene %d (luma=%.1f < %.1f)",
+                "  dark drop: scene %d (luma=%.1f < %.1f)",
                 scene.index, luma, luma_threshold,
             )
         else:

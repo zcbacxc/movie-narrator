@@ -1,4 +1,4 @@
-"""Tests for EP8 VisionCaptioner abstraction.
+"""Tests for VisionCaptioner abstraction.
 
 Verifies the protocol contract, stub implementation, factory dispatch,
 and integration behavior (stub labels are flagged as fake for the
@@ -121,7 +121,7 @@ class TestGetVisionCaptioner:
         assert isinstance(captioner, StubVisionCaptioner)
 
 
-# ── VLMCaptioner (Q-M5) ────────────────────────────────────
+# ── VLMCaptioner ────────────────────────────────────
 
 
 class TestVLMCaptioner:
@@ -212,7 +212,7 @@ def test_stub_labels_match_placeholder_pattern():
 
     This ensures the fake-caption guard in match.py correctly detects
     stub labels as placeholders (>70% fake → force heuristic match),
-    so EP8 stub integration does not change existing behavior.
+    so stub integration does not change existing behavior.
     """
     captioner = StubVisionCaptioner()
     scenes = _scenes()

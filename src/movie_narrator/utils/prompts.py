@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-# ── Narrative principles (NA-M1-S1) ─────────────────────────
+# ── Narrative principles ─────────────────────────
 # Five storytelling principles distilled from general narrative craft
 # (hook, suspense, payoff, quotable line, cognitive reversal) plus
 # anti-AI-tone constraints. These are injected into both BEATS_PROMPT
@@ -31,7 +31,7 @@ Anti-AI-tone rules (MUST follow):
 - Prefer concrete visual descriptions over abstract statements.
 """
 
-# ── Platform tone (NA-M1-S2) ───────────────────────────────
+# ── Platform tone ───────────────────────────────
 # Platform-specific tone hints injected into the expand prompt.
 # Each platform has distinct audience expectations — these hints
 # guide the LLM to produce content that fits the platform's vibe.
@@ -77,7 +77,7 @@ def build_platform_tone_hint(platform: str = "") -> str:
     return PLATFORM_TONE.get(platform, "")
 
 
-# ── Language hint (R2-NA-LANG) ─────────────────────────────
+# ── Language hint ─────────────────────────────
 # Maps lang codes to LLM language directives. Ensures the narration
 # is generated in the correct language regardless of prompt template
 # language (prompts are in English, output must match `lang`).
@@ -105,7 +105,7 @@ def build_language_hint(lang: str = "") -> str:
     return f"Language: Write ALL narration text in {lang_name}."
 
 
-# ── Narrator perspective (NA-M1-S4) ───────────────────────
+# ── Narrator perspective ───────────────────────
 # Maps a perspective mode to a prompt hint that steers the LLM's
 # narrative vantage point.  "omniscient" (or empty) produces no hint so
 # existing behaviour is unchanged.  Generic narrative technique,
@@ -153,7 +153,7 @@ def build_perspective_hint(perspective: str = "", focus_character: str = "") -> 
     return ""
 
 
-# ── Judge feedback (NA-M1-S5+) ────────────────────────────
+# ── Judge feedback ────────────────────────────
 # Builds a targeted feedback hint from the previous judge scores
 # so that retry attempts fix the identified problems instead of
 # blindly re-running with the same prompt.
@@ -347,7 +347,7 @@ Output ONLY JSON:
 }}
 """
 
-# ── Script self-check judge (NA-M1-S5) ─────────────────────
+# ── Script self-check judge ─────────────────────
 # A lightweight LLM quality gate that evaluates the generated narration
 # script on three dimensions before accepting it. The judge runs after
 # Phase 2 (expand) and before the trim, inside the retry loop.

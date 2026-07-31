@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""Multi-candidate horse race (Q-P2).
+"""Multi-candidate horse race (multi-candidate comparison).
 
 Runs the pipeline N times with different parameter combinations (preset x
 match seed), then scores each output on match quality, duration fit,
@@ -333,7 +333,7 @@ def run_race(
                 subtitle_lang=subtitle_lang,
                 subtitle_mode=subtitle_mode,
                 narration_preset=cand.narration_preset,
-                lang="zh",  # R2-NA-LANG: race mode defaults to Chinese
+                lang="zh",  # race mode defaults to Chinese
             ))
 
             ctx = run_pipeline(ctx)

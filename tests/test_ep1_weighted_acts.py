@@ -1,4 +1,4 @@
-"""EP1: Act-weighted timeline partitioning tests.
+"""Act-weighted timeline partitioning tests.
 
 Verifies that match_timeline_mode="weighted_acts" correctly:
 - Partitions scenes into 4 act buckets by time
