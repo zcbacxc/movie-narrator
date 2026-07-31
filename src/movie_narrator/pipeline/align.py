@@ -20,7 +20,7 @@ from ._align_backend import select_align_backend, run_faster_whisper, BackendUna
 # v0.5.11: tightened from 0.5 to 0.3 based on manual test data analysis.
 _DRIFT_THRESHOLD = 0.3
 
-# F4 backward-jump threshold: if the wx segment maps far behind prev_end
+# Backward-jump threshold: if the wx segment maps far behind prev_end
 # AND the clamp would compress the segment to less than half its original
 # duration, the alignment is unreliable for this segment — skip it (keep
 # the TTS estimate) instead of producing a 100ms crushed segment.
@@ -36,7 +36,7 @@ _MIN_SEGMENT_DURATION = 0.1
 def _detect_drift(ctx: Context, wx_segments: list, backend_name: str) -> bool:
     """Return True if drift too large (caller should skip remapping).
 
-    AQ-01 drift detection: if ASR finds only 1 segment for the entire
+    Drift detection: if ASR finds only 1 segment for the entire
     audio, it's unreliable. We compare its duration against the total
     narration duration; if the drift exceeds _DRIFT_THRESHOLD, we skip
     remapping and keep TTS estimates.
@@ -67,10 +67,10 @@ def _remap_segments(ctx: Context, wx_segments: list) -> int:
 
     Matches each narration segment to the ASR segment whose time range
     contains the narration midpoint (falls back to nearest midpoint).
-    Enforces monotonic non-overlap with F4 backward-jump detection.
+    Enforces monotonic non-overlap with backward-jump detection.
 
     Returns the count of segments skipped due to extreme backward jumps
-    (F4 diagnostic).
+    (backward-jump diagnostic).
     """
     prev_end = 0.0
     backward_skipped = 0
@@ -91,7 +91,7 @@ def _remap_segments(ctx: Context, wx_segments: list) -> int:
             new_start = best["start"]
             new_end = best["end"]
             original_duration = new_end - new_start
-            # F4: detect extreme backward jumps
+            # Detect extreme backward jumps
             if (
                 new_start < prev_end
                 and (prev_end - new_start) > original_duration * _BACKWARD_JUMP_RATIO
@@ -112,7 +112,7 @@ def _remap_segments(ctx: Context, wx_segments: list) -> int:
 def align_audio(ctx: Context) -> Context:
     """Align timed segments using WhisperX transcription + forced alignment.
 
-    AQ-01 fix: Now runs the full WhisperX pipeline
+    Now runs the full WhisperX pipeline
     (transcribe → align) instead of only midpoint remapping.
     Adds monotonic/non-overlap validation and drift detection.
     Degrades to ``status='skipped'`` when ASR is empty or unreliable.
@@ -129,7 +129,7 @@ def align_audio(ctx: Context) -> Context:
         The same (mutated) context with ``ctx.status.align`` set to one
         of ``disabled`` / ``skipped`` / ``success`` / ``failed``.
     """
-    # B+: backend availability is checked by select_align_backend() below,
+    # Backend availability is checked by select_align_backend() below,
     # which probes both whisperx and faster_whisper. The old whisperx-only
     # probe here was removed to allow faster_whisper fallback when whisperx
     # is not importable.
@@ -139,7 +139,7 @@ def align_audio(ctx: Context) -> Context:
         ctx.step_state.message = "no audio"
         return ctx
 
-    # ── B+: Environment-adaptive backend selection ──
+    # ── Environment-adaptive backend selection ──
     # WhisperX depends on pyannote VAD → speechbrain → k2-fsa, which
     # has no prebuilt Windows CPU wheel. On Windows CPU (or when
     # whisperx is not importable), we use faster-whisper instead.
@@ -198,7 +198,7 @@ def _align_with_whisperx(ctx: Context) -> Context:
         result = model.transcribe(audio, language=language)
 
         if not result or "segments" not in result or not result["segments"]:
-            # ── AQ-01: empty ASR → skipped (not success) ──
+            # ── Empty ASR → skipped (not success) ──
             ctx.services.console.inline_warn(
                 "WhisperX returned no speech segments; "
                 "timestamps remain TTS-estimated"
@@ -209,7 +209,7 @@ def _align_with_whisperx(ctx: Context) -> Context:
             ctx.metadata["align_degraded"] = True
             return ctx
 
-        # ── AQ-01: Run full forced alignment ──
+        # ── Run full forced alignment ──
         # Previously only midpoint remapping was done. Now we run
         # whisperx.align() for word-level timestamps, then validate.
         # v0.5.11: preserve word-level segments for sub-segment precision.
@@ -229,13 +229,13 @@ def _align_with_whisperx(ctx: Context) -> Context:
                 f"falling back to transcript-level timestamps"
             )
             ctx.metadata["align_fallback"] = True
-            # C1 fix: mark as 'failed' (vs previous secret 'success') so
+            # Mark as 'failed' (vs previous secret 'success') so
             # users, CLI summary and metadata.json all see the alignment
             # degradation. Remapping still runs below (segment-level
             # timestamps from transcribe are better than TTS estimates),
             # but the degradation is visible.
             #
-            # F3 (runner.py): the runner now also accumulates
+            # The runner now also accumulates
             # _degraded_steps for soft steps that return normally with
             # status='failed' + step_state.result=WARNING, so this
             # fallback is surfaced in the runner's degradation summary
@@ -264,11 +264,11 @@ def _align_with_whisperx(ctx: Context) -> Context:
             ctx.metadata["align_degraded"] = True
             return ctx
 
-        # ── AQ-01: Drift detection (shared logic) ──
+        # ── Drift detection (shared logic) ──
         if _detect_drift(ctx, wx_segments, "WhisperX"):
             return ctx
 
-        # ── AQ-01: Monotonic non-overlap remapping (shared logic) ──
+        # ── Monotonic non-overlap remapping (shared logic) ──
         backward_skipped = _remap_segments(ctx, wx_segments)
 
         # ── v0.5.11: Word-level alignment ──────────────────────
@@ -295,7 +295,7 @@ def _align_with_whisperx(ctx: Context) -> Context:
                 f"have low confidence (< 0.6)."
             )
 
-        # C1 fix: only mark success if forced alignment didn't fall back.
+        # Only mark success if forced alignment didn't fall back.
         # Fallback path keeps status='failed' (set in except block above)
         # so runner's _degraded_steps accumulates and metadata exposes it.
         # Remapping still runs on fallback (segment-level timestamps from
@@ -345,7 +345,7 @@ def _align_with_faster_whisper(ctx: Context) -> Context:
     ctx.status.align = "success"
     ctx.step_state.message = "faster-whisper (segment-level, no forced alignment)"
 
-    # ── AQ-01: Drift detection (shared logic) ──
+    # ── Drift detection (shared logic) ──
     if _detect_drift(ctx, wx_segments, "faster-whisper"):
         return ctx
 

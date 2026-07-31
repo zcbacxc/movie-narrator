@@ -1142,7 +1142,7 @@ def test_transcribe_video_audio_cache_hit_skips_transcription(tmp_path, monkeypa
     assert result == cached_segments
 
 
-# ── WP3: diversity post-processing tests ──
+# ── diversity post-processing tests ──
 
 
 def test_apply_diversity_no_swaps_needed():
@@ -1212,11 +1212,11 @@ def test_apply_diversity_no_swap_when_all_scenes_used():
     assert swaps_log == []
 
 
-# ── EP3: top-K rerank with order-backtrack reuse penalty ──
+# ── top-K rerank with order-backtrack reuse penalty ──
 
 
 class _EP3FakeST:
-    """Fake SentenceTransformer for EP3 tests.
+    """Fake SentenceTransformer for top-K rerank tests.
 
     Maps scene/narration texts to 3-D vectors so that:
     - scene_0 / "zero"  → [1, 0, 0]    (cosine with [1,0,0] = 1.0)
@@ -1244,7 +1244,7 @@ class _EP3FakeST:
 
 
 def _setup_ep3_ctx(tmp_path, monkeypatch, topk=None, reuse_penalty=None):
-    """Shared setup for EP3 embedding-path tests."""
+    """Shared setup for embedding-path tests."""
     ctx = _make_ctx(tmp_path)
     (tmp_path / "video.mp4").write_bytes(b"00")
     ctx.scenes = [
@@ -1276,7 +1276,7 @@ def _setup_ep3_ctx(tmp_path, monkeypatch, topk=None, reuse_penalty=None):
 
 
 def test_ep3_topk_reuse_penalty_swaps_scene(tmp_path, monkeypatch):
-    """EP3: reuse penalty causes segment 1 to pick a different scene.
+    """Reuse penalty causes segment 1 to pick a different scene.
 
     Both narrations match scene_0 best (cosine=1.0), but scene_1 is close
     (cosine=0.96). With reuse_penalty=0.15, segment 1's adjusted score for
@@ -1296,7 +1296,7 @@ def test_ep3_topk_reuse_penalty_swaps_scene(tmp_path, monkeypatch):
 
 
 def test_ep3_topk_disabled_top1_mode(tmp_path, monkeypatch):
-    """EP3: topk=1 → source is "embedding_top1", no reuse-penalty swap.
+    """topk=1 → source is "embedding_top1", no reuse-penalty swap.
 
     In top-1 mode only one candidate is considered per segment, so the
     reuse penalty cannot cause a swap. Both segments pick scene_0.
@@ -1313,7 +1313,7 @@ def test_ep3_topk_disabled_top1_mode(tmp_path, monkeypatch):
 
 
 def test_ep3_topk_zero_penalty_no_swap(tmp_path, monkeypatch):
-    """EP3: reuse_penalty=0 → no penalty, both segments pick scene_0."""
+    """reuse_penalty=0 → no penalty, both segments pick scene_0."""
     ctx = _setup_ep3_ctx(tmp_path, monkeypatch, topk=5, reuse_penalty=0.0)
 
     match_clips(ctx)
@@ -1326,7 +1326,7 @@ def test_ep3_topk_zero_penalty_no_swap(tmp_path, monkeypatch):
 
 
 def test_ep3_topk_audit_fields(tmp_path, monkeypatch):
-    """EP3: match_summary contains topk audit section."""
+    """match_summary contains topk audit section."""
     ctx = _setup_ep3_ctx(tmp_path, monkeypatch, topk=5, reuse_penalty=0.15)
 
     match_clips(ctx)
@@ -1340,7 +1340,7 @@ def test_ep3_topk_audit_fields(tmp_path, monkeypatch):
 
 
 def test_ep3_topk_audit_fields_top1_mode(tmp_path, monkeypatch):
-    """EP3: topk audit fields reflect top-1 mode."""
+    """topk audit fields reflect top-1 mode."""
     ctx = _setup_ep3_ctx(tmp_path, monkeypatch, topk=1, reuse_penalty=0.15)
 
     match_clips(ctx)
@@ -1352,7 +1352,7 @@ def test_ep3_topk_audit_fields_top1_mode(tmp_path, monkeypatch):
 
 
 def test_ep3_cosine_topk_returns_sorted_descending():
-    """EP3: _cosine_topk returns (index, score) sorted by score descending."""
+    """_cosine_topk returns (index, score) sorted by score descending."""
     from movie_narrator.pipeline.match import _cosine_topk
 
     target = np.array([1.0, 0.0, 0.0])
@@ -1371,7 +1371,7 @@ def test_ep3_cosine_topk_returns_sorted_descending():
 
 
 def test_ep3_cosine_topk_k_exceeds_candidates():
-    """EP3: k > len(candidates) → returns all candidates sorted."""
+    """k > len(candidates) → returns all candidates sorted."""
     from movie_narrator.pipeline.match import _cosine_topk
 
     target = np.array([1.0, 0.0])
@@ -1386,7 +1386,7 @@ def test_ep3_cosine_topk_k_exceeds_candidates():
 
 
 def test_ep3_cosine_topk_empty_matrix():
-    """EP3: empty candidate matrix → returns empty list."""
+    """empty candidate matrix → returns empty list."""
     from movie_narrator.pipeline.match import _cosine_topk
 
     target = np.array([1.0, 0.0])
@@ -1396,7 +1396,7 @@ def test_ep3_cosine_topk_empty_matrix():
 
 
 def test_ep3_greedy_topk_assign_unit():
-    """EP3: direct unit test for _greedy_topk_assign reuse-penalty logic."""
+    """direct unit test for _greedy_topk_assign reuse-penalty logic."""
     from movie_narrator.pipeline.match import _greedy_topk_assign
 
     # 3 scenes, 2 narration segments

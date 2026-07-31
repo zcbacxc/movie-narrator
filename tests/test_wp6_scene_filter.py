@@ -1,4 +1,4 @@
-"""Tests for WP6 scene filtering — intro skip, dark frame drop, highlight window.
+"""Tests for scene filtering — intro skip, dark frame drop, highlight window.
 
 All tests use mocks for ffmpeg/PIL so they run in CI without media extras.
 """
@@ -298,11 +298,11 @@ class TestApplySourceWindow:
         assert result[0].end == 10.0
 
 
-# ── Integration: match.py WP6 params ───────────────────────
+# ── Integration: match.py scene filter params ───────────────────────
 
 
 class TestMatchWP6Integration:
-    """Verify that WP6 params flow through match_clips correctly."""
+    """Verify that scene filter params flow through match_clips correctly."""
 
     def _make_ctx(self, tmp_path, scenes, metadata=None):
         from movie_narrator.models import Context, TimedSegment
@@ -356,7 +356,7 @@ class TestMatchWP6Integration:
             assert mc.src_end <= 70.0    # last kept scene ends at 70 (clipped to 68)
 
     def test_no_wp6_params_no_change(self, tmp_path):
-        """Without WP6 params, behavior is unchanged."""
+        """Without scene filter params, behavior is unchanged."""
         scenes = [Scene(index=i, start=i * 10.0, end=(i + 1) * 10.0) for i in range(8)]
         ctx = self._make_ctx(tmp_path, scenes)
 

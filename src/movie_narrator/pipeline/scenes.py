@@ -71,7 +71,7 @@ def detect_scenes(ctx: Context) -> Context:
         ctx.scenes = scenes
         ctx.status.scene = "success"
 
-        # ── WP1: Persist scenes.json for debugging ──────
+        # ── Persist scenes.json for debugging ──────
         # Lets you verify scene detection quality without re-running the
         # pipeline.  File is small (just timestamps), so always write it.
         try:
@@ -88,7 +88,7 @@ def detect_scenes(ctx: Context) -> Context:
                 )
         except Exception as e:
             # Best-effort: scenes.json is diagnostic, not critical.
-            # B5 fix: leave a debug trace so disk-full / readonly paths
+            # Leave a debug trace so disk-full / readonly paths
             # are visible in verbose logs (not silently swallowed).
             ctx.services.console.debug(f"scenes.json write failed: {e}")
 

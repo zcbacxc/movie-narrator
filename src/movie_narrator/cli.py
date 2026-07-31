@@ -181,7 +181,7 @@ def create(
     ),
     pause_at: Optional[str] = typer.Option(
         None, "--pause-at",
-        help="在指定步骤后暂停(人在环 EP9) / Pause after this step name "
+        help="在指定步骤后暂停(人在环) / Pause after this step name "
              "(e.g. match_clips, generate_script). Resume with: mn resume --state <path>",
     ),
     log_level: str = typer.Option(
@@ -313,14 +313,14 @@ def create(
     ))
     controller = InteractiveCLIController() if retry else None
 
-    # EP9: Store pause-at request in context metadata
+    # Store pause-at request in context metadata
     if pause_at:
         ctx.metadata["pause_at"] = pause_at
 
     try:
         ctx = run_pipeline(ctx, controller=controller)
     except Exception as e:
-        # EP9: PipelinePaused — state saved, inform user how to resume
+        # PipelinePaused — state saved, inform user how to resume
         from .pipeline.errors import PipelinePaused
         if isinstance(e, PipelinePaused):
             typer.echo(
@@ -378,7 +378,7 @@ def race(
         help="输出目录(默认 output/<电影名>_race) / Output directory",
     ),
 ):
-    """多候选赛马 (Q-P2) — 同输入跑 N 套变体,打分选优.
+    """多候选赛马 — 同输入跑 N 套变体,打分选优.
 
     \b
     每个候选使用不同的 preset x match 种子组合,跑完后按
@@ -504,7 +504,7 @@ def imitate(
         help="在控制台显示 DEBUG 日志 / Show debug logs in console",
     ),
 ):
-    """参考片模仿 (Q-P7) — 从爆款解说提取风格,生成同风格新片.
+    """参考片模仿 — 从爆款解说提取风格,生成同风格新片.
 
     \b
     分析参考视频的句密/切密/节奏,自动生成临时 preset,
@@ -588,7 +588,7 @@ def imitate(
         subtitle_lang=subtitle_lang,
         subtitle_mode=subtitle_mode,
         narration_preset=preset_name,
-        lang="zh",  # R2-NA-LANG: imitate command defaults to Chinese
+        lang="zh",  # imitate command defaults to Chinese
         log_level=_resolved_level,
         verbose=verbose,
     ))
@@ -633,7 +633,7 @@ def resume(
         help="在控制台显示 DEBUG 日志 / Show debug logs in console",
     ),
 ):
-    """恢复暂停的管线 (EP9) — 从上次暂停点继续执行.
+    """恢复暂停的管线 — 从上次暂停点继续执行.
 
     \b
     用法 / Usage:

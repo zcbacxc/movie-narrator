@@ -24,17 +24,17 @@ from .bgm import ensure_final_audio
 
 logger = logging.getLogger(__name__)
 
-# RS-07: Minimum segment duration floor for speed scaling.
+# Minimum segment duration floor for speed scaling.
 # Prevents division-by-zero when seg_duration is extremely short
 # (e.g. 0-length segment from alignment glitch). 0.1s is intentional:
 # below this, speed scaling produces visually absurd fast-forward.
 _SEG_DURATION_FLOOR = 0.1
 
-# RS-08: Default ffmpeg mux timeout (seconds) when render_ffmpeg_timeout
+# Default ffmpeg mux timeout (seconds) when render_ffmpeg_timeout
 # is not specified in job params. 10 min is generous for 4K + slow preset.
 _DEFAULT_MUX_TIMEOUT = 600
 
-# EP5: Vertical (9:16) safe area defaults.
+# Vertical (9:16) safe area defaults.
 # On vertical video, platform UI (TikTok/Douyin caption area, like/share
 # buttons) can cover the bottom 20-25% of the screen. These conservative
 # ratios push subtitles above the danger zone.
@@ -94,7 +94,7 @@ def _export_cover_image(
     usable_clips: list[MatchedClip],
     output_dir: Path,
 ) -> None:
-    """EP5 V6: Export cover.jpg from the highest-score matched frame.
+    """Export cover.jpg from the highest-score matched frame.
 
     Extracts the midpoint frame of the highest-score MatchedClip using
     ffmpeg, then overlays the movie name with a semi-transparent gradient
@@ -104,13 +104,13 @@ def _export_cover_image(
     not a pipeline requirement.
     """
     if not usable_clips or not ctx.source_video_path:
-        ctx.services.console.debug("  EP5 cover: no usable clips or source video — skipping")
+        ctx.services.console.debug("  cover: no usable clips or source video — skipping")
         return
 
     # Find the highest-score clip (embedding source preferred)
     scored = [mc for mc in usable_clips if mc.score is not None and mc.score > 0]
     if not scored:
-        ctx.services.console.debug("  EP5 cover: no scored clips — skipping")
+        ctx.services.console.debug("  cover: no scored clips — skipping")
         return
 
     best = max(scored, key=lambda mc: mc.score)
@@ -122,7 +122,7 @@ def _export_cover_image(
     # Extract frame via ffmpeg
     ffmpeg_bin = shutil.which("ffmpeg")
     if not ffmpeg_bin:
-        ctx.services.console.debug("  EP5 cover: ffmpeg not found — skipping")
+        ctx.services.console.debug("  cover: ffmpeg not found — skipping")
         return
 
     extract_cmd = [
@@ -140,12 +140,12 @@ def _export_cover_image(
         )
         if proc.returncode != 0 or not cover_raw.exists():
             ctx.services.console.debug(
-                f"  EP5 cover: ffmpeg extract failed: {proc.stderr[:200]}"
+                f"  cover: ffmpeg extract failed: {proc.stderr[:200]}"
             )
             return
     except Exception as e:
-        ctx.services.console.debug(f"  EP5 cover: extract error: {e}")
-        logger.debug("EP5 cover: ffmpeg extract failed", exc_info=True)
+        ctx.services.console.debug(f"  cover: extract error: {e}")
+        logger.debug("cover: ffmpeg extract failed", exc_info=True)
         return
 
     # Overlay movie name with PIL
@@ -194,19 +194,19 @@ def _export_cover_image(
 
         img.save(str(cover_final), "JPEG", quality=90)
         ctx.services.console.debug(
-            f"  EP5 cover: exported cover.jpg from segment {best.segment_index} "
+            f"  cover: exported cover.jpg from segment {best.segment_index} "
             f"(score={best.score:.3f}, ts={mid_ts:.1f}s)"
         )
     except Exception as e:
-        ctx.services.console.debug(f"  EP5 cover: overlay error: {e}")
-        logger.debug("EP5 cover: overlay failed", exc_info=True)
+        ctx.services.console.debug(f"  cover: overlay error: {e}")
+        logger.debug("cover: overlay failed", exc_info=True)
     finally:
         # Clean up raw frame
         cover_raw.unlink(missing_ok=True)
 
 
 def _substitute_movie(text: str, movie_name: str) -> str:
-    """NA-M6-S1: Replace the ``{movie}`` placeholder with the actual movie name.
+    """Replace the ``{movie}`` placeholder with the actual movie name.
 
     Returns the original text unchanged when the placeholder is absent.
     """
@@ -216,7 +216,7 @@ def _substitute_movie(text: str, movie_name: str) -> str:
 
 
 def _create_watermark_image(text: str, size: tuple, fontsize: int = 36):
-    """NA-M6-S1: Create a full-canvas transparent image with small
+    """Create a full-canvas transparent image with small
     semi-transparent text anchored to the top-right corner.
 
     Returns a ``numpy.ndarray`` (RGBA) suitable for ``ImageClip``.
@@ -243,7 +243,7 @@ def _create_watermark_image(text: str, size: tuple, fontsize: int = 36):
 
 
 def render_video(ctx: Context) -> Context:
-    # AQ-04 safety net: ensure final audio is normalized even if mix_bgm
+    # Safety net: ensure final audio is normalized even if mix_bgm
     # was skipped or failed. This guarantees render never receives raw
     # unnormalized narration when bgm_normalize=True.
     ensure_final_audio(ctx)
@@ -286,7 +286,7 @@ def render_video(ctx: Context) -> Context:
     max_width_ratio = ctx.metadata.get("render_subtitle_max_width_ratio", 0.9)
     bottom_margin_ratio = ctx.metadata.get("render_subtitle_bottom_margin_ratio", 0.08)
 
-    # EP5 V5: Vertical (9:16) safe area auto-adjustment.
+    # Vertical (9:16) safe area auto-adjustment.
     # Platform UI on vertical video (TikTok/Douyin caption area, like/share
     # buttons) covers the bottom 20-25% of the screen. When enabled,
     # push subtitles higher and narrow them so they stay visible.
@@ -295,7 +295,7 @@ def render_video(ctx: Context) -> Context:
         max_width_ratio = min(max_width_ratio, _VERTICAL_MAX_WIDTH_RATIO)
         bottom_margin_ratio = max(bottom_margin_ratio, _VERTICAL_BOTTOM_MARGIN_RATIO)
         ctx.services.console.debug(
-            f"  EP5 vertical safe area: max_width={max_width_ratio:.2f} "
+            f"  vertical safe area: max_width={max_width_ratio:.2f} "
             f"bottom_margin={bottom_margin_ratio:.2f}"
         )
 
@@ -418,11 +418,11 @@ def render_video(ctx: Context) -> Context:
         for future in subtitle_futures:
             clips.append(future.result())
 
-    # EP5: Title card overlay — show movie name at the beginning for a
+    # Title card overlay — show movie name at the beginning for a
     # polished opening. Uses a larger centered font with fade in/out.
     # Duration is controlled by render_title_card_sec (0 = disabled).
     #
-    # NA-M6-S1: If a render_template is provided with ``title_card_text``,
+    # If a render_template is provided with ``title_card_text``,
     # use it (with ``{movie}`` replaced by ctx.movie_name) instead of the
     # bare movie name.  Falls back to ctx.movie_name when no template is
     # present so existing behaviour is unchanged.
@@ -451,10 +451,10 @@ def render_video(ctx: Context) -> Context:
             logger.debug("title card fade effect failed", exc_info=True)
         clips.append(title_clip)
         ctx.services.console.debug(
-            f"  EP5 title card: {title_card_text} ({title_card_sec}s)"
+            f"  title card: {title_card_text} ({title_card_sec}s)"
         )
 
-    # NA-M6-S1: End card overlay — show end card text at the end of the
+    # End card overlay — show end card text at the end of the
     # video (similar to the title card but at the closing).  Soft addition:
     # skipped entirely when ``end_card_text`` is absent from the template.
     end_card_template = render_template.get("end_card_text")
@@ -478,10 +478,10 @@ def render_video(ctx: Context) -> Context:
             logger.debug("end card fade effect failed", exc_info=True)
         clips.append(end_clip)
         ctx.services.console.debug(
-            f"  NA-M6-S1 end card: {end_card_text} ({end_card_sec}s)"
+            f"  end card: {end_card_text} ({end_card_sec}s)"
         )
 
-    # NA-M6-S1: Watermark overlay — small semi-transparent text in the
+    # Watermark overlay — small semi-transparent text in the
     # top-right corner, visible for the entire video duration.
     watermark_template = render_template.get("watermark_text")
     if watermark_template:
@@ -493,10 +493,10 @@ def render_video(ctx: Context) -> Context:
         wm_clip = wm_clip.with_duration(total_duration).with_start(0)
         clips.append(wm_clip)
         ctx.services.console.debug(
-            f"  NA-M6-S1 watermark: {watermark_text}"
+            f"  watermark: {watermark_text}"
         )
 
-    # NA-M6-S1: Disclaimer overlay — small text at the very bottom,
+    # Disclaimer overlay — small text at the very bottom,
     # visible for the entire video duration.  Uses a smaller font and a
     # minimal bottom margin so it sits beneath the subtitle band.
     disclaimer_template = render_template.get("disclaimer_text")
@@ -512,7 +512,7 @@ def render_video(ctx: Context) -> Context:
         disc_clip = disc_clip.with_duration(total_duration).with_start(0)
         clips.append(disc_clip)
         ctx.services.console.debug(
-            f"  NA-M6-S1 disclaimer: {disclaimer_text}"
+            f"  disclaimer: {disclaimer_text}"
         )
 
     final_video = CompositeVideoClip(clips).with_audio(audio_clip)
@@ -669,7 +669,7 @@ def render_video(ctx: Context) -> Context:
                 f"ffmpeg mux failed (exit={proc.returncode}): {proc.stderr}"
             )
     finally:
-        # RS-09: Clean up the .tmp directory (video_only.mp4 and any
+        # Clean up the .tmp directory (video_only.mp4 and any
         # other intermediates) to keep the output dir tidy.
         try:
             shutil.rmtree(tmp_dir, ignore_errors=True)
@@ -692,7 +692,7 @@ def render_video(ctx: Context) -> Context:
 
     ctx.video_path = str(video_path)
 
-    # ── WP4: footage coverage (warn-only gate) ───────────
+    # ── Footage coverage (warn-only gate) ───────────
     # Calculate what fraction of narration segments have real footage
     # (vs text-only fallback). This catches the failure mode where
     # detect_scenes found 0 scenes or match_clips produced no usable
@@ -729,7 +729,7 @@ def render_video(ctx: Context) -> Context:
         if "render_video" not in ctx.metadata["_degraded_steps"]:
             ctx.metadata["_degraded_steps"].append("render_video")
 
-    # ── WP5: duration metrics ────────────────────────────
+    # ── Duration metrics ────────────────────────────
     target_duration = ctx.metadata.get("duration")
     actual_duration = total_duration
     if target_duration:
@@ -740,7 +740,7 @@ def render_video(ctx: Context) -> Context:
             "ratio": round(duration_ratio, 4),
         }
 
-    # ── EP5 V6: cover.jpg export ─────────────────────────
+    # ── Cover.jpg export ─────────────────────────
     # Export a cover image from the highest-score matched frame,
     # with movie name overlay. Controlled by render_cover_export param.
     # Failures are non-fatal — cover.jpg is a bonus artifact.

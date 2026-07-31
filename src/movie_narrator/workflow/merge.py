@@ -119,7 +119,7 @@ def merge_job(
             "async_timeout", "async_max_workers",
             # Video sizes
             "video_sizes",
-            # NA-M6-S1: render template styling
+            # Render template styling
             "render_template",
         ):
             val = getattr(job.params, key)
@@ -147,7 +147,7 @@ def merge_job(
         cli.get("narration_preset"), yaml_get("narration_preset"), None
     )
 
-    # R2-NA-LANG: resolve narration language (default "zh").
+    # Resolve narration language (default "zh").
     # Only add to params if explicitly set by user (CLI or YAML).
     # The default "zh" is handled by build_context's parameter default.
     lang = pick_optional(cli.get("lang"), yaml_get("lang"), None)
@@ -158,7 +158,7 @@ def merge_job(
     else:
         lang = "zh"
 
-    # NA-M1-S4: narrator perspective & focus character — CLI overrides YAML.
+    # Narrator perspective & focus character — CLI overrides YAML.
     perspective = pick_optional(
         cli.get("narrator_perspective"),
         getattr(job.params, "narrator_perspective", None) if job and job.params else None,

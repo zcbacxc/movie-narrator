@@ -38,13 +38,13 @@ class JobParams(BaseModel):
     match_max_scene_reuse: Optional[int] = None
     match_timeline_mode: Optional[str] = None  # "uniform" (default) | "weighted_acts"
     match_act_weights: Optional[list] = None  # e.g. [0.15, 0.25, 0.40, 0.20]
-    match_topk: Optional[int] = None  # EP3: top-K rerank (default 5, 0/1 = top-1)
-    match_topk_reuse_penalty: Optional[float] = None  # EP3: score deduction for recently used scenes (default 0.15)
+    match_topk: Optional[int] = None  # Top-K rerank (default 5, 0/1 = top-1)
+    match_topk_reuse_penalty: Optional[float] = None  # Score deduction for recently used scenes (default 0.15)
     embedding_model_name: Optional[str] = None
-    # ── Vision (EP8) ──
+    # ── Vision ──
     # "none" (default) | "stub" | plugin-registered providers (via register_vision)
     vision_captioner: Optional[str] = None
-    # ── WP6: scene filtering ──
+    # ── Scene filtering ──
     # intro skip, dark frame drop, highlight window (all opt-in, default off)
     match_skip_intro_sec: Optional[float] = None  # drop scenes ending before this offset (default 0)
     match_drop_dark_luma: Optional[float] = None  # mean luma threshold for dark frame drop (default 0 = disabled; try 16-30)
@@ -54,9 +54,9 @@ class JobParams(BaseModel):
     bgm_duck_db: Optional[float] = None
     bgm_normalize: Optional[bool] = None
     audio_target_dbfs: Optional[float] = None
-    # EP6: RMS-based loudness normalization (more consistent than peak)
+    # RMS-based loudness normalization (more consistent than peak)
     bgm_loudnorm: Optional[bool] = None
-    # NA-M4-S1: path to a BGM metadata YAML used for emotion-based selection
+    # Path to a BGM metadata YAML used for emotion-based selection
     bgm_metadata_path: Optional[str] = None
     # ── TTS pacing ──
     tts_pause_ms: Optional[int] = None
@@ -96,11 +96,11 @@ class JobParams(BaseModel):
     render_require_footage: Optional[bool] = None
     render_min_footage_coverage: Optional[float] = None
     render_profile: Optional[str] = None  # "publish" (default) | "draft" (fast iteration)
-    # EP5: title card duration (seconds, 0 = disabled)
+    # Title card duration (seconds, 0 = disabled)
     render_title_card_sec: Optional[float] = None
-    # EP5: export cover.jpg from highest-score frame (bool, default False)
+    # Export cover.jpg from highest-score frame (bool, default False)
     render_cover_export: Optional[bool] = None
-    # EP5: auto-adjust subtitle margins for 9:16 vertical safe area (bool, default True)
+    # Auto-adjust subtitle margins for 9:16 vertical safe area (bool, default True)
     render_vertical_safe_area: Optional[bool] = None
     # v0.7.0: GPU encoding — "auto" (default) | "cpu" | "nvenc" | "vaapi" | "videotoolbox"
     render_encoder: Optional[str] = None
@@ -130,7 +130,7 @@ class JobParams(BaseModel):
     prompt_target_segment_duration: Optional[float] = None
     prompt_max_chars_per_sentence: Optional[int] = None
     prompt_hook_seconds: Optional[int] = None
-    # EP4: hook templates and set pieces for narrative hook enhancement
+    # Hook templates and set pieces for narrative hook enhancement
     hook_templates: Optional[list] = None  # e.g. ["你敢信？{movie}里这段直接封神", ...]
     set_pieces: Optional[list] = None  # e.g. ["公交车战", "天台对峙"] — injected into Phase1 beats
     # ── Async ──
@@ -138,16 +138,16 @@ class JobParams(BaseModel):
     async_max_workers: Optional[int] = None
     # ── Video sizes ──
     video_sizes: Optional[Dict[str, list]] = None
-    # NA-M1-S2: target platform for tone adaptation
+    # Target platform for tone adaptation
     target_platform: Optional[str] = None  # "douyin" | "bilibili" | "youtube" | None
-    # R2-NA-LANG: single source of truth for narration language
+    # Narration language (single source of truth)
     lang: Optional[str] = None  # "zh" (default) | "en" | "ja" | ...
-    # NA-M6-S1: render template — per-preset styling options (title card,
+    # Render template — per-preset styling options (title card,
     # disclaimer, watermark, slogan, end card text).  The {movie}
     # placeholder in any string value is replaced with the movie name at
     # render time.  All keys are optional.
     render_template: Optional[Dict[str, Any]] = None
-    # NA-M1-S4: narrator perspective & character anchor.
+    # Narrator perspective & character anchor.
     # Perspective mode: "omniscient" (default, neutral bird's-eye view),
     # "character" (subjective, tied to focus_character), or "detective"
     # (mystery gradually unfolding).  When empty/None, behaviour is
@@ -180,7 +180,7 @@ class JobConfig(BaseModel):
     subtitle_lang: Optional[str] = None
     subtitle_mode: Optional[str] = None
     narration_preset: Optional[str] = None
-    lang: Optional[str] = None  # R2-NA-LANG: narration language (default "zh")
+    lang: Optional[str] = None  # Narration language (default "zh")
     steps: Optional[JobSteps] = None
     params: Optional[JobParams] = None
 
@@ -229,4 +229,4 @@ class ResolvedJob(BaseModel):
     subtitle_lang: Optional[str] = None
     subtitle_mode: str = "original"
     narration_preset: Optional[str] = None
-    lang: str = "zh"  # R2-NA-LANG: narration language (default Chinese)
+    lang: str = "zh"  # Narration language (default Chinese)

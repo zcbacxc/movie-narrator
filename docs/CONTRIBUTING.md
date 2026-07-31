@@ -27,7 +27,7 @@ pytest -v
 movie-narrator/
 ├── src/movie_narrator/
 │   ├── pipeline/        # 16-step runner, preflight, tts/render/match/... step modules
-│   ├── pipeline/scene_filter.py  # WP6 scene filtering (intro skip, dark frame, highlight window)
+│   ├── pipeline/scene_filter.py  # Scene filtering (intro skip, dark frame, highlight window)
 │   ├── pipeline/registry.py      # StepRegistry integration with runner
 │   ├── tts/             # TTS provider abstraction (edge, openai, mimo, factory, cache)
 │   ├── providers/       # ProviderRegistry (register_tts, register_vision, register_llm, register_research)
@@ -55,6 +55,7 @@ The Web UI (FastAPI + React 18 SPA, launched via the standalone `mn-web` command
 - Follow the existing code style in each module
 - Add tests for new pipeline steps
 - Update `docs/ROADMAP.md` when adding features
+- Do not introduce internal tracking codes (e.g., EP*, WP*, NA-*) in code comments or docstrings. Use plain technical descriptions instead.
 
 ## Commit Convention
 

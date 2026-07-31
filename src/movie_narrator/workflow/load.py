@@ -31,7 +31,7 @@ _ALLOWED_TOP = (
     "subtitle_mode",
     "narration_preset",
     "align_backend",
-    "lang",  # R2-NA-LANG: top-level narration language
+    "lang",  # top-level narration language
 )
 
 
@@ -85,7 +85,7 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
             "match_diversity_window", "match_max_scene_reuse",
             "match_timeline_mode", "match_act_weights",
             "match_topk", "match_topk_reuse_penalty",
-            # Vision (Q-M5: VLM caption provider)
+            # Vision (VLM caption provider)
             "vision_captioner",
             # BGM + loudness
             "bgm_gain_db", "bgm_duck_db", "bgm_normalize", "audio_target_dbfs",
@@ -110,7 +110,7 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
             "render_profile", "render_title_card_sec",
             "render_cover_export", "render_vertical_safe_area",
             "bgm_loudnorm",
-            # NA-M4-S1: BGM emotion-based selection metadata file
+            # BGM emotion-based selection metadata file
             "bgm_metadata_path",
             # Deliverable QA
             "qa_enabled", "qa_max_silence_db",
@@ -124,11 +124,11 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
             "async_timeout", "async_max_workers",
             # Video sizes
             "video_sizes",
-            # NA-M1-S2 / R2-NA-LANG: platform + language
+            # Platform + language
             "target_platform", "lang",
-            # NA-M6-S1: render template styling
+            # Render template styling
             "render_template",
-            # NA-M1-S4: narrator perspective & character anchor
+            # Narrator perspective and character anchor
             "narrator_perspective",
             "focus_character",
         }

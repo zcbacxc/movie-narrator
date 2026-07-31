@@ -1,4 +1,4 @@
-"""Tests for EP5 completion: cover.jpg export + vertical safe area.
+"""Tests for cover.jpg export + vertical safe area.
 
 Tests cover:
 - Vertical safe area auto-adjustment (render_vertical_safe_area param)
@@ -64,7 +64,7 @@ class TestEP5ParamWhitelistSync:
 
 
 class TestEP5PresetInjection:
-    """Verify presets inject the new EP5 params."""
+    """Verify presets inject the new cover export and safe area params."""
 
     def test_douyin_fast_has_cover_export(self):
         from movie_narrator.presets.douyin_fast import DouyinFastPreset

@@ -203,11 +203,16 @@ class RemoteTaskQueue:
     ) -> Optional[TaskResult]:
         """Block until the remote task reaches a terminal state.
 
-        Polls the remote server at ``poll_interval`` seconds.
+        Polls the remote server using exponential backoff starting at
+        ``poll_interval`` seconds. The interval grows by 1.5x each
+        iteration and is capped at 10 seconds to avoid excessive
+        delays for long-running tasks.
+
         Returns the ``TaskResult`` if the task completed, or None
         if not found, cancelled, or timed out.
         """
         start = time.time()
+        interval = poll_interval
         while True:
             task = self.get_task(task_id)
             if task is None:
@@ -218,7 +223,8 @@ class RemoteTaskQueue:
             if timeout is not None and (time.time() - start) > timeout:
                 return None
 
-            time.sleep(poll_interval)
+            time.sleep(min(interval, 10.0))
+            interval = min(interval * 1.5, 10.0)
 
     def shutdown(self, wait: bool = True) -> None:
         """No-op for remote queue — no local resources to clean up."""

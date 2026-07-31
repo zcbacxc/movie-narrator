@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.5] - 2026-07-31
+
+### Changed
+
+- `LocalTaskQueue.active_count` optimized from O(n) storage scan to O(1) in-memory counter, initialized from storage on startup to handle process restart scenarios.
+- `LocalTaskQueue.wait()` replaced busy-wait polling with `threading.Event` notification — worker threads signal completion via event, eliminating unnecessary `time.sleep()` cycles. Falls back to polling for cross-process tasks without events.
+- `RemoteTaskQueue.wait()` polling interval changed from fixed 1s to exponential backoff (start 1s, ×1.5 each poll, cap 10s), reducing unnecessary HTTP requests for long-running tasks.
+- Replaced all internal engineering tracking codes (EP*, WP*, NA-M*, R2-NA-*, F1, Q-P*, Q-M*) in code comments, docstrings, and log messages across 25+ source files and 17 test files with plain technical descriptions.
+- Added contribution guideline: new PRs must not introduce internal tracking codes in comments or docstrings (`docs/CONTRIBUTING.md` / `docs/CONTRIBUTING.zh-CN.md`).
+- Version bumped to 0.7.5. CONTRACT_VERSION unchanged at (0, 7, 2) — no API surface change.
+
+### Fixed
+
+- `_run_task_threadsafe` now correctly decrements active count and signals completion event in the `finally` block, ensuring counters stay accurate even on exceptions.
+- `cancel()` now signals the completion event for the cancelled task, allowing `wait()` callers to return promptly.
+
 ## [0.7.4] - 2026-07-31
 
 ### Security

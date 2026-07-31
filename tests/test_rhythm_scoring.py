@@ -1,4 +1,4 @@
-"""Tests for NA-M1-S3: rhythm-zone influence on match scoring.
+"""Tests for rhythm-zone influence on match scoring.
 
 Covers:
 - ``_compute_rhythm_adjustment`` unit tests (boundary, linearity, no-penalty)

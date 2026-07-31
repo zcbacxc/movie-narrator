@@ -88,8 +88,8 @@ def test_runner_skips_translate_via_short_alias(tmp_path):
 
 
 def test_step_alias_mapping():
-    """_STEP_ALIASES maps all 7 SOFT_STATUS_STEPS to short keys (WP1)."""
-    # WP1: expanded from 1 alias to full coverage
+    """_STEP_ALIASES maps all 7 SOFT_STATUS_STEPS to short keys."""
+    # Expanded from 1 alias to full coverage
     assert _STEP_ALIASES.get("translate_subtitles") == "translate"
     assert _STEP_ALIASES.get("research_plot") == "research"
     assert _STEP_ALIASES.get("align_audio") == "align"
@@ -99,30 +99,30 @@ def test_step_alias_mapping():
     assert _STEP_ALIASES.get("export_clips") == "export"
 
 
-# ── WP1: short alias tests (all 7 steps) ───────────────────
+# ── short alias tests (all 7 steps) ───────────────────
 
 
 def test_runner_skips_research_via_short_alias(tmp_path):
-    """Runner skips research_plot via short alias 'research' (WP1)."""
+    """Runner skips research_plot via short alias 'research'."""
     ctx = _make_runner_ctx(tmp_path, {"research": False})
     _assert_step_skipped_by_runner(ctx, "research_plot", "research")
 
 
 def test_runner_skips_align_via_short_alias(tmp_path):
-    """Runner skips align_audio via short alias 'align' (WP1)."""
+    """Runner skips align_audio via short alias 'align'."""
     ctx = _make_runner_ctx(tmp_path, {"align": False})
     _assert_step_skipped_by_runner(ctx, "align_audio", "align")
 
 
 def test_runner_skips_scene_via_short_alias(tmp_path):
-    """Runner skips detect_scenes via short alias 'scene' (WP1)."""
+    """Runner skips detect_scenes via short alias 'scene'."""
     ctx = _make_runner_ctx(tmp_path, {"scene": False})
     ctx.source_video_path = str(tmp_path / "v.mp4")
     _assert_step_skipped_by_runner(ctx, "detect_scenes", "scene")
 
 
 def test_runner_skips_match_via_short_alias(tmp_path):
-    """Runner skips match_clips via short alias 'match' (WP1)."""
+    """Runner skips match_clips via short alias 'match'."""
     ctx = _make_runner_ctx(tmp_path, {"match": False})
     ctx.scenes = [Scene(index=0, start=0.0, end=1.0)]
     ctx.timed_segments = [TimedSegment(text="A", start=0.0, end=1.0)]
@@ -130,7 +130,7 @@ def test_runner_skips_match_via_short_alias(tmp_path):
 
 
 def test_runner_skips_bgm_via_short_alias(tmp_path):
-    """Runner skips mix_bgm via short alias 'bgm' (WP1)."""
+    """Runner skips mix_bgm via short alias 'bgm'."""
     audio = tmp_path / "n.mp3"
     audio.write_bytes(b"00")
     ctx = _make_runner_ctx(tmp_path, {"bgm": False})
@@ -141,7 +141,7 @@ def test_runner_skips_bgm_via_short_alias(tmp_path):
 
 
 def test_runner_skips_export_via_short_alias(tmp_path):
-    """Runner skips export_clips via short alias 'export' (WP1)."""
+    """Runner skips export_clips via short alias 'export'."""
     ctx = _make_runner_ctx(tmp_path, {"export": False})
     ctx.metadata["export_clips"] = True
     _assert_step_skipped_by_runner(ctx, "export_clips", "export")

@@ -37,19 +37,19 @@ class BilibiliLongPreset:
             "prompt_target_segment_duration": 7.5,
             "prompt_max_chars_per_sentence": 32,
             "prompt_hook_seconds": 7,
-            # EP4: hook templates — analytical, depth-driven openings
+            # Hook templates — analytical, depth-driven openings
             "hook_templates": [
                 "今天聊聊{movie}，一部被时间证明的经典",
                 "{movie}为什么值得反复观看？",
                 "从{movie}看导演的叙事野心",
             ],
-            # EP5: title card + cover export + vertical safe area for long-form
+            # Title card, cover export, and vertical safe area for long-form
             "render_title_card_sec": 1.2,
             "render_cover_export": True,
             "render_vertical_safe_area": True,
-            # NA-M1-S2: platform tone adaptation
+            # Platform tone adaptation
             "target_platform": "bilibili",
-            # NA-M6-S1: render template — per-preset styling overlays
+            # Render template — per-preset styling overlays
             "render_template": {
                 "title_card_text": "{movie}",
                 "disclaimer_text": "解说仅供交流，请支持正版",

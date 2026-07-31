@@ -1,4 +1,4 @@
-"""Tests for Q-P7 reference video imitation.
+"""Tests for reference video imitation.
 
 Covers metrics dataclass, metrics-to-params mapping,
 preset classification, report formatting, and the analyze

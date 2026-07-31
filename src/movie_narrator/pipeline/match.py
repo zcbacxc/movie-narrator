@@ -133,7 +133,7 @@ def _build_scene_captions(
         Each tuple is ``(label, is_fake)`` where ``is_fake=True`` marks
         a placeholder label (no real transcript). Callers use the flag
         instead of string-pattern matching to detect fake captions
-        (F2 fix — eliminates fragile startswith("scene ") heuristic).
+        (eliminates fragile startswith("scene ") heuristic).
     """
     if not transcript:
         return [
@@ -252,7 +252,7 @@ def _greedy_topk_assign(
     scene_start: float = 0.0,
     scene_span: float = 0.0,
 ) -> list[tuple[int, float, str]]:
-    """Greedy top-K assignment with order-backtrack reuse penalty (EP3).
+    """Greedy top-K assignment with order-backtrack reuse penalty.
 
     For each narration segment, computes top-K candidate scenes from the
     embedding similarity, then picks the candidate with the highest
@@ -260,7 +260,7 @@ def _greedy_topk_assign(
     segments get a ``reuse_penalty`` deduction.
 
     When *beats_meta* is provided and a beat carries a ``rhythm_zone``,
-    a soft timeline-position bonus (NA-M1-S3) is added to each
+    a soft timeline-position bonus is added to each
     candidate's raw score so that scenes at the rhythm zone's preferred
     position in the film get a small boost.  The bonus is bounded by
     ``_RHYTHM_ADJUSTMENT_MAX`` and never turns into a penalty.
@@ -470,7 +470,7 @@ def _clamp_scene_window(
 def _apply_diversity(
     matched_clips: list, scenes: list, window: int = 3, max_reuse: int = 2
 ) -> tuple[int, list[dict]]:
-    """Post-process matched clips to reduce consecutive scene reuse (WP3).
+    """Post-process matched clips to reduce consecutive scene reuse.
 
     If a scene index appears more than ``max_reuse`` times within a
     sliding window of ``window`` segments, swap the latest occurrence
@@ -536,7 +536,7 @@ def _apply_diversity(
     return swaps, swaps_log
 
 
-# ── EP1: Act-weighted timeline partitioning ────────────────
+# ── Act-weighted timeline partitioning ────────────────
 
 
 _DEFAULT_ACT_WEIGHTS = [0.15, 0.25, 0.40, 0.20]
@@ -632,7 +632,7 @@ def _get_act_candidate_indices(
     return indices
 
 
-# ── NA-M1-S3: rhythm-zone scene-density hint ───────────────
+# ── Rhythm-zone scene-density hint ───────────────
 
 
 def _apply_rhythm_density_hint(merge_min: float, beats_meta: list[dict]) -> float:
@@ -671,7 +671,7 @@ def _apply_rhythm_density_hint(merge_min: float, beats_meta: list[dict]) -> floa
     return max(0.5, adjusted)
 
 
-# ── NA-M1-S3: rhythm-zone match score weighting ─────────────
+# ── Rhythm-zone match score weighting ─────────────
 
 
 # Maps each rhythm_zone to the preferred timeline position (normalized 0–1).
@@ -749,7 +749,7 @@ def match_clips(ctx: Context) -> Context:
     clamp_min = ctx.metadata.get("match_speed_clamp_min", 0.85)
     clamp_max = ctx.metadata.get("match_speed_clamp_max", 1.25)
     merge_min = ctx.metadata.get("scene_merge_min_duration", 2.0)
-    # NA-M1-S3: soft rhythm-zone hint — nudge the merge threshold based on
+    # Soft rhythm-zone hint — nudge the merge threshold based on
     # the dramatic-arc zones present in the beats (hook -> denser, settle ->
     # sparser). No-op when beats lack rhythm_zone markings.
     beats_meta = ctx.metadata.get("beats_meta", [])
@@ -780,7 +780,7 @@ def _match_clips_impl(
 ) -> Context:
     # Optionally merge short scenes to reduce extreme speed factors
     scenes = ctx.scenes
-    scenes_in = len(ctx.scenes)  # F1: original scene count
+    scenes_in = len(ctx.scenes)  # original scene count
     if merge_min > 0:
         scenes = _merge_short_scenes(scenes, min_duration=merge_min)
         ctx.services.console.debug(
@@ -790,7 +790,7 @@ def _match_clips_impl(
     # Drop tiny scenes (e.g. <0.4s) that produce jarring sub-frame cuts.
     # If filtering would remove *all* scenes, keep the merged list as a
     # last-resort so matching still produces output.
-    scenes_after_merge = len(scenes)  # F1: count after merge, before drop
+    scenes_after_merge = len(scenes)  # count after merge, before drop
     if drop_min > 0 and scenes:
         filtered = [s for s in scenes if (s.end - s.start) >= drop_min]
         if filtered:
@@ -799,7 +799,7 @@ def _match_clips_impl(
             for i, s in enumerate(scenes):
                 s.index = i
 
-    # ── WP6: Scene filtering (intro skip + dark frame + highlight window) ──
+    # ── Scene filtering (intro skip + dark frame + highlight window) ──
     # All three are opt-in via job params. Order: intro → dark → window.
     # Each filter is independently toggleable; defaults preserve existing
     # behavior (no filtering when params are absent or zero).
@@ -814,7 +814,7 @@ def _match_clips_impl(
         scenes, intro_dropped = filter_intro_scenes(scenes, skip_intro)
         if intro_dropped:
             ctx.services.console.debug(
-                f"  WP6 intro skip: dropped {intro_dropped} scenes "
+                f"  intro skip: dropped {intro_dropped} scenes "
                 f"(end <= {skip_intro}s) → {len(scenes)} remaining"
             )
             ctx.metadata["wp6_intro_dropped"] = intro_dropped
@@ -826,7 +826,7 @@ def _match_clips_impl(
         )
         if dark_dropped:
             ctx.services.console.debug(
-                f"  WP6 dark drop: removed {dark_dropped} scenes "
+                f"  dark drop: removed {dark_dropped} scenes "
                 f"(luma < {dark_luma}) → {len(scenes)} remaining"
             )
             ctx.metadata["wp6_dark_dropped"] = dark_dropped
@@ -836,7 +836,7 @@ def _match_clips_impl(
         scenes, win_dropped = apply_source_window(scenes, source_window)
         if win_dropped:
             ctx.services.console.debug(
-                f"  WP6 highlight window {source_window}: "
+                f"  highlight window {source_window}: "
                 f"dropped {win_dropped} scenes → {len(scenes)} remaining"
             )
             ctx.metadata["wp6_window_dropped"] = win_dropped
@@ -850,7 +850,7 @@ def _match_clips_impl(
     last_end = ctx.timed_segments[-1].end
     narr_span = last_end - first_start
 
-    # ── EP1: Act-weighted timeline partitioning ─────────────
+    # ── Act-weighted timeline partitioning ─────────────
     # When match_timeline_mode="weighted_acts", partition scenes into 4
     # equal-time buckets and assign narration segments to acts by weight.
     # Each segment's heuristic midpoint is mapped within its assigned
@@ -863,7 +863,7 @@ def _match_clips_impl(
         and len(scenes) >= 8
         and len(ctx.timed_segments) >= 4
     )
-    # EP3: top-K rerank params
+    # Top-K rerank params
     topk = ctx.metadata.get("match_topk", 5)
     reuse_penalty = ctx.metadata.get("match_topk_reuse_penalty", 0.15)
     if use_weighted_acts:
@@ -872,7 +872,7 @@ def _match_clips_impl(
             len(ctx.timed_segments), act_weights
         )
         ctx.services.console.debug(
-            f"  EP1 weighted_acts: {len(act_weights)} acts, "
+            f"  weighted_acts: {len(act_weights)} acts, "
             f"segments per act: {[act_assignments.count(a) for a in range(len(act_weights))]}"
         )
         # Pre-compute act -> segment indices map (O(n) once, not O(n²) per segment)
@@ -888,11 +888,11 @@ def _match_clips_impl(
     # containing scene window. Produces a stable candidate per segment with
     # score=1.0 (plan T14 normative rule).
     #
-    # EP2: When beat metadata (approx_ratio) is available from Phase 1,
+    # When beat metadata (approx_ratio) is available from Phase 1,
     # use it as the primary time anchor — it's the LLM's estimate of where
     # in the film this plot point occurs, which is more accurate than
     # uniform narration-position mapping for improving D2 (scene-dialogue
-    # relevance). Priority: EP2 beat anchor > EP1 weighted acts > uniform.
+    # relevance). Priority: beat anchor > weighted acts > uniform.
     beats_meta = ctx.metadata.get("beats_meta", [])
     use_beat_anchor = (
         len(beats_meta) == len(ctx.timed_segments)
@@ -903,7 +903,7 @@ def _match_clips_impl(
             1 for bm in beats_meta if bm.get("approx_ratio") is not None
         )
         ctx.services.console.debug(
-            f"  EP2 beat anchor: {n_with_ratio}/{len(beats_meta)} "
+            f"  beat anchor: {n_with_ratio}/{len(beats_meta)} "
             f"segments have approx_ratio — using beat-based time anchoring"
         )
 
@@ -913,7 +913,7 @@ def _match_clips_impl(
         approx_ratio = beat_meta.get("approx_ratio")
 
         if approx_ratio is not None and 0.0 <= approx_ratio <= 1.0:
-            # EP2: Use beat-based anchoring — LLM's estimate of where
+            # Use beat-based anchoring — LLM's estimate of where
             # this plot point occurs in the film timeline.
             src_mid = scene_start + approx_ratio * scene_span
 
@@ -925,7 +925,7 @@ def _match_clips_impl(
             if containing is None:
                 containing = scenes[0]
         elif use_weighted_acts:
-            # EP1: map within assigned act bucket
+            # Map within assigned act bucket
             act_idx = act_assignments[i]
             bucket = act_scenes[act_idx]
             if not bucket:
@@ -984,7 +984,7 @@ def _match_clips_impl(
         )
 
     # --- Optional embedding re-rank ----------------------------------------
-    # F1: initialize tracking variables for match_summary (defined in all
+    # Initialize tracking variables for match_summary (defined in all
     # branches below, but referenced at function end after the try/except).
     final = []
     scene_captions: List[Tuple[str, bool]] = []
@@ -1035,7 +1035,7 @@ def _match_clips_impl(
 
             scene_captions = _build_scene_captions(scenes, transcript)
 
-            # ── EP8: Vision captioner integration ───────────────
+            # ── Vision captioner integration ───────────────
             # When vision_captioner is configured, use visual scene
             # descriptions to supplement or replace audio-transcript
             # captions. The stub returns the same placeholder format
@@ -1056,25 +1056,25 @@ def _match_clips_impl(
                         (label, is_stub) for label in vision_labels
                     ]
                     ctx.services.console.debug(
-                        f"  EP8 vision captioner ({vision_provider}): "
+                        f"  vision captioner ({vision_provider}): "
                         f"{len(scene_captions)} captions, "
                         f"{'stub placeholders' if is_stub else 'real descriptions'}"
                     )
                 except Exception as ve:
                     ctx.services.console.debug(
-                        f"  EP8 vision captioner failed ({ve}); "
+                        f"  vision captioner failed ({ve}); "
                         f"using audio-transcript captions"
                     )
-                    logger.debug("EP8 vision captioner failed", exc_info=True)
+                    logger.debug("vision captioner failed", exc_info=True)
 
-            # ── MS-02: Truth in match (Q-M1) ──────────────
+            # ── Truth-in-match validation ──────────────
             # Detect fake captions (placeholder labels without real transcript).
             # If too many scenes have fake captions, embedding re-rank is
             # meaningless — it's matching narration against "scene 0 from
             # 0.0s to 15.0s" strings that carry no semantic information.
             # Threshold: if >70% of labels are fake, force heuristic.
             #
-            # F2 fix: use the is_fake flag from _build_scene_captions
+            # Use the is_fake flag from _build_scene_captions
             # instead of fragile string-pattern matching. This eliminates
             # the implicit dependency on the "scene {i} from {s1}s to {s2}s"
             # label template — if the template changes, the flag still works.
@@ -1093,12 +1093,12 @@ def _match_clips_impl(
             else:
                 ctx.metadata["match_captions_fake"] = False
                 emb_model = ctx.metadata.get("embedding_model_name", _EMBEDDING_MODEL_NAME)
-                # F2: extract labels from (label, is_fake) tuples
+                # Extract labels from (label, is_fake) tuples
                 scene_labels = [label for label, _ in scene_captions]
                 scene_vecs = _embed_texts(scene_labels, emb_model)
                 narration_vecs = _embed_texts([seg.text for seg in ctx.timed_segments], emb_model)
 
-                # EP3: greedy top-K assignment with reuse penalty
+                # Greedy top-K assignment with reuse penalty
                 topk_results = _greedy_topk_assign(
                     narration_vecs=narration_vecs,
                     scene_vecs=scene_vecs,
@@ -1118,7 +1118,7 @@ def _match_clips_impl(
                 for i, (scene_idx, score, source) in enumerate(topk_results):
                     best_scene = scenes[scene_idx]
                     final.append((heuristic[i], score, best_scene, source))
-                    # F1: collect raw embedding score (before low-score
+                    # Collect raw embedding score (before low-score
                     # fallback overrides it to 1.0). Lets match_summary
                     # distinguish "matched well" from "matched poorly".
                     raw_scores.append(score)
@@ -1150,7 +1150,7 @@ def _match_clips_impl(
             scene_obj = next(s for s in scenes if s.index == h["scene_index"])
             source = "heuristic"
             score = 1.0
-            low_score_fallback_count += 1  # F1: count low-score fallbacks
+            low_score_fallback_count += 1  # count low-score fallbacks
 
         narr_duration = h["narr_end"] - h["narr_start"]
         # Apply speed clamp: adjust src_start/src_end so factor stays in [clamp_min, clamp_max]
@@ -1180,7 +1180,7 @@ def _match_clips_impl(
 
     ctx.matched_clips = matched_clips
 
-    # ── WP3: Diversity post-processing ──────────────────────
+    # ── Diversity post-processing ──────────────────────
     # Prevent consecutive scene reuse: if the same scene index appears
     # more than match_max_scene_reuse times within match_diversity_window
     # segments, swap later occurrences to the nearest unused scene.
@@ -1233,7 +1233,7 @@ def _match_clips_impl(
             f"have low composite score (< 0.4)."
         )
 
-    # Log speed factor stats + collect for match_summary (F1)
+    # Log speed factor stats + collect for match_summary
     speed_factors: List[float] = []
     if matched_clips:
         for mc in matched_clips:
@@ -1254,11 +1254,11 @@ def _match_clips_impl(
         encoding="utf-8",
     )
 
-    # ── F1: match_summary for metadata.json (full schema) ──────
+    # ── match_summary for metadata.json (full schema) ──────
     # Records the match quality breakdown so manual QA can verify
     # the main path isn't "全 heuristic 糊弄" (O9/O10 in checklist).
     # Schema per CORE_ENGINE_TREATMENT_PLAN §5.2.3.
-    # EP3: sources can be "embedding_topk", "embedding_top1", or "heuristic"
+    # Sources can be "embedding_topk", "embedding_top1", or "heuristic"
     embedding_count = sum(
         1 for mc in matched_clips
         if mc.source in ("embedding", "embedding_topk", "embedding_top1")

@@ -1,4 +1,4 @@
-"""Tests for emotion-weighted BGM selection (NA-M4-S1+).
+"""Tests for emotion-weighted BGM selection.
 
 Verifies that:
 1. _compute_emotion_profile returns normalised distribution

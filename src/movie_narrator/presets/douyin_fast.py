@@ -26,7 +26,7 @@ class DouyinFastPreset:
             "bgm_duck_db": -10.0,
             "bgm_normalize": True,
             "audio_target_dbfs": -14.0,
-            # EP6: loudnorm for consistent loudness across short-form content
+            # RMS-based loudnorm for consistent loudness across short-form content
             "bgm_loudnorm": True,
             # Render: 紧凑字幕
             "render_subtitle_position": "bottom",
@@ -38,7 +38,7 @@ class DouyinFastPreset:
             "prompt_target_segment_duration": 3.3,
             "prompt_max_chars_per_sentence": 15,
             "prompt_hook_seconds": 3,
-            # EP4: hook templates — punchy, scroll-stop openings
+            # Hook templates — punchy, scroll-stop openings
             "hook_templates": [
                 "你敢信？{movie}里这段直接封神",
                 "看完{movie}我三天没缓过来",
@@ -46,13 +46,13 @@ class DouyinFastPreset:
                 "别被{movie}的片名骗了，这片太猛了",
                 "{movie}里这个反转，我看了五遍才懂",
             ],
-            # EP5: title card + cover export + vertical safe area
+            # Title card, cover export, and vertical safe area
             "render_title_card_sec": 1.0,
             "render_cover_export": True,
             "render_vertical_safe_area": True,
-            # NA-M1-S2: platform tone adaptation
+            # Platform tone adaptation
             "target_platform": "douyin",
-            # NA-M6-S1: render template — per-preset styling overlays
+            # Render template — per-preset styling overlays
             "render_template": {
                 "title_card_text": "{movie}",
                 "slogan_text": "关注不迷路",

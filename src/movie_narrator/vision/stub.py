@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""StubVisionCaptioner — placeholder captions for CI and dev (EP8).
+"""StubVisionCaptioner — placeholder captions for CI and dev (vision captioner integration).
 
 Returns deterministic placeholder labels so the embedding re-rank
 path stays exercisable without a real vision model. Directly
@@ -21,7 +21,7 @@ class StubVisionCaptioner(VisionCaptioner):
     ``"scene {index} from {start}s to {end}s"``. This ensures
     backward compatibility — the fake-caption guard in match.py
     will detect these as placeholders and fall back to heuristic
-    matching, exactly as before EP8 integration.
+    matching, exactly as before vision captioner integration.
     """
 
     def caption_scenes(

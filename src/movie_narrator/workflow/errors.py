@@ -3,7 +3,7 @@
 
 """Workflow-level error classes.
 
-R2-NA-ORCH: introduces a ``retryable`` flag on provider/service errors so
+Introduces a ``retryable`` flag on provider/service errors so
 the pipeline runner can distinguish transient (network-type) failures from
 permanent (config/logic) ones and offer interactive retry accordingly.
 

@@ -27,7 +27,7 @@ pytest -v
 movie-narrator/
 ├── src/movie_narrator/
 │   ├── pipeline/        # 16 步 pipeline、preflight、tts/render/match 等 step 模块
-│   ├── pipeline/scene_filter.py  # WP6 场景过滤（片头跳过、黑帧检测、高亮窗口）
+│   ├── pipeline/scene_filter.py  # 场景过滤（片头跳过、黑帧检测、高亮窗口）
 │   ├── pipeline/registry.py      # StepRegistry 与 runner 集成
 │   ├── tts/             # TTS provider 抽象层（edge、openai、mimo、factory、cache）
 │   ├── providers/       # ProviderRegistry（register_tts、register_vision、register_llm、register_research）
@@ -55,6 +55,7 @@ Web UI（FastAPI + React 18 SPA，安装 `pip install movie-narrator-web` 后通
 - 遵循各模块已有的代码风格
 - 新增的 pipeline 步骤请补齐测试
 - 新增功能时同步更新 `docs/ROADMAP.md`
+- 禁止在代码注释或文档字符串中引入内部追踪代号（如 EP*、WP*、NA-*）。请使用简明的技术说明。
 
 ## 提交规范
 

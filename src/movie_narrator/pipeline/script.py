@@ -15,7 +15,7 @@ from ..workflow.errors import is_network_error
 from time import sleep
 
 
-# ── WP5: max_chars hard truncation ──────────────────────
+# ── max_chars hard truncation ──────────────────────
 # LLM may ignore the max_chars prompt instruction. This post-processing
 # step hard-truncates any sentence exceeding the limit, cutting at the
 # last punctuation mark before the limit for natural breaks.
@@ -96,7 +96,7 @@ def _trim_segments(segments: List[ScriptSegment], target: int) -> List[ScriptSeg
 
 # ── Phase 1: plot beat extraction ──────────────────────────
 
-# NA-M1-S3: rhythm_zone / emotion marking.
+# Rhythm_zone / emotion marking.
 # Generic dramatic-arc theory (hook -> rising -> peak -> settle) and a
 # small set of emotion tags. Used to validate LLM output; invalid values
 # silently fall back to None (same leniency as act / approx_ratio).
@@ -119,7 +119,7 @@ def _generate_plot_beats(
             f"Genres: {', '.join(ctx.research.genres)}\n"
         )
 
-    # NA-M2-S1: Enrich the research context with structured movie card
+    # Enrich the research context with structured movie card
     # data (director / cast / genres) to anchor the LLM in verified facts
     # and reduce hallucination. The card is optional — when absent the
     # block is unchanged (backward compatible).
@@ -179,7 +179,7 @@ def _generate_plot_beats(
     # Filter out None / non-string / empty beats.
     # str(None) = "None" is truthy and would silently pass the old
     # `if str(b).strip()` check, producing a meaningless "None" beat.
-    # EP2: Also extract beat metadata (act, approx_ratio) when LLM
+    # Also extract beat metadata (act, approx_ratio) when LLM
     # returns structured objects. Falls back to plain strings for
     # backward compatibility.
     cleaned = []
@@ -205,7 +205,7 @@ def _generate_plot_beats(
                     ratio = max(0.0, min(1.0, ratio))  # clamp to [0, 1]
             except (TypeError, ValueError):
                 ratio = None
-            # NA-M1-S3: parse rhythm_zone / emotion, validate against
+            # Parse rhythm_zone / emotion, validate against
             # allowed values; fall back to None on invalid/missing input
             # (same leniency as act / approx_ratio above).
             rhythm_zone = b.get("rhythm_zone")
@@ -226,7 +226,7 @@ def _generate_plot_beats(
         raise ValueError(
             f"Phase 1: after filtering None/empty beats, expected {target_count}, got {len(cleaned)}"
         )
-    # EP2: Store beat metadata for match.py time anchoring
+    # Store beat metadata for match.py time anchoring
     ctx.metadata["beats_meta"] = beats_meta
     return cleaned
 
@@ -306,7 +306,7 @@ def _expand_beats_to_script(
         # silent TTS audio and break the count contract.
         if text:
             original_len = len(text)
-            # WP5: hard-truncate to max_chars (LLM may ignore prompt)
+            # Hard-truncate to max_chars (LLM may ignore prompt)
             text = _truncate_to_max_chars(text, max_chars)
             if len(text) < original_len:
                 truncated_count += 1
@@ -317,7 +317,7 @@ def _expand_beats_to_script(
             if text:
                 segments.append(ScriptSegment(text=text))
 
-    # WP5: audit metadata — track truncation for diagnostics
+    # Audit metadata — track truncation for diagnostics
     if truncated_count > 0:
         ctx.metadata["script_truncated"] = {
             "count": truncated_count,
@@ -331,7 +331,7 @@ def _expand_beats_to_script(
     return segments
 
 
-# ── Phase 3: script self-check judge (NA-M1-S5) ──────────
+# ── Phase 3: script self-check judge ──────────
 # A lightweight LLM quality gate that scores the expanded script on
 # five dimensions (hook, spoiler, accuracy, anti-AI compliance,
 # narrative adherence) before it is accepted.
@@ -590,7 +590,7 @@ def generate_script(ctx: Context) -> Context:
     Phase 1 extracts exactly N plot beats (low temperature, structured).
     Phase 1.5 deduplicates beats that are semantically similar.
     Phase 2 expands each beat into one narration line (style tags applied).
-    Phase 3 (NA-M1-S5) judges the expanded script on five dimensions
+    Phase 3 judges the expanded script on five dimensions
     (hook, spoiler, accuracy, anti-AI compliance, narrative adherence);
     a "retry" verdict re-runs the whole loop when retries remain.
     Phase 4 validates the final script (length, diversity, hook presence).
@@ -603,7 +603,7 @@ def generate_script(ctx: Context) -> Context:
     base_count = ctx.metadata.get("prompt_target_sentences")
     seg_duration = ctx.metadata.get("prompt_target_segment_duration")
 
-    # NA-M1-S5+: Track judge scores across retry attempts so the feedback
+    # Track judge scores across retry attempts so the feedback
     # hint can be injected into the next retry's expand prompt, turning
     # blind retries into targeted corrections.
     prev_judge_scores: dict | None = None
@@ -655,7 +655,7 @@ def generate_script(ctx: Context) -> Context:
                         prev_judge_scores=prev_judge_scores,
                     )
 
-                # NA-M1-S5: Phase 3 — judge the expanded script (before trim).
+                # Phase 3 — judge the expanded script (before trim).
                 # The judge is a lightweight quality gate; any failure is
                 # caught so it never breaks the pipeline (treat as pass).
                 try:
@@ -753,7 +753,7 @@ def generate_script(ctx: Context) -> Context:
                     ctx.metadata["script_source"] = "ci_mock"
                     ctx.metadata["script_degraded"] = True
                     return ctx
-                # R2-NA-ORCH: classify the underlying failure. Network /
+                # Classify the underlying failure. Network /
                 # timeout errors (ConnectionError, TimeoutError, openai
                 # APITimeoutError / APIConnectionError / RateLimitError) are
                 # transient → mark the wrapped exception retryable so the

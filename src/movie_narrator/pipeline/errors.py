@@ -47,7 +47,7 @@ class PipelineCancelled(RuntimeError):
 
 
 class PipelinePaused(RuntimeError):
-    """Pipeline paused at a step boundary for human-in-the-loop (EP9).
+    """Pipeline paused at a step boundary (human-in-the-loop checkpoint).
 
     Raised by ``run_pipeline`` when ``ctx.metadata["pause_at"]`` matches
     the step that just completed. The pipeline state is serialized to

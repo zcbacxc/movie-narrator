@@ -53,7 +53,7 @@ def build_metadata_json(ctx: Context) -> Dict[str, Any]:
         ),
         "render_subtitle_path": ctx.render_subtitle_path,
         "warnings": ctx.metadata.get("warnings", []),
-        # ── WP1: diagnostic fields (for manual QA & debugging) ──
+        # ── diagnostic fields (for manual QA & debugging) ──
         # These let you verify pipeline health from metadata.json alone,
         # without inspecting logs.
         "script_target_count": ctx.metadata.get("script_target_count"),
@@ -69,11 +69,11 @@ def build_metadata_json(ctx: Context) -> Dict[str, Any]:
         # ── v0.5.12: holistic quality dashboard ──
         "quality_dashboard": ctx.metadata.get("quality_dashboard"),
         "video_qa": ctx.metadata.get("video_qa"),
-        # ── WP4: footage coverage (how many segments have real footage) ──
+        # ── footage coverage (how many segments have real footage) ──
         "footage_coverage": ctx.metadata.get("footage_coverage"),
-        # ── WP5: duration metrics (target vs actual) ──
+        # ── duration metrics (target vs actual) ──
         "duration_metrics": ctx.metadata.get("duration_metrics"),
-        # ── WP5: script truncation audit ──
+        # ── script truncation audit ──
         "script_truncated": ctx.metadata.get("script_truncated"),
     }
 

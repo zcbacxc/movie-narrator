@@ -64,7 +64,7 @@ def _cli(**overrides):
 
 
 class TestNarratorPerspective:
-    """Edge cases for build_perspective_hint (NA-M1-S4)."""
+    """Edge cases for build_perspective_hint."""
 
     def test_perspective_omniscient_default(self):
         """Default 'omniscient' perspective injects no extra hint."""
@@ -136,7 +136,7 @@ class TestNarratorPerspective:
 
 
 class TestPlatformTone:
-    """Edge cases for build_platform_tone_hint (NA-M1-S2)."""
+    """Edge cases for build_platform_tone_hint."""
 
     def test_platform_douyin(self):
         """target_platform=douyin produces the douyin tone hint."""
@@ -184,7 +184,7 @@ class TestPlatformTone:
 
 
 class TestLanguageChain:
-    """Edge cases for lang parameter merging (R2-NA-LANG)."""
+    """Edge cases for lang parameter merging."""
 
     def test_lang_not_set_when_none(self):
         """lang=None (neither CLI nor YAML) does not write to params.
@@ -242,7 +242,7 @@ class TestLanguageChain:
 
 
 class TestRetryableError:
-    """Edge cases for retryable error classification (R2-NA-ORCH)."""
+    """Edge cases for retryable error classification."""
 
     def test_retryable_error_classification(self):
         """Network errors are classified as retryable by is_network_error."""
