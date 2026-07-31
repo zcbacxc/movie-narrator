@@ -28,7 +28,7 @@ def _export_robust(seg: AudioSegment, out: Path) -> str:
     try:
         seg.export(out, format="mp3")
         return str(out)
-    except Exception as e:
+    except Exception:
         logger.debug(
             "MP3 export failed for %s, falling back to WAV", out, exc_info=True
         )
@@ -76,7 +76,7 @@ def ensure_final_audio(ctx: Context) -> Context:
     try:
         narration = AudioSegment.from_file(ctx.audio_path)
         ctx.final_audio_path = _normalize_narration(ctx, narration)
-    except Exception as e:
+    except Exception:
         logger.debug(
             "Normalization failed for %s, falling back to raw audio",
             ctx.audio_path,
@@ -207,7 +207,7 @@ def select_bgm_by_emotion(ctx: Context) -> Optional[str]:
     try:
         with metadata_path.open("r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
-    except Exception as e:
+    except Exception:
         logger.debug(
             "Failed to parse BGM metadata %s, returning None",
             metadata_path,
@@ -436,7 +436,6 @@ def _mix_ambient_track(
     # Simple ducking: reduce ambient volume further during narration
     # We use a moderate fixed duck since per-segment ducking is already
     # applied to BGM — the ambient sits even lower in the mix.
-    duck_factor = float(db_to_float(duck_db))
     ambient = ambient.apply_gain(duck_db)
 
     mixed = narration_or_mixed.overlay(ambient)

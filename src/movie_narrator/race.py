@@ -299,7 +299,6 @@ def run_race(
     from .pipeline.runner import build_context, common_build_kwargs, run_pipeline
     from .pipeline.errors import PipelinePaused
     from .pipeline.preflight import PreflightError
-    from .utils.sanitize import sanitize_filename
 
     results: List[CandidateResult] = []
 

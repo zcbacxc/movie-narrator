@@ -6,7 +6,7 @@ import unicodedata
 from pathlib import Path
 from typing import Optional
 
-from ..models import Context, StepResult
+from ..models import Context
 
 _VIDEO_EXTS = {".mp4", ".mkv", ".mov", ".avi", ".webm", ".m4v"}
 

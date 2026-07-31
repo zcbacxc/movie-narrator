@@ -11,9 +11,12 @@ with the appropriate MoviePy effects applied.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from moviepy import VideoClip
 
 # Maximum fraction of a subtitle clip's duration that an entrance
 # animation may consume. Subtitle segments are short, so we cap the
@@ -58,7 +61,7 @@ def _import_fade_effect():
     try:
         from moviepy.video.fx import FadeIn
         return FadeIn
-    except Exception as e:  # noqa: BLE001 — broad on purpose, see docstring
+    except Exception:  # noqa: BLE001 — broad on purpose, see docstring
         logger.debug("Failed to import FadeIn effect", exc_info=True)
         return None
 
@@ -70,7 +73,7 @@ def _safe_clip_duration(clip: VideoClip) -> float:
         if d is None:
             return 0.0
         return float(d)
-    except Exception as e:  # noqa: BLE001
+    except Exception:  # noqa: BLE001
         logger.debug("Failed to read clip duration", exc_info=True)
         return 0.0
 
@@ -148,7 +151,7 @@ def apply_text_animation(
             # Fallback: fade.
             if FadeIn is not None:
                 return clip.with_effects([FadeIn(min(anim_dur, clip_duration))])
-    except Exception as e:  # noqa: BLE001 — graceful degradation
+    except Exception:  # noqa: BLE001 — graceful degradation
         # Any MoviePy fx failure must not abort the render.
         logger.debug("Text animation failed; returning original clip", exc_info=True)
         return clip
@@ -218,6 +221,6 @@ def _apply_slide_entrance(
         if FadeIn is not None and callable(getattr(slid, "with_effects", None)):
             slid = slid.with_effects([FadeIn(in_dur)])
         return slid
-    except Exception as e:  # noqa: BLE001 — graceful degradation
+    except Exception:  # noqa: BLE001 — graceful degradation
         logger.debug("Slide entrance animation failed", exc_info=True)
         return None

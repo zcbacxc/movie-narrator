@@ -38,10 +38,11 @@ Contract versioning (semver):
     - PATCH: bug fixes / doc changes (no API surface change)
 """
 
+# ruff: noqa: E402  (re-exports are intentionally placed after the version guard below)
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional, Protocol, runtime_checkable
+from typing import Callable, Optional, Protocol, runtime_checkable
 
 # ── Contract version (semver) ──────────────────────────────
 # External consumers (movie-narrator-web, third-party plugins) depend
@@ -95,7 +96,7 @@ from .pipeline.runner import PARAM_WHITELIST, build_context, run_pipeline
 
 # ── Re-exports: models ─────────────────────────────────────
 
-from .models import Context, ResearchInfo, Services
+from .models import Context, ResearchInfo, Services, SubtitlePaths
 
 # ── Re-exports: registries ─────────────────────────────────
 

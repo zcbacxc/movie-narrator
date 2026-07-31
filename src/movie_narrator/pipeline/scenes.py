@@ -3,7 +3,6 @@
 
 import json
 from pathlib import Path
-from typing import Optional
 
 from ..models import Context, Scene, StepResult
 from ..utils.optional_deps import probe

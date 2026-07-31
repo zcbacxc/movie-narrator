@@ -108,7 +108,7 @@ def _probe_with_ffprobe(path: str) -> Optional[dict]:
 
     duration = 0.0
     try:
-        duration = float(fmt.get("duration") or v_stream.get("duration") or 0.0)
+        duration = float(fmt.get("duration") or (v_stream.get("duration") if v_stream else None) or 0.0)
     except (TypeError, ValueError):
         duration = 0.0
 

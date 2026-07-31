@@ -2,13 +2,12 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 from ..models import Context, StepResult
-from ..utils.optional_deps import probe
+from ..utils.optional_deps import probe  # noqa: F401  (re-exported for tests)
 from ..utils.alignment_qa import (
     extract_word_segments,
     assign_words_to_segments,
     word_level_remap,
     validate_alignment,
-    check_drift as check_drift_v0511,
 )
 from ._align_backend import select_align_backend, run_faster_whisper, BackendUnavailable
 

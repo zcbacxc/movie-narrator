@@ -14,7 +14,6 @@ block the pipeline.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 from ..models import TimedSegment, WordSegment
 

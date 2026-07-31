@@ -5,7 +5,6 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from .errors import JobConfigError
 
 
 class JobSteps(BaseModel):

@@ -17,7 +17,7 @@ def test_job_config_accepts_full_whitelist():
         style="热血搞笑",
         duration=60,
         voice="zh-CN-YunxiNeural",
-        format="16:9",
+        video_format="16:9",
         keep_cache=False,
         video="./a.mp4",
         library_dir="D:/movies",
@@ -56,10 +56,10 @@ def test_job_config_duration_must_be_positive():
 
 
 def test_job_config_format_whitelist():
-    JobConfig(format="16:9")
-    JobConfig(format="9:16")
+    JobConfig(video_format="16:9")
+    JobConfig(video_format="9:16")
     with pytest.raises(ValidationError):
-        JobConfig(format="4:3")
+        JobConfig(video_format="4:3")
 
 
 def test_resolved_job_shape():
@@ -68,7 +68,7 @@ def test_resolved_job_shape():
         style="S",
         duration=30,
         voice=None,
-        format="16:9",
+        video_format="16:9",
         keep_cache=False,
         video=None,
         library_dir=None,

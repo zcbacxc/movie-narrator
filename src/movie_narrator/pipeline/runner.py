@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from .. import __version__
-from ..config import get_settings
 from ..models import Assets, Context, Services, StepResult, StepState
 from ..utils.console import build_console
 from ..utils.environment import collect_environment
@@ -241,7 +240,6 @@ def build_context(
 
     This function does **not** run any pipeline steps.
     """
-    settings = get_settings()
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 

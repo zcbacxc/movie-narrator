@@ -21,10 +21,10 @@ scenes get a fallback label so the pipeline doesn't abort.
 from __future__ import annotations
 
 import base64
+import logging
 import hashlib
 import json
 import os
-import shutil
 import subprocess
 import tempfile
 import time
@@ -35,6 +35,8 @@ from typing import List, Optional
 
 from ..models import Scene
 from .protocol import VisionCaptioner
+
+logger = logging.getLogger(__name__)
 
 
 class VLMCaptioner(VisionCaptioner):

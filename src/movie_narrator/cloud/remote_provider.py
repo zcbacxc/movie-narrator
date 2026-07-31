@@ -31,7 +31,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -224,7 +223,6 @@ def register_remote_tts(base_url: str, api_key: Optional[str] = None) -> None:
     """
     from ..providers import register_tts
     from ..tts.protocol import TTSProvider
-    from pathlib import Path
 
     class _RemoteTTSProvider(TTSProvider):
         def __init__(self, url: str, key: Optional[str] = None):
