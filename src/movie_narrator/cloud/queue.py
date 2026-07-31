@@ -290,13 +290,22 @@ class LocalTaskQueue:
         """
         start = time.time()
 
-        # Fast path: check if already terminal (handles already-completed
-        # tasks and cross-process scenarios where no Event is available)
+        # Load task metadata; a missing task cannot be waited on.
         task = self._storage.load(task_id)
         if not task:
             return None
-        if task.is_terminal:
-            return task.result if task.result else None
+
+        # NOTE: We deliberately do NOT short-circuit on ``task.is_terminal``
+        # here. The in-memory accounting (``active_count`` and
+        # ``_completion_events``) is only finalized inside the worker's
+        # ``finally`` block, which runs *after* the terminal state has been
+        # persisted to storage. Returning early on a terminal task would let
+        # a caller observe ``active_count`` before it has been decremented,
+        # producing intermittent ``active_count != 0`` races (see the
+        # active_count concurrency tests). Instead we always block on the
+        # completion Event below — it is set *after* the decrement — or fall
+        # back to storage polling only once the Event is already gone
+        # (which means the worker's finally has already run).
 
         # Try the in-process Event path (efficient, no busy-waiting)
         with self._lock:
