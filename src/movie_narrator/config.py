@@ -125,6 +125,8 @@ class Settings(BaseSettings):
     research_retries: int = 3
     research_retry_delay: float = 1.5
     translate_max_tokens: int = 4096
+    # ── API server (remote serve auth, v0.8.0) ──
+    api_key: Optional[str] = None
     # ── TMDB (external movie database for fact verification) ──
     tmdb_api_key: Optional[str] = None
     tmdb_base_url: str = "https://api.themoviedb.org/3"

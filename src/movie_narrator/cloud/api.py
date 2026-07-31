@@ -30,6 +30,7 @@ Typical usage::
 
 from __future__ import annotations
 
+import hmac
 import json
 import logging
 import re
@@ -93,6 +94,23 @@ class _APIHandler(BaseHTTPRequestHandler):
         """Send an error response."""
         self._send_json({"error": message}, status=status)
 
+    def _check_auth(self) -> bool:
+        """Check API key authentication. Returns True if authorized.
+
+        If no API key is configured on the server, all requests are allowed
+        (local development mode). Otherwise, the X-API-Key header must
+        match the configured key.
+        """
+        server = self.server  # type: ignore[attr-defined]
+        expected = getattr(server, '_api_key', None)
+        if expected is None:
+            return True  # No auth configured
+        provided = self.headers.get("X-API-Key", "")
+        if not hmac.compare_digest(provided, expected):
+            self._send_error(HTTPStatus.UNAUTHORIZED, "Unauthorized: invalid or missing API key")
+            return False
+        return True
+
     @property
     def queue(self) -> LocalTaskQueue:
         """Access the task queue from the server instance."""
@@ -103,9 +121,13 @@ class _APIHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         path = self.path.split("?")[0]
 
-        # Health check
+        # Health check is always public (no auth required)
         if path == "/health":
             self._send_json({"status": "ok"})
+            return
+
+        # Auth check for all other endpoints
+        if not self._check_auth():
             return
 
         # Server info
@@ -186,6 +208,8 @@ class _APIHandler(BaseHTTPRequestHandler):
     # ── POST ────────────────────────────────────────────────
 
     def do_POST(self) -> None:
+        if not self._check_auth():
+            return
         path = self.path.split("?")[0]
 
         if path == "/tasks":
@@ -213,6 +237,8 @@ class _APIHandler(BaseHTTPRequestHandler):
     # ── DELETE ──────────────────────────────────────────────
 
     def do_DELETE(self) -> None:
+        if not self._check_auth():
+            return
         path = self.path.split("?")[0]
         match = _TASK_PATTERN.match(path)
         if match:
@@ -344,6 +370,8 @@ class TaskAPIServer:
             new one is created.
         storage_dir: Storage directory for the queue (if creating).
         max_workers: Max worker threads for the queue (if creating).
+        api_key: Optional API key for X-API-Key authentication. When
+            None (default), all requests are allowed (local dev mode).
     """
 
     def __init__(
@@ -354,9 +382,11 @@ class TaskAPIServer:
         queue: Optional[LocalTaskQueue] = None,
         storage_dir=None,
         max_workers: int = 2,
+        api_key: Optional[str] = None,
     ) -> None:
         self.host = host
         self.port = port
+        self._api_key = api_key
         self._owns_queue = queue is None
         self._queue = queue or LocalTaskQueue(
             storage_dir=storage_dir,
@@ -364,6 +394,11 @@ class TaskAPIServer:
         )
         self._server: Optional[ThreadingHTTPServer] = None
         self._thread: Optional[threading.Thread] = None
+
+    @property
+    def api_key(self) -> Optional[str]:
+        """The configured API key for authentication (None = no auth)."""
+        return self._api_key
 
     @property
     def queue(self) -> LocalTaskQueue:
@@ -395,6 +430,9 @@ class TaskAPIServer:
             _APIHandler,
         )
         self._server.queue = self._queue  # type: ignore[attr-defined]
+        # Propagate the API key so request handlers can read it via
+        # ``self.server._api_key`` (see ``_APIHandler._check_auth``).
+        self._server._api_key = self._api_key  # type: ignore[attr-defined]
         # Update actual port (in case port=0 was used)
         self.port = self._server.server_address[1]
 

@@ -1322,6 +1322,14 @@ def serve(
         False, "--public",
         help="监听所有网络接口(默认仅本机) / Listen on all interfaces (default: localhost only)"
     ),
+    api_key: Optional[str] = typer.Option(
+        None, "--api-key",
+        help="API key for X-API-Key authentication. Reads MN_API_KEY env var by default.",
+    ),
+    insecure: bool = typer.Option(
+        False, "--insecure",
+        help="Allow starting on public interface without API key (not recommended).",
+    ),
 ):
     """启动远程推理服务 / Start the remote inference API server.
 
@@ -1332,34 +1340,43 @@ def serve(
     Start a worker daemon that accepts remote task submissions:
         mn serve --port 8765
         mn serve --max-workers 4
-        mn serve --public  # 监听所有接口(注意安全风险)
+        mn serve --public --api-key secret   # 监听所有接口 + 认证
 
     \b
     From another machine, submit tasks:
         mn submit -m 飞驰人生 --remote http://worker:8765 --wait
 
     \b
-    安全提示: 默认仅监听 127.0.0.1(本机访问). 使用 --public 监听
-    0.0.0.0 时,服务无认证保护,请确保网络环境可信或配合防火墙使用.
-    v0.8.0 将增加 X-API-Key 认证支持.
+    安全提示: 默认仅监听 127.0.0.1(本机访问),无需认证.
+    使用 --public 监听 0.0.0.0 时,必须提供 --api-key(或设置
+    MN_API_KEY 环境变量),否则拒绝启动. 使用 --insecure 可跳过此
+    安全检查(不推荐).
+    v0.8.0 已增加 X-API-Key 认证支持,通过 --api-key 启用.
     """
     from .cloud import run_daemon
+    from .config import get_settings
     from pathlib import Path
 
     if public:
         host = "0.0.0.0"
-        typer.echo(
-            "WARNING: serving on 0.0.0.0 without authentication.\n"
-            "Anyone with network access can submit tasks and download artifacts.\n"
-            "Use a firewall or wait for X-API-Key auth (planned v0.8.0).",
-            err=True,
-        )
-    elif host == "0.0.0.0":
-        typer.echo(
-            "WARNING: --host 0.0.0.0 without --public flag.\n"
-            "Service has no authentication. Consider using a firewall.",
-            err=True,
-        )
+
+    settings = get_settings()
+    effective_api_key = api_key or settings.api_key
+
+    if host == "0.0.0.0":
+        if effective_api_key is None and not insecure:
+            typer.echo(
+                "WARNING: serving on 0.0.0.0 without an API key.\n"
+                "Use --api-key to enable X-API-Key authentication, "
+                "or --insecure to proceed without it.",
+                err=True,
+            )
+        elif effective_api_key is None and insecure:
+            typer.echo(
+                "WARNING: serving on 0.0.0.0 without authentication (--insecure).\n"
+                "Anyone with network access can submit tasks and download artifacts.",
+                err=True,
+            )
 
     storage = Path(storage_dir) if storage_dir else None
     run_daemon(
@@ -1367,6 +1384,8 @@ def serve(
         port=port,
         storage_dir=storage,
         max_workers=max_workers,
+        api_key=effective_api_key,
+        allow_insecure=insecure,
         blocking=True,
     )
 
