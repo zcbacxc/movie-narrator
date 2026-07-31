@@ -157,12 +157,22 @@ class LocalTaskQueue:
         self._init_active_count()
 
     def shutdown(self, wait: bool = True) -> None:
-        """Shut down the executor."""
+        """Shut down the executor.
+
+        The executor is shut down *after* releasing ``self._lock`` so that
+        worker threads are not blocked from completing their ``finally``
+        blocks (which acquire the lock to decrement ``_active_count`` and
+        signal completion events). Holding the lock across
+        ``executor.shutdown(wait=True)`` deadlocks: the shutdown thread waits
+        for workers that are waiting for the lock. See issue #127.
+        """
+        executor = None
         with self._lock:
-            if self._executor:
-                self._executor.shutdown(wait=wait, cancel_futures=not wait)
-                self._executor = None
+            executor = self._executor
+            self._executor = None
             self._started = False
+        if executor is not None:
+            executor.shutdown(wait=wait, cancel_futures=not wait)
 
     # ── TaskQueue protocol ───────────────────────────────────
 
