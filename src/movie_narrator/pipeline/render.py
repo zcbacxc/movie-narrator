@@ -249,7 +249,7 @@ def render_video(ctx: Context) -> Context:
     ensure_final_audio(ctx)
 
     output_dir = Path(ctx.output_dir)
-    video_format = ctx.metadata.get("format", "16:9")
+    video_format = ctx.metadata.get("video_format", "16:9")
     size = _get_video_sizes(ctx).get(video_format, (1920, 1080))
     keep_cache = ctx.metadata.get("keep_cache", False)
     font_size = ctx.metadata.get("render_font_size", 100)

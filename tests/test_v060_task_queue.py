@@ -95,7 +95,7 @@ class TestTaskRequest:
         assert req.movie_name == "TestMovie"
         assert req.style == ""
         assert req.duration == 60
-        assert req.format == "16:9"
+        assert req.video_format == "16:9"
         assert req.priority == TaskPriority.NORMAL
         assert req.max_retries == 3
         assert req.retry_delay == 5.0
@@ -918,7 +918,7 @@ class TestContractExports:
 
     def test_contract_version_bumped(self):
         from movie_narrator.contract import CONTRACT_VERSION
-        assert CONTRACT_VERSION == (0, 7, 2)
+        assert CONTRACT_VERSION == (0, 8, 0)
 
     def test_contract_exports_cloud_types(self):
         from movie_narrator.contract import (

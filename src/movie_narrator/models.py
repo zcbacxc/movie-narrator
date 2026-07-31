@@ -25,7 +25,7 @@ class MetadataDict(TypedDict, total=False):
     """
     # Pipeline I/O
     voice: str
-    format: str
+    video_format: str
     keep_cache: bool
     # Step toggles
     research_enabled: bool

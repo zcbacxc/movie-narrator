@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-07-31
+
+### Changed
+
+- **BREAKING**: `format` field renamed to `video_format` across `TaskRequest`, `JobConfig`, `ResolvedJob`, and CLI parameters. The old `format` key is accepted as a deprecated alias for backward compatibility.
+- `CONTRACT_VERSION` bumped from (0, 7, 2) to (0, 8, 0).
+- CLI `--format` option renamed to `--video-format` (old `--format` still works as hidden alias).
+- YAML job configs: `format` key deprecated, use `video_format`. Both work, `video_format` takes priority if both present.
+
 ## [0.7.5] - 2026-07-31
 
 ### Changed

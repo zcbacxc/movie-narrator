@@ -168,7 +168,9 @@ class JobConfig(BaseModel):
     style: Optional[str] = None
     duration: Optional[int] = None
     voice: Optional[str] = None
-    format: Optional[str] = None
+    # GAP-5 (v0.8.0): renamed from ``format`` (backward-compatible YAML
+    # alias handled in workflow/load.py + workflow/merge.py).
+    video_format: Optional[str] = None
     keep_cache: Optional[bool] = None
     video: Optional[str] = None
     library_dir: Optional[str] = None
@@ -191,11 +193,11 @@ class JobConfig(BaseModel):
             raise ValueError("duration must be > 0")
         return v
 
-    @field_validator("format")
+    @field_validator("video_format")
     @classmethod
-    def _check_format(cls, v: Optional[str]) -> Optional[str]:
+    def _check_video_format(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v not in ("16:9", "9:16"):
-            raise ValueError("format must be '16:9' or '9:16'")
+            raise ValueError("video_format must be '16:9' or '9:16'")
         return v
 
     @field_validator("subtitle_mode")
@@ -213,7 +215,7 @@ class ResolvedJob(BaseModel):
     style: str
     duration: int
     voice: Optional[str] = None
-    format: str
+    video_format: str
     keep_cache: bool = False
     video: Optional[str] = None
     library_dir: Optional[str] = None
