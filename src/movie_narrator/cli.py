@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 import json
-import logging
-import re
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -136,7 +134,7 @@ class InteractiveCLIController:
             return StepAction.SKIP
         return StepAction.ABORT
 
-from .utils.sanitize import sanitize_filename as _sanitize_filename
+from .utils.sanitize import sanitize_filename as _sanitize_filename  # noqa: E402
 
 
 @app.command()
@@ -1083,7 +1081,7 @@ def submit(
         task_id = queue.submit(request)
         typer.echo(f"Task submitted: {task_id}")
         typer.echo(f"  Movie: {movie}")
-        typer.echo(f"  Status: pending")
+        typer.echo("  Status: pending")
         if remote:
             typer.echo(f"  Remote: {remote}")
         typer.echo(f"  Track: mn status {task_id}" + (f" --remote {remote}" if remote else ""))
@@ -1268,7 +1266,7 @@ def wait(
 
     \b
     示例 / Examples:
-        mn wait abc123def456              # 无限等��
+        mn wait abc123def456              # 无限等��
         mn wait abc123def456 -t 600       # 10分钟��时
         mn wait abc123def456 --remote http://worker:8765
     """

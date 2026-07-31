@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from threading import Lock
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 # ── Estimated unit costs (coarse approximation) ───────────
 # These are simple heuristics for a GPT-4o-mini class model and the

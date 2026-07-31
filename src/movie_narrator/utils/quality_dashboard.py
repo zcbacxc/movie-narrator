@@ -27,7 +27,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Callable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -299,7 +299,7 @@ def _extract_video_encoding_score(meta: dict) -> Optional[tuple[float, int, dict
 
 
 # Registry of dimension extractors
-_DIMENSION_EXTRACTORS: list[tuple[str, callable]] = [
+_DIMENSION_EXTRACTORS: list[tuple[str, Callable]] = [
     ("script", _extract_script_score),
     ("audio", _extract_audio_score),
     ("alignment", _extract_alignment_score),

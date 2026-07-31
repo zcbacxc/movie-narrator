@@ -36,7 +36,7 @@ Ordering rules:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
 
 from ..models import Context
@@ -180,8 +180,6 @@ class StepRegistry:
             (e for e in self._entries.values() if e.seq >= 0),
             key=lambda e: e.seq,
         )
-        name_to_func = {e.name: e.func for e in self._entries.values()}
-
         for entry in builtin:
             ordered.append(entry.func)
             placed.add(entry.name)

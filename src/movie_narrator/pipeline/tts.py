@@ -200,7 +200,6 @@ def generate_voice(ctx: Context) -> Context:
     # re-run TTS or trim sentences.
     target_duration = ctx.metadata.get("duration") or ctx.duration
     applied_pause_ms = pause_ms
-    v1_adjusted = False
 
     if target_duration and pause_ms > 50:
         actual_duration = timed_segments[-1].end if timed_segments else 0
@@ -218,7 +217,6 @@ def generate_voice(ctx: Context) -> Context:
                     f"(ratio {ratio:.2f}). Reducing pause {pause_ms}ms → {new_pause_ms}ms."
                 )
                 applied_pause_ms = new_pause_ms
-                v1_adjusted = True
                 combined, timed_segments = _build_audio(
                     results, ctx.segments, new_pause_ms
                 )

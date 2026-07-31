@@ -206,7 +206,7 @@ def _get_movie_details(
     })
 
 
-def _extract_director(credits: Dict[str, Any]) -> Optional[str]:
+def _extract_director(credits: Dict[str, Any]) -> Optional[str]:  # noqa: A002
     """Extract the director name from TMDB credits."""
     crew = credits.get("crew") or []
     if not isinstance(crew, list):
@@ -221,7 +221,7 @@ def _extract_director(credits: Dict[str, Any]) -> Optional[str]:
     return None
 
 
-def _extract_cast(credits: Dict[str, Any], limit: int = 5) -> List[str]:
+def _extract_cast(credits: Dict[str, Any], limit: int = 5) -> List[str]:  # noqa: A002
     """Extract top-N cast names from TMDB credits."""
     cast_list = credits.get("cast") or []
     if not isinstance(cast_list, list):
@@ -252,7 +252,7 @@ def _extract_genres(details: Dict[str, Any]) -> List[str]:
 
 def _build_movie_card(details: Dict[str, Any]) -> MovieCard:
     """Build a MovieCard from TMDB movie details."""
-    credits = details.get("credits") or {}
+    credits = details.get("credits") or {}  # noqa: A001
     return MovieCard(
         title=str(details.get("title") or details.get("original_title") or ""),
         year=str(details.get("release_date", ""))[:4] or None,
@@ -266,7 +266,7 @@ def _build_movie_card(details: Dict[str, Any]) -> MovieCard:
 
 def _build_research_info(details: Dict[str, Any]) -> ResearchInfo:
     """Build a ResearchInfo from TMDB movie details."""
-    credits = details.get("credits") or {}
+    credits = details.get("credits") or {}  # noqa: A001
     cast = _extract_cast(credits, limit=10)
     genres = _extract_genres(details)
     # Derive keywords from genre names + cast names (TMDB has no keyword

@@ -5,10 +5,11 @@ import json
 import logging
 import hashlib
 import os
+import functools
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
-from ..models import Context, MatchedClip, Scene, StepResult, TimedSegment
+from ..models import Context, MatchedClip, Scene, StepResult
 from ..utils.optional_deps import probe
 
 _EMBEDDING_MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"  # default, overridden by ctx.metadata
@@ -171,9 +172,6 @@ def _build_scene_label(scene_index: int, start: float, end: float) -> str:
     exercisable without external services.
     """
     return f"scene {scene_index} from {start:.1f}s to {end:.1f}s"
-
-
-import functools
 
 
 @functools.lru_cache(maxsize=2)
@@ -578,7 +576,6 @@ def _assign_segments_to_acts(
     chronological order.  Segment counts per act are proportional to
     weights, adjusted to sum exactly to *n_segments*.
     """
-    n_acts = len(weights)
     total = sum(weights)
     if total <= 0:
         weights = list(_DEFAULT_ACT_WEIGHTS)
@@ -1207,7 +1204,6 @@ def _match_clips_impl(
             # clip's scene aligns with the expected rhythm zone.
             # This is a simplified heuristic; the full rhythm adjustment
             # is computed inside _greedy_topk_assign.
-            zone = beats_meta[i]["rhythm_zone"]
             # Simple mapping: high-energy zones get higher rhythm scores
             # when matched via embedding (content matches energy).
             if mc.source in ("embedding", "embedding_topk", "embedding_top1"):

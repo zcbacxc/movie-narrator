@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from .. import __version__
-from .quality_dashboard import QualityDashboard, build_quality_dashboard
+from .quality_dashboard import build_quality_dashboard
 
 
 def generate_qa_report_dict(
@@ -110,7 +110,7 @@ def _summarize_subtitle(sq: Optional[dict]) -> Optional[dict]:
     """Summarize subtitle QA for the report."""
     if not sq:
         return None
-    result = {}
+    result: dict[str, Any] = {}
     for key in ("original", "translated"):
         track = sq.get(key)
         if track:

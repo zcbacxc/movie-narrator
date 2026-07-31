@@ -9,10 +9,10 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from moviepy import AudioFileClip, ColorClip, CompositeVideoClip, ImageClip, VideoFileClip
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw
 from proglog import TqdmProgressBarLogger
 
-from ..models import Context, MatchedClip, StepResult, TimedSegment
+from ..models import Context, MatchedClip, TimedSegment
 from ..utils.console import step_timing
 from ..utils.gpu_detect import get_encoder_info, resolve_encoder
 from ..utils.metadata_export import build_metadata_json
