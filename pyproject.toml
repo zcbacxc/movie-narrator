@@ -47,12 +47,7 @@ full = [
     'faster-whisper>=1.0; python_version < "3.14"',
     'sentence-transformers>=3.0; python_version < "3.14"',
 ]
-dev = [
-    "pytest>=8.0",
-    "pytest-timeout>=2.3",
-    "mypy>=1.10",
-    "ruff>=0.4",
-]
+dev = ["pytest>=8.0", "mypy>=1.10", "ruff>=0.4"]
 docs = [
     "mkdocs>=1.5",
     "mkdocstrings[python]>=0.24",
@@ -73,7 +68,6 @@ include = ["movie_narrator*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-timeout = 300
 
 [tool.mypy]
 python_version = "3.10"
@@ -81,11 +75,8 @@ ignore_missing_imports = true
 check_untyped_defs = false
 warn_unused_ignores = true
 warn_redundant_casts = true
-files = [
-    "src/movie_narrator/workflow",
-    "src/movie_narrator/cloud",
-    "src/movie_narrator/utils",
-]
+follow_imports = "skip"
+files = ["src/movie_narrator/workflow", "src/movie_narrator/cloud", "src/movie_narrator/utils"]
 
 [tool.ruff]
 target-version = "py310"
@@ -93,10 +84,7 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "BLE", "A"]
-ignore = [
-    "E501",   # line too long (handled by formatter)
-    "E731",   # lambda assignment (common in this codebase)
-]
+ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["BLE001"]  # broad except is OK in tests
+"tests/*" = ["BLE001"]

@@ -12,6 +12,8 @@ window with linear attack/release.
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 from pydub import AudioSegment
 from pydub.utils import db_to_float
@@ -134,7 +136,7 @@ def duck_bgm(
     n_samples = len(bgm_base.get_array_of_samples())
     sample_rate = bgm_base.frame_rate
     samples_per_window = max(1, window_ms * sample_rate // 1000)
-    per_sample = np.ones(n_samples, dtype=np.float64)
+    per_sample: Any = np.ones(n_samples, dtype=np.float64)
     for i, factor in enumerate(amp_factors):
         start_sample = i * samples_per_window
         end_sample = min(start_sample + samples_per_window, n_samples)

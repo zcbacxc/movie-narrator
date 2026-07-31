@@ -19,10 +19,10 @@ import time
 import traceback as tb_module
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Callable, Optional
 
-from ..models import Context, Services
-from ..pipeline.errors import PipelineCancelled, RunController, check_cancelled
+from ..models import Services
+from ..pipeline.errors import PipelineCancelled
 from ..pipeline.runner import build_context, common_build_kwargs, run_pipeline, STEPS
 from ..utils.console import (
     BaseConsole,
@@ -167,7 +167,7 @@ def _is_retryable_error(exc: Exception) -> bool:
 def _execute_task(
     task: Task,
     controller: CancelController,
-    on_progress: Optional[callable] = None,
+    on_progress: Optional[Callable[..., Any]] = None,
 ) -> Task:
     """Execute a single pipeline attempt (no retry).
 
@@ -262,7 +262,7 @@ def _execute_task(
             error_type="PipelineCancelled",
         )
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         task.status = TaskStatus.FAILED
         task.completed_at = datetime.now(timezone.utc).isoformat()
         task.last_error = str(exc)
@@ -286,8 +286,8 @@ def _execute_task(
 def run_task(
     task: Task,
     controller: CancelController,
-    on_progress: Optional[callable] = None,
-    on_status_change: Optional[callable] = None,
+    on_progress: Optional[Callable[..., Any]] = None,
+    on_status_change: Optional[Callable[..., Any]] = None,
 ) -> Task:
     """Execute a pipeline task with retry support.
 
@@ -331,7 +331,6 @@ def run_task(
             return task
 
         # Check if retryable
-        last_error = task.last_error or ""
         error_type = task.result.error_type if task.result else ""
 
         # Only retry on retryable errors

@@ -13,7 +13,7 @@ never block the pipeline.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 from pydub import AudioSegment
@@ -58,7 +58,7 @@ def detect_clipping(audio: AudioSegment, threshold_db: float = -0.5) -> float:
     max_val = float(np.iinfo(np.int16).max)
     # Samples within threshold_db of full scale are considered clipped
     clip_level = max_val * (10 ** (threshold_db / 20.0))
-    clipped = np.sum(np.abs(samples) >= clip_level)
+    clipped: Any = np.sum(np.abs(samples) >= clip_level)
     return float(clipped) / float(len(samples))
 
 
