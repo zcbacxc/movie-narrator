@@ -3,6 +3,7 @@
 
 from pathlib import Path
 from typing import Any, Dict, Union
+import warnings
 
 import yaml
 from pydantic import ValidationError
@@ -17,7 +18,7 @@ _ALLOWED_TOP = (
     "style",
     "duration",
     "voice",
-    "format",
+    "video_format",
     "keep_cache",
     "video",
     "library_dir",
@@ -55,6 +56,20 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
         data = {}
     if not isinstance(data, dict):
         raise JobConfigError("job config must be a mapping")
+
+    # GAP-5 (v0.8.0): backward-compat — translate the deprecated
+    # ``format`` key to ``video_format`` before validation (JobConfig
+    # uses extra="forbid", so an untranslated ``format`` would be
+    # rejected as an unknown key). ``video_format`` wins if both exist.
+    if "format" in data and "video_format" not in data:
+        warnings.warn(
+            "The 'format' key is deprecated, use 'video_format' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        data["video_format"] = data.pop("format")
+    elif "format" in data and "video_format" in data:
+        data.pop("format")
 
     unknown = [k for k in data.keys() if k not in _ALLOWED_TOP]
     if unknown:

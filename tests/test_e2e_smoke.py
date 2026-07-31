@@ -92,7 +92,7 @@ def test_e2e_pipeline_completes_with_ci_mock(ci_env, output_dir):
         style="热血搞笑",
         duration=10,
         voice=None,
-        format="16:9",
+        video_format="16:9",
         output_dir=output_dir,
         keep_cache=True,
     )
@@ -117,7 +117,7 @@ def test_e2e_deliverable_files_produced(ci_env, output_dir):
         style="test",
         duration=10,
         voice=None,
-        format="16:9",
+        video_format="16:9",
         output_dir=output_dir,
         keep_cache=True,
     )
@@ -139,7 +139,7 @@ def test_e2e_metadata_json_is_valid(ci_env, output_dir):
         style="test",
         duration=10,
         voice=None,
-        format="16:9",
+        video_format="16:9",
         output_dir=output_dir,
         keep_cache=True,
     )
@@ -171,7 +171,7 @@ def test_e2e_preset_pipeline_completes(preset_name, ci_env, output_dir):
         style="test",
         duration=30,  # short to keep CI fast
         voice=None,
-        format="16:9",
+        video_format="16:9",
         output_dir=output_dir,
         keep_cache=True,
         narration_preset=preset_name,
@@ -237,7 +237,7 @@ def test_e2e_dynamic_count_with_preset(ci_env, output_dir):
         style="test",
         duration=60,
         voice=None,
-        format="16:9",
+        video_format="16:9",
         output_dir=output_dir,
         keep_cache=True,
         narration_preset="bilibili-long",
@@ -276,7 +276,7 @@ def test_e2e_pipeline_status_populated(ci_env, output_dir):
         style="test",
         duration=10,
         voice=None,
-        format="16:9",
+        video_format="16:9",
         output_dir=output_dir,
         keep_cache=True,
     )
@@ -306,7 +306,7 @@ def test_e2e_degraded_steps_tracked(ci_env, output_dir):
         style="test",
         duration=10,
         voice=None,
-        format="16:9",
+        video_format="16:9",
         output_dir=output_dir,
         keep_cache=True,
     )
@@ -333,7 +333,7 @@ def test_e2e_script_md_has_content(ci_env, output_dir):
         style="test",
         duration=10,
         voice=None,
-        format="16:9",
+        video_format="16:9",
         output_dir=output_dir,
         keep_cache=True,
     )
@@ -355,7 +355,7 @@ def test_e2e_subtitle_srt_valid(ci_env, output_dir):
         style="test",
         duration=10,
         voice=None,
-        format="16:9",
+        video_format="16:9",
         output_dir=output_dir,
         keep_cache=True,
     )

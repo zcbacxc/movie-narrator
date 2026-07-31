@@ -213,7 +213,7 @@ def _execute_task(
         style=request.style,
         duration=request.duration,
         voice=request.voice,
-        format=request.format,
+        video_format=request.video_format,
         output_dir=output_dir,
         keep_cache=request.keep_cache,
         video=request.video,

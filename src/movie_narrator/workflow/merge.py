@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+import warnings
 from typing import Any, Dict, Optional
 
 from ..config import Settings
@@ -53,7 +54,19 @@ def merge_job(
 
     style = pick_defaulted(cli.get("style"), yaml_get("style"), _STYLE_DEFAULT)
     duration = pick_defaulted(cli.get("duration"), yaml_get("duration"), _DURATION_DEFAULT)
-    fmt = pick_defaulted(cli.get("format"), yaml_get("format"), _FORMAT_DEFAULT)
+    # GAP-5 (v0.8.0): ``format`` renamed to ``video_format``. Accept the
+    # legacy ``format`` CLI key as a deprecated alias (video_format wins
+    # when both are present). YAML ``format`` backward compat is handled
+    # in load.py, so the JobConfig only exposes ``video_format``.
+    cli_fmt = cli.get("video_format")
+    if cli_fmt is None and "format" in cli:
+        warnings.warn(
+            "The 'format' key is deprecated, use 'video_format' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        cli_fmt = cli.get("format")
+    fmt = pick_defaulted(cli_fmt, yaml_get("video_format"), _FORMAT_DEFAULT)
 
     voice = pick_optional(cli.get("voice"), yaml_get("voice"), None)
     video = pick_optional(cli.get("video"), yaml_get("video"), None)
@@ -184,7 +197,7 @@ def merge_job(
         style=style,
         duration=int(duration),
         voice=voice,
-        format=fmt,
+        video_format=fmt,
         keep_cache=keep_cache,
         video=video,
         library_dir=library_dir,

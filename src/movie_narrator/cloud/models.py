@@ -66,7 +66,10 @@ class TaskRequest(BaseModel):
     style: str = ""
     duration: int = 60
     voice: Optional[str] = None
-    format: str = "16:9"
+    # GAP-5 (v0.8.0): renamed from ``format`` to avoid shadowing the
+    # Python builtin ``format()``. The ``format`` alias is kept so
+    # existing API requests with {"format": "16:9"} still validate.
+    video_format: str = Field(default="16:9", alias="format")
     video: Optional[str] = None
     library_dir: Optional[str] = None
     research: Optional[bool] = None
@@ -90,6 +93,11 @@ class TaskRequest(BaseModel):
     keep_cache: bool = False
     log_level: str = "DEBUG"
     verbose: bool = False
+
+    # GAP-5 (v0.8.0): allow population by the new field name
+    # (``video_format``) while still accepting the legacy ``format``
+    # alias defined above.
+    model_config = {"populate_by_name": True}
 
 
 class TaskProgress(BaseModel):
