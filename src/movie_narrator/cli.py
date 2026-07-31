@@ -145,17 +145,17 @@ def create(
     style: str = typer.Option("热血搞笑", "--style", "-s", help="解说风格 / Narration style"),
     duration: int = typer.Option(60, "--duration", "-d", help="目标时长(秒) / Target duration (seconds)"),
     voice: Optional[str] = typer.Option(None, "--voice", "-v", help="TTS 语音 / TTS voice (Edge TTS)"),
-    format: str = typer.Option("16:9", "--format", "-f", help="视频格式 16:9 或 9:16 / Video format: 16:9 or 9:16"),
+    video_format: str = typer.Option("16:9", "--video-format", "--format", "-f", help="视频格式 16:9 或 9:16 / Video format: 16:9 or 9:16"),
     keep_cache: bool = typer.Option(False, "--keep-cache", help="保留 TTS 缓存 / Keep TTS cache files"),
     video: Optional[str] = typer.Option(None, "--video", help="源视频文件路径 / Source movie file path"),
     library_dir: Optional[str] = typer.Option(None, "--library-dir", help="影视库目录 / Movie library directory"),
-    research: Optional[bool] = typer.Option(None, "--research/--no-research", help="启用剧情研究 / Enable plot research"),
+    research: Optional[bool] = typer.Option(None, "--research/--no-research", help="启用剧��研究 / Enable plot research"),
     bgm: Optional[str] = typer.Option(None, "--bgm", help="背景音乐文件 / Background music file"),
     no_bgm: bool = typer.Option(False, "--no-bgm", help="禁用 BGM / Disable BGM even if default set"),
     no_clips: bool = typer.Option(False, "--no-clips", help="跳过片段导出 / Skip clips/export"),
     strict: bool = typer.Option(False, "--strict", help="软步骤失败即中止 / Abort on soft step failure"),
     retry: bool = typer.Option(False, "--retry", help="硬步骤失败时交互重试 / Enable interactive retry on hard step failure"),
-    config: Optional[str] = typer.Option(None, "--config", help="job YAML 配置路径 / Path to job YAML config"),
+    config: Optional[str] = typer.Option(None, "--config", help="job YAML ��置路径 / Path to job YAML config"),
     # Multi-language subtitle (v0.3).
     subtitle_lang: Optional[str] = typer.Option(
         None, "--subtitle-lang", help="目标语言标签(如 en, ja, zh-TW) / Target language tag; empty = off",
@@ -173,7 +173,7 @@ def create(
     ),
     focus_character: Optional[str] = typer.Option(
         None, "--focus-character",
-        help="聚焦角色名(配合 character 视角) / Focus character name (used with 'character' perspective)",
+        help="聚焦角色名(��合 character 视角) / Focus character name (used with 'character' perspective)",
     ),
     output_dir: Optional[str] = typer.Option(
         None, "--output-dir", "-o",
@@ -248,7 +248,7 @@ def create(
         "style": style,
         "duration": duration,
         "voice": voice,
-        "format": format,
+        "video_format": video_format,
         "keep_cache": keep_cache,
         "video": video,
         "library_dir": library_dir,
@@ -291,7 +291,7 @@ def create(
         style=resolved.style,
         duration=resolved.duration,
         voice=resolved.voice,
-        format=resolved.format,
+        video_format=resolved.video_format,
         output_dir=out_dir,
         keep_cache=resolved.keep_cache,
         video=resolved.video,
@@ -339,7 +339,7 @@ def create(
         raise typer.Exit(code=1)
     if ctx.metadata.get("script_degraded"):
         typer.echo(
-            "⚠ 警告：旁白为占位内容——LLM 不可达。请检查 LLM 连接后重试。",
+            "⚠ 警告：旁白为占位��容——LLM 不可达。请检查 LLM 连接后重试。",
             err=True,
         )
     # E.5: one-line match summary + degradation hints
@@ -357,13 +357,13 @@ def race(
     style: str = typer.Option("热血搞笑", "--style", "-s", help="解说风格 / Narration style"),
     duration: int = typer.Option(60, "--duration", "-d", help="目标时长(秒) / Target duration (seconds)"),
     voice: Optional[str] = typer.Option(None, "--voice", "-v", help="TTS 语音 / TTS voice (Edge TTS)"),
-    format: str = typer.Option("16:9", "--format", "-f", help="视频格式 16:9 或 9:16 / Video format"),
+    video_format: str = typer.Option("16:9", "--video-format", "--format", "-f", help="视频格式 16:9 或 9:16 / Video format"),
     video: Optional[str] = typer.Option(None, "--video", help="源视频文件路径 / Source movie file path"),
     library_dir: Optional[str] = typer.Option(None, "--library-dir", help="影视库目录 / Movie library directory"),
-    research: Optional[bool] = typer.Option(None, "--research/--no-research", help="启用剧情研究 / Enable plot research"),
+    research: Optional[bool] = typer.Option(None, "--research/--no-research", help="启用剧��研究 / Enable plot research"),
     bgm: Optional[str] = typer.Option(None, "--bgm", help="背景音乐文件 / Background music file"),
     no_bgm: bool = typer.Option(False, "--no-bgm", help="禁用 BGM / Disable BGM"),
-    config: Optional[str] = typer.Option(None, "--config", help="job YAML 配置路径 / Path to job YAML config"),
+    config: Optional[str] = typer.Option(None, "--config", help="job YAML ��置路径 / Path to job YAML config"),
     candidates: int = typer.Option(3, "--candidates", "-n", help="候选数量(1-6) / Number of candidates (1-6)"),
     presets: Optional[str] = typer.Option(
         None, "--presets",
@@ -378,7 +378,7 @@ def race(
         help="输出目录(默认 output/<电影名>_race) / Output directory",
     ),
 ):
-    """多候选赛马 — 同输入跑 N 套变体,打分选优.
+    """多候选赛马 — 同输��跑 N 套变体,打分选优.
 
     \b
     每个候选使用不同的 preset x match 种子组合,跑完后按
@@ -439,7 +439,7 @@ def race(
         style=style,
         duration=duration,
         voice=voice,
-        format=format,
+        video_format=video_format,
         output_base=out_base,
         video=video,
         library_dir=library_dir,
@@ -474,17 +474,17 @@ def imitate(
     style: str = typer.Option("热血搞笑", "--style", "-s", help="解说风格 / Narration style"),
     duration: int = typer.Option(60, "--duration", "-d", help="目标时长(秒) / Target duration (seconds)"),
     voice: Optional[str] = typer.Option(None, "--voice", "-v", help="TTS 语音 / TTS voice"),
-    format: str = typer.Option("16:9", "--format", "-f", help="视频格式 / Video format"),
+    video_format: str = typer.Option("16:9", "--video-format", "--format", "-f", help="视频格式 / Video format"),
     keep_cache: bool = typer.Option(False, "--keep-cache", help="保留 TTS 缓存 / Keep TTS cache"),
     video: Optional[str] = typer.Option(None, "--video", help="源视频文件路径 / Source movie file path"),
     library_dir: Optional[str] = typer.Option(None, "--library-dir", help="影视库目录"),
-    research: Optional[bool] = typer.Option(None, "--research/--no-research", help="启用剧情研究"),
+    research: Optional[bool] = typer.Option(None, "--research/--no-research", help="启用剧��研究"),
     bgm: Optional[str] = typer.Option(None, "--bgm", help="背景音乐文件 / Background music file"),
     no_bgm: bool = typer.Option(False, "--no-bgm", help="禁用 BGM / Disable BGM"),
     no_clips: bool = typer.Option(False, "--no-clips", help="跳过片段导出 / Skip clips"),
     strict: bool = typer.Option(False, "--strict", help="软步骤失败即中止 / Abort on soft step failure"),
     retry: bool = typer.Option(False, "--retry", help="硬步骤失败时交互重试"),
-    config: Optional[str] = typer.Option(None, "--config", help="job YAML 配置路径"),
+    config: Optional[str] = typer.Option(None, "--config", help="job YAML ��置路径"),
     subtitle_lang: Optional[str] = typer.Option(None, "--subtitle-lang", help="目标语言标签"),
     subtitle_mode: Optional[str] = typer.Option(None, "--subtitle-mode", help="字幕模式"),
     output_dir: Optional[str] = typer.Option(
@@ -573,7 +573,7 @@ def imitate(
         style=style,
         duration=duration,
         voice=voice,
-        format=format,
+        video_format=video_format,
         output_dir=out_dir,
         keep_cache=keep_cache,
         video=video,
@@ -611,7 +611,7 @@ def imitate(
 
     if ctx.metadata.get("script_degraded"):
         typer.echo(
-            "⚠ 警告：旁白为占位内容——LLM 不可达。请检查 LLM 连接后重试。",
+            "⚠ 警告：旁白为占位��容——LLM 不可达。请检查 LLM 连接后重试。",
             err=True,
         )
     match_line = _format_match_summary(ctx)
@@ -694,7 +694,7 @@ def resume(
 
     if ctx.metadata.get("script_degraded"):
         typer.echo(
-            "⚠ 警告：旁白为占位内容——LLM 不可达。请检查 LLM 连接后重试。",
+            "⚠ 警告：旁白为占位��容——LLM 不可达。请检查 LLM 连接后重试。",
             err=True,
         )
     if ctx.video_path:
@@ -739,7 +739,7 @@ def research(
         help="输出目录(默认 output/<电影名>) / Output directory (default: output/<movie>)",
     ),
 ):
-    """运行剧情研究并输出 research.json / Run plot research."""
+    """运行剧��研究并输出 research.json / Run plot research."""
     out_dir = Path(output_dir) if output_dir else Path("output") / _sanitize_filename(movie)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -861,7 +861,7 @@ def plugin(
 
     \b
     用法 / Usage:
-        mn plugin list          # 列出已安装的 entry_points 插件
+        mn plugin list          # 列出已安��的 entry_points 插件
         mn plugin discover      # 发现并加载所有插件
         mn plugin registries    # 显示所有注册表中的 provider/step
         mn plugin version       # 显示 CONTRACT_VERSION
@@ -958,10 +958,10 @@ def version():
 @app.command()
 def preset(
     name: Optional[str] = typer.Argument(
-        None, help="预设名称(省略则列出全部) / Preset name (omitted = list all)"
+        None, help="预设名称(省略则列出��部) / Preset name (omitted = list all)"
     ),
 ):
-    """列出解说预设或查看指定预设详情 / List presets or show details.
+    """列出解说预设或查看指定预设详�� / List presets or show details.
 
     \b
     示例 / Examples:
@@ -1026,7 +1026,7 @@ def submit(
     style: str = typer.Option("热血搞笑", "--style", "-s", help="解说风格 / Narration style"),
     duration: int = typer.Option(60, "--duration", "-d", help="目标时长(秒) / Target duration"),
     voice: Optional[str] = typer.Option(None, "--voice", "-v", help="TTS 语音 / TTS voice"),
-    format: str = typer.Option("16:9", "--format", "-f", help="视频格式 / Video format"),
+    video_format: str = typer.Option("16:9", "--video-format", "--format", "-f", help="视频格式 / Video format"),
     video: Optional[str] = typer.Option(None, "--video", help="源视频路径 / Source video path"),
     library_dir: Optional[str] = typer.Option(None, "--library-dir", help="影视库目录 / Movie library"),
     research: Optional[bool] = typer.Option(None, "--research/--no-research", help="启用研究 / Enable research"),
@@ -1040,8 +1040,8 @@ def submit(
     lang: str = typer.Option("zh", "--lang", help="解说语言 / Narration language"),
     output_dir: Optional[str] = typer.Option(None, "--output-dir", "-o", help="输出目录 / Output directory"),
     max_retries: int = typer.Option(3, "--max-retries", help="最大重试次数 / Max retries"),
-    wait: bool = typer.Option(False, "--wait", help="提交后等待完成 / Wait for completion"),
-    timeout: Optional[float] = typer.Option(None, "--timeout", help="等待超时(秒) / Wait timeout (seconds)"),
+    wait: bool = typer.Option(False, "--wait", help="提交后等��完成 / Wait for completion"),
+    timeout: Optional[float] = typer.Option(None, "--timeout", help="等����时(秒) / Wait timeout (seconds)"),
     remote: Optional[str] = typer.Option(
         None, "--remote", "-r",
         help="远程服务器URL / Remote server URL (e.g. http://worker:8765)"
@@ -1062,7 +1062,7 @@ def submit(
         style=style,
         duration=duration,
         voice=voice,
-        format=format,
+        video_format=video_format,
         video=video,
         library_dir=library_dir,
         research=research,
@@ -1253,7 +1253,7 @@ def wait(
     task_id: str = typer.Argument(..., help="任务ID / Task ID"),
     timeout: Optional[float] = typer.Option(
         None, "--timeout", "-t",
-        help="等待超时(秒) / Timeout in seconds (default: infinite)"
+        help="等����时(秒) / Timeout in seconds (default: infinite)"
     ),
     poll_interval: float = typer.Option(
         1.0, "--poll-interval",
@@ -1264,12 +1264,12 @@ def wait(
         help="远程服务器URL / Remote server URL"
     ),
 ):
-    """等待任务完成 / Wait for task completion.
+    """等��任务完成 / Wait for task completion.
 
     \b
     示例 / Examples:
-        mn wait abc123def456              # 无限等待
-        mn wait abc123def456 -t 600       # 10分钟超时
+        mn wait abc123def456              # 无限等��
+        mn wait abc123def456 -t 600       # 10分钟��时
         mn wait abc123def456 --remote http://worker:8765
     """
     queue = _get_queue(remote=remote)
@@ -1288,15 +1288,15 @@ def wait(
 def cleanup(
     all_tasks: bool = typer.Option(
         False, "--all",
-        help="清除所有任务(包括运行中) / Clear all tasks including active ones"
+        help="��除所有任务(��括运行中) / Clear all tasks including active ones"
     ),
 ):
-    """清理已完成任务 / Clean up terminal tasks.
+    """��理已完成任务 / Clean up terminal tasks.
 
     \b
     示例 / Examples:
-        mn cleanup           # 清除已完成/失败/取消的任务
-        mn cleanup --all     # 清除所有任务
+        mn cleanup           # ��除已完成/失败/取消的任务
+        mn cleanup --all     # ��除所有任务
     """
     queue = _get_queue()
     if all_tasks:
@@ -1320,7 +1320,7 @@ def serve(
     ),
     public: bool = typer.Option(
         False, "--public",
-        help="监听所有网络接口(默认仅本机) / Listen on all interfaces (default: localhost only)"
+        help="监听所有网络接口(默认��本机) / Listen on all interfaces (default: localhost only)"
     ),
     api_key: Optional[str] = typer.Option(
         None, "--api-key",
@@ -1333,7 +1333,7 @@ def serve(
 ):
     """启动远程推理服务 / Start the remote inference API server.
 
-    启动一个 HTTP API 服务器,允许远程客户端提交和管理解说任务.
+    启动一个 HTTP API 服务器,��许远程客户端提交和管理解说任务.
     适用于将推理负载卸载到 GPU 机器或云端服务器.
 
     \b
@@ -1347,10 +1347,10 @@ def serve(
         mn submit -m 飞驰人生 --remote http://worker:8765 --wait
 
     \b
-    安全提示: 默认仅监听 127.0.0.1(本机访问),无需认证.
-    使用 --public 监听 0.0.0.0 时,必须提供 --api-key(或设置
+    安��提示: 默认��监听 127.0.0.1(本机访问),无需认证.
+    使用 --public 监听 0.0.0.0 时,��须提供 --api-key(或设置
     MN_API_KEY 环境变量),否则拒绝启动. 使用 --insecure 可跳过此
-    安全检查(不推荐).
+    安��检查(不推荐).
     v0.8.0 已增加 X-API-Key 认证支持,通过 --api-key 启用.
     """
     from .cloud import run_daemon
@@ -1396,7 +1396,7 @@ def download(
     remote: str = typer.Option(..., "--remote", "-r", help="远程服务器URL / Remote server URL"),
     filename: Optional[str] = typer.Option(
         None, "--filename", "-f",
-        help="指定文件名(不指定则下载全部) / Specific file (default: all)"
+        help="指定文件名(不指定则下载��部) / Specific file (default: all)"
     ),
     dest_dir: Optional[str] = typer.Option(
         None, "--dest-dir", "-o",
