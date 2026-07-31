@@ -94,39 +94,48 @@ class _APIHandler(BaseHTTPRequestHandler):
         """Send an error response."""
         self._send_json({"error": message}, status=status)
 
-    def _check_auth(self) -> bool:
-        """Check API key authentication. Returns True if authorized.
-
-        If no API key is configured on the server, all requests are allowed
-        (local development mode). Otherwise, the X-API-Key header must
-        match the configured key.
-        """
-        server = self.server  # type: ignore[attr-defined]
-        expected = getattr(server, '_api_key', None)
-        if expected is None:
-            return True  # No auth configured
-        provided = self.headers.get("X-API-Key", "")
-        if not hmac.compare_digest(provided, expected):
-            self._send_error(HTTPStatus.UNAUTHORIZED, "Unauthorized: invalid or missing API key")
-            return False
-        return True
-
     @property
     def queue(self) -> LocalTaskQueue:
         """Access the task queue from the server instance."""
         return self.server.queue  # type: ignore[attr-defined]
+
+    # ── Authentication ─────────────────────────────────────
+
+    def _check_auth(self) -> bool:
+        """Check ``X-API-Key`` authentication.
+
+        When the server has no ``api_key`` configured, all requests are
+        allowed — this keeps the local default (loopback) frictionless
+        and backwards compatible. When an ``api_key`` is configured, the
+        request's ``X-API-Key`` header is compared to it using a
+        constant-time comparison (:func:`hmac.compare_digest`) to
+        mitigate timing attacks.
+
+        Returns:
+            True if the request is authorized (and routing should
+            continue); False if unauthorized (a 401 response has already
+            been sent and the handler should return immediately).
+        """
+        api_key: Optional[str] = getattr(self.server, "api_key", None)
+        if api_key is None:
+            return True
+        provided = self.headers.get("X-API-Key", "")
+        if hmac.compare_digest(provided, api_key):
+            return True
+        self._send_error(HTTPStatus.UNAUTHORIZED, "unauthorized")
+        return False
 
     # ── GET ─────────────────────────────────────────────────
 
     def do_GET(self) -> None:
         path = self.path.split("?")[0]
 
-        # Health check is always public (no auth required)
+        # Health check — exempt from authentication (always allowed)
         if path == "/health":
             self._send_json({"status": "ok"})
             return
 
-        # Auth check for all other endpoints
+        # Authenticate all other routes
         if not self._check_auth():
             return
 
@@ -208,9 +217,11 @@ class _APIHandler(BaseHTTPRequestHandler):
     # ── POST ────────────────────────────────────────────────
 
     def do_POST(self) -> None:
+        path = self.path.split("?")[0]
+
+        # Authenticate all routes
         if not self._check_auth():
             return
-        path = self.path.split("?")[0]
 
         if path == "/tasks":
             try:
@@ -221,7 +232,7 @@ class _APIHandler(BaseHTTPRequestHandler):
 
             try:
                 request = TaskRequest(**body)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 self._send_error(HTTPStatus.BAD_REQUEST, f"Invalid task request: {e}")
                 return
 
@@ -237,9 +248,12 @@ class _APIHandler(BaseHTTPRequestHandler):
     # ── DELETE ──────────────────────────────────────────────
 
     def do_DELETE(self) -> None:
+        path = self.path.split("?")[0]
+
+        # Authenticate all routes
         if not self._check_auth():
             return
-        path = self.path.split("?")[0]
+
         match = _TASK_PATTERN.match(path)
         if match:
             task_id = match.group(1)
@@ -316,7 +330,7 @@ class _APIHandler(BaseHTTPRequestHandler):
             if not file_path.is_relative_to(output_dir):
                 self._send_error(HTTPStatus.FORBIDDEN, "Access denied")
                 return
-        except Exception:
+        except Exception:  # noqa: BLE001
             self._send_error(HTTPStatus.BAD_REQUEST, "Invalid filename")
             return
 
@@ -370,8 +384,9 @@ class TaskAPIServer:
             new one is created.
         storage_dir: Storage directory for the queue (if creating).
         max_workers: Max worker threads for the queue (if creating).
-        api_key: Optional API key for X-API-Key authentication. When
-            None (default), all requests are allowed (local dev mode).
+        api_key: Optional X-API-Key for authenticating requests. When
+            None (default), the server runs unauthenticated — safe only
+            on loopback. Required when binding to a public interface.
     """
 
     def __init__(
@@ -386,7 +401,7 @@ class TaskAPIServer:
     ) -> None:
         self.host = host
         self.port = port
-        self._api_key = api_key
+        self.api_key = api_key
         self._owns_queue = queue is None
         self._queue = queue or LocalTaskQueue(
             storage_dir=storage_dir,
@@ -394,11 +409,6 @@ class TaskAPIServer:
         )
         self._server: Optional[ThreadingHTTPServer] = None
         self._thread: Optional[threading.Thread] = None
-
-    @property
-    def api_key(self) -> Optional[str]:
-        """The configured API key for authentication (None = no auth)."""
-        return self._api_key
 
     @property
     def queue(self) -> LocalTaskQueue:
@@ -430,9 +440,7 @@ class TaskAPIServer:
             _APIHandler,
         )
         self._server.queue = self._queue  # type: ignore[attr-defined]
-        # Propagate the API key so request handlers can read it via
-        # ``self.server._api_key`` (see ``_APIHandler._check_auth``).
-        self._server._api_key = self._api_key  # type: ignore[attr-defined]
+        self._server.api_key = self.api_key  # type: ignore[attr-defined]
         # Update actual port (in case port=0 was used)
         self.port = self._server.server_address[1]
 

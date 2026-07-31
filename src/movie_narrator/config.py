@@ -57,7 +57,6 @@ def ensure_user_config() -> Path:
     if not _USER_ENV.exists():
         import os
         import tempfile
-        import sys
 
         _USER_DIR.mkdir(parents=True, exist_ok=True)
         fd, tmp_path = tempfile.mkstemp(dir=_USER_DIR, suffix=".env.tmp")
@@ -84,14 +83,14 @@ def _print_first_run_notice(env_path: Path) -> None:
     if os.getenv("CI"):
         return
     print(
-        f"\n[movie-narrator] 首次运行：已创建��置文件\n"
+        f"\n[movie-narrator] 首次运行：已创建配置文件\n"
         f"  路径: {env_path}\n"
-        f"  请编辑此文件，填��你的 LLM 和 TTS ��置：\n"
+        f"  请编辑此文件，填入你的 LLM 和 TTS 配置：\n"
         f"    MN_LLM_BASE_URL  — LLM API 地址 (如 http://localhost:11434/v1)\n"
         f"    MN_LLM_API_KEY   — LLM API 密钥\n"
         f"    MN_LLM_MODEL     — LLM 模型名称\n"
         f"    MN_DEFAULT_VOICE — TTS 语音 (如 zh-CN-YunxiNeural)\n"
-        f"  ��置完成后重新运行即可。\n",
+        f"  配置完成后重新运行即可。\n",
         file=sys.stderr,
     )
 
@@ -109,6 +108,11 @@ class Settings(BaseSettings):
     call params only. All pipeline behavior (scene, match, render, etc.)
     is configured via job.yaml params — see ``examples/job.example.yaml`` for defaults.
     """
+    # ── API server / Remote inference (v0.8.0) ──
+    # X-API-Key for authenticating the remote inference API server
+    # (``mn serve``). When None, the API server runs unauthenticated —
+    # safe only on loopback. Required when binding to a public interface.
+    api_key: Optional[str] = None
     # ── LLM ──
     llm_provider: str = "openai"  # registered LLM provider name (see llm_registry)
     llm_base_url: str = "http://localhost:11434/v1"
@@ -125,8 +129,6 @@ class Settings(BaseSettings):
     research_retries: int = 3
     research_retry_delay: float = 1.5
     translate_max_tokens: int = 4096
-    # ── API server (remote serve auth, v0.8.0) ──
-    api_key: Optional[str] = None
     # ── TMDB (external movie database for fact verification) ──
     tmdb_api_key: Optional[str] = None
     tmdb_base_url: str = "https://api.themoviedb.org/3"

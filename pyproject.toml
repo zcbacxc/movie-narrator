@@ -47,7 +47,7 @@ full = [
     'faster-whisper>=1.0; python_version < "3.14"',
     'sentence-transformers>=3.0; python_version < "3.14"',
 ]
-dev = ["pytest>=8.0", "mypy>=1.10", "ruff>=0.4"]
+dev = ["pytest>=8.0", "pytest-timeout>=2.0", "mypy>=1.10", "ruff>=0.4"]
 docs = [
     "mkdocs>=1.5",
     "mkdocstrings[python]>=0.24",

@@ -25,7 +25,6 @@ from __future__ import annotations
 import logging
 import signal
 import sys
-import threading
 from pathlib import Path
 from typing import Optional
 
@@ -33,6 +32,22 @@ from .api import TaskAPIServer
 from .queue import LocalTaskQueue
 
 logger = logging.getLogger(__name__)
+
+# Hosts considered "loopback" (local-only) and therefore safe to run
+# without authentication. Binding to anything else exposes the API to
+# the network and requires an ``api_key`` (or an explicit opt-in via
+# ``allow_insecure=True``).
+_LOOPBACK_HOSTS = frozenset({
+    "127.0.0.1",
+    "localhost",
+    "::1",
+    "0:0:0:0:0:0:0:1",  # expanded ::1
+})
+
+
+def _is_loopback(host: str) -> bool:
+    """Return True if ``host`` is a loopback / local-only address."""
+    return host.lower() in _LOOPBACK_HOSTS
 
 
 def run_daemon(
@@ -58,22 +73,34 @@ def run_daemon(
         max_workers: Maximum concurrent task executions.
         blocking: If True, block until interrupted. If False, return
             the running server (for testing).
-        api_key: Optional API key for X-API-Key authentication. When
-            None and bound to a loopback interface, the server runs in
-            local (no-auth) mode.
-        allow_insecure: Allow starting on a public interface without an
-            API key (not recommended).
+        api_key: Optional X-API-Key for authenticating requests. When
+            None and ``host`` is a loopback address, the server runs
+            unauthenticated (backwards compatible). When None and
+            ``host`` is a public interface, the daemon refuses to start
+            unless ``allow_insecure=True`` is set.
+        allow_insecure: When True, allow binding to a non-loopback
+            interface without an ``api_key`` (the caller assumes the
+            security risk). Defaults to False.
 
     Returns:
         The running ``TaskAPIServer`` instance.
     """
-    # Security guard: refuse to start on public interface without API key
-    _is_loopback = host in ("127.0.0.1", "localhost", "::1", "0:0:0:0:0:0:0:1")
-    if not _is_loopback and api_key is None and not allow_insecure:
-        raise ValueError(
-            "Refusing to start on public interface without API key. "
-            "Use --api-key to set one, or --insecure to override."
+    # ── Startup guard ──────────────────────────────────────
+    # Refuse to expose an unauthenticated API server on a public
+    # interface unless the caller explicitly opts in.
+    if not _is_loopback(host) and api_key is None and not allow_insecure:
+        print(
+            "ERROR: refusing to start an unauthenticated API server on a "
+            "public interface.\n"
+            f"  bind host: {host}\n"
+            "To fix, either:\n"
+            "  1. Set an API key:  mn serve --public --api-key YOUR_KEY\n"
+            "     (or MN_API_KEY in your .env / environment)\n"
+            "  2. Listen on loopback only (default, no --public)\n"
+            "  3. Explicitly accept the risk:  --insecure\n",
+            file=sys.stderr,
         )
+        raise SystemExit(1)
 
     # Create the task queue
     queue = LocalTaskQueue(
@@ -88,11 +115,6 @@ def run_daemon(
         queue=queue,
         api_key=api_key,
     )
-
-    if api_key:
-        logger.info("API key authentication: enabled")
-    else:
-        logger.info("API key authentication: disabled (local mode)")
 
     if blocking:
         # Set up signal handlers for graceful shutdown
@@ -138,9 +160,6 @@ class WorkerDaemon:
         port: Listen port.
         storage_dir: Task storage directory.
         max_workers: Max concurrent tasks.
-        api_key: Optional API key for X-API-Key authentication.
-        allow_insecure: Allow starting on a public interface without
-            an API key (not recommended).
     """
 
     def __init__(
@@ -150,15 +169,11 @@ class WorkerDaemon:
         *,
         storage_dir: Optional[Path] = None,
         max_workers: int = 2,
-        api_key: Optional[str] = None,
-        allow_insecure: bool = False,
     ) -> None:
         self._host = host
         self._port = port
         self._storage_dir = storage_dir
         self._max_workers = max_workers
-        self._api_key = api_key
-        self._allow_insecure = allow_insecure
         self._server: Optional[TaskAPIServer] = None
 
     @property
@@ -178,20 +193,11 @@ class WorkerDaemon:
         if self._server is not None:
             raise RuntimeError("Daemon is already running")
 
-        # Security guard: refuse to start on public interface without API key
-        _is_loopback = self._host in ("127.0.0.1", "localhost", "::1", "0:0:0:0:0:0:0:1")
-        if not _is_loopback and self._api_key is None and not self._allow_insecure:
-            raise ValueError(
-                "Refusing to start on public interface without API key. "
-                "Use --api-key to set one, or --insecure to override."
-            )
-
         self._server = TaskAPIServer(
             host=self._host,
             port=self._port,
             storage_dir=self._storage_dir,
             max_workers=self._max_workers,
-            api_key=self._api_key,
         )
         self._port = self._server.port  # update actual port
         self._server.start(blocking=blocking)
