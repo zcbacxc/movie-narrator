@@ -34,8 +34,26 @@ permissions:
   contents: read
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: pyproject.toml
+
+      - run: pip install -e ".[dev]"
+      - name: Ruff lint check
+        run: ruff check src/
+      - name: Mypy type check
+        run: mypy src/movie_narrator/workflow src/movie_narrator/cloud src/movie_narrator/utils
+
   test-matrix:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
@@ -53,9 +71,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg fonts-noto-cjk
 
-      - run: |
-          pip install -e ".[dev]"
-          pip install pytest-timeout
+      - run: pip install -e ".[dev]"
       - name: Run unit tests
         run: pytest tests/ -v --timeout=300
 
@@ -90,23 +106,24 @@ jobs:
 
   # Summary job — name "test" matches branch protection required check.
   # Matrix jobs generate "test-matrix (3.10)" etc. which don't match.
-  # This job depends on all matrix jobs and is a no-op gate.
+  # This job depends on all matrix jobs + lint and is a no-op gate.
   test:
-    needs: [test-matrix]
+    needs: [test-matrix, lint]
     runs-on: ubuntu-latest
     if: always()
     steps:
       - name: Check matrix results
         run: |
-          if [[ "${{ needs.test-matrix.result }}" == "success" ]]; then
-            echo "All matrix jobs passed"
+          if [[ "${{ needs.test-matrix.result }}" == "success" && "${{ needs.lint.result }}" == "success" ]]; then
+            echo "All matrix and lint jobs passed"
           else
-            echo "Matrix jobs failed: ${{ needs.test-matrix.result }}"
+            echo "Matrix jobs: ${{ needs.test-matrix.result }}, Lint: ${{ needs.lint.result }}"
             exit 1
           fi
 
   media:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     continue-on-error: true
 
     steps:
@@ -127,20 +144,3 @@ jobs:
 
       - name: Run scene / match unit tests
         run: pytest tests/test_scenes.py tests/test_match.py tests/test_optional_deps.py -v
-
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.12"
-      - name: Install dev dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install 'ruff>=0.4' 'mypy>=1.10'
-      - name: Run ruff
-        run: ruff check src/
-      - name: Run mypy
-        run: mypy src/movie_narrator/workflow src/movie_narrator/cloud src/movie_narrator/utils
-        continue-on-error: true  # baseline mode — warnings don't fail CI yet
