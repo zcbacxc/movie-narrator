@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 from ..models import Context, StepResult
+from ..utils.optional_deps import probe  # noqa: F401  (re-exported for tests)
 from ..utils.alignment_qa import (
     extract_word_segments,
     assign_words_to_segments,

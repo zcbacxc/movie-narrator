@@ -537,7 +537,7 @@ class TestRunRace:
             style="test",
             duration=60,
             voice=None,
-            format="16:9",
+            video_format="16:9",
             output_base=tmp_path,
         )
 
@@ -586,7 +586,7 @@ class TestRunRace:
             style="test",
             duration=60,
             voice=None,
-            format="16:9",
+            video_format="16:9",
             output_base=tmp_path,
         )
 
@@ -643,7 +643,7 @@ class TestRunRace:
             style="test",
             duration=60,
             voice=None,
-            format="16:9",
+            video_format="16:9",
             output_base=tmp_path,
             auto_pick=True,
         )
@@ -698,7 +698,7 @@ class TestRunRace:
             style="test",
             duration=60,
             voice=None,
-            format="16:9",
+            video_format="16:9",
             output_base=tmp_path,
         )
 

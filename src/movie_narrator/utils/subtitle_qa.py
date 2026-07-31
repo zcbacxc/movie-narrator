@@ -369,7 +369,11 @@ def validate_subtitles(
 
     cue_metrics: list[SubtitleCueMetrics] = []
     for i, seg in enumerate(segments):
-        tr = translated_texts[i] if translated_texts is not None else None
+        tr = (
+            translated_texts[i]
+            if translated_texts is not None and len(translated_texts) == len(segments)
+            else None
+        )
         cue_metrics.append(analyze_cue(seg, i, tr))
 
     overlaps = check_overlaps(segments)

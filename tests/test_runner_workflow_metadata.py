@@ -18,7 +18,7 @@ def test_run_pipeline_writes_workflow_metadata(tmp_path):
         style="S",
         duration=10,
         voice=None,
-        format="16:9",
+        video_format="16:9",
         output_dir=tmp_path,
         workflow_steps={"align_audio": False, "export_clips": False},
         params={"scene_threshold": 33.0, "match_min_score": 0.5, "research_provider": "llm"},
@@ -45,7 +45,7 @@ def test_run_pipeline_omits_workflow_keys_when_empty(tmp_path):
         style="S",
         duration=10,
         voice=None,
-        format="16:9",
+        video_format="16:9",
         output_dir=tmp_path,
     )
     with patch("movie_narrator.pipeline.runner.STEPS", fake_steps):
@@ -91,7 +91,7 @@ def test_run_pipeline_accumulates_degraded_steps_for_internal_fallback(tmp_path)
         style="S",
         duration=10,
         voice=None,
-        format="16:9",
+        video_format="16:9",
         output_dir=tmp_path,
     )
     with patch("movie_narrator.pipeline.runner.STEPS", fake_steps):
@@ -130,7 +130,7 @@ def test_run_pipeline_does_not_duplicate_degraded_steps(tmp_path):
         style="S",
         duration=10,
         voice=None,
-        format="16:9",
+        video_format="16:9",
         output_dir=tmp_path,
     )
     with patch("movie_narrator.pipeline.runner.STEPS", fake_steps):
@@ -164,7 +164,7 @@ def test_run_pipeline_no_degraded_when_step_succeeds(tmp_path):
         style="S",
         duration=10,
         voice=None,
-        format="16:9",
+        video_format="16:9",
         output_dir=tmp_path,
     )
     with patch("movie_narrator.pipeline.runner.STEPS", fake_steps):

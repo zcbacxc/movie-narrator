@@ -9,7 +9,7 @@ def _cli(**overrides):
         "style": "热血搞笑",
         "duration": 60,
         "voice": None,
-        "format": "16:9",
+        "video_format": "16:9",
         "keep_cache": False,
         "video": None,
         "library_dir": None,
@@ -62,9 +62,9 @@ def test_duration_cli_when_not_default():
 
 
 def test_format_yaml_when_cli_default_with_config():
-    job = JobConfig(movie="M", format="9:16")
-    r = merge_job(_cli(format="16:9", config_path="job.yaml"), job, Settings())
-    assert r.format == "9:16"
+    job = JobConfig(movie="M", video_format="9:16")
+    r = merge_job(_cli(config_path="job.yaml"), job, Settings())
+    assert r.video_format == "9:16"
 
 
 def test_bool_sentinel_keep_cache_false_does_not_override_yaml_true():
