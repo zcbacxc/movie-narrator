@@ -15,6 +15,18 @@ class BilibiliLongPreset:
 
     name = "bilibili-long"
 
+    def render_template(self) -> Dict[str, Any]:
+        """横屏长视频包装模板 — 有片尾卡片和免责声明。"""
+        return {
+            "title_card_text": "{movie}",
+            "disclaimer_text": "解说仅供交流，请支持正版",
+            "end_card_text": "一键三连",
+            "aspect_safe_area": {
+                "max_width_ratio": 0.90,
+                "bottom_margin_ratio": 0.08,
+            },
+        }
+
     def params(self) -> Dict[str, Any]:
         return {
             # Match: 大场景合并,几乎不拉伸
@@ -50,11 +62,7 @@ class BilibiliLongPreset:
             # Platform tone adaptation
             "target_platform": "bilibili",
             # Render template — per-preset styling overlays
-            "render_template": {
-                "title_card_text": "{movie}",
-                "disclaimer_text": "解说仅供交流，请支持正版",
-                "end_card_text": "一键三连",
-            },
+            "render_template": self.render_template(),
         }
 
     def prompt_tags(self) -> Dict[str, str]:

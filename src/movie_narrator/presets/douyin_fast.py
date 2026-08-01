@@ -15,6 +15,20 @@ class DouyinFastPreset:
 
     name = "douyin-fast"
 
+    def render_template(self) -> Dict[str, Any]:
+        """竖屏短视频包装模板 — 有水印和免责声明。"""
+        return {
+            "title_card_text": "{movie}",
+            "watermark_text": "{movie}解说",
+            "disclaimer_text": "本视频仅供娱乐交流，如有侵权请联系删除",
+            "slogan_text": "关注不迷路",
+            "end_card_text": "点赞+关注",
+            "aspect_safe_area": {
+                "max_width_ratio": 0.82,
+                "bottom_margin_ratio": 0.15,
+            },
+        }
+
     def params(self) -> Dict[str, Any]:
         return {
             # Match: 快切镜,允许较大速度拉伸
@@ -53,11 +67,7 @@ class DouyinFastPreset:
             # Platform tone adaptation
             "target_platform": "douyin",
             # Render template — per-preset styling overlays
-            "render_template": {
-                "title_card_text": "{movie}",
-                "slogan_text": "关注不迷路",
-                "end_card_text": "点赞+关注",
-            },
+            "render_template": self.render_template(),
         }
 
     def prompt_tags(self) -> Dict[str, str]:

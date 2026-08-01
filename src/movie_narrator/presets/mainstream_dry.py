@@ -15,6 +15,17 @@ class MainstreamDryPreset:
 
     name = "mainstream-dry"
 
+    def render_template(self) -> Dict[str, Any]:
+        """横屏长视频包装模板 — 标题简洁, 无水印无免责声明。"""
+        return {
+            "title_card_text": "{movie}",
+            "end_card_text": "感谢观看",
+            "aspect_safe_area": {
+                "max_width_ratio": 0.90,
+                "bottom_margin_ratio": 0.08,
+            },
+        }
+
     def params(self) -> Dict[str, Any]:
         return {
             # Match: 慢切镜,拒绝大幅拉伸
@@ -46,10 +57,7 @@ class MainstreamDryPreset:
             # Platform tone adaptation
             "target_platform": "youtube",
             # Render template — per-preset styling overlays
-            "render_template": {
-                "title_card_text": "{movie}",
-                "end_card_text": "感谢观看",
-            },
+            "render_template": self.render_template(),
         }
 
     def prompt_tags(self) -> Dict[str, str]:

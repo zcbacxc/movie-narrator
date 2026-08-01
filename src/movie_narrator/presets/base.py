@@ -135,10 +135,12 @@ class Preset(Protocol):
         All keys are optional.  Recognised keys:
 
         - ``title_card_text`` (str): text for the opening title card.
-        - ``disclaimer_text`` (str): small text shown at the very bottom.
-        - ``watermark_text`` (str): small semi-transparent top-right text.
-        - ``slogan_text`` (str): promotional slogan overlay.
         - ``end_card_text`` (str): text for the closing end card.
+        - ``watermark_text`` (str): small semi-transparent top-right text.
+        - ``disclaimer_text`` (str): small text shown at the very bottom.
+        - ``slogan_text`` (str): promotional slogan overlay.
+        - ``aspect_safe_area`` (dict): safe-area ratios with keys
+          ``max_width_ratio`` (float) and ``bottom_margin_ratio`` (float).
 
         The ``{movie}`` placeholder in any string value is replaced with
         the actual movie name at render time.
