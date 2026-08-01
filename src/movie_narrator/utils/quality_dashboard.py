@@ -416,7 +416,7 @@ def _compare_with_baseline(
         baseline_data = json.loads(baseline_file.read_text(encoding="utf-8"))
         baseline_dashboard = baseline_data.get("quality_dashboard", {})
         baseline_dims = {d["name"]: d["score"] for d in baseline_dashboard.get("dimensions", [])}
-    except Exception as e:
+    except (OSError, ValueError) as e:
         logger.warning("Failed to load baseline for regression comparison: %s", e)
         return []
 

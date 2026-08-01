@@ -79,7 +79,7 @@ def _research_via_llm(ctx: Context, settings) -> ResearchInfo:
         raw = response.choices[0].message.content or ""
         data = extract_json(raw)
 
-        # NA-M2-S1: Build a structured movie card from the same LLM
+        # Build a structured movie card from the same LLM
         # response. Carrying typed metadata (director / cast / genres /
         # set_pieces) downstream reduces hallucination in script
         # generation. Construction is wrapped so a malformed response
@@ -95,11 +95,11 @@ def _research_via_llm(ctx: Context, settings) -> ResearchInfo:
                 cast=data.get("cast") or [],
                 set_pieces=data.get("set_pieces") or [],
             )
-        except Exception:
+        except Exception:  # noqa: BLE001
             logger.debug("Failed to parse movie card from LLM response", exc_info=True)
             ctx.metadata.pop("movie_card", None)
 
-        # NA-M2-S1+: TMDB cross-validation. When an API key is configured,
+        # TMDB cross-validation. When an API key is configured,
         # enrich the LLM-sourced card with TMDB-verified factual data
         # (director, cast, genres, year). This is a soft enhancement:
         # if TMDB is unavailable or the movie isn't found, the LLM card
@@ -110,7 +110,7 @@ def _research_via_llm(ctx: Context, settings) -> ResearchInfo:
                 from ..providers.tmdb import enrich_movie_card_with_tmdb
                 enriched = enrich_movie_card_with_tmdb(card, ctx, settings)
                 ctx.metadata["movie_card"] = enriched
-            except Exception:
+            except Exception:  # noqa: BLE001
                 logger.debug("TMDB enrichment failed (best-effort)", exc_info=True)
 
         return ResearchInfo(
@@ -155,7 +155,7 @@ def research_plot(ctx: Context) -> Context:
             _write_envelope(output_dir, "success", None, ctx.research.model_dump())
             ctx.status.research = "success"
             return ctx
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             last_err = e
             if attempt < settings.research_retries - 1:
                 console.debug(

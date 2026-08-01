@@ -27,6 +27,6 @@ def probe(name: str) -> Tuple[bool, str]:
     try:
         import_module(mod)
         return True, ""
-    except Exception:
+    except Exception:  # noqa: BLE001
         logger.debug("Optional dependency '%s' not available", name, exc_info=True)
         return False, _HINTS.get(name, f"install dependency for {name}")

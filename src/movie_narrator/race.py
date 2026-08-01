@@ -354,7 +354,7 @@ def run_race(
             result.error = "paused"
         except PreflightError as e:
             result.error = f"preflight: {e}"
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             result.error = str(e)
             logger.exception(f"Candidate '{cand.label}' failed: {e}")
 
@@ -410,7 +410,7 @@ def _promote_best(best: CandidateResult, output_base: Path) -> None:
     try:
         shutil.copy2(best.video_path, dest)
         logger.info(f"Best candidate '{best.config.label}' promoted to {dest}")
-    except Exception as e:
+    except (OSError, RuntimeError) as e:
         logger.warning(f"Failed to promote best candidate: {e}")
 
 

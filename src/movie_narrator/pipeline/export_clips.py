@@ -75,7 +75,7 @@ def export_clips(ctx: Context) -> Context:
                 stderr_tail = result.stderr.decode(errors="replace")[-300:]
                 raise RuntimeError(f"ffmpeg exited {result.returncode}: {stderr_tail}")
             scene.clip_path = str(clip_path)
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError, RuntimeError) as e:
             failed += 1
             tqdm.write(f"  ⚠ skip scene {scene.index}: {e}")
 

@@ -382,7 +382,7 @@ class LocalTaskQueue:
             )
             self._storage.save(task)
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — worker top-level must never crash the executor
             logger.exception("Worker thread error for task %s: %s", task_id, e)
             # Try to mark the task as failed
             try:
@@ -393,7 +393,7 @@ class LocalTaskQueue:
                     from datetime import datetime, timezone
                     task.completed_at = datetime.now(timezone.utc).isoformat()
                     self._storage.save(task)
-            except Exception:
+            except (OSError, ValueError):
                 logger.debug("Failed to mark task as failed after worker error", exc_info=True)
 
         finally:
@@ -450,7 +450,7 @@ class LocalTaskQueue:
             )
             with self._lock:
                 self._active_count = active
-        except Exception:
+        except Exception:  # noqa: BLE001 — best-effort counter init, must not crash startup
             logger.debug(
                 "Failed to initialize active_count from storage",
                 exc_info=True,

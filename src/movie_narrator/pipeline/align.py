@@ -171,12 +171,12 @@ def align_audio(ctx: Context) -> Context:
         )
         try:
             return _align_with_whisperx(ctx)
-        except Exception as fallback_err:
+        except (ImportError, OSError, RuntimeError) as fallback_err:
             ctx.step_state.result = StepResult.WARNING
             ctx.step_state.message = str(fallback_err)
             ctx.status.align = "failed"
             return ctx
-    except Exception as e:
+    except (OSError, RuntimeError) as e:
         ctx.step_state.result = StepResult.WARNING
         ctx.step_state.message = str(e)
         ctx.status.align = "failed"
@@ -222,7 +222,7 @@ def _align_with_whisperx(ctx: Context) -> Context:
             )
             # v0.5.11: Extract word-level segments from align result
             word_segments_data = extract_word_segments(result)
-        except Exception as align_err:
+        except (ImportError, OSError, RuntimeError) as align_err:
             ctx.services.console.inline_warn(
                 f"WhisperX forced alignment failed ({align_err}); "
                 f"falling back to transcript-level timestamps"
@@ -305,7 +305,7 @@ def _align_with_whisperx(ctx: Context) -> Context:
         ctx.metadata["align_segments"] = len(wx_segments)
         ctx.metadata["align_backward_skipped"] = backward_skipped
         return ctx
-    except Exception as e:
+    except (OSError, RuntimeError) as e:
         ctx.step_state.result = StepResult.WARNING
         ctx.step_state.message = str(e)
         ctx.status.align = "failed"

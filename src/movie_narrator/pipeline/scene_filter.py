@@ -96,7 +96,7 @@ def _extract_mid_frame(
             timeout=10,
         )
         return result.returncode == 0 and output_path.exists()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.debug("frame extraction failed at %.1fs: %s", timestamp, e)
         return False
 
@@ -117,7 +117,7 @@ def _compute_mean_luma(image_path: Path) -> Optional[float]:
         if not pixels:
             return None
         return sum(pixels) / len(pixels)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.debug("luma computation failed: %s", e)
         return None
 

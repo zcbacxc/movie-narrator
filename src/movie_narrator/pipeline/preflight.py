@@ -56,7 +56,7 @@ def _check_llm(ctx: Context) -> None:
                 messages=[{"role": "user", "content": "hi"}],
                 max_tokens=1,
             )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — LLM reachability probe: catch all SDK errors to surface PreflightError
         raise PreflightError(
             f"LLM not reachable at {settings.llm_base_url} "
             f"(model={settings.llm_model}): {e}\n"

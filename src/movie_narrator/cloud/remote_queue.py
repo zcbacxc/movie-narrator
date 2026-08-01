@@ -109,12 +109,12 @@ class RemoteTaskQueue:
             try:
                 err_body = json.loads(e.read().decode("utf-8"))
                 msg = err_body.get("error", str(e))
-            except Exception:
+            except Exception:  # noqa: BLE001
                 msg = str(e)
             raise RemoteQueueError(f"HTTP {e.code}: {msg}") from e
         except urllib.error.URLError as e:
             raise RemoteQueueError(f"Connection error: {e.reason}") from e
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             raise RemoteQueueError(f"Request failed: {e}") from e
 
     # ── TaskQueue protocol ──────────────────────────────────

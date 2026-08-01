@@ -53,7 +53,7 @@ class BaseTTSProvider(TTSProvider):
         # network errors and are re-raised unchanged (non-retryable).
         try:
             await self._real_synthesize(text, voice, output_path)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — classify all errors via is_network_error for retry policy
             if is_network_error(e):
                 raise ProviderError(
                     f"TTS synthesis failed (transient network error): {e}",

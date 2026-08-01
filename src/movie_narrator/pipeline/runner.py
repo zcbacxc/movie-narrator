@@ -512,7 +512,7 @@ def run_pipeline(
             except PipelineCancelled:
                 console.cancelled("Pipeline cancelled.")
                 raise
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — pipeline step barrier: catch all for retry/degrade policy
                 elapsed = time.time() - step_start
                 # R2-NA-ORCH: detect retryable (transient) errors via the
                 # `retryable` attribute on ProviderError subclasses (and any
@@ -626,7 +626,7 @@ def run_pipeline(
             meta = build_metadata_json(ctx)
             with open(output_dir / "metadata.json", "w", encoding="utf-8") as f:
                 json.dump(meta, f, ensure_ascii=False, indent=2)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — best-effort diagnostic re-export
             # Best-effort: metadata re-export is diagnostic, not critical.
             # If it fails, the render-time metadata.json is still valid.
             # B5 fix: leave a debug trace so disk-full / readonly paths

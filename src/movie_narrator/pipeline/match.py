@@ -65,7 +65,7 @@ def _transcribe_video_audio(
     if cache_path.exists():
         try:
             return json.loads(cache_path.read_text(encoding="utf-8"))
-        except Exception:
+        except (OSError, ValueError):
             logger.debug("corrupt transcription cache at %s", cache_path, exc_info=True)
 
     # Try WhisperX first (preserves forced alignment if available)
@@ -91,7 +91,7 @@ def _transcribe_video_audio(
                 encoding="utf-8",
             )
         return segments if segments else None
-    except Exception as wx_err:
+    except (ImportError, OSError, RuntimeError) as wx_err:
         logger.warning("WhisperX video transcription failed: %s", wx_err, exc_info=True)
         # Fall through to faster-whisper
 
@@ -112,7 +112,7 @@ def _transcribe_video_audio(
                 encoding="utf-8",
             )
         return segments if segments else None
-    except Exception as fw_err:
+    except (ImportError, OSError, RuntimeError) as fw_err:
         logger.warning("faster-whisper video transcription failed: %s", fw_err, exc_info=True)
         return None
 
@@ -758,7 +758,7 @@ def match_clips(ctx: Context) -> Context:
         return _match_clips_impl(
             ctx, min_score, clamp_min, clamp_max, merge_min, drop_min, output_dir
         )
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         ctx.status.match = "failed"
         ctx.step_state.result = StepResult.WARNING
         ctx.step_state.message = str(e)
@@ -1057,7 +1057,7 @@ def _match_clips_impl(
                         f"{len(scene_captions)} captions, "
                         f"{'stub placeholders' if is_stub else 'real descriptions'}"
                     )
-                except Exception as ve:
+                except (OSError, RuntimeError, ValueError) as ve:
                     ctx.services.console.debug(
                         f"  vision captioner failed ({ve}); "
                         f"using audio-transcript captions"
@@ -1119,7 +1119,7 @@ def _match_clips_impl(
                     # fallback overrides it to 1.0). Lets match_summary
                     # distinguish "matched well" from "matched poorly".
                     raw_scores.append(score)
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             ctx.services.console.inline_warn(
                 f"embedding re-rank unavailable ({e}); using heuristic"
             )

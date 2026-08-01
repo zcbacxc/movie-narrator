@@ -108,7 +108,7 @@ class VLMCaptioner(VisionCaptioner):
                 frame_b64 = self._extract_keyframe_b64(scene, video_path)
                 caption = self._caption_frame(frame_b64, scene)
                 captions.append(caption)
-            except Exception:
+            except (OSError, ValueError, RuntimeError):
                 logger.debug("VLM captioning failed for scene, using fallback", exc_info=True)
                 captions.append(self._fallback_label(scene))
 
@@ -235,7 +235,7 @@ class VLMCaptioner(VisionCaptioner):
                     time.sleep(1)
                 else:  # Client error — don't retry
                     break
-            except Exception as e:
+            except (OSError, ValueError, RuntimeError) as e:
                 last_error = str(e)
                 time.sleep(1)
 

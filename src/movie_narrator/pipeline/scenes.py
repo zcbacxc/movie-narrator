@@ -85,14 +85,14 @@ def detect_scenes(ctx: Context) -> Context:
                     {"scene_count": len(scenes_data), "scenes": scenes_data},
                     f, ensure_ascii=False, indent=2,
                 )
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             # Best-effort: scenes.json is diagnostic, not critical.
             # Leave a debug trace so disk-full / readonly paths
             # are visible in verbose logs (not silently swallowed).
             ctx.services.console.debug(f"scenes.json write failed: {e}")
 
         return ctx
-    except Exception as e:
+    except (OSError, RuntimeError) as e:
         ctx.step_state.result = StepResult.WARNING
         ctx.step_state.message = str(e)
         ctx.status.scene = "failed"

@@ -96,7 +96,7 @@ def _get_video_duration(video_path: str) -> float:
         if result.returncode == 0:
             data = json.loads(result.stdout)
             return float(data.get("format", {}).get("duration", 60.0))
-    except Exception as e:
+    except (OSError, subprocess.SubprocessError, ValueError) as e:
         logger.debug(f"ffprobe failed: {e}")
 
     # Fallback: try ffmpeg
@@ -109,7 +109,7 @@ def _get_video_duration(video_path: str) -> float:
                 time_str = line.split("Duration:")[1].strip().split(",")[0].strip()
                 h, m, s = time_str.split(":")
                 return float(h) * 3600 + float(m) * 60 + float(s)
-    except Exception as e:
+    except (OSError, subprocess.SubprocessError, ValueError) as e:
         logger.debug(f"ffmpeg duration probe failed: {e}")
 
     return 60.0
@@ -144,7 +144,7 @@ def _count_scenes(video_path: str, threshold: float = 27.0) -> tuple[int, List[D
     except ImportError:
         logger.warning("scenedetect not available — scene count will be 0")
         return 0, []
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         logger.warning(f"Scene detection failed: {e}")
         return 0, []
 
@@ -180,7 +180,7 @@ def _transcribe_reference(
         return len(segments), segments
     except ImportError:
         pass
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         logger.debug(f"faster-whisper failed: {e}")
 
     try:
@@ -206,7 +206,7 @@ def _transcribe_reference(
             "sentence count will be 0"
         )
         return 0, []
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         logger.warning(f"Transcription failed: {e}")
         return 0, []
 

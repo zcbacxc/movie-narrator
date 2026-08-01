@@ -130,7 +130,7 @@ def _run_ffprobe(path: str, timeout: int = 30) -> Optional[dict]:
         if proc.returncode != 0 or not (proc.stdout or "").strip():
             return None
         return json.loads(proc.stdout)
-    except Exception:
+    except Exception:  # noqa: BLE001
         logger.debug("ffprobe execution failed", exc_info=True)
         return None
 

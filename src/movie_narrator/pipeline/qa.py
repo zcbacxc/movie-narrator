@@ -62,7 +62,7 @@ def validate_deliverable(ctx: Context) -> Context:
 
         try:
             expected = probe_media(ctx.final_audio_path).get("duration", 0.0) or 0.0
-        except Exception:
+        except (OSError, ValueError):
             logger.debug("Audio probe failed for duration estimation", exc_info=True)
             expected = 0.0
 

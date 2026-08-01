@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 zcbacxc
+﻿# SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 import logging
@@ -8,6 +8,7 @@ from typing import Dict, Optional
 import numpy as np
 import yaml
 from pydub import AudioSegment
+from pydub.exceptions import PydubException
 from pydub.utils import db_to_float
 
 from ..models import Context, StepResult, TimedSegment
@@ -28,7 +29,7 @@ def _export_robust(seg: AudioSegment, out: Path) -> str:
     try:
         seg.export(out, format="mp3")
         return str(out)
-    except Exception:
+    except (OSError, RuntimeError, PydubException):
         logger.debug(
             "MP3 export failed for %s, falling back to WAV", out, exc_info=True
         )
@@ -76,7 +77,7 @@ def ensure_final_audio(ctx: Context) -> Context:
     try:
         narration = AudioSegment.from_file(ctx.audio_path)
         ctx.final_audio_path = _normalize_narration(ctx, narration)
-    except Exception:
+    except (OSError, RuntimeError, PydubException):
         logger.debug(
             "Normalization failed for %s, falling back to raw audio",
             ctx.audio_path,
@@ -207,7 +208,7 @@ def select_bgm_by_emotion(ctx: Context) -> Optional[str]:
     try:
         with metadata_path.open("r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
-    except Exception:
+    except (OSError, yaml.YAMLError):
         logger.debug(
             "Failed to parse BGM metadata %s, returning None",
             metadata_path,
@@ -417,7 +418,7 @@ def _mix_ambient_track(
     info: dict = {}
     try:
         ambient = AudioSegment.from_file(ambient_path)
-    except Exception as e:
+    except (OSError, RuntimeError, PydubException) as e:
         logger.debug("ambient track load failed", exc_info=True)
         return narration_or_mixed, {"error": f"ambient load failed: {e}"}
 
@@ -539,9 +540,10 @@ def mix_bgm(ctx: Context) -> Context:
         ctx.final_audio_path = _export_robust(mixed, out)
         ctx.status.bgm = "success"
         return ctx
-    except Exception as e:
+    except (OSError, RuntimeError, PydubException) as e:
         logger.debug("BGM mix failed, falling back to narration", exc_info=True)
         ctx.step_state.result = StepResult.WARNING
         ctx.step_state.message = str(e)
         ctx.status.bgm = "failed"
         return ensure_final_audio(ctx)
+

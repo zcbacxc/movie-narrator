@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 
 from pydub import AudioSegment
+from pydub.exceptions import PydubException
 from tqdm.asyncio import tqdm_asyncio
 
 from ..config import get_settings, TTSProviderType
@@ -20,6 +21,7 @@ from ..tts.cache import (
     CACHE_SCHEMA_VERSION,
     PROVIDER_CACHE_VERSIONS,
 )
+from ..workflow.errors import ProviderError
 
 __all__ = ["generate_voice"]
 
@@ -122,7 +124,7 @@ def generate_voice(ctx: Context) -> Context:
                                 os.replace(str(partial), str(cached))
                                 last_err = None
                                 break
-                            except Exception as e:
+                            except (ProviderError, OSError, RuntimeError) as e:
                                 last_err = e
                                 partial.unlink(missing_ok=True)
                                 if attempt < _TTS_SEGMENT_RETRIES - 1:
@@ -137,7 +139,7 @@ def generate_voice(ctx: Context) -> Context:
                     # interrupted write before the fix), delete and retry once.
                     try:
                         audio = AudioSegment.from_mp3(cached)
-                    except Exception:
+                    except (OSError, PydubException, RuntimeError):
                         console.inline_warn(
                             f"Corrupt TTS cache file detected, re-synthesizing: {cached.name}"
                         )

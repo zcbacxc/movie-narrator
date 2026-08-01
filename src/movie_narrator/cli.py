@@ -317,7 +317,7 @@ def create(
 
     try:
         ctx = run_pipeline(ctx, controller=controller)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — CLI top-level error barrier
         # PipelinePaused — state saved, inform user how to resume
         from .pipeline.errors import PipelinePaused
         if isinstance(e, PipelinePaused):
@@ -595,7 +595,7 @@ def imitate(
 
     try:
         ctx = run_pipeline(ctx, controller=controller)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — CLI top-level error barrier
         if isinstance(e, PipelinePaused):
             typer.echo(
                 f"\n⏸ Pipeline paused after '{e.completed_step}'. "
@@ -678,7 +678,7 @@ def resume(
     controller = InteractiveCLIController() if retry else None
     try:
         ctx = run_pipeline(ctx, controller=controller, start_step=start_step)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — CLI top-level error barrier
         if isinstance(e, PipelinePaused):
             typer.echo(
                 f"\n⏸ Pipeline paused after '{e.completed_step}'. "

@@ -56,7 +56,7 @@ def _ffmpeg_bin() -> str:
         import imageio_ffmpeg
 
         return imageio_ffmpeg.get_ffmpeg_exe()
-    except Exception:
+    except (ImportError, OSError, RuntimeError):
         logger.debug("ffmpeg bundled binary lookup failed, using fallback", exc_info=True)
         return "ffmpeg"  # last resort — let subprocess raise
 
@@ -97,7 +97,7 @@ def _probe_with_ffprobe(path: str) -> Optional[dict]:
         if proc.returncode != 0 or not (proc.stdout or "").strip():
             return None
         data = json.loads(proc.stdout)
-    except Exception:
+    except (OSError, subprocess.SubprocessError, ValueError):
         logger.debug("ffprobe probe failed", exc_info=True)
         return None
 
@@ -137,7 +137,7 @@ def _probe_with_ffmpeg(path: str) -> dict:
         # ffmpeg -i exits non-zero when there's no output, but stderr still
         # contains the stream info we need.
         stderr = proc.stderr or ""
-    except Exception:
+    except (OSError, subprocess.SubprocessError, ValueError):
         logger.debug("ffmpeg -i probe failed", exc_info=True)
         stderr = ""
 
@@ -188,7 +188,7 @@ def _detect_volume(path: str) -> Optional[float]:
             timeout=60,
         )
         stderr = proc.stderr or ""
-    except Exception:
+    except (OSError, subprocess.SubprocessError, ValueError):
         logger.debug("volumedetect failed", exc_info=True)
         return None
 

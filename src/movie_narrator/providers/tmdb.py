@@ -170,7 +170,7 @@ def _tmdb_get(
             # enrichment) can log and degrade gracefully.
             logger.debug(f"TMDB network error for {path}: {e}")
             raise
-        except Exception as e:
+        except (ValueError, TypeError) as e:
             logger.debug(f"TMDB API request failed for {path}: {e}")
             return None
 
