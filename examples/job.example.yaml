@@ -13,7 +13,7 @@ movie: ""                   # 电影名称（通常通过 CLI --movie 传入）
 style: ""                   # 解说风格，如：热血搞笑 / 历史悬疑 / 温情催泪（通常 CLI 传入）
 duration: 60                # 目标视频时长（秒）
 voice: zh-CN-YunxiNeural    # TTS 音色（留空跟随 provider 默认）
-format: "16:9"              # 视频比例：16:9 或 9:16
+video_format: "16:9"        # 视频比例：16:9 或 9:16（旧键名 format 已弃用，仍向后兼容）
 keep_cache: false           # 是否保留 TTS 缓存文件
 
 # ============================================================

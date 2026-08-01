@@ -17,6 +17,7 @@
 | v0.6.0 | 任务队列 | 异步 job 系统、任务持久化、取消、进度跟踪、重试、CLI 命令。`CONTRACT_VERSION` → `(0, 6, 0)` |
 | v0.6.1 | 远程推理 | REST API 服务器、远程任务队列、Worker 守护进程、产物管理、远程 Provider 代理、CLI 命令。`CONTRACT_VERSION` → `(0, 6, 1)` |
 | v0.7.x | 出片体验 | GPU 编码、成本统计、预览模式、场景转场、文字动画、多音轨混音、安全加固。`CONTRACT_VERSION` → `(0, 7, 2)` |
+| v0.8.0 | 服务化基础 | API Key 鉴权（X-API-Key 中间件）、format→video_format 重命名、渲染模板系统（预设样式+安全区）、异常收窄（45 处宽泛捕获→具体类型）、ruff/mypy 代码检查工具链 + pytest-timeout、队列死锁修复。`CONTRACT_VERSION` → `(0, 8, 0)` |
 
 ---
 
@@ -34,20 +35,28 @@
 
 ---
 
-### v0.8.0 — 服务化基础（规划中）
+### v0.8.0 — 服务化基础（部分交付）
 
 > **目标**：能部署成一个靠谱的单租户服务，不过度设计。
 
+**v0.8.0 已交付：**
+
+- [x] API Key 鉴权 — 服务端 `X-API-Key` 校验中间件（客户端 header 已由 `RemoteTaskQueue` / `remote_provider` 预留发送）
+- [x] CONTRACT_VERSION → `(0, 8, 0)` — 服务化类型通过 SDK 导出
+- [x] 渲染模板系统 — 基于预设的样式包装，支持安全区、水印、免责声明
+- [x] 异常收窄 — 宽泛的 `except Exception` 收窄为具体异常类型
+- [x] 代码检查工具链 — ruff BLE+A 规则、mypy、pytest-timeout CI 保护
+
+**推迟到 v0.8.x 点版本：**
+
 - [ ] Dockerfile — 多阶段构建（builder + runtime），支持 GPU
 - [ ] docker-compose.yml — 本地集群（API + N workers + 存储）
-- [ ] API Key 鉴权 — 服务端 `X-API-Key` 校验中间件（客户端 header 已由 `RemoteTaskQueue` / `remote_provider` 预留发送）
 - [ ] 存储后端抽象 — `StorageBackend` 协议（local / S3）
 - [ ] 产物生命周期 — 基于 TTL 的清理
 - [ ] 结构化日志 — JSON 格式，带关联 ID
 - [ ] Prometheus 指标 — `/metrics` 端点（任务数、队列深度、渲染时长、错误率）
 - [ ] 健康/就绪探针 — `/ready` 端点 + 带依赖连通性的深度健康检查（`/health` 已在 v0.6.1 实现）
 - [ ] OpenAPI 规范 — 自动生成的 API 文档
-- [ ] CONTRACT_VERSION → `(0, 8, 0)` — 服务化类型通过 SDK 导出
 
 ### v0.9.0 — 可靠性与批量（规划中）
 

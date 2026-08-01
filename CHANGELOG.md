@@ -9,12 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [0.8.0] - 2026-07-31
 
+### Added
+
+- **GAP-1**: Server-side `X-API-Key` authentication middleware for the remote inference API server. New `MN_API_KEY` environment variable and `--api-key` / `--insecure` CLI flags for `mn serve`. When unset, the server runs unauthenticated on loopback only (127.0.0.1).
+- **GAP-4**: `render_template` system — preset-based styling with `title_card_text`, `end_card_text`, `watermark_text`, `disclaimer_text`, `slogan_text`, and `aspect_safe_area`. All three presets (douyin-fast, mainstream-dry, bilibili-long) now provide render templates with platform-specific safe areas. Movie name placeholder `{movie}` is automatically substituted.
+- `render_template` field added to `metadata.json` output via `build_metadata_json()`.
+- `render_template` added to preset `params()` whitelist and `Preset` protocol.
+- `tests/test_v080_render_template.py` — 33 test cases covering preset templates, placeholder substitution, metadata export, and render integration.
+- `tests/test_v080_api_auth.py` — 9 test cases for API key authentication middleware.
+- `tests/test_v080_real_scenedetect.py` — end-to-end PySceneDetect backend test (skipped when `[media]` extra absent).
+
 ### Changed
 
 - **BREAKING**: `format` field renamed to `video_format` across `TaskRequest`, `JobConfig`, `ResolvedJob`, and CLI parameters. The old `format` key is accepted as a deprecated alias for backward compatibility.
 - `CONTRACT_VERSION` bumped from (0, 7, 2) to (0, 8, 0).
 - CLI `--format` option renamed to `--video-format` (old `--format` still works as hidden alias).
 - YAML job configs: `format` key deprecated, use `video_format`. Both work, `video_format` takes priority if both present.
+- **GAP-2**: Narrowed 45 broad `except Exception` blocks to specific exception types across 19 files — `(OSError, subprocess.SubprocessError)` for ffmpeg, `(OSError, ValueError)` for file ops, `PydubException` for audio ops, `(ImportError, ValueError)` for optional deps, `(ValueError, RuntimeError)` for clip processing. Necessary broad catches (CLI barriers, worker threads, best-effort ops) annotated with `# noqa: BLE001`.
+- **GAP-3**: Added ruff BLE (blind-except) and A (builtin-shadowing) rule sets to lint configuration. Added `pytest-timeout` with 300s default timeout to prevent CI hangs. `mypy` configured with `follow_imports=skip` for focused type checking of workflow/cloud/utils modules.
+
+### Fixed
+
+- `LocalTaskQueue.shutdown()` deadlock (#127): executor reference is now captured under lock, lock released, then executor shut down — preventing worker threads from being blocked during shutdown.
+- `LocalTaskQueue.wait()` no longer short-circuits on terminal state (#129): always blocks on the completion `Event` (set after active_count decrement) to prevent `active_count != 0` races.
+- `RemoteTaskQueue.wait()` polling changed from fixed 1s to exponential backoff (1s start, ×1.5, cap 10s).
+- `vision/vlm.py`: defined missing `logger` variable that caused `NameError` in VLM captioning error path.
+- `utils/subtitle_qa.py`: fixed `IndexError` on mismatched translation length.
+- `build_metadata_json()` now includes `render_template` field in output.
 
 ## [0.7.5] - 2026-07-31
 

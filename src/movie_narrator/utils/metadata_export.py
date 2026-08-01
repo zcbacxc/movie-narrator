@@ -75,6 +75,8 @@ def build_metadata_json(ctx: Context) -> Dict[str, Any]:
         "duration_metrics": ctx.metadata.get("duration_metrics"),
         # ── script truncation audit ──
         "script_truncated": ctx.metadata.get("script_truncated"),
+        # ── v0.8.0: render template (preset styling) ──
+        "render_template": ctx.metadata.get("render_template"),
     }
 
     # v0.7.0: cost tracking summary

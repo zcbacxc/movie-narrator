@@ -17,6 +17,7 @@
 | v0.6.0 | Task Queue | Async job system, task persistence, cancellation, progress tracking, retry, CLI commands. `CONTRACT_VERSION` → `(0, 6, 0)` |
 | v0.6.1 | Remote Inference | REST API server, remote task queue, worker daemon, artifact management, remote provider proxies, CLI commands. `CONTRACT_VERSION` → `(0, 6, 1)` |
 | v0.7.x | Output Experience | GPU encoding, cost tracking, preview mode, scene transitions, text animation, multi-track audio, security hardening. `CONTRACT_VERSION` → `(0, 7, 2)` |
+| v0.8.0 | Service Deployment Basics | API key authentication (X-API-Key middleware), format→video_format rename, render template system (preset styling with safe areas), exception narrowing (45 broad catches → specific types), ruff/mypy lint toolchain + pytest-timeout, queue deadlock fix. `CONTRACT_VERSION` → `(0, 8, 0)` |
 
 ---
 
@@ -34,20 +35,28 @@ The original v0.6.2–v0.6.4 plan (distributed rendering, API gateway & auth, cl
 
 ---
 
-### v0.8.0 — Service Deployment Basics (planned)
+### v0.8.0 — Service Deployment Basics (partially delivered)
 
 > **Goal**: Deployable as a reliable single-tenant service, without over-engineering.
 
+**Delivered in v0.8.0:**
+
+- [x] API key authentication — server-side `X-API-Key` validation middleware (client-side header already sent by `RemoteTaskQueue` / `remote_provider`)
+- [x] CONTRACT_VERSION → `(0, 8, 0)` — service deployment types exported via SDK
+- [x] Render template system — preset-based styling with safe areas, watermark, disclaimer
+- [x] Exception narrowing — broad `except Exception` blocks narrowed to specific types
+- [x] Lint toolchain — ruff BLE+A rules, mypy, pytest-timeout CI protection
+
+**Deferred to v0.8.x point releases:**
+
 - [ ] Dockerfile — multi-stage build (builder + runtime), GPU support
 - [ ] docker-compose.yml — local cluster (API + N workers + storage)
-- [ ] API key authentication — server-side `X-API-Key` validation middleware (client-side header already sent by `RemoteTaskQueue` / `remote_provider`)
 - [ ] Storage backend abstraction — `StorageBackend` protocol (local / S3)
 - [ ] Artifact lifecycle — TTL-based cleanup
 - [ ] Structured logging — JSON format with correlation IDs
 - [ ] Prometheus metrics — `/metrics` endpoint (task count, queue depth, render duration, error rate)
 - [ ] Health/readiness probes — `/ready` endpoint + deep health check with dependency connectivity (`/health` already exists in v0.6.1)
 - [ ] OpenAPI spec — auto-generated API documentation
-- [ ] CONTRACT_VERSION → `(0, 8, 0)` — service deployment types exported via SDK
 
 ### v0.9.0 — Reliability & Batch (planned)
 

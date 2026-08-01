@@ -24,6 +24,7 @@
   "video_qa": { ... },
   "quality_dashboard": { ... },
   "qa_report": { ... },
+  "render_template": { ... },
   "beats_meta": [...],
   "warnings": [...],
   "bgm_error": "string (absent on success)"
@@ -140,6 +141,21 @@ Absent (not null) when no truncation occurred — zero overhead when LLM respect
 | `count` | int | Number of segments truncated by `_truncate_to_max_chars()` |
 | `max_chars` | int | The max_chars limit used |
 | `details` | list | `[{original_len, truncated_len}]` for each truncated segment |
+
+### `render_template`
+
+Preset-based render styling options (v0.8.0+). `null` when no preset is selected. All keys are optional; the render pipeline gracefully handles missing keys.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `title_card_text` | str | Text for the opening title card. `{movie}` placeholder is substituted with the movie name. |
+| `end_card_text` | str | Text for the closing end card. |
+| `watermark_text` | str | Small semi-transparent top-right watermark text. `{movie}` placeholder supported. |
+| `disclaimer_text` | str | Small text shown at the very bottom of the video. |
+| `slogan_text` | str | Promotional slogan overlay. |
+| `aspect_safe_area` | object | Safe-area ratios for subtitle/overlay placement. |
+| `aspect_safe_area.max_width_ratio` | float | Maximum width ratio for text overlay (0–1). |
+| `aspect_safe_area.bottom_margin_ratio` | float | Bottom margin ratio for text placement (0–1). |
 
 ### `beats_meta`
 
