@@ -661,7 +661,7 @@ def generate_script(ctx: Context) -> Context:
                 try:
                     with step_timing(ctx.services.console, "llm_judge_script"):
                         judge_scores = judge_script(segments, ctx.movie_name, llm, ctx=ctx)
-                except Exception as judge_err:
+                except Exception as judge_err:  # noqa: BLE001
                     ctx.services.console.debug(
                         f"  generate_script: judge failed, treating as pass: {judge_err}"
                     )
@@ -729,7 +729,7 @@ def generate_script(ctx: Context) -> Context:
                     )
 
                 return ctx
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             if attempt == settings.script_retries - 1:
                 # All retries exhausted — log diagnostic info before failing.
                 # The raw LLM output is critical for debugging prompt/count
