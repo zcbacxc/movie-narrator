@@ -143,7 +143,7 @@ def _export_cover_image(
                 f"  cover: ffmpeg extract failed: {proc.stderr[:200]}"
             )
             return
-    except Exception as e:
+    except (OSError, subprocess.SubprocessError) as e:
         ctx.services.console.debug(f"  cover: extract error: {e}")
         logger.debug("cover: ffmpeg extract failed", exc_info=True)
         return
@@ -197,7 +197,7 @@ def _export_cover_image(
             f"  cover: exported cover.jpg from segment {best.segment_index} "
             f"(score={best.score:.3f}, ts={mid_ts:.1f}s)"
         )
-    except Exception as e:
+    except (OSError, ValueError) as e:
         ctx.services.console.debug(f"  cover: overlay error: {e}")
         logger.debug("cover: overlay failed", exc_info=True)
     finally:
@@ -286,14 +286,25 @@ def render_video(ctx: Context) -> Context:
     max_width_ratio = ctx.metadata.get("render_subtitle_max_width_ratio", 0.9)
     bottom_margin_ratio = ctx.metadata.get("render_subtitle_bottom_margin_ratio", 0.08)
 
+    # Render template (read once, reused for title/end cards, watermark,
+    # disclaimer, and aspect_safe_area).  Falls back to {} when absent
+    # so existing behaviour is unchanged (render_template is optional).
+    render_template = ctx.metadata.get("render_template") or {}
+    aspect_safe_area = render_template.get("aspect_safe_area") or {}
+
     # Vertical (9:16) safe area auto-adjustment.
     # Platform UI on vertical video (TikTok/Douyin caption area, like/share
     # buttons) covers the bottom 20-25% of the screen. When enabled,
     # push subtitles higher and narrow them so they stay visible.
+    # When the render_template provides ``aspect_safe_area`` ratios, those
+    # values replace the hardcoded defaults so each preset can tune the
+    # safe area for its target platform.
     vertical_safe = ctx.metadata.get("render_vertical_safe_area", True)
     if vertical_safe and video_format == "9:16":
-        max_width_ratio = min(max_width_ratio, _VERTICAL_MAX_WIDTH_RATIO)
-        bottom_margin_ratio = max(bottom_margin_ratio, _VERTICAL_BOTTOM_MARGIN_RATIO)
+        safe_max_width = aspect_safe_area.get("max_width_ratio", _VERTICAL_MAX_WIDTH_RATIO)
+        safe_bottom_margin = aspect_safe_area.get("bottom_margin_ratio", _VERTICAL_BOTTOM_MARGIN_RATIO)
+        max_width_ratio = min(max_width_ratio, safe_max_width)
+        bottom_margin_ratio = max(bottom_margin_ratio, safe_bottom_margin)
         ctx.services.console.debug(
             f"  vertical safe area: max_width={max_width_ratio:.2f} "
             f"bottom_margin={bottom_margin_ratio:.2f}"
@@ -317,7 +328,7 @@ def render_video(ctx: Context) -> Context:
             # memory. This keeps peak RAM bounded even for very large source
             # files; avoid replacing it with a full-decode approach.
             source = VideoFileClip(ctx.source_video_path)
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             ctx.services.console.inline_warn(
                 f"Cannot open source video ({ctx.source_video_path}): {e}. "
                 f"Falling back to text-only video — no footage will be shown."
@@ -361,7 +372,7 @@ def render_video(ctx: Context) -> Context:
                         fitted = apply_transition(fitted, transition_type, trans_dur)
 
                     clips.append(fitted.with_start(mc.narr_start))
-                except Exception as ie:
+                except (ValueError, RuntimeError) as ie:
                     ctx.services.console.debug(f"  fallback for segment {mc.segment_index}: {ie}")
                     logger.debug("clip fallback for segment %d", mc.segment_index, exc_info=True)
                     img_array = _create_text_image(
@@ -426,7 +437,7 @@ def render_video(ctx: Context) -> Context:
     # use it (with ``{movie}`` replaced by ctx.movie_name) instead of the
     # bare movie name.  Falls back to ctx.movie_name when no template is
     # present so existing behaviour is unchanged.
-    render_template = ctx.metadata.get("render_template") or {}
+    # (render_template was read earlier for aspect_safe_area consumption.)
     title_card_sec = ctx.metadata.get("render_title_card_sec", 0)
     title_card_template = render_template.get("title_card_text")
     if title_card_template:
@@ -447,7 +458,7 @@ def render_video(ctx: Context) -> Context:
             from moviepy.video.fx import FadeIn, FadeOut
             fade_dur = min(0.3, title_card_sec / 3)
             title_clip = title_clip.with_effects([FadeIn(fade_dur), FadeOut(fade_dur)])
-        except Exception:
+        except (ImportError, ValueError):
             logger.debug("title card fade effect failed", exc_info=True)
         clips.append(title_clip)
         ctx.services.console.debug(
@@ -474,7 +485,7 @@ def render_video(ctx: Context) -> Context:
             from moviepy.video.fx import FadeIn, FadeOut
             fade_dur = min(0.3, end_card_sec / 3)
             end_clip = end_clip.with_effects([FadeIn(fade_dur), FadeOut(fade_dur)])
-        except Exception:
+        except (ImportError, ValueError):
             logger.debug("end card fade effect failed", exc_info=True)
         clips.append(end_clip)
         ctx.services.console.debug(
@@ -586,7 +597,7 @@ def render_video(ctx: Context) -> Context:
     try:
         try:
             final_video.write_videofile(str(video_only_path), **video_write_kwargs)
-        except Exception as gpu_err:
+        except (OSError, subprocess.SubprocessError, RuntimeError) as gpu_err:
             if gpu_codec != "libx264":
                 # v0.7.0: GPU encoding failed (no hardware, driver issue,
                 # unsupported option, etc.) — retry with CPU libx264 so the
