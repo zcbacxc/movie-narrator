@@ -84,11 +84,7 @@ Use the `@register_step` decorator to add steps without modifying the runner:
 
 1. Create a Python package with your step function `def my_step(ctx: Context) -> Context`
 2. Use `@register_step("my_step", soft=True, after="render_video")` to register it
-3. Declare an entry point in your `pyproject.toml`:
-   ```toml
-   [project.entry-points."movie_narrator.plugins"]
-   my_plugin = "my_package:MyPlugin"
-   ```
+3. Declare an entry point in your `pyproject.toml` (see [Plugin Development](PLUGIN_DEVELOPMENT.md#entry-points) for the exact format)
 4. The step is auto-discovered when your package is installed
 
 See `examples/plugins/watermark/` for a complete reference implementation.

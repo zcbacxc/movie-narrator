@@ -1,3 +1,6 @@
+[![English](https://img.shields.io/badge/English-Plugin_Development-blue)](PLUGIN_DEVELOPMENT.md)
+[![简体中文](https://img.shields.io/badge/简体中文-插件开发-green)](PLUGIN_DEVELOPMENT.zh-CN.md)
+
 # Plugin Development Guide
 
 This guide covers how to write, package, and distribute plugins for
@@ -265,6 +268,19 @@ The entry point value can be:
 - A module path (`my_package`) — must have a top-level `plugin` or `Plugin` attribute
 
 ## Compatibility Strategy
+
+### Version checking
+
+Plugins should call `check_version()` at import time to enforce a minimum
+contract version and fail fast with a clear error message:
+
+```python
+from movie_narrator import check_version
+
+# Raise ImportError if the installed core engine's CONTRACT_VERSION
+# is below the required tuple
+check_version((0, 8, 0))
+```
 
 ### What's stable (v0.6.1)
 

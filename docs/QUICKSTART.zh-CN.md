@@ -1,3 +1,6 @@
+[![English](https://img.shields.io/badge/English-Quickstart-blue)](QUICKSTART.md)
+[![简体中文](https://img.shields.io/badge/简体中文-快速开始-green)](QUICKSTART.zh-CN.md)
+
 # 快速开始：插件开发
 
 本指南带你用不到 10 分钟从零开始创建、打包并分发一个
@@ -50,7 +53,7 @@ where = ["."]
 
 `[project.entry-points]` 部分至关重要 — 它为自动发现注册你的
 插件。键 (`my-plugin`) 是 `mn plugin list` 显示的插件名称，
-值 (`my_plugin:MyPlugin`) 是指向你插件类的导入路径。
+值 (`my_plugin:MyPlugin`) 是指向你插件类的导入路径。权威入口点格式见[插件开发指南](PLUGIN_DEVELOPMENT.zh-CN.md#entry-points)。
 
 ### `my_plugin/__init__.py`
 
@@ -120,7 +123,7 @@ mn create --movie "Inception" --video movie.mp4 --output-dir output/
 
 ## 步骤 4：选择你的扩展类型
 
-插件 SDK 支持四种扩展点 (Extension Point)。选择与你的目标
+插件 SDK 支持五种扩展点 (Extension Point)。选择与你的目标
 匹配的那一种：
 
 | 目标 (Goal) | 装饰器 (Decorator) | 工厂签名 (Factory signature) | 示例 (Example) |

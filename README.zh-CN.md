@@ -269,12 +269,6 @@ movie-narrator/
 
 ---
 
-## 路线图
-
-当前重点：服务化基础（v0.8.0）。完整版本路线图见 [路线图](docs/ROADMAP.zh-CN.md)。
-
----
-
 ## 文档
 
 - [路线图](docs/ROADMAP.zh-CN.md)

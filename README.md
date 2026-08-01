@@ -269,12 +269,6 @@ movie-narrator/
 
 ---
 
-## Roadmap
-
-Current focus: service deployment basics (v0.8.0). See the full [Roadmap](docs/ROADMAP.md) for version-by-version details.
-
----
-
 ## Documentation
 
 - [Roadmap](docs/ROADMAP.md)

@@ -20,10 +20,12 @@ nav:
   - Best Practices: BEST_PRACTICES.md
   - Plugin Development: PLUGIN_DEVELOPMENT.md
   - Architecture: ARCHITECTURE.md
+  - Metadata Schema: METADATA_SCHEMA.md
   - Roadmap: ROADMAP.md
   - Contributing: CONTRIBUTING.md
   - Packaging: PACKAGING.md
   - LLM Providers: LLM_PROVIDERS.md
+  - AI Guide: AI_GUIDE.md
   - SDK Reference:
       - Contract: sdk/contract.md
       - Models: sdk/models.md

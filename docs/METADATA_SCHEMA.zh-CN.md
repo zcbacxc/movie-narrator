@@ -1,3 +1,6 @@
+[![English](https://img.shields.io/badge/English-Metadata_Schema-blue)](METADATA_SCHEMA.md)
+[![简体中文](https://img.shields.io/badge/简体中文-元数据参考-green)](METADATA_SCHEMA.zh-CN.md)
+
 # Metadata Schema 参考
 
 > `metadata.json` 是每次流水线运行时生成的审计与诊断文件。本文档按功能域描述其 schema 结构。如需了解架构背景，请参阅 [ARCHITECTURE.md](ARCHITECTURE.md)。
@@ -24,6 +27,7 @@
   "video_qa": { ... },
   "quality_dashboard": { ... },
   "qa_report": { ... },
+  "render_template": { ... },
   "beats_meta": [...],
   "warnings": [...],
   "bgm_error": "string (absent on success)"
@@ -140,6 +144,21 @@
 | `count` | int | 被 `_truncate_to_max_chars()` 截断的片段数 |
 | `max_chars` | int | 使用的 max_chars 限制值 |
 | `details` | list | 每个被截断片段的 `[{original_len, truncated_len}]` |
+
+### `render_template`
+
+基于 preset 的渲染样式选项（v0.8.0+）。未选择 preset 时为 `null`。所有键均为可选；渲染流水线会优雅处理缺失的键。
+
+| 字段 | 类型 | 描述 |
+|-------|------|-------------|
+| `title_card_text` | str | 开场标题卡文字。`{movie}` 占位符会被替换为电影名。 |
+| `end_card_text` | str | 结束卡文字。 |
+| `watermark_text` | str | 右上角半透明水印文字。支持 `{movie}` 占位符。 |
+| `disclaimer_text` | str | 视频底部显示的小字声明。 |
+| `slogan_text` | str | 宣传口号叠加层。 |
+| `aspect_safe_area` | object | 字幕/叠加层放置的安全区比率。 |
+| `aspect_safe_area.max_width_ratio` | float | 文字叠加层最大宽度比率（0–1）。 |
+| `aspect_safe_area.bottom_margin_ratio` | float | 文字放置底部边距比率（0–1）。 |
 
 ### `beats_meta`
 

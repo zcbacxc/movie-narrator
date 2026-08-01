@@ -73,7 +73,7 @@ The original v0.6.2–v0.6.4 plan (distributed rendering, API gateway & auth, cl
 - [ ] Distributed rendering (conditional) — trigger: single-machine render > 10 minutes with multiple nodes; builds on v0.8.0 containerization
 - [ ] CONTRACT_VERSION → `(0, 9, 0)` — reliability and batch types exported via SDK
 
-### v0.9.1 — Polish & Completeness (planned)
+#### v0.9.1 — Polish & Completeness (planned)
 
 > **Goal**: Security, internationalization, and documentation fully ready for v1.0.
 

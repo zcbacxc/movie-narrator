@@ -1,3 +1,6 @@
+[![English](https://img.shields.io/badge/English-AI_Guide-blue)](AI_GUIDE.md)
+[![简体中文](https://img.shields.io/badge/简体中文-AI指南-green)](AI_GUIDE.zh-CN.md)
+
 # AI Coding Assistant Guide
 
 > 本页是面向 AI 编程工具（Claude Code、Codex、Cursor、Copilot 等）的中文导航索引。所有内容由对应权威文档维护，此处仅提供快速跳转。

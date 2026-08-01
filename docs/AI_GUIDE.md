@@ -1,3 +1,6 @@
+[![English](https://img.shields.io/badge/English-AI_Guide-blue)](AI_GUIDE.md)
+[![简体中文](https://img.shields.io/badge/简体中文-AI指南-green)](AI_GUIDE.zh-CN.md)
+
 # AI Coding Assistant Guide
 
 > This page is an English navigation index for AI coding tools (Claude Code, Codex, Cursor, Copilot, etc.). All content is maintained by the corresponding authoritative documents; this page only provides quick links.

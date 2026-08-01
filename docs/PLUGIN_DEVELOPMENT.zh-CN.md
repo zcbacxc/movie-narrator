@@ -1,3 +1,6 @@
+[![English](https://img.shields.io/badge/English-Plugin_Development-blue)](PLUGIN_DEVELOPMENT.md)
+[![简体中文](https://img.shields.io/badge/简体中文-插件开发-green)](PLUGIN_DEVELOPMENT.zh-CN.md)
+
 # 插件开发指南
 
 本指南介绍如何使用 v0.6 插件 SDK (Plugin SDK) 为 movie-narrator

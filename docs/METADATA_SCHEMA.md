@@ -1,3 +1,6 @@
+[![English](https://img.shields.io/badge/English-Metadata_Schema-blue)](METADATA_SCHEMA.md)
+[![简体中文](https://img.shields.io/badge/简体中文-元数据参考-green)](METADATA_SCHEMA.zh-CN.md)
+
 # Metadata Schema Reference
 
 > `metadata.json` is the audit and diagnostics file written by every pipeline run. This document describes the schema, organized by functional domain. For architecture context, see [ARCHITECTURE.md](ARCHITECTURE.md).

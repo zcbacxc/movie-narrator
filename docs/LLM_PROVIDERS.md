@@ -1,3 +1,6 @@
+[![English](https://img.shields.io/badge/English-LLM_Providers-blue)](LLM_PROVIDERS.md)
+[![简体中文](https://img.shields.io/badge/简体中文-LLM服务商-green)](LLM_PROVIDERS.zh-CN.md)
+
 # LLM Providers Guide
 
 Movie Narrator requires an LLM backend to generate plot research and narration scripts. All providers offer an **OpenAI-compatible API** — simply change three variables in `.env` to switch between them.

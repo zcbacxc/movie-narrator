@@ -1,3 +1,6 @@
+[![English](https://img.shields.io/badge/English-Packaging-blue)](PACKAGING.md)
+[![简体中文](https://img.shields.io/badge/简体中文-打包-green)](PACKAGING.zh-CN.md)
+
 # Packaging Guide
 
 This document covers packaging conventions for the movie-narrator ecosystem,
@@ -19,9 +22,11 @@ including the core engine, the web package, and third-party plugins.
 
 ### Web Package (`movie-narrator-web`)
 
-- Tracks the core engine version (both at `0.6.x`).
+- Uses **independent versioning** — version numbers are NOT aligned with the core engine. Compatibility is determined by `CONTRACT_VERSION` minimum, not by matching package version numbers.
 - Declares `movie-narrator>=0.6.0` as dependency.
-- Checks `CONTRACT_VERSION >= (0, 6, 0)` at import time via `_MIN_CONTRACT`.
+- Depends exclusively on `movie_narrator.contract` — no internal module imports allowed; the contract layer is the sole API boundary.
+- Checks `CONTRACT_VERSION >= _MIN_CONTRACT` at import time.
+- `CONTRACT_VERSION` follows semver: only bump MAJOR on breaking removals, MINOR on new exports (backward compatible), PATCH on bug fixes; do NOT bump on every release if the API surface is unchanged.
 
 ### Third-Party Plugins
 
@@ -36,15 +41,9 @@ check_version((0, 6, 1))
 
 ## Entry Points
 
-Plugins are discovered via the `movie_narrator.plugins` entry point group:
-
-```toml
-[project.entry-points."movie_narrator.plugins"]
-my-plugin = "my_plugin:MyPluginClass"
-```
-
-The entry point must resolve to a class or instance implementing the `Plugin`
-protocol (`name` attribute + `register(ctx)` method).
+Plugins are discovered via the `movie_narrator.plugins` entry point group.
+See [Plugin Development](PLUGIN_DEVELOPMENT.md#entry-points) for the
+authoritative entry-point format and examples.
 
 ## CLI Plugin Commands
 

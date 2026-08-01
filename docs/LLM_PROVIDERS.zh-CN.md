@@ -1,3 +1,6 @@
+[![English](https://img.shields.io/badge/English-LLM_Providers-blue)](LLM_PROVIDERS.md)
+[![简体中文](https://img.shields.io/badge/简体中文-LLM服务商-green)](LLM_PROVIDERS.zh-CN.md)
+
 # LLM 服务商导航
 
 Movie Narrator 需要一个 LLM 后端来生成剧情研究和旁白剧本。所有服务商均提供 **OpenAI 兼容接口**，只需修改 `.env` 中的三个变量即可切换。

@@ -1,3 +1,6 @@
+[![English](https://img.shields.io/badge/English-Quickstart-blue)](QUICKSTART.md)
+[![简体中文](https://img.shields.io/badge/简体中文-快速开始-green)](QUICKSTART.zh-CN.md)
+
 # Quickstart: Plugin Development
 
 This guide walks you through creating, packaging, and distributing a
@@ -51,7 +54,8 @@ where = ["."]
 The `[project.entry-points]` section is critical — it registers your
 plugin for auto-discovery. The key (`my-plugin`) is the plugin name
 shown by `mn plugin list`, and the value (`my_plugin:MyPlugin`) is the
-import path to your plugin class.
+import path to your plugin class. See [Plugin Development](PLUGIN_DEVELOPMENT.md#entry-points)
+for the authoritative entry-point reference.
 
 ### `my_plugin/__init__.py`
 
@@ -121,7 +125,7 @@ Your step will execute after `render_video` and log its message.
 
 ## Step 4: Choose your extension type
 
-The Plugin SDK supports four extension points. Pick the one that
+The Plugin SDK supports five extension points. Pick the one that
 matches your goal:
 
 | Goal | Decorator | Factory signature | Example |

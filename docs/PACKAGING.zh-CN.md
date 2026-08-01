@@ -1,3 +1,6 @@
+[![English](https://img.shields.io/badge/English-Packaging-blue)](PACKAGING.md)
+[![简体中文](https://img.shields.io/badge/简体中文-打包-green)](PACKAGING.zh-CN.md)
+
 # 打包指南
 
 本文件介绍 movie-narrator 生态系统的打包约定，包括
@@ -19,9 +22,11 @@
 
 ### Web 包 (`movie-narrator-web`)
 
-- 跟踪核心引擎版本（两者均在 `0.6.x`）。
+- 使用**独立版本控制** — 版本号不与核心引擎对齐。兼容性由 `CONTRACT_VERSION` 最低版本决定，而非匹配包版本号。
 - 声明 `movie-narrator>=0.6.0` 为依赖。
-- 在导入时通过 `_MIN_CONTRACT` 检查 `CONTRACT_VERSION >= (0, 6, 0)`。
+- 独家依赖 `movie_narrator.contract` — 不允许导入内部模块；合约层是唯一的 API 边界。
+- 在导入时通过 `_MIN_CONTRACT` 检查 `CONTRACT_VERSION >= _MIN_CONTRACT`。
+- `CONTRACT_VERSION` 遵循 semver：仅在破坏性移除时升 MAJOR，新增导出时升 MINOR（向后兼容），bug 修复升 PATCH；API 表面未变时不需要每次发布都升级。
 
 ### 第三方插件
 
@@ -36,15 +41,8 @@ check_version((0, 6, 1))
 
 ## 入口点 (Entry Points)
 
-插件通过 `movie_narrator.plugins` 入口点组被发现：
-
-```toml
-[project.entry-points."movie_narrator.plugins"]
-my-plugin = "my_plugin:MyPluginClass"
-```
-
-入口点必须解析为实现 `Plugin` 协议（`name` 属性 + `register(ctx)`
-方法）的类或实例。
+插件通过 `movie_narrator.plugins` 入口点组被发现。
+权威入口点格式和示例见[插件开发指南](PLUGIN_DEVELOPMENT.zh-CN.md#entry-points)。
 
 ## CLI 插件命令
 
