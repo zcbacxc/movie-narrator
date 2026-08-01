@@ -26,6 +26,6 @@ def run_async(coro: Coroutine[Any, Any, T], timeout: float = 300) -> T:
     except concurrent.futures.TimeoutError:
         fut.cancel()
         raise TimeoutError(f"Async task timeout ({timeout}s)")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         fut.cancel()
         raise RuntimeError(f"Async execution failed: {e}") from e
