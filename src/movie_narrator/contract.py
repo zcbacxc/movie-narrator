@@ -349,6 +349,15 @@ __all__ = [
     "StorageBackend",
     "cleanup_artifacts",
     "get_artifact_store",
+    # Queue & Distributed (v0.9.4)
+    # TaskStatus is already exported above (Cloud / Task Queue v0.6.0).
+    "DeadLetterRecord",
+    "DeadLetterStore",
+    "replay_dead_letter",
+    "NodeRegistry",
+    "DistributedRenderPlanner",
+    "DistributedRenderError",
+    "render_task_dispatcher",
 ]
 
 
@@ -428,4 +437,17 @@ from .cloud import (  # noqa: E402
     StorageBackend,
     cleanup_artifacts,
     get_artifact_store,
+)
+
+# Cloud / dead-letter queue + conditional distributed rendering (v0.9.4) —
+# new exports, backward compatible. TaskStatus was already exported with
+# the v0.6.0 Cloud / Task Queue group above.
+from .cloud import (  # noqa: E402
+    DeadLetterRecord,
+    DeadLetterStore,
+    DistributedRenderError,
+    DistributedRenderPlanner,
+    NodeRegistry,
+    render_task_dispatcher,
+    replay_dead_letter,
 )
