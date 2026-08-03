@@ -600,7 +600,6 @@ class _APIHandler(BaseHTTPRequestHandler):
                 {
                     "original_task_id": task_id,
                     "task_id": new_task_id,
-        
                 },
                 status=HTTPStatus.CREATED,
             )

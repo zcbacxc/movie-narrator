@@ -860,7 +860,6 @@ def _paths() -> Dict[str, Any]:
                     "200": _json_response("Recent run records.", "ScheduleRunList"),
                     "401": unauthorized,
                     "404": _error_response("No schedule with that ID."),
-                    "401": unauthorized,
                 },
             },
         },
