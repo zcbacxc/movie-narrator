@@ -873,7 +873,10 @@ class TestRunTask:
         controller = CancelController()
 
         result = run_task(task, controller)
-        assert result.status == TaskStatus.FAILED
+        # v0.9.4: retry exhaustion on a retryable error routes the task
+        # to the dead-letter queue (enable_dlq defaults to True), so the
+        # final state is DEAD rather than FAILED.
+        assert result.status == TaskStatus.DEAD
         assert result.retries == 2
 
     def test_cancellation_during_retry_sleep(self, tmp_path, monkeypatch):

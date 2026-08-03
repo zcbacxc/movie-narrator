@@ -40,6 +40,10 @@ EXPECTED_PATHS = {
     "/tasks/{task_id}/result": {"get"},
     "/tasks/{task_id}/artifacts": {"get"},
     "/tasks/{task_id}/download/{filename}": {"get"},
+    # v0.9.4: dead-letter queue routes
+    "/deadletters": {"get"},
+    "/deadletters/{task_id}": {"get", "delete"},
+    "/deadletters/{task_id}/replay": {"post"},
     "/health": {"get"},
     "/ready": {"get"},
     "/info": {"get"},

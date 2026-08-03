@@ -60,6 +60,7 @@ from .artifact_store import (  # v0.8.3 — artifact storage abstraction
     get_artifact_store,
     get_task_artifact_store,
 )
+from .dlq import DeadLetterStore, replay_dead_letter  # v0.9.4 — dead letters
 from .health import build_health_payload, build_readiness_payload, parse_deep_flag
 from .lifecycle import (  # v0.8.3 — artifact lifecycle / TTL cleanup
     ArtifactLifecyclePolicy,
@@ -84,6 +85,9 @@ _TASK_PATTERN = re.compile(r"^/tasks/([a-f0-9]+)$")
 _TASK_RESULT_PATTERN = re.compile(r"^/tasks/([a-f0-9]+)/result$")
 _TASK_ARTIFACTS_PATTERN = re.compile(r"^/tasks/([a-f0-9]+)/artifacts$")
 _TASK_DOWNLOAD_PATTERN = re.compile(r"^/tasks/([a-f0-9]+)/download/(.+)$")
+# v0.9.4: dead-letter queue routes
+_DEADLETTER_PATTERN = re.compile(r"^/deadletters/([a-f0-9]+)$")
+_DEADLETTER_REPLAY_PATTERN = re.compile(r"^/deadletters/([a-f0-9]+)/replay$")
 
 # ── Observability (v0.8.1) ─────────────────────────────────
 
@@ -94,7 +98,8 @@ _ENV_METRICS_PUBLIC = "MN_METRICS_PUBLIC"
 
 #: Paths that are already templates (no variable segment).
 _STATIC_PATHS = frozenset(
-    {"/health", "/info", "/tasks", "/ready", "/openapi.json", _METRICS_PATH}
+    {"/health", "/info", "/tasks", "/ready", "/openapi.json", "/deadletters",
+     _METRICS_PATH}
 )
 
 #: Concrete path -> route template. Labelling the HTTP metric with the
@@ -105,6 +110,8 @@ _ROUTE_TEMPLATES = (
     (_TASK_RESULT_PATTERN, "/tasks/{id}/result"),
     (_TASK_ARTIFACTS_PATTERN, "/tasks/{id}/artifacts"),
     (_TASK_DOWNLOAD_PATTERN, "/tasks/{id}/download/{filename}"),
+    (_DEADLETTER_REPLAY_PATTERN, "/deadletters/{id}/replay"),
+    (_DEADLETTER_PATTERN, "/deadletters/{id}"),
     (_TASK_PATTERN, "/tasks/{id}"),
 )
 
@@ -235,6 +242,21 @@ class _APIHandler(BaseHTTPRequestHandler):
     def queue(self) -> LocalTaskQueue:
         """Access the task queue from the server instance."""
         return self.server.queue  # type: ignore[attr-defined]
+
+    @property
+    def dead_letter_store(self) -> DeadLetterStore:
+        """Access the dead-letter store for this server (v0.9.4).
+
+        Uses the server's injected store when present, otherwise the
+        process-wide default — which is also what the worker writes to,
+        so ``GET /deadletters`` always reflects freshly dead tasks.
+        """
+        override = getattr(self.server, "dead_letter_store_override", None)
+        if isinstance(override, DeadLetterStore):
+            return override
+        from .dlq import get_default_store
+
+        return get_default_store()
 
     def _is_shutting_down(self) -> bool:
         """Whether the owning ``TaskAPIServer`` has begun shutting down."""
@@ -391,6 +413,28 @@ class _APIHandler(BaseHTTPRequestHandler):
             self._send_json(task.model_dump(mode="json"))
             return
 
+        # List dead letters (v0.9.4)
+        if path == "/deadletters":
+            records = self.dead_letter_store.list()
+            self._send_json({
+                "deadletters": [r.model_dump(mode="json") for r in records],
+                "count": len(records),
+            })
+            return
+
+        # Get a dead letter (v0.9.4)
+        match = _DEADLETTER_PATTERN.match(path)
+        if match:
+            task_id = match.group(1)
+            record = self.dead_letter_store.get(task_id)
+            if record is None:
+                self._send_error(
+                    HTTPStatus.NOT_FOUND, f"Dead letter {task_id} not found"
+                )
+                return
+            self._send_json(record.model_dump(mode="json"))
+            return
+
         self._send_error(HTTPStatus.NOT_FOUND, f"Unknown path: {path}")
 
     # ── POST ────────────────────────────────────────────────
@@ -426,6 +470,28 @@ class _APIHandler(BaseHTTPRequestHandler):
             )
             return
 
+        # Replay a dead letter (v0.9.4) — resubmits the original request
+        # with a fresh task ID.
+        match = _DEADLETTER_REPLAY_PATTERN.match(path)
+        if match:
+            task_id = match.group(1)
+            try:
+                new_task_id = replay_dead_letter(task_id, queue=self.queue)
+            except KeyError:
+                self._send_error(
+                    HTTPStatus.NOT_FOUND, f"Dead letter {task_id} not found"
+                )
+                return
+            self._send_json(
+                {
+                    "original_task_id": task_id,
+                    "task_id": new_task_id,
+                    "status": "pending",
+                },
+                status=HTTPStatus.CREATED,
+            )
+            return
+
         self._send_error(HTTPStatus.NOT_FOUND, f"Unknown path: {path}")
 
     # ── DELETE ──────────────────────────────────────────────
@@ -450,6 +516,19 @@ class _APIHandler(BaseHTTPRequestHandler):
                 self._send_error(
                     HTTPStatus.NOT_FOUND,
                     f"Task {task_id} not found or already terminal",
+                )
+            return
+
+        # Remove a dead letter (v0.9.4)
+        match = _DEADLETTER_PATTERN.match(path)
+        if match:
+            task_id = match.group(1)
+            removed = self.dead_letter_store.remove(task_id)
+            if removed:
+                self._send_json({"task_id": task_id, "removed": True})
+            else:
+                self._send_error(
+                    HTTPStatus.NOT_FOUND, f"Dead letter {task_id} not found"
                 )
             return
 
@@ -577,6 +656,10 @@ class TaskAPIServer:
         artifact_policy: Retention policy for that sweeper (v0.8.3).
             Defaults to ``ArtifactLifecyclePolicy.from_env()``; when no
             retention rule is configured no sweeper thread is started.
+        dead_letter_store: Dead-letter store used by the ``/deadletters``
+            endpoints (v0.9.4). Defaults to the process-wide store —
+            which is also where the worker writes records, so the two
+            stay in sync.
     """
 
     def __init__(
@@ -590,6 +673,7 @@ class TaskAPIServer:
         api_key: Optional[str] = None,
         artifact_store: Optional[StorageBackend] = None,
         artifact_policy: Optional[ArtifactLifecyclePolicy] = None,
+        dead_letter_store: Optional[DeadLetterStore] = None,
     ) -> None:
         self.host = host
         self.port = port
@@ -607,11 +691,24 @@ class TaskAPIServer:
         self._artifact_store = artifact_store
         self._artifact_policy = artifact_policy
         self._sweeper: Optional[ArtifactSweeper] = None
+        self._dead_letter_store = dead_letter_store
 
     @property
     def queue(self) -> LocalTaskQueue:
         """The underlying task queue."""
         return self._queue
+
+    @property
+    def dead_letter_store(self) -> DeadLetterStore:
+        """The dead-letter store backing this server (v0.9.4).
+
+        The process-wide default when no explicit store was injected.
+        """
+        if self._dead_letter_store is not None:
+            return self._dead_letter_store
+        from .dlq import get_default_store
+
+        return get_default_store()
 
     @property
     def is_shutting_down(self) -> bool:
@@ -646,6 +743,8 @@ class TaskAPIServer:
         self._server.queue = self._queue  # type: ignore[attr-defined]
         self._server.api_key = self.api_key  # type: ignore[attr-defined]
         self._server.shutting_down = self._shutting_down  # type: ignore[attr-defined]
+        # v0.9.4: optional explicit dead-letter store (None → default)
+        self._server.dead_letter_store_override = self._dead_letter_store  # type: ignore[attr-defined]
         # Update actual port (in case port=0 was used)
         self.port = self._server.server_address[1]
 
