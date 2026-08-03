@@ -164,6 +164,14 @@ class Settings(BaseSettings):
     circuit_failure_threshold: int = 5
     circuit_recovery_timeout: float = 30.0
     circuit_half_open_max_calls: int = 1
+    # ── Conditional distributed rendering (v0.9.4) ──
+    # Offload the render phase to remote nodes when every precondition
+    # holds (enabled + at least one healthy node + long-enough render).
+    # Defaults keep the single-machine behaviour unchanged.
+    distributed_enabled: bool = False
+    distributed_nodes: str = ""  # comma-separated base_url list
+    distributed_min_render_seconds: float = 600.0
+    distributed_node_health_timeout: float = 5.0
 
     model_config = SettingsConfigDict(
         env_file=(".env", str(_USER_ENV)),

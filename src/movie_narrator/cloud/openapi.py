@@ -43,6 +43,7 @@ from .models import (
     TaskResult,
 )
 from .scheduler import ScheduleRequest, ScheduleRun
+from .dlq import DeadLetterRecord  # v0.9.4 — dead-letter queue
 
 # ── Constants ──────────────────────────────────────────────
 
@@ -74,6 +75,7 @@ _MODELS: Tuple[type[BaseModel], ...] = (
     BatchProgress,
     ScheduleRequest,
     ScheduleRun,
+    DeadLetterRecord,
 )
 
 _DESCRIPTION = """
@@ -395,6 +397,46 @@ def _manual_schemas() -> Dict[str, Any]:
             },
             "required": ["runs", "count"],
         },
+        "DeadLetterList": {
+            "type": "object",
+            "description": "Listing of dead-letter records (v0.9.4).",
+            "properties": {
+                "deadletters": {
+                    "type": "array",
+                    "items": {"$ref": "#/components/schemas/DeadLetterRecord"},
+                },
+                "count": {
+                    "type": "integer",
+                    "description": "Number of records returned.",
+                },
+            },
+            "required": ["deadletters", "count"],
+        },
+        "DeadLetterReplayed": {
+            "type": "object",
+            "description": (
+                "Acknowledgement returned by "
+                "`POST /deadletters/{id}/replay` (v0.9.4)."
+            ),
+            "properties": {
+                "original_task_id": _string("ID of the dead-letter record."),
+                "task_id": _string("ID of the newly queued task."),
+                "status": {"type": "string", "enum": ["pending"]},
+            },
+            "required": ["original_task_id", "task_id", "status"],
+        },
+        "DeadLetterRemoved": {
+            "type": "object",
+            "description": (
+                "Acknowledgement returned by `DELETE /deadletters/{id}` "
+                "(v0.9.4)."
+            ),
+            "properties": {
+                "task_id": _string("ID of the removed record."),
+                "removed": {"type": "boolean", "description": "Always true."},
+            },
+            "required": ["task_id", "removed"],
+        },
     }
 
 
@@ -657,6 +699,23 @@ def _paths() -> Dict[str, Any]:
                 },
             },
         },
+        "/deadletters": {
+            "get": {
+                "operationId": "listDeadLetters",
+                "summary": "List dead-letter records",
+                "description": (
+                    "Returns tasks that exhausted their retries and were "
+                    "routed to the dead-letter queue (v0.9.4), newest "
+                    "first."
+                ),
+                "tags": ["deadletters"],
+                "security": _secured(),
+                "responses": {
+                    "200": _json_response("Matching records.", "DeadLetterList"),
+                    "401": unauthorized,
+                },
+            },
+        },
         "/batches": {
             "get": {
                 "operationId": "listBatches",
@@ -801,6 +860,61 @@ def _paths() -> Dict[str, Any]:
                     "200": _json_response("Recent run records.", "ScheduleRunList"),
                     "401": unauthorized,
                     "404": _error_response("No schedule with that ID."),
+                },
+            },
+        },
+        "/deadletters/{task_id}": {
+            "get": {
+                "operationId": "getDeadLetter",
+                "summary": "Get a dead-letter record",
+                "description": (
+                    "Returns the record for one dead task, including the "
+                    "original request so it can be inspected or replayed."
+                ),
+                "tags": ["deadletters"],
+                "security": _secured(),
+                "parameters": [_task_id_param()],
+                "responses": {
+                    "200": _json_response("The record.", "DeadLetterRecord"),
+                    "401": unauthorized,
+                    "404": not_found,
+                },
+            },
+            "delete": {
+                "operationId": "removeDeadLetter",
+                "summary": "Remove a dead-letter record",
+                "description": (
+                    "Deletes the record from the dead-letter store. The "
+                    "original task (already terminal) is unaffected."
+                ),
+                "tags": ["deadletters"],
+                "security": _secured(),
+                "parameters": [_task_id_param()],
+                "responses": {
+                    "200": _json_response("Record removed.", "DeadLetterRemoved"),
+                    "401": unauthorized,
+                    "404": not_found,
+                },
+            },
+        },
+        "/deadletters/{task_id}/replay": {
+            "post": {
+                "operationId": "replayDeadLetter",
+                "summary": "Replay a dead-letter record",
+                "description": (
+                    "Rebuilds the original request and queues it with a "
+                    "fresh task ID. The record is kept and its "
+                    "`replay_count` is incremented."
+                ),
+                "tags": ["deadletters"],
+                "security": _secured(),
+                "parameters": [_task_id_param()],
+                "responses": {
+                    "201": _json_response(
+                        "Task accepted and queued.", "DeadLetterReplayed"
+                    ),
+                    "401": unauthorized,
+                    "404": not_found,
                 },
             },
         },
@@ -972,6 +1086,10 @@ def build_openapi_spec(*, server_url: str | None = None) -> Dict[str, Any]:
             {"name": "artifacts", "description": "Task output files."},
             {"name": "batches", "description": "Batch submission and tracking (v0.9.3)."},
             {"name": "schedules", "description": "Cron scheduled jobs (v0.9.3)."},
+            {
+                "name": "deadletters",
+                "description": "Failed-task inspection and replay (v0.9.4).",
+            },
             {
                 "name": "observability",
                 "description": "Health, readiness and introspection.",

@@ -24,6 +24,10 @@ are:
   and aggregate tracking (v0.9.3)
 - ``JobScheduler`` / ``ScheduleRequest`` / ``ScheduleError`` — cron-driven
   scheduled job submission (v0.9.3)
+- ``DeadLetterStore`` / ``DeadLetterRecord`` / ``replay_dead_letter`` —
+  dead-letter queue for failed tasks (v0.9.4)
+- ``NodeRegistry`` / ``DistributedRenderPlanner`` /
+  ``render_task_dispatcher`` — conditional distributed rendering (v0.9.4)
 
 Typical usage (local)::
 
@@ -94,6 +98,14 @@ from .api import TaskAPIServer
 from .remote_queue import RemoteQueueError, RemoteTaskQueue
 from .scheduler import JobScheduler, ScheduleError, ScheduleRequest, ScheduleRun
 from .daemon import WorkerDaemon, run_daemon
+from .dlq import DeadLetterRecord, DeadLetterStore, replay_dead_letter  # v0.9.4
+from .distributed import (  # v0.9.4
+    DistributedRenderError,
+    DistributedRenderPlanner,
+    NodeRegistry,
+    estimate_render_seconds,
+    render_task_dispatcher,
+)
 from .remote_provider import (
     download_all_artifacts,
     download_artifact,
@@ -179,4 +191,14 @@ __all__ = [
     "ScheduleError",
     "ScheduleRequest",
     "ScheduleRun",
+    # Dead-letter queue (v0.9.4)
+    "DeadLetterRecord",
+    "DeadLetterStore",
+    "replay_dead_letter",
+    # Conditional distributed rendering (v0.9.4)
+    "NodeRegistry",
+    "DistributedRenderPlanner",
+    "DistributedRenderError",
+    "render_task_dispatcher",
+    "estimate_render_seconds",
 ]

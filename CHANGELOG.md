@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-08-03
+
+### Added
+
+- **Dead-letter queue** — new `movie_narrator.cloud.dlq` module with `DeadLetterRecord` (original request, failure reason, attempts, replay count), a `DeadLetterStore` persisting records atomically under `<storage>/deadletters/` and `replay_dead_letter()` which rebuilds the original request and queues it under a fresh task ID (keeping the record). `TaskStatus` gains a `DEAD` terminal state; when a task exhausts its retry budget on a retryable error and `TaskRequest.enable_dlq` is set (default), the worker routes it to the DLQ instead of a plain `FAILED`. Non-retryable failures and DLQ-disabled tasks keep the pre-v0.9.4 `FAILED` behaviour. New API routes `GET /deadletters`, `GET /deadletters/{id}`, `POST /deadletters/{id}/replay` and `DELETE /deadletters/{id}` with matching OpenAPI paths and schemas.
+- **Conditional distributed rendering** — new `movie_narrator.cloud.distributed` module with a `NodeRegistry` (parses `MN_DISTRIBUTED_NODES`, health-probes `/ready`), a `DistributedRenderPlanner` (dispatch only when enabled + a healthy node exists + estimated render ≥ `MN_DISTRIBUTED_MIN_RENDER_SECONDS`) and `render_task_dispatcher` (submits the render phase as a task to a remote node and downloads the artifacts back). The worker hooks the render step as a soft, opt-in leg: any distribution failure falls back to the local render path, so the feature can never turn a would-be-successful task into a failed one.
+- **DEAD tasks now count toward the error metric** — `_record_task_outcome` records `record_error("dead_letter")` for `TaskStatus.DEAD` so DLQ'd tasks are visible in Prometheus error-rate metrics instead of silently vanishing.
+- New public exports on `movie_narrator.contract`: `DeadLetterRecord`, `DeadLetterStore`, `replay_dead_letter`, `NodeRegistry`, `DistributedRenderPlanner`, `DistributedRenderError`, `render_task_dispatcher`.
+- `tests/test_v094_dlq_distributed.py` — 29 test cases covering DLQ write/read/replay, DEAD-state semantics, the /deadletters routes, distributed-rendering planning/fallback and the DEAD error-metric wiring.
+
 ## [0.9.3] - 2026-08-03
 
 ### Added

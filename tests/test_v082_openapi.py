@@ -46,6 +46,10 @@ EXPECTED_PATHS = {
     "/schedules": {"get", "post"},
     "/schedules/{schedule_id}": {"delete"},
     "/schedules/{schedule_id}/runs": {"get"},
+    # v0.9.4: dead-letter queue routes
+    "/deadletters": {"get"},
+    "/deadletters/{task_id}": {"get", "delete"},
+    "/deadletters/{task_id}/replay": {"post"},
     "/health": {"get"},
     "/ready": {"get"},
     "/info": {"get"},

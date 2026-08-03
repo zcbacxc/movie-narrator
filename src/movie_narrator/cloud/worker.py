@@ -32,6 +32,7 @@ from ..utils.console import (
 )
 from ..utils.log import resolve_log_level
 from .checkpoint import CheckpointStore, ResumePlan, TaskCheckpoint
+from .dlq import DeadLetterRecord, DeadLetterStore
 from .metrics import observe_render_duration
 from .models import Task, TaskProgress, TaskRequest, TaskResult, TaskStatus
 
@@ -143,6 +144,15 @@ class ProgressConsole(BaseConsole):
         self._inner.step_ok(name, elapsed)
         self._notify_complete(name)
 
+    def set_step_index(self, index: int) -> None:
+        """Set the current step index directly.
+
+        Used by the distributed-rendering soft hook (v0.9.4): the render
+        step ran on a remote node, so the local pipeline resumes after
+        it and the step counter must skip ahead to stay in sync.
+        """
+        self._step_index = max(0, index)
+
     def step_skip(self, name: str, reason: str) -> None:
         self._progress.mark_skipped(name)
         self._step_index += 1
@@ -238,6 +248,136 @@ def _step_index_of(step_name: str) -> int:
         if step.__name__ == step_name:
             return i
     return 0
+
+
+# ── Dead-letter queue (v0.9.4) ─────────────────────────────
+
+
+def _dlq_store() -> DeadLetterStore:
+    """Resolve the dead-letter store at call time.
+
+    Imported inside the function so tests can monkeypatch
+    ``movie_narrator.cloud.dlq.get_default_store`` (which the API server
+    resolves the same way) and both sides stay in sync.
+    """
+    from .dlq import get_default_store
+
+    return get_default_store()
+
+
+def _route_to_dead_letter(task: Task) -> None:
+    """Persist a dead-letter record and mark the task ``DEAD``.
+
+    Best-effort: if persistence fails the task stays ``FAILED`` rather
+    than crashing the worker thread. The record captures the original
+    request so it can be replayed later via ``replay_dead_letter``.
+    """
+    try:
+        record = DeadLetterRecord(
+            task_id=task.id,
+            original_request=task.request.model_copy(deep=True),
+            reason=task.last_error or "unknown error",
+            failed_at=datetime.now(timezone.utc).isoformat(),
+            attempts=task.retries + 1,
+        )
+        _dlq_store().save(record)
+        task.status = TaskStatus.DEAD
+    except Exception as e:  # noqa: BLE001 — DLQ is best-effort
+        logger.debug(
+            "Failed to write dead-letter record for %s: %s", task.id, e
+        )
+
+
+# ── Conditional distributed rendering (v0.9.4) ─────────────
+
+
+def _step_after_render() -> Optional[str]:
+    """Name of the step following ``render_video``, or None if last."""
+    names = [step.__name__ for step in STEPS]
+    idx = names.index(_RENDER_STEP)
+    if idx + 1 < len(names):
+        return names[idx + 1]
+    return None
+
+
+def _maybe_dispatch_render(
+    task: Task,
+    progress: TaskProgress,
+) -> Optional[TaskResult]:
+    """Soft hook: try to dispatch the render phase to a remote node.
+
+    Evaluates the distributed-rendering conditions and, when they hold,
+    attempts the remote leg. Any failure is logged at DEBUG and returns
+    ``None`` so the caller falls back to the local rendering path — the
+    distributed feature never turns a would-be successful task into a
+    failed one.
+
+    Args:
+        task: The task whose render phase may be dispatched.
+        progress: Live ``TaskProgress`` (used for duration estimation).
+
+    Returns:
+        A ``TaskResult`` when the remote leg produced artifacts, or
+        ``None`` when distribution was not applicable or failed.
+    """
+    from .distributed import (
+        DistributedRenderError,
+        DistributedRenderPlanner,
+        estimate_render_seconds,
+        render_task_dispatcher,
+    )
+
+    planner = DistributedRenderPlanner()
+    estimated = estimate_render_seconds(task.request, progress)
+    if not planner.should_distribute(estimated):
+        return None
+    nodes = planner.available_nodes
+    if not nodes:
+        return None
+    node = nodes[0]
+    output_dir = _build_output_dir(task.request)
+    try:
+        return render_task_dispatcher(
+            request=task.request,
+            node=node,
+            download_dir=str(output_dir),
+        )
+    except DistributedRenderError as e:
+        logger.debug(
+            "Distributed render to %s failed, falling back to local: %s",
+            node, e,
+        )
+        return None
+
+
+def _apply_distributed_result(
+    ctx: Context,
+    result: TaskResult,
+    console: ProgressConsole,
+    elapsed: float,
+) -> None:
+    """Apply a remotely rendered result onto the local pipeline context.
+
+    Copies the downloaded artifact paths into *ctx* so the post-render
+    steps (validation, clip export) run locally against the remote
+    output, and reports the render step through the console so progress
+    and the render-duration metric stay accurate. ``ctx.output_dir`` is
+    left untouched — it already points at the local task output
+    directory, which is where the artifacts were downloaded.
+    """
+    if result.video_path:
+        ctx.video_path = result.video_path
+    if result.audio_path:
+        ctx.audio_path = result.audio_path
+    if result.subtitle_path:
+        ctx.subtitle_path = result.subtitle_path
+    ctx.metadata.setdefault("distributed_render", True)
+
+    render_index = next(
+        i for i, step in enumerate(STEPS) if step.__name__ == _RENDER_STEP
+    )
+    console.set_step_index(render_index)
+    console.step_ok(_RENDER_STEP, elapsed)
 
 
 def _execute_task(
@@ -359,11 +499,34 @@ def _execute_task(
     )
     services.console = progress_console
 
+    # v0.9.4: conditional distributed rendering (soft hook). When the
+    # planner decides the render phase should be dispatched, the remote
+    # leg runs before the local pipeline; on success the pipeline resumes
+    # after the render step, and on failure we fall back to the full
+    # local run below (the default path is untouched). Skipped when a
+    # checkpoint already finished every step (``resume.done``) — nothing
+    # is left to distribute.
+    distributed_start = time.monotonic()
+    distributed_result = None
+    if not (resume is not None and resume.done):
+        distributed_result = _maybe_dispatch_render(task, progress)
+    distributed_elapsed = time.monotonic() - distributed_start
+
     # Execute pipeline
     try:
         if resume is not None and resume.done:
             # All steps already completed before the crash; only result
             # extraction was pending.
+            task.result = _extract_result(ctx, output_dir)
+            task.status = TaskStatus.COMPLETED
+            task.completed_at = datetime.now(timezone.utc).isoformat()
+        elif distributed_result is not None:
+            _apply_distributed_result(
+                ctx, distributed_result, progress_console, distributed_elapsed
+            )
+            ctx = run_pipeline(
+                ctx, controller=controller, start_step=_step_after_render()
+            )
             task.result = _extract_result(ctx, output_dir)
             task.status = TaskStatus.COMPLETED
             task.completed_at = datetime.now(timezone.utc).isoformat()
@@ -522,6 +685,18 @@ def run_task(
             continue
 
         # Non-retryable or out of retries
+        # v0.9.4: route to the dead-letter queue only when the retry
+        # budget was actually exhausted — a retryable error persisted
+        # past ``max_retries``. Non-retryable failures keep the
+        # pre-v0.9.4 ``FAILED`` behaviour, so existing consumers that
+        # depend on FAILED for immediate errors are unaffected.
+        if (
+            task.status == TaskStatus.FAILED
+            and task.request.enable_dlq
+            and is_retryable
+            and attempt >= max_retries
+        ):
+            _route_to_dead_letter(task)
         if on_status_change:
             on_status_change(task)
         return task

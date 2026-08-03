@@ -873,7 +873,10 @@ class TestRunTask:
         controller = CancelController()
 
         result = run_task(task, controller)
-        assert result.status == TaskStatus.FAILED
+        # v0.9.4: retry exhaustion on a retryable error routes the task
+        # to the dead-letter queue (enable_dlq defaults to True), so the
+        # final state is DEAD rather than FAILED.
+        assert result.status == TaskStatus.DEAD
         assert result.retries == 2
 
     def test_cancellation_during_retry_sleep(self, tmp_path, monkeypatch):
@@ -918,7 +921,7 @@ class TestContractExports:
 
     def test_contract_version_bumped(self):
         from movie_narrator.contract import CONTRACT_VERSION
-        assert CONTRACT_VERSION == (0, 9, 3)
+        assert CONTRACT_VERSION == (0, 9, 4)
 
     def test_contract_exports_cloud_types(self):
         from movie_narrator.contract import (
