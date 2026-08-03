@@ -349,6 +349,14 @@ __all__ = [
     "StorageBackend",
     "cleanup_artifacts",
     "get_artifact_store",
+    # Reliability (v0.9.1)
+    "CircuitState",
+    "CircuitBreaker",
+    "CircuitBreakerRegistry",
+    "CircuitOpenError",
+    "RetryPolicy",
+    "with_retry",
+    "with_async_retry",
 ]
 
 
@@ -428,4 +436,17 @@ from .cloud import (  # noqa: E402
     StorageBackend,
     cleanup_artifacts,
     get_artifact_store,
+)
+
+# Reliability (v0.9.1) — circuit breaker + retry policy framework. The
+# reliability package itself has no imports back into contract, so this
+# is placed at the bottom purely for grouping consistency.
+from .reliability import (  # noqa: E402
+    CircuitBreaker,
+    CircuitBreakerRegistry,
+    CircuitOpenError,
+    CircuitState,
+    RetryPolicy,
+    with_async_retry,
+    with_retry,
 )
