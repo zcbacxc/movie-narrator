@@ -275,6 +275,46 @@ For a stronger first-second impact, write more powerful hooks in `hook_templates
 
 ---
 
+## Golden Sample Regression
+
+Generated videos can silently drift in quality across releases. Institutionalize a golden-sample regression so quality changes are caught *before* shipping, not after users report them.
+
+### When to Run
+
+- **Before every release** (at tag cut).
+- **On any PR that touches** `render`, `match`, `bgm`, `script`, or `tts`.
+
+### Sample Matrix
+
+| ID | Source | Aspect | Language | Why |
+|----|--------|--------|----------|-----|
+| G1 | Trailer / HD film | 16:9 | Chinese | Primary use case |
+| G2 | Trailer / HD film | 16:9 | English | Translation + TTS path |
+| G3 | Trailer / HD film | 9:16 | Chinese | Portrait publishing path |
+
+Archive each run under `output/l2-runs/<date>-<sample>-<sha>/` (local, gitignored) so trends stay comparable across versions.
+
+### Pass / Fail Thresholds
+
+Carried from the L2 hand-test acceptance (`§B.3.5`):
+
+- `match_summary.heuristic_ratio` ≤ 0.5
+- `match_summary.scenes_after_drop` ≥ 3
+- `speed_factor` must **not** be pinned at the clamp boundary (not exactly `match_speed_clamp_max` / `min`)
+
+### Tools
+
+- `scripts/compare_runs.py` — diff two `metadata.json` files (baseline vs new) for manual QA.
+- `scripts/match_trend.py` — scan all `output/l2-runs/*/metadata.json` and print a `heuristic_ratio` / `embedding_ratio` / `score.avg` / `speed_factor.avg` trend table; alerts when `heuristic_ratio` regresses by more than `0.1` between consecutive runs.
+
+```bash
+python scripts/match_trend.py --root output/l2-runs --warn-delta 0.1
+```
+
+Any run that pushes `heuristic_ratio` above threshold (or above the previous release's value by > 0.1) must be investigated before the release ships.
+
+---
+
 ## Quick Decision Tree
 
 ```
@@ -297,6 +337,7 @@ Output not good enough?
 | `scripts/llm_check.py` | Check LLM connectivity and response quality | LLM Selection |
 | `scripts/bgm_analyze.py` | Analyze BGM characteristics (BPM / energy / duration) | BGM Selection |
 | `scripts/genre_advisor.py` | Recommend preset and parameters by genre | Genre Routing |
+| `scripts/match_trend.py` | Trend analysis across regression runs (heuristic_ratio / embedding_ratio) | Golden Sample Regression |
 
 All tools are standalone scripts with no `movie_narrator` package dependency:
 
