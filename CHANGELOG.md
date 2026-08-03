@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-08-03
+
+### Added
+
+- **Circuit breaker** — new `movie_narrator.reliability.circuit_breaker` module with a thread-safe `CircuitBreaker` (CLOSED → OPEN → HALF_OPEN → CLOSED state machine), a `CircuitBreakerRegistry` keyed by service name and a `CircuitOpenError` (marked retryable). A `@circuit_guard("service")` decorator / context-manager guards external API calls for LLM (`utils/llm.py`), TTS (`tts/base.py`), TMDB (`providers/tmdb.py`) and VLM (`vision/vlm.py`); when a circuit is open the guarded call raises without hitting the network. Breaker thresholds are configurable via `MN_CIRCUIT_FAILURE_THRESHOLD`, `MN_CIRCUIT_RECOVERY_TIMEOUT` and `MN_CIRCUIT_HALF_OPEN_MAX_CALLS`.
+- **Retry policy framework** — new `movie_narrator.reliability.retry` module with a configurable `RetryPolicy` (max attempts, exponential backoff with jitter, retryable-exception set / `should_retry` callable), `with_retry` / `with_async_retry` decorators and an idempotent `compute_delay` helper. Retryability by default follows `ProviderError.retryable` / `is_network_error()`.
+- New public exports on `movie_narrator.contract`: `CircuitState`, `CircuitBreaker`, `CircuitBreakerRegistry`, `CircuitOpenError`, `RetryPolicy`, `with_retry`, `with_async_retry`.
+- `tests/test_v091_reliability.py` — 37 test cases covering state-machine transitions, recovery probing, concurrent access, `CircuitOpenError` propagation and the retry-policy decorators.
+
 ## [0.8.4] - 2026-08-03
 
 ### Added
