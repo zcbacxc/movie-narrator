@@ -210,8 +210,12 @@ class TestContractVersion:
     """CONTRACT_VERSION is the stable API boundary for external consumers."""
 
     def test_contract_version_value(self):
-        """CONTRACT_VERSION is (0, 8, 4) — bumped for v0.8.1 observability exports."""
-        assert CONTRACT_VERSION == (0, 8, 4)
+        """CONTRACT_VERSION is (0, 8, 3) — last release with new exports (v0.8.3).
+
+        v0.8.4 (containerization) added no contract exports, so the version
+        was reverted to (0, 8, 3) per the semver policy in contract.py.
+        """
+        assert CONTRACT_VERSION == (0, 8, 3)
 
     def test_contract_version_is_tuple(self):
         """CONTRACT_VERSION is a 3-tuple of ints (semver)."""
