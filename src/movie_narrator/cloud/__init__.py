@@ -60,6 +60,23 @@ from .models import (
     TaskStatus,
 )
 from .storage import TaskStorage
+from .artifact_store import (
+    ArtifactInfo,
+    ArtifactNotFoundError,
+    ArtifactStoreError,
+    LocalArtifactStore,
+    S3ArtifactStore,
+    StorageBackend,
+    UnsafeKeyError,
+    get_artifact_store,
+    get_task_artifact_store,
+)
+from .lifecycle import (
+    ArtifactLifecyclePolicy,
+    ArtifactSweeper,
+    CleanupReport,
+    cleanup_artifacts,
+)
 from .queue import LocalTaskQueue, TaskQueue
 from .worker import CancelController, ProgressConsole, run_task
 from .health import build_health_payload, build_readiness_payload
@@ -87,6 +104,21 @@ __all__ = [
     "TERMINAL_STATES",
     # Storage
     "TaskStorage",
+    # Artifact store (v0.8.3)
+    "ArtifactInfo",
+    "ArtifactNotFoundError",
+    "ArtifactStoreError",
+    "LocalArtifactStore",
+    "S3ArtifactStore",
+    "StorageBackend",
+    "UnsafeKeyError",
+    "get_artifact_store",
+    "get_task_artifact_store",
+    # Artifact lifecycle (v0.8.3)
+    "ArtifactLifecyclePolicy",
+    "ArtifactSweeper",
+    "CleanupReport",
+    "cleanup_artifacts",
     # Queue
     "TaskQueue",
     "LocalTaskQueue",

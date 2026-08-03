@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-08-03
+
+### Added
+
+- **Artifact storage abstraction** — new `movie_narrator.cloud.artifact_store` module defining a `StorageBackend` protocol (`put` / `get` / `open` / `exists` / `delete` / `list` / `stat` / `url`) over an `ArtifactInfo` value object. Two backends ship: `LocalArtifactStore` (filesystem, the default) and `S3ArtifactStore` (S3 / MinIO / Cloudflare R2). A `get_artifact_store()` factory resolves the backend from `MN_STORAGE_BACKEND`, `MN_STORAGE_ROOT`, `MN_S3_BUCKET`, `MN_S3_PREFIX`, `MN_S3_ENDPOINT_URL` and `MN_S3_REGION`.
+- **Optional `s3` extra** — `pip install 'movie-narrator[s3]'` installs `boto3>=1.34`. `boto3` is imported lazily, so the default local backend never requires it; the S3 client is injectable for testing.
+- **Artifact lifecycle / TTL cleanup** — new `movie_narrator.cloud.lifecycle` module with `ArtifactLifecyclePolicy` (TTL, total-size cap, keep-last-N, dry-run), `cleanup_artifacts()` returning a `CleanupReport` (`deleted` / `freed_bytes` / `skipped` / `errors`), and a daemonised `ArtifactSweeper` thread. Artifacts belonging to pending/running tasks are never deleted.
+- **`mn artifacts` CLI group** — `mn artifacts list` and `mn artifacts cleanup --ttl / --max-bytes / --keep-last / --dry-run` print a human-readable retention report.
+- **Background artifact sweeper in `mn serve`** — the API server starts a daemon sweeper when a retention rule is configured (`MN_ARTIFACT_TTL` / `MN_ARTIFACT_MAX_BYTES`), sweeping every `MN_ARTIFACT_SWEEP_INTERVAL` seconds (default 3600). Sweep failures are logged and never propagate to the server.
+- New public exports on `movie_narrator.contract`: `ArtifactInfo`, `ArtifactLifecyclePolicy`, `ArtifactSweeper`, `CleanupReport`, `LocalArtifactStore`, `S3ArtifactStore`, `StorageBackend`, `cleanup_artifacts`, `get_artifact_store`.
+- `tests/test_v083_artifact_store.py` and `tests/test_v083_lifecycle.py` — 151 test cases covering key normalisation and traversal rejection, round-trip backend operations, the S3 backend against an injected fake client, TTL expiry boundaries, size-cap eviction order, keep-last-N, dry-run and protected in-flight keys.
+
+### Changed
+
+- `GET /tasks/{id}/artifacts` and `GET /tasks/{id}/download/{file}` now go through the artifact-store abstraction instead of touching the filesystem directly. Behaviour, response shapes and the path-traversal guard are unchanged; the local backend remains the default, so existing deployments see no difference.
+
 ## [0.8.2] - 2026-08-03
 
 ### Added

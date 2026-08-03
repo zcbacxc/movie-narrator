@@ -51,7 +51,21 @@ from ..utils.logging_config import (
     correlation_scope,
     get_correlation_id,
 )
+from .artifact_store import (  # v0.8.3 — artifact storage abstraction
+    ArtifactNotFoundError,
+    ArtifactStoreError,
+    StorageBackend,
+    UnsafeKeyError,
+    artifact_location,
+    get_artifact_store,
+    get_task_artifact_store,
+)
 from .health import build_health_payload, build_readiness_payload, parse_deep_flag
+from .lifecycle import (  # v0.8.3 — artifact lifecycle / TTL cleanup
+    ArtifactLifecyclePolicy,
+    ArtifactSweeper,
+    sweep_interval_from_env,
+)
 from .metrics import (
     CONTENT_TYPE_LATEST,
     record_error,
@@ -460,29 +474,25 @@ class _APIHandler(BaseHTTPRequestHandler):
     # ── Artifact helpers ────────────────────────────────────
 
     def _list_task_artifacts(self, task: Task) -> list:
-        """List available output files for a task."""
-        from pathlib import Path
-
-        result = task.result
-        if not result or not result.output_dir:
-            return []
-
-        output_dir = Path(result.output_dir)
-        if not output_dir.exists():
+        """List available output files for a task (v0.8.3: via the artifact store)."""
+        store = get_task_artifact_store(task.id, task.result.output_dir if task.result else None)
+        if store is None:
             return []
 
         artifacts = []
-        for item in sorted(output_dir.iterdir()):
-            if item.is_file() and not item.name.startswith("."):
-                artifacts.append({
-                    "filename": item.name,
-                    "size": item.stat().st_size,
-                    "path": str(item),
-                })
+        for info in sorted(store.list(), key=lambda i: i.key):
+            # Preserve v0.6.1 semantics: top-level files only, no dotfiles.
+            if "/" in info.key or info.key.startswith("."):
+                continue
+            artifacts.append({
+                "filename": info.key,
+                "size": info.size,
+                "path": artifact_location(store, info.key),
+            })
         return artifacts
 
     def _serve_task_artifact(self, task: Task, filename: str) -> None:
-        """Serve a file from the task's output directory."""
+        """Serve a file from the task's output directory (v0.8.3: via the artifact store)."""
         from pathlib import Path
         from urllib.parse import unquote
 
@@ -492,28 +502,29 @@ class _APIHandler(BaseHTTPRequestHandler):
             self._send_error(HTTPStatus.NOT_FOUND, "Task has no output directory")
             return
 
-        output_dir = Path(result.output_dir)
-        file_path = output_dir / filename
+        store = get_task_artifact_store(task.id, result.output_dir)
+        if store is None:
+            self._send_error(HTTPStatus.NOT_FOUND, f"File '{filename}' not found")
+            return
 
-        # Security: prevent path traversal
+        # Security: prevent path traversal (enforced by the store's key guard)
         try:
-            file_path = file_path.resolve()
-            output_dir = output_dir.resolve()
-            if not file_path.is_relative_to(output_dir):
-                self._send_error(HTTPStatus.FORBIDDEN, "Access denied")
-                return
+            info = store.stat(filename)
+        except UnsafeKeyError:
+            logger.debug("Rejected artifact download: unsafe key %r", filename)
+            self._send_error(HTTPStatus.FORBIDDEN, "Access denied")
+            return
+        except ArtifactNotFoundError:
+            self._send_error(HTTPStatus.NOT_FOUND, f"File '{filename}' not found")
+            return
         except Exception:  # noqa: BLE001
             logger.debug("Rejected artifact download: unsafe path %r failed resolution", filename)
             self._send_error(HTTPStatus.BAD_REQUEST, "Invalid filename")
             return
 
-        if not file_path.exists() or not file_path.is_file():
-            self._send_error(HTTPStatus.NOT_FOUND, f"File '{filename}' not found")
-            return
-
         # Determine content type
         content_type = "application/octet-stream"
-        ext = file_path.suffix.lower()
+        ext = Path(info.key).suffix.lower()
         if ext == ".mp4":
             content_type = "video/mp4"
         elif ext == ".mp3":
@@ -525,14 +536,14 @@ class _APIHandler(BaseHTTPRequestHandler):
         elif ext == ".md":
             content_type = "text/markdown"
 
-        file_size = file_path.stat().st_size
+        file_size = info.size
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(file_size))
         self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
         self.end_headers()
 
-        with open(file_path, "rb") as f:
+        with store.open(info.key) as f:
             while True:
                 chunk = f.read(64 * 1024)
                 if not chunk:
@@ -560,6 +571,12 @@ class TaskAPIServer:
         api_key: Optional X-API-Key for authenticating requests. When
             None (default), the server runs unauthenticated — safe only
             on loopback. Required when binding to a public interface.
+        artifact_store: Backend swept by the artifact lifecycle thread
+            (v0.8.3). Defaults to the store resolved from the
+            ``MN_STORAGE_*`` environment variables.
+        artifact_policy: Retention policy for that sweeper (v0.8.3).
+            Defaults to ``ArtifactLifecyclePolicy.from_env()``; when no
+            retention rule is configured no sweeper thread is started.
     """
 
     def __init__(
@@ -571,6 +588,8 @@ class TaskAPIServer:
         storage_dir=None,
         max_workers: int = 2,
         api_key: Optional[str] = None,
+        artifact_store: Optional[StorageBackend] = None,
+        artifact_policy: Optional[ArtifactLifecyclePolicy] = None,
     ) -> None:
         self.host = host
         self.port = port
@@ -585,6 +604,9 @@ class TaskAPIServer:
         # Set by stop() so the /ready and /health probes can report that
         # the server is draining (v0.8.2).
         self._shutting_down = threading.Event()
+        self._artifact_store = artifact_store
+        self._artifact_policy = artifact_policy
+        self._sweeper: Optional[ArtifactSweeper] = None
 
     @property
     def queue(self) -> LocalTaskQueue:
@@ -627,6 +649,9 @@ class TaskAPIServer:
         # Update actual port (in case port=0 was used)
         self.port = self._server.server_address[1]
 
+        # v0.8.3: artifact TTL sweeper (no-op unless retention is configured)
+        self._start_artifact_sweeper()
+
         if blocking:
             logger.info("API server listening on %s:%d", self.host, self.port)
             try:
@@ -644,9 +669,47 @@ class TaskAPIServer:
             self._thread.start()
             logger.info("API server started on %s:%d", self.host, self.port)
 
+    # ── Artifact lifecycle (v0.8.3) ─────────────────────────
+
+    @property
+    def sweeper(self) -> Optional[ArtifactSweeper]:
+        """The running artifact sweeper, if artifact retention is enabled."""
+        return self._sweeper
+
+    def _active_task_ids(self) -> list:
+        """IDs of tasks that are still pending/running — never sweep those."""
+        return [t.id for t in self._queue.list_tasks(limit=1000) if t.is_active]
+
+    def _start_artifact_sweeper(self) -> None:
+        """Start the TTL sweeper when a retention rule is configured."""
+        if self._sweeper is not None:
+            return
+        policy = self._artifact_policy or ArtifactLifecyclePolicy.from_env()
+        if not policy.enabled:
+            return
+        store = self._artifact_store
+        if store is None:
+            try:
+                store = get_artifact_store()
+            except ArtifactStoreError as e:
+                logger.warning("Artifact sweeper disabled — store unavailable: %s", e)
+                return
+        self._sweeper = ArtifactSweeper(
+            store,
+            policy,
+            interval=sweep_interval_from_env(),
+            protected_ids=self._active_task_ids,
+        )
+        self._sweeper.start()
+
     def stop(self) -> None:
         """Stop the HTTP server."""
+        # Flag the draining state first so in-flight probes report it
+        # immediately, then tear the sweeper down.
         self._shutting_down.set()
+        if self._sweeper is not None:
+            self._sweeper.stop()
+            self._sweeper = None
         if self._server is not None:
             self._server.shutdown()
             self._server.server_close()
