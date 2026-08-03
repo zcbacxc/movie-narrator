@@ -191,8 +191,41 @@ pending → running → completed
 | GET | `/tasks/{id}/result` | 获取任务结果（仅终态） |
 | GET | `/tasks/{id}/artifacts` | 列出产物文件 |
 | GET | `/tasks/{id}/download/{file}` | 下载产物文件 |
-| GET | `/health` | 健康检查 |
+| GET | `/health` | 健康检查（`?deep=1` 返回完整报告） |
+| GET | `/ready` | 就绪探针（v0.8.2） |
 | GET | `/info` | 服务端信息（版本、worker 数） |
+| GET | `/openapi.json` | OpenAPI 3.1 规范（v0.8.2） |
+
+### 健康与就绪探针（v0.8.2）
+
+`/health`、`/ready`、`/openapi.json` 免除 `X-API-Key` 鉴权 —— 编排器探针与 API
+工具无法携带密钥，且这些响应本身不含敏感信息。
+
+**核心检查**（`cloud/health.py`，`/ready` 与 `/health?deep=1` 共用，不产生任何
+出站网络请求，目标 < 50 ms）：
+
+| 检查项 | 通过条件 |
+|--------|----------|
+| `queue` | 任务队列已挂载且已启动 |
+| `storage` | 存储目录存在，且可写入临时探测文件 |
+| `workers` | worker 执行器存活且 worker 数非零 |
+| `shutdown` | 服务端尚未进入关闭流程 |
+
+每项检查返回 `{"status": "pass"｜"fail"｜"skipped", "detail": "...", "duration_ms": …}`，且永不抛异常。
+
+**状态策略** —— 核心检查全部通过 ⇒ `"ok"` / HTTP 200；核心检查通过但依赖探测失败
+⇒ `"degraded"` / HTTP 200（服务仍可接单，编排器不应驱逐）；任一核心检查失败 ⇒
+`"error"` / HTTP 503。
+
+**向后兼容** —— 不带查询参数的 `GET /health` 仍严格返回 v0.6.1 的
+`{"status": "ok"}`，新增字段仅在 `?deep=1` 时出现。
+
+**出站依赖探测**（LLM 端点、TTS 提供方、远程存储）需通过 `MN_HEALTH_DEEP_DEPS=1`
+显式开启，并发执行、单次超时 2 秒，且在 `CI=1` 时始终跳过。`MN_REMOTE_STORAGE_URL`
+可额外加入一个远程存储端点。
+
+OpenAPI 文档由 `cloud/openapi.py`（`build_openapi_spec`）生成，通过
+`GET /openapi.json` 提供，也可用 `mn api-spec -o openapi.json` 导出。
 
 ### 关键设计规则
 

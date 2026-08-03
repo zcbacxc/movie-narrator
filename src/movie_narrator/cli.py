@@ -1449,3 +1449,45 @@ def download(
         typer.echo(f"Downloaded {len(paths)} file(s):")
         for p in paths:
             typer.echo(f"  {p}")
+
+
+@app.command("api-spec")
+def api_spec(
+    output: Optional[str] = typer.Option(
+        None, "--output", "-o",
+        help="输出文件路径(默认输出到 stdout) / Output file path (default: stdout)"
+    ),
+    indent: int = typer.Option(
+        2, "--indent",
+        help="JSON 缩进空格数(0 表示紧凑输出) / JSON indent width (0 = compact)"
+    ),
+):
+    """导出 REST API 的 OpenAPI 3.1 规范 / Dump the REST API OpenAPI 3.1 spec.
+
+    \b
+    示例 / Examples:
+        mn api-spec
+        mn api-spec -o openapi.json
+        mn api-spec --indent 0 -o openapi.min.json
+
+    The same document is served live at ``GET /openapi.json`` by
+    ``mn serve``.
+    """
+    from .cloud.openapi import build_openapi_spec
+
+    spec = build_openapi_spec()
+    text = json.dumps(
+        spec,
+        ensure_ascii=False,
+        indent=indent if indent > 0 else None,
+        sort_keys=False,
+    )
+
+    if output:
+        path = Path(output)
+        if path.parent and not path.parent.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text + "\n", encoding="utf-8")
+        typer.echo(f"OpenAPI spec written to {path}")
+    else:
+        typer.echo(text)

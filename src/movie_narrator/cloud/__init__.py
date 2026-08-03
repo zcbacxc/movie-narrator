@@ -17,6 +17,9 @@ are:
 - ``run_daemon`` / ``WorkerDaemon`` — server-side worker process (v0.6.1)
 - ``metrics`` — Prometheus counters/gauges/histograms and the text
   exposition renderer behind ``GET /metrics`` (v0.8.1)
+- ``build_readiness_payload`` / ``build_health_payload`` — probe logic
+  behind ``GET /ready`` and ``GET /health?deep=1`` (v0.8.2)
+- ``build_openapi_spec`` — OpenAPI 3.1 document for the REST API (v0.8.2)
 
 Typical usage (local)::
 
@@ -59,6 +62,8 @@ from .models import (
 from .storage import TaskStorage
 from .queue import LocalTaskQueue, TaskQueue
 from .worker import CancelController, ProgressConsole, run_task
+from .health import build_health_payload, build_readiness_payload
+from .openapi import build_openapi_spec
 from .api import TaskAPIServer
 from .remote_queue import RemoteQueueError, RemoteTaskQueue
 from .daemon import WorkerDaemon, run_daemon
@@ -112,4 +117,9 @@ __all__ = [
     "MetricsRegistry",
     "get_registry",
     "render_prometheus_text",
+    # Health / readiness probes (v0.8.2)
+    "build_health_payload",
+    "build_readiness_payload",
+    # OpenAPI spec (v0.8.2)
+    "build_openapi_spec",
 ]

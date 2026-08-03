@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-08-03
+
+### Added
+
+- **Readiness probe** — `GET /ready` reports whether the server can accept work. Returns `200` with `{"ready": true, "checks": {...}}` when all core checks pass and `503` with `{"ready": false, ...}` otherwise. Core checks cover the task queue, storage-directory writability, the worker pool and shutdown state; each reports `status`, `detail` and `duration_ms`, performs no outbound network calls, and never raises.
+- **Deep health check** — `GET /health?deep=1` returns a superset of `/ready` plus optional outbound dependency reachability (LLM endpoint, TTS provider, remote storage). Dependency probes are opt-in via `MN_HEALTH_DEEP_DEPS=1`, run concurrently with a 2s timeout, and are always skipped when `CI=1`. A failing dependency reports `degraded` with HTTP 200; a failing core check reports `error` with HTTP 503.
+- **OpenAPI 3.1.0 specification** — new `movie_narrator.cloud.openapi` module builds the document from the pydantic task models, served at `GET /openapi.json` and dumpable with the new `mn api-spec` command (`--output/-o`, `--indent`). No new dependency: the document is a plain dict serialised with `json`. The v0.8.1 `/metrics` endpoint is documented alongside the task routes.
+- `TaskAPIServer.is_shutting_down` — `True` once `stop()` has been called, so probes can report a draining server.
+- New public exports on `movie_narrator.contract`: `build_openapi_spec`, `build_health_payload`, `build_readiness_payload`.
+- `tests/test_v082_health.py` and `tests/test_v082_openapi.py` — 94 test cases covering probe semantics, the unchanged shallow `/health` payload, spec structure and `$ref` resolvability.
+
+### Changed
+
+- `/health`, `/ready` and `/openapi.json` are exempt from `X-API-Key` authentication, following the existing `/health` convention — orchestrator probes and API tooling cannot present a key.
+- `docs/ARCHITECTURE.md` / `docs/ARCHITECTURE.zh-CN.md`: REST endpoint table extended with `/ready` and `/openapi.json`, plus a new health and readiness probe section.
+- Prometheus HTTP request metrics now recognise `/ready` and `/openapi.json` as route templates instead of folding them into `/other`.
+
+### Unchanged
+
+- A plain `GET /health` still returns exactly the v0.6.1 payload. Extra fields appear only with `?deep=1`.
+
 ## [0.8.1] - 2026-08-03
 
 ### Added
