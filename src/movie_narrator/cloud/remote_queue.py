@@ -28,7 +28,15 @@ import urllib.error
 import urllib.request
 from typing import List, Optional
 
-from .models import Task, TaskProgress, TaskRequest, TaskResult, TaskStatus
+from .models import (
+    Batch,
+    BatchRequest,
+    Task,
+    TaskProgress,
+    TaskRequest,
+    TaskResult,
+    TaskStatus,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -225,6 +233,48 @@ class RemoteTaskQueue:
 
             time.sleep(min(interval, 10.0))
             interval = min(interval * 1.5, 10.0)
+
+    # ── Batch operations (v0.9.3) ──────────────────────────
+
+    def submit_batch(self, request: BatchRequest) -> Batch:
+        """Submit a batch of tasks to the remote server.
+
+        Returns the full ``Batch`` record assigned by the server.
+        """
+        body = request.model_dump(mode="json", exclude_none=True)
+        resp = self._request("POST", "/tasks/batch", body=body)
+        batch_id = resp.get("batch_id")
+        if not batch_id:
+            raise RemoteQueueError("Server did not return a batch_id")
+        batch = self.get_batch(batch_id)
+        if batch is None:
+            raise RemoteQueueError("Server did not return the created batch")
+        return batch
+
+    def get_batch(self, batch_id: str) -> Optional[Batch]:
+        """Get a batch with aggregated progress from the remote server."""
+        try:
+            resp = self._request("GET", f"/batches/{batch_id}")
+            return Batch(**resp)
+        except RemoteQueueError as e:
+            if "404" in str(e):
+                return None
+            raise
+
+    def list_batches(self, limit: int = 50) -> List[Batch]:
+        """List batches from the remote server, newest first."""
+        resp = self._request("GET", f"/batches?limit={limit}")
+        return [Batch(**b) for b in resp.get("batches", [])]
+
+    def cancel_batch(self, batch_id: str) -> bool:
+        """Request cancellation of every active task in a remote batch."""
+        try:
+            resp = self._request("DELETE", f"/batches/{batch_id}")
+            return resp.get("cancelled", False)
+        except RemoteQueueError as e:
+            if "404" in str(e):
+                return False
+            raise
 
     def shutdown(self, wait: bool = True) -> None:
         """No-op for remote queue — no local resources to clean up."""

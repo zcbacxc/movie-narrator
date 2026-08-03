@@ -33,7 +33,16 @@ from typing import Any, Dict, List, Tuple
 from pydantic import BaseModel
 
 from .. import __version__
-from .models import Task, TaskProgress, TaskRequest, TaskResult
+from .models import (
+    Batch,
+    BatchProgress,
+    BatchRequest,
+    Task,
+    TaskProgress,
+    TaskRequest,
+    TaskResult,
+)
+from .scheduler import ScheduleRequest, ScheduleRun
 
 # ── Constants ──────────────────────────────────────────────
 
@@ -55,7 +64,17 @@ API_KEY_HEADER = "X-API-Key"
 AUTH_EXEMPT_PATHS: Tuple[str, ...] = ("/health", "/ready", "/openapi.json")
 
 #: Pydantic models exported as reusable component schemas.
-_MODELS: Tuple[type[BaseModel], ...] = (Task, TaskRequest, TaskProgress, TaskResult)
+_MODELS: Tuple[type[BaseModel], ...] = (
+    Task,
+    TaskRequest,
+    TaskProgress,
+    TaskResult,
+    Batch,
+    BatchRequest,
+    BatchProgress,
+    ScheduleRequest,
+    ScheduleRun,
+)
 
 _DESCRIPTION = """
 REST API for submitting and monitoring movie-narrator pipeline tasks.
@@ -293,6 +312,89 @@ def _manual_schemas() -> Dict[str, Any]:
             },
             "required": ["artifacts", "count"],
         },
+        # ── Batch & schedule (v0.9.3) ──
+        "BatchCreated": {
+            "type": "object",
+            "description": "Acknowledgement returned by `POST /tasks/batch`.",
+            "properties": {
+                "batch_id": _string("ID of the newly created batch."),
+                "status": {
+                    "type": "string",
+                    "description": "Initial batch status (`pending`, or "
+                    "`partial_failed`/`failed` when a member could not be "
+                    "submitted).",
+                },
+                "task_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "IDs of the successfully submitted tasks.",
+                },
+            },
+            "required": ["batch_id", "status", "task_ids"],
+        },
+        "BatchList": {
+            "type": "object",
+            "description": "Listing of batches, newest first.",
+            "properties": {
+                "batches": {
+                    "type": "array",
+                    "items": {"$ref": "#/components/schemas/Batch"},
+                },
+                "count": {
+                    "type": "integer",
+                    "description": "Number of batches returned.",
+                },
+            },
+            "required": ["batches", "count"],
+        },
+        "BatchCancelled": {
+            "type": "object",
+            "description": "Acknowledgement returned by `DELETE /batches/{batch_id}`.",
+            "properties": {
+                "batch_id": _string("ID of the cancelled batch."),
+                "cancelled": {"type": "boolean", "description": "Always true."},
+            },
+            "required": ["batch_id", "cancelled"],
+        },
+        "ScheduleList": {
+            "type": "object",
+            "description": "Listing of scheduled jobs.",
+            "properties": {
+                "schedules": {
+                    "type": "array",
+                    "items": {"$ref": "#/components/schemas/ScheduleRequest"},
+                },
+                "count": {
+                    "type": "integer",
+                    "description": "Number of schedules returned.",
+                },
+            },
+            "required": ["schedules", "count"],
+        },
+        "ScheduleDeleted": {
+            "type": "object",
+            "description": "Acknowledgement returned by `DELETE /schedules/{schedule_id}`.",
+            "properties": {
+                "schedule_id": _string("ID of the deleted schedule."),
+                "deleted": {"type": "boolean", "description": "Always true."},
+            },
+            "required": ["schedule_id", "deleted"],
+        },
+        "ScheduleRunList": {
+            "type": "object",
+            "description": "Recent trigger records for one schedule.",
+            "properties": {
+                "runs": {
+                    "type": "array",
+                    "items": {"$ref": "#/components/schemas/ScheduleRun"},
+                },
+                "count": {
+                    "type": "integer",
+                    "description": "Number of run records returned.",
+                },
+            },
+            "required": ["runs", "count"],
+        },
     }
 
 
@@ -348,6 +450,28 @@ def _filename_param() -> Dict[str, Any]:
             "URL-encoded; path traversal is rejected with `403`."
         ),
         "schema": {"type": "string"},
+    }
+
+
+def _batch_id_param() -> Dict[str, Any]:
+    """The ``{batch_id}`` path parameter (v0.9.3)."""
+    return {
+        "name": "batch_id",
+        "in": "path",
+        "required": True,
+        "description": "Batch ID as returned by `POST /tasks/batch` (lowercase hex).",
+        "schema": {"type": "string", "pattern": "^[a-f0-9]+$"},
+    }
+
+
+def _schedule_id_param() -> Dict[str, Any]:
+    """The ``{schedule_id}`` path parameter (v0.9.3)."""
+    return {
+        "name": "schedule_id",
+        "in": "path",
+        "required": True,
+        "description": "Schedule ID as returned by `POST /schedules` (lowercase hex).",
+        "schema": {"type": "string", "pattern": "^[a-f0-9]+$"},
     }
 
 
@@ -502,6 +626,181 @@ def _paths() -> Dict[str, Any]:
                     "401": unauthorized,
                     "403": _error_response("Path traversal outside the output directory."),
                     "404": _error_response("Task, output directory or file not found."),
+                },
+            },
+        },
+        "/tasks/batch": {
+            "post": {
+                "operationId": "createBatch",
+                "summary": "Submit a batch of tasks",
+                "description": (
+                    "Queues up to 50 tasks as one batch. The batch is "
+                    "tracked as a unit: aggregate progress, status and a "
+                    "result summary are available from `GET /batches/{id}`."
+                ),
+                "tags": ["batches"],
+                "security": _secured(),
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {"$ref": "#/components/schemas/BatchRequest"}
+                        }
+                    },
+                },
+                "responses": {
+                    "201": _json_response("Batch accepted and queued.", "BatchCreated"),
+                    "400": _error_response(
+                        "Malformed JSON, invalid task request, or empty/oversized batch."
+                    ),
+                    "401": unauthorized,
+                },
+            },
+        },
+        "/batches": {
+            "get": {
+                "operationId": "listBatches",
+                "summary": "List batches",
+                "description": "Returns batches newest-first with freshly aggregated progress.",
+                "tags": ["batches"],
+                "security": _secured(),
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": False,
+                        "description": "Maximum number of batches to return.",
+                        "schema": {"type": "integer", "default": 50, "minimum": 1},
+                    }
+                ],
+                "responses": {
+                    "200": _json_response("Matching batches.", "BatchList"),
+                    "400": _error_response("Invalid `limit`."),
+                    "401": unauthorized,
+                },
+            },
+        },
+        "/batches/{batch_id}": {
+            "get": {
+                "operationId": "getBatch",
+                "summary": "Get batch details",
+                "description": (
+                    "Returns the batch with progress aggregated from its "
+                    "member tasks, plus the result summary (`success_count`, "
+                    "`failure_ids`)."
+                ),
+                "tags": ["batches"],
+                "security": _secured(),
+                "parameters": [_batch_id_param()],
+                "responses": {
+                    "200": _json_response("The batch record.", "Batch"),
+                    "401": unauthorized,
+                    "404": _error_response("No batch with that ID."),
+                },
+            },
+            "delete": {
+                "operationId": "cancelBatch",
+                "summary": "Cancel a batch",
+                "description": (
+                    "Requests cancellation of every active task in the batch. "
+                    "Terminal member tasks are left untouched."
+                ),
+                "tags": ["batches"],
+                "security": _secured(),
+                "parameters": [_batch_id_param()],
+                "responses": {
+                    "200": _json_response("Cancellation requested.", "BatchCancelled"),
+                    "401": unauthorized,
+                    "404": _error_response("No batch with that ID."),
+                },
+            },
+        },
+        "/schedules": {
+            "post": {
+                "operationId": "createSchedule",
+                "summary": "Create a scheduled job",
+                "description": (
+                    "Creates a cron-scheduled job from a task template. The "
+                    "job fires when the next run time arrives and a scheduler "
+                    "loop is running (`mn serve` with `MN_SCHEDULER_ENABLED=1`)."
+                ),
+                "tags": ["schedules"],
+                "security": _secured(),
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "description": "Cron schedule creation payload.",
+                                "properties": {
+                                    "cron": _string(
+                                        "Standard 5-field cron expression."
+                                    ),
+                                    "task_request": {
+                                        "$ref": "#/components/schemas/TaskRequest"
+                                    },
+                                    "enabled": {
+                                        "type": "boolean",
+                                        "description": "Start active (default true).",
+                                    },
+                                },
+                                "required": ["cron", "task_request"],
+                            }
+                        }
+                    },
+                },
+                "responses": {
+                    "201": _json_response(
+                        "Schedule created with `next_run_at` populated.",
+                        "ScheduleRequest",
+                    ),
+                    "400": _error_response("Invalid cron expression or task request."),
+                    "401": unauthorized,
+                },
+            },
+            "get": {
+                "operationId": "listSchedules",
+                "summary": "List scheduled jobs",
+                "description": "Returns all schedules, newest first.",
+                "tags": ["schedules"],
+                "security": _secured(),
+                "responses": {
+                    "200": _json_response("Matching schedules.", "ScheduleList"),
+                    "401": unauthorized,
+                },
+            },
+        },
+        "/schedules/{schedule_id}": {
+            "delete": {
+                "operationId": "deleteSchedule",
+                "summary": "Delete a scheduled job",
+                "description": "Removes the schedule so it never fires again.",
+                "tags": ["schedules"],
+                "security": _secured(),
+                "parameters": [_schedule_id_param()],
+                "responses": {
+                    "200": _json_response("Schedule deleted.", "ScheduleDeleted"),
+                    "401": unauthorized,
+                    "404": _error_response("No schedule with that ID."),
+                },
+            },
+        },
+        "/schedules/{schedule_id}/runs": {
+            "get": {
+                "operationId": "listScheduleRuns",
+                "summary": "Recent trigger records",
+                "description": (
+                    "Returns the most recent times the schedule fired and "
+                    "the task IDs it produced (or a failure reason)."
+                ),
+                "tags": ["schedules"],
+                "security": _secured(),
+                "parameters": [_schedule_id_param()],
+                "responses": {
+                    "200": _json_response("Recent run records.", "ScheduleRunList"),
+                    "401": unauthorized,
+                    "404": _error_response("No schedule with that ID."),
                 },
             },
         },
@@ -671,6 +970,8 @@ def build_openapi_spec(*, server_url: str | None = None) -> Dict[str, Any]:
         "tags": [
             {"name": "tasks", "description": "Task submission and lifecycle."},
             {"name": "artifacts", "description": "Task output files."},
+            {"name": "batches", "description": "Batch submission and tracking (v0.9.3)."},
+            {"name": "schedules", "description": "Cron scheduled jobs (v0.9.3)."},
             {
                 "name": "observability",
                 "description": "Health, readiness and introspection.",

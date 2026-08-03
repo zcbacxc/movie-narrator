@@ -113,6 +113,13 @@ class Settings(BaseSettings):
     # (``mn serve``). When None, the API server runs unauthenticated —
     # safe only on loopback. Required when binding to a public interface.
     api_key: Optional[str] = None
+    # ── Scheduled jobs (v0.9.3) ──
+    # When enabled, ``mn serve`` starts a background thread that submits
+    # cron-scheduled jobs to the task queue. The API routes (POST/GET/
+    # DELETE /schedules) remain available even when disabled — only the
+    # trigger loop is off.
+    scheduler_enabled: bool = True
+    scheduler_poll_interval: float = 15.0
     # ── LLM ──
     llm_provider: str = "openai"  # registered LLM provider name (see llm_registry)
     llm_base_url: str = "http://localhost:11434/v1"

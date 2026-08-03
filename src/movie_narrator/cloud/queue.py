@@ -29,8 +29,18 @@ from .metrics import (
     set_active_tasks,
     set_queue_depth,
 )
-from .models import Task, TaskProgress, TaskRequest, TaskResult, TaskStatus
-from .storage import TaskStorage
+from .models import (
+    Batch,
+    BatchProgress,
+    BatchRequest,
+    BatchStatus,
+    Task,
+    TaskProgress,
+    TaskRequest,
+    TaskResult,
+    TaskStatus,
+)
+from .storage import JsonModelStore, TaskStorage
 from .worker import CancelController, run_task
 
 logger = logging.getLogger(__name__)
@@ -101,6 +111,27 @@ class TaskQueue(Protocol):
         """
         ...
 
+    # ── Batch operations (v0.9.3) ──────────────────────────
+
+    def submit_batch(self, request: BatchRequest) -> Batch:
+        """Submit a batch of tasks atomically. Returns the ``Batch``."""
+        ...
+
+    def get_batch(self, batch_id: str) -> Optional[Batch]:
+        """Get a batch with freshly aggregated progress, or None."""
+        ...
+
+    def list_batches(self, limit: int = 50) -> List[Batch]:
+        """List batches, newest first, with aggregated progress."""
+        ...
+
+    def cancel_batch(self, batch_id: str) -> bool:
+        """Cancel every active task in a batch.
+
+        Returns True if the batch exists, False otherwise.
+        """
+        ...
+
     def shutdown(self, wait: bool = True) -> None:
         """Shut down the queue. Optionally wait for running tasks."""
         ...
@@ -132,6 +163,14 @@ class LocalTaskQueue:
     ) -> None:
         self._storage = TaskStorage(storage_dir)
         self._max_workers = max_workers
+        # v0.9.3: batch aggregates live in a separate JSON file so they
+        # never pollute the task index.
+        self._batch_storage = JsonModelStore(
+            self._storage.storage_dir,
+            "batches.json",
+            Batch,
+            key_field="batch_id",
+        )
         self._executor: Optional[ThreadPoolExecutor] = None
         self._futures: Dict[str, Future] = {}
         self._controllers: Dict[str, CancelController] = {}
@@ -354,6 +393,150 @@ class LocalTaskQueue:
         if task.is_terminal:
             return task.result if task.result else None
         return None  # timed out without reaching terminal
+
+    # ── Batch operations (v0.9.3) ──────────────────────────
+
+    def submit_batch(self, request: BatchRequest) -> Batch:
+        """Submit a batch of tasks and track them as one unit.
+
+        The batch record is persisted *before* any task is submitted, so
+        it is observable (and survives a crash) even when a later
+        submission fails. Every member request is submitted individually;
+        if any submission raises, the remaining requests are still
+        attempted and the batch is marked ``partial_failed`` (or
+        ``failed`` when nothing could be submitted at all).
+        """
+        if not self._started or not self._executor:
+            raise RuntimeError("TaskQueue is not started. Call start() first.")
+
+        batch = Batch(
+            name=request.name,
+            metadata=request.metadata,
+            progress=BatchProgress(total=len(request.requests)),
+        )
+        self._batch_storage.save(batch)
+
+        submitted: List[str] = []
+        submission_failures = []
+        for idx, req in enumerate(request.requests):
+            try:
+                submitted.append(self.submit(req))
+            except Exception as e:  # noqa: BLE001 — one bad request must not abort the batch
+                logger.warning(
+                    "Batch %s: member %d could not be submitted: %s",
+                    batch.batch_id, idx, e,
+                )
+                submission_failures.append({"index": idx, "error": str(e)})
+
+        batch.task_ids = submitted
+        if submission_failures:
+            meta = dict(request.metadata or {})
+            meta["submission_failures"] = submission_failures
+            batch.metadata = meta
+            batch.status = (
+                BatchStatus.FAILED if not submitted else BatchStatus.PARTIAL_FAILED
+            )
+        self._batch_storage.save(batch)
+        return self._refresh_batch(batch)
+
+    def get_batch(self, batch_id: str) -> Optional[Batch]:
+        """Get a batch with freshly aggregated progress, or None."""
+        batch = self._batch_storage.load(batch_id)
+        if batch is None:
+            return None
+        return self._refresh_batch(batch)
+
+    def list_batches(self, limit: int = 50) -> List[Batch]:
+        """List batches, newest first, with aggregated progress."""
+        batches = self._batch_storage.list()
+        return [self._refresh_batch(b) for b in batches[:limit]]
+
+    def cancel_batch(self, batch_id: str) -> bool:
+        """Cancel every active task in a batch.
+
+        Returns True if the batch exists (even when no member task was
+        active), False if no such batch is known.
+        """
+        batch = self._batch_storage.load(batch_id)
+        if batch is None:
+            return False
+        for task_id in batch.task_ids:
+            self.cancel(task_id)
+        self._refresh_batch(batch)
+        return True
+
+    def _refresh_batch(self, batch: Batch) -> Batch:
+        """Recompute a batch's progress, status and result summary.
+
+        Each member task is loaded from storage and counts with equal
+        weight. Tasks that were never successfully submitted (they are
+        absent from storage) count as failed so the aggregate always
+        adds up to ``total``.
+        """
+        loaded = [self._storage.load(tid) for tid in batch.task_ids]
+        present = [t for t in loaded if t is not None]
+        total = batch.progress.total
+        completed = sum(1 for t in present if t.status == TaskStatus.COMPLETED)
+        failed_present = sum(1 for t in present if t.status == TaskStatus.FAILED)
+        cancelled = sum(1 for t in present if t.status == TaskStatus.CANCELLED)
+        active = sum(1 for t in present if t.is_active)
+        missing = max(0, total - len(present))
+
+        # Equal-weight mean of per-task progress: terminal tasks count
+        # as 100%, running tasks contribute their own percentage and
+        # pending (or never-submitted) tasks count as 0%.
+        points = []
+        for t in present:
+            if t.is_terminal:
+                points.append(100.0)
+            elif t.progress:
+                points.append(t.progress.percentage)
+            else:
+                points.append(0.0)
+        points.extend([0.0] * missing)
+        percentage = round(sum(points) / total, 1) if total else 0.0
+
+        batch.progress = BatchProgress(
+            total=total,
+            completed=completed,
+            failed=failed_present + missing,
+            cancelled=cancelled,
+            running=active,
+            percentage=percentage,
+        )
+        batch.success_count = completed
+        batch.failure_ids = [t.id for t in present if t.status == TaskStatus.FAILED]
+
+        terminal_or_missing = completed + failed_present + cancelled + missing
+        if total > 0 and missing == total:
+            # Every member failed to submit — nothing can ever succeed.
+            batch.status = BatchStatus.FAILED
+            if batch.completed_at is None:
+                from datetime import datetime, timezone
+                batch.completed_at = datetime.now(timezone.utc).isoformat()
+        elif total > 0 and missing > 0:
+            # Some members never became tasks: the batch can never be fully
+            # successful, so it is permanently partial_failed (even while
+            # the remaining members are still running).
+            batch.status = BatchStatus.PARTIAL_FAILED
+            if active == 0 and batch.completed_at is None:
+                from datetime import datetime, timezone
+                batch.completed_at = datetime.now(timezone.utc).isoformat()
+        elif total > 0 and terminal_or_missing == total:
+            if completed == total:
+                batch.status = BatchStatus.COMPLETED
+            elif (failed_present + cancelled) == total and failed_present > 0:
+                batch.status = BatchStatus.FAILED
+            else:
+                batch.status = BatchStatus.PARTIAL_FAILED
+            if batch.completed_at is None:
+                from datetime import datetime, timezone
+                batch.completed_at = datetime.now(timezone.utc).isoformat()
+        elif active > 0:
+            batch.status = BatchStatus.RUNNING
+
+        self._batch_storage.save(batch)
+        return batch
 
     # ── Cleanup ──────────────────────────────────────────────
 

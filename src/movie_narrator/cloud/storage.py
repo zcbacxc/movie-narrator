@@ -24,6 +24,114 @@ from .models import Task, TaskStatus
 logger = logging.getLogger(__name__)
 
 
+class JsonModelStore:
+    """Thread-safe JSON persistence for arbitrary pydantic records (v0.9.3).
+
+    A generic key-value store for records that are not pipeline tasks —
+    batch aggregates (``Batch``) and scheduled jobs (``ScheduleRequest``).
+    Like :class:`TaskStorage` it writes atomically (temp file + rename)
+    and serves reads from an in-memory cache.
+
+    Args:
+        storage_dir: Directory for the record file. Defaults to
+            ``~/.mn_tasks``.
+        filename: Name of the record file (e.g. ``batches.json``).
+        model: The pydantic model class used to (de)serialize records.
+        key_field: Attribute holding the record's unique key.
+    """
+
+    def __init__(
+        self,
+        storage_dir: Optional[Path] = None,
+        filename: str = "records.json",
+        model=None,
+        key_field: str = "id",
+    ) -> None:
+        self.storage_dir = Path(storage_dir) if storage_dir else Path.home() / ".mn_tasks"
+        self.storage_dir.mkdir(parents=True, exist_ok=True)
+        self._path = self.storage_dir / filename
+        self._model = model
+        self._key_field = key_field
+        self._lock = threading.RLock()
+        self._cache: Dict[str, dict] = {}
+        self._loaded = False
+
+    @property
+    def index_path(self) -> Path:
+        """Path to the record file on disk."""
+        return self._path
+
+    def save(self, record) -> None:
+        """Save or update a record."""
+        key = getattr(record, self._key_field)
+        with self._lock:
+            self._ensure_loaded()
+            self._cache[key] = record.model_dump(mode="json")
+            self._flush()
+
+    def load(self, key: str):
+        """Load a record by key. Returns None if not found."""
+        with self._lock:
+            self._ensure_loaded()
+            data = self._cache.get(key)
+            if data is None:
+                return None
+            return self._model(**data)
+
+    def list(self, limit: int = 100):
+        """List all records, newest first by ``created_at`` when present."""
+        with self._lock:
+            self._ensure_loaded()
+            records = [self._model(**v) for v in self._cache.values()]
+        records.sort(
+            key=lambda r: getattr(r, "created_at", "") or "",
+            reverse=True,
+        )
+        return records[:limit]
+
+    def delete(self, key: str) -> bool:
+        """Delete a record. Returns True if the key existed."""
+        with self._lock:
+            self._ensure_loaded()
+            if key not in self._cache:
+                return False
+            del self._cache[key]
+            self._flush()
+            return True
+
+    def count(self) -> int:
+        """Number of records currently stored."""
+        with self._lock:
+            self._ensure_loaded()
+            return len(self._cache)
+
+    def _ensure_loaded(self) -> None:
+        """Load from disk if not yet loaded."""
+        if self._loaded:
+            return
+        self._loaded = True
+        if self._path.exists():
+            try:
+                data = json.loads(self._path.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    self._cache = data
+            except (json.JSONDecodeError, OSError) as e:
+                logger.warning("Failed to load %s: %s", self._path.name, e)
+                self._cache = {}
+
+    def _flush(self) -> None:
+        """Write cache to disk atomically."""
+        tmp_path = self._path.with_suffix(".tmp")
+        try:
+            tmp_path.write_text(
+                json.dumps(self._cache, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            tmp_path.replace(self._path)
+        except OSError as e:
+            logger.error("Failed to flush %s: %s", self._path.name, e)
+
+
 class TaskStorage:
     """JSON file-based task persistence.
 

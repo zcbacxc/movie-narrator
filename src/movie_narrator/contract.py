@@ -349,6 +349,13 @@ __all__ = [
     "StorageBackend",
     "cleanup_artifacts",
     "get_artifact_store",
+    # Cloud / Batch & Schedule (v0.9.3)
+    "BatchRequest",
+    "Batch",
+    "BatchProgress",
+    "ScheduleRequest",
+    "JobScheduler",
+    "ScheduleError",
 ]
 
 
@@ -428,4 +435,14 @@ from .cloud import (  # noqa: E402
     StorageBackend,
     cleanup_artifacts,
     get_artifact_store,
+)
+
+# Cloud / batch & schedule (v0.9.3) — new exports, backward compatible.
+from .cloud import (  # noqa: E402
+    Batch,
+    BatchProgress,
+    BatchRequest,
+    JobScheduler,
+    ScheduleError,
+    ScheduleRequest,
 )

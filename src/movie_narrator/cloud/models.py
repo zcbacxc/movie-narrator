@@ -248,3 +248,67 @@ class Task(BaseModel):
             "completed_at": self.completed_at or "",
             "error": self.last_error or "",
         }
+
+
+# ── Batch (v0.9.3) ────────────────────────────────────────
+
+
+class BatchStatus(str, Enum):
+    """Lifecycle states for a batch of tasks.
+
+    A batch aggregates the outcomes of its member tasks:
+
+    - ``pending`` — created, no member task has started yet
+    - ``running`` — at least one member task is still active
+    - ``completed`` — every member task reached a terminal state
+      and none failed
+    - ``partial_failed`` — some members failed (or never submitted)
+      while others completed
+    - ``failed`` — every member task failed (nothing succeeded)
+    """
+
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    PARTIAL_FAILED = "partial_failed"
+    FAILED = "failed"
+
+
+class BatchProgress(BaseModel):
+    """Aggregated progress across the member tasks of a batch.
+
+    Every member task carries equal weight: ``percentage`` is the
+    arithmetic mean of the individual task percentages, where a terminal
+    task counts as 100% and a pending task as 0%.
+    """
+
+    total: int = 0
+    completed: int = 0
+    failed: int = 0
+    cancelled: int = 0
+    running: int = 0
+    percentage: float = 0.0
+
+
+class BatchRequest(BaseModel):
+    """Input parameters for submitting a batch of pipeline tasks."""
+
+    requests: List[TaskRequest] = Field(min_length=1, max_length=50)
+    name: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class Batch(BaseModel):
+    """A group of tasks submitted together and tracked as one unit."""
+
+    batch_id: str = Field(default_factory=lambda: uuid4().hex[:12])
+    name: Optional[str] = None
+    task_ids: List[str] = Field(default_factory=list)
+    status: BatchStatus = BatchStatus.PENDING
+    created_at: str = Field(default_factory=_utc_now_iso)
+    completed_at: Optional[str] = None
+    progress: BatchProgress = Field(default_factory=BatchProgress)
+    # Result summary, populated once the batch reaches a terminal state.
+    success_count: int = 0
+    failure_ids: List[str] = Field(default_factory=list)
+    metadata: Optional[Dict[str, Any]] = None
