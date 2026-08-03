@@ -50,7 +50,7 @@ from typing import Callable, Optional, Protocol, runtime_checkable
 #   MAJOR — breaking changes to exported symbols or signatures
 #   MINOR — new exports added (backward compatible)
 #   PATCH — bug fixes, doc changes (no API surface change)
-CONTRACT_VERSION: tuple[int, int, int] = (0, 8, 2)
+CONTRACT_VERSION: tuple[int, int, int] = (0, 8, 3)
 
 
 def check_version(required: tuple[int, int, int]) -> None:
@@ -339,6 +339,16 @@ __all__ = [
     "build_health_payload",
     "build_readiness_payload",
     "build_openapi_spec",
+    # Cloud / Artifact storage & lifecycle (v0.8.3)
+    "ArtifactInfo",
+    "ArtifactLifecyclePolicy",
+    "ArtifactSweeper",
+    "CleanupReport",
+    "LocalArtifactStore",
+    "S3ArtifactStore",
+    "StorageBackend",
+    "cleanup_artifacts",
+    "get_artifact_store",
 ]
 
 
@@ -403,4 +413,19 @@ from .cloud import (  # noqa: E402
     build_health_payload,
     build_openapi_spec,
     build_readiness_payload,
+)
+
+# Cloud / artifact storage & lifecycle (v0.8.3) — new exports, backward
+# compatible. The artifact store is the blob/media counterpart to
+# ``TaskStorage`` (which persists task *state*, not artifacts).
+from .cloud import (  # noqa: E402
+    ArtifactInfo,
+    ArtifactLifecyclePolicy,
+    ArtifactSweeper,
+    CleanupReport,
+    LocalArtifactStore,
+    S3ArtifactStore,
+    StorageBackend,
+    cleanup_artifacts,
+    get_artifact_store,
 )

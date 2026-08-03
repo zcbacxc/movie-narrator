@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "movie-narrator"
-version = "0.8.2"
+version = "0.8.3"
 description = "Generate narrated movie recap videos from a single prompt."
 readme = "README.md"
 license = "AGPL-3.0-or-later"
@@ -47,6 +47,7 @@ full = [
     'faster-whisper>=1.0; python_version < "3.14"',
     'sentence-transformers>=3.0; python_version < "3.14"',
 ]
+s3 = ["boto3>=1.34"]
 dev = ["pytest>=8.0", "pytest-timeout>=2.0", "mypy>=1.10", "ruff>=0.4"]
 docs = [
     "mkdocs>=1.5",
