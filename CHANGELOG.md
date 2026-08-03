@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-08-03
+
+### Added
+
+- **Dockerfile** — multi-stage build (`builder` → `runtime`), based on `python:3.12-slim`. The runtime stage installs `ffmpeg`, runs as a non-root `app` user (UID/GID 10001), declares volumes for `/app/output` and `/app/.mn_tasks`, exposes 8765, and ships a `HEALTHCHECK` against `/health`. `ENTRYPOINT` is `mn`, so the image doubles as the CLI.
+- **GPU image** — `runtime-gpu` build target based on `nvidia/cuda:12.4.1-runtime-ubuntu22.04`, intended for `docker run --gpus all` / the compose `gpu` profile. The CPU image remains the default build target.
+- **`MN_EXTRAS` / `MN_GPU_EXTRAS` / `PYTHON_VERSION` build args** — select the optional-dependency set (`""` / `media` / `ml` / `full`) at build time.
+- **`.dockerignore`** — trims the build context and keeps `.env` out of image layers.
+- **docker-compose.yml** — local cluster with an `api` service (publishes 8765, health-gated), a scalable `worker` service, a `gpu` profile (`worker-gpu`, NVIDIA device reservation) and an `s3` profile (MinIO, paired with the v0.8.3 S3 `StorageBackend`). Storage is modelled as named volumes; no database or broker was invented.
+- **`docs/DEPLOYMENT.md` / `docs/DEPLOYMENT.zh-CN.md`** — bilingual deployment guide covering build, run, scale, GPU, environment variables, volumes and backup, plus the queue-architecture caveats.
+- **`tests/test_v084_container.py`** — 74 static validation tests for the container artifacts, including a check that every subcommand and flag referenced from `docker-compose.yml` resolves against the real CLI app.
+
 ## [0.8.3] - 2026-08-03
 
 ### Added

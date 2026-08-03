@@ -49,8 +49,8 @@ The original v0.6.2–v0.6.4 plan (distributed rendering, API gateway & auth, cl
 
 **Deferred to v0.8.x point releases:**
 
-- [ ] Dockerfile — multi-stage build (builder + runtime), GPU support
-- [ ] docker-compose.yml — local cluster (API + N workers + storage)
+- [x] Dockerfile — multi-stage build (builder + runtime), GPU support (v0.8.4)
+- [x] docker-compose.yml — local cluster (API + N workers + storage) (v0.8.4)
 - [x] Storage backend abstraction — `StorageBackend` protocol (local / S3) (v0.8.3)
 - [x] Artifact lifecycle — TTL-based cleanup (v0.8.3)
 - [x] Structured logging — JSON format with correlation IDs (v0.8.1)

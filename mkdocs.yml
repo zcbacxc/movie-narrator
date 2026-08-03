@@ -23,6 +23,7 @@ nav:
   - Metadata Schema: METADATA_SCHEMA.md
   - Roadmap: ROADMAP.md
   - Contributing: CONTRIBUTING.md
+  - Deployment: DEPLOYMENT.md
   - Packaging: PACKAGING.md
   - LLM Providers: LLM_PROVIDERS.md
   - AI Guide: AI_GUIDE.md
