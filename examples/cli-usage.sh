@@ -81,7 +81,7 @@ mn preset
 mn preset mainstream-dry
 
 # ============================================================
-# 多候选赛马 (Q-P2)
+# 多候选赛马 (multi-candidate race)
 # ============================================================
 
 # 同输入跑 3 套变体，打分排名
@@ -91,7 +91,7 @@ mn race --movie "飞驰人生" --video movie.mp4 --candidates 3
 mn race --movie "飞驰人生" --video movie.mp4 --presets douyin-fast,mainstream-dry,bilibili-long --auto-pick
 
 # ============================================================
-# 参考片模仿 (Q-P7)
+# 参考片模仿 (reference imitation)
 # ============================================================
 
 # 分析爆款解说并生成同风格新片
@@ -109,7 +109,7 @@ mn imitate --reference viral_ref.mp4 --analyze-only
 # Then run: mn-web
 
 # ============================================================
-# 解说视角 (NA-M1-S4)
+# 解说视角 (narrator perspective)
 # ============================================================
 
 # 全知视角（默认，中性鸟瞰）
@@ -212,7 +212,7 @@ mn download <task_id> -r http://worker:8765 -f final.mp4
 mn download <task_id> -r http://worker:8765 -o ./output
 
 # ============================================================
-# 管线恢复 (EP9)
+# 管线恢复 (resume)
 # ============================================================
 
 # 从暂停点恢复管线

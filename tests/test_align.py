@@ -196,11 +196,11 @@ def test_align_backend_none_when_neither_importable(tmp_path, monkeypatch):
     assert ctx.step_state.result.value == "skipped"
 
 
-# ── F4: backward jump detection ──
+# ── Backward jump detection ──
 
 
 def test_align_backward_jump_extreme_skips_segment(tmp_path):
-    """F4: wx segment mapping far behind prev_end (>50% of original duration)
+    """Backward-jump detection: wx segment mapping far behind prev_end (>50% of original duration)
     is skipped (TTS estimate kept) instead of crushed to 100ms.
 
     Scenario: seg1 midpoint=10 → maps to wx (8, 12) → prev_end=12.
@@ -245,7 +245,7 @@ def test_align_backward_jump_extreme_skips_segment(tmp_path):
         align_audio(ctx)
 
     assert ctx.status.align == "success"
-    # F4: seg2 should be skipped (backward jump > 50% of original duration)
+    # seg2 should be skipped (backward jump > 50% of original duration)
     assert ctx.metadata.get("align_backward_skipped") == 1
     # seg2's timestamps should be unchanged (TTS estimate kept)
     assert ctx.timed_segments[1].start == original_seg2_start
@@ -256,7 +256,7 @@ def test_align_backward_jump_extreme_skips_segment(tmp_path):
 
 
 def test_align_backward_jump_small_clamp_keeps_segment(tmp_path):
-    """F4: small backward jump (≤50% of original duration) is still clamped,
+    """Small backward jump (≤50% of original duration) is still clamped,
     not skipped. The segment is compressed but remains usable.
 
     Scenario: seg1 midpoint=9 → maps to wx (8, 10) → prev_end=10.
@@ -297,7 +297,7 @@ def test_align_backward_jump_small_clamp_keeps_segment(tmp_path):
         align_audio(ctx)
 
     assert ctx.status.align == "success"
-    # F4: no skips — backward jump was small enough to clamp
+    # No skips — backward jump was small enough to clamp
     assert ctx.metadata.get("align_backward_skipped") == 0
     # seg2 should be clamped: start=prev_end=10, end=12
     assert ctx.timed_segments[1].start == 10.0  # clamped to prev_end
@@ -305,7 +305,7 @@ def test_align_backward_jump_small_clamp_keeps_segment(tmp_path):
 
 
 def test_align_no_backward_jumps_zero_skipped(tmp_path):
-    """F4: normal forward-mapping alignment → 0 backward skips."""
+    """Normal forward-mapping alignment → 0 backward skips."""
     ctx = _make_ctx(tmp_path)
     mock_result = {
         "segments": [
@@ -405,22 +405,22 @@ def test_align_unequal_segment_counts(tmp_path):
     # AQ-01 fix: timestamps are now monotonically non-decreasing
     # and non-overlapping (multiple segments can't share the same
     # wx segment time range without being pushed forward).
-    # F4 caveat: segments skipped due to extreme backward jumps keep
+    # Backward-jump caveat: segments skipped due to extreme backward jumps keep
     # their TTS estimates, which may not be monotonic with neighbors.
     # Only assert monotonic for non-skipped segments (curr.start > 0
     # and curr.start >= prev.end OR curr was skipped).
     for prev, curr in zip(ctx.timed_segments, ctx.timed_segments[1:]):
         # Either monotonic holds, OR curr was skipped (kept TTS estimate)
-        # — F4 allows non-monotonic for skipped segments.
+        # — Backward-jump detection allows non-monotonic for skipped segments.
         is_monotonic = curr.start >= prev.end
         # A skipped segment keeps its original TTS start time, which may
         # be < prev.end. We can't directly detect skip here, but we can
         # verify positive duration always holds.
         assert curr.end > curr.start    # always positive duration
         # Monotonic should hold for most segments; if it doesn't, the
-        # segment was likely skipped by F4 (backward jump > 50%).
+        # segment was likely skipped by backward-jump detection (backward jump > 50%).
         if not is_monotonic:
-            # This is acceptable under F4 — log it but don't fail
+            # This is acceptable under backward-jump detection — log it but don't fail
             pass
 
 

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""VLMCaptioner — real visual scene descriptions via cloud VLM API (Q-M5).
+"""VLMCaptioner — real visual scene descriptions via cloud VLM API (VLM captioning).
 
 Extracts a keyframe from each scene's midpoint, sends it to an
 OpenAI-compatible vision API (GPT-4o, Qwen-VL, etc.), and returns

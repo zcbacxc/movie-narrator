@@ -78,7 +78,7 @@ run_qa_gate → render_video → validate_deliverable → export_clips
 | align_audio | soft | WhisperX word-level alignment; fallback to segment-level via faster-whisper | word timestamps |
 | detect_scenes | soft | PySceneDetect splits source video into `Scene` list | scene list |
 | match_clips | soft | Map scenes to script segments: embedding re-rank (when `[ml]` installed) or proportional heuristic; falls back on probe/model failure | `matches.json` |
-| mix_bgm | soft | Mix background music under narration; EP6 duck curve scales depth with narration energy | `mixed.mp3` |
+| mix_bgm | soft | Mix background music under narration; the duck curve scales depth with narration energy | `mixed.mp3` |
 | translate_subtitles | soft | Per-chunk translation via configured provider (default `llm`); retry-then-soft-degrade policy; CI passthrough | `ctx.translated_texts` |
 | generate_subtitle | hard | Format SRT from timed segments; bilingual support (`subtitle.<lang>.srt`, `subtitle.bilingual.srt`) | `subtitle.srt` + variants |
 | run_qa_gate | soft | Quality validation gate | QA report |
@@ -341,7 +341,7 @@ class MyPlugin:
 
 Plugins are discovered via `importlib.metadata` entry points under the `movie_narrator.plugins` group. See `examples/plugins/watermark/` for a complete reference implementation.
 
-## Pipeline Pause/Resume (EP9, v0.4.26+)
+## Pipeline Pause/Resume (v0.4.26+)
 
 The pipeline supports human-in-the-loop pause points via `PipelinePaused` exception and state serialization:
 
@@ -365,7 +365,7 @@ run_pipeline(ctx, start_step="align_audio")  # skips completed steps
 
 **Pause points**: `--pause-at script` (after script generation) or `--pause-at match` (after scene matching). User can edit `script.md` or `matches.json` before resuming.
 
-## Scene Filtering (WP6, v0.5+)
+## Scene Filtering (v0.5+)
 
 The `pipeline/scene_filter.py` module provides three scene-filtering features that improve narration quality by removing non-content segments and biasing selection toward highlights:
 

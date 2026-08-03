@@ -8,8 +8,8 @@ Usage:
         --output comparison_report.md
 
 Focus areas:
-    --focus beat_anchor   Compare EP2 beat anchor fields + src_mid distribution
-    --focus duck_curve    Compare EP6 duck curve / loudness fields
+    --focus beat_anchor   Compare beat-anchor fields + src_mid distribution
+    --focus duck_curve    Compare duck-curve / loudness fields
     --focus all           Compare everything (default)
 """
 
@@ -74,9 +74,9 @@ def compare_field(
 
 
 def compare_beat_anchor(baseline: dict, new: dict) -> str:
-    """Compare EP2 beat anchor fields."""
+    """Compare beat-anchor fields."""
     lines = [
-        "## EP2 — Beat Time Anchor\n",
+        "## Beat Time Anchor\n",
         "| Field | Baseline | New | Delta |",
         "|-------|----------|-----|-------|",
     ]
@@ -141,17 +141,17 @@ def compare_beat_anchor(baseline: dict, new: dict) -> str:
                 )
 
             # Uniformity check: if baseline is roughly linear (R² > 0.95)
-            # and new deviates, EP2 is working
+            # and new deviates, beat anchoring is working
             lines.append("\n**判读**: 若基线 src_mid 分位接近线性（0→1 均匀），"
-                        "而新版偏离线性（集中在高光区），则 EP2 beat anchor 生效。")
+                        "而新版偏离线性（集中在高光区），则 beat anchor 生效。")
 
     return "\n".join(lines)
 
 
 def compare_duck_curve(baseline: dict, new: dict) -> str:
-    """Compare EP6 duck curve / loudness fields."""
+    """Compare duck-curve / loudness fields."""
     lines = [
-        "## EP6 — Duck Curve + Loudnorm\n",
+        "## Duck Curve + Loudnorm\n",
         "| Field | Baseline | New | Delta |",
         "|-------|----------|-----|-------|",
     ]
@@ -298,9 +298,9 @@ def compare_basic(baseline: dict, new: dict) -> str:
 
 
 def compare_ep_params(baseline: dict, new: dict) -> str:
-    """Compare EP-specific params."""
+    """Compare pipeline-feature params."""
     lines = [
-        "## EP 参数对比\n",
+        "## 特性参数对比\n",
         "| Param | Baseline | New | Delta |",
         "|-------|----------|-----|-------|",
     ]
@@ -386,37 +386,37 @@ def generate_report(
 
     verdicts = []
 
-    # Check EP2
+    # Check beat anchor
     beat_anchor_n = safe_get(new, "match_summary", "beat_anchor")
     if beat_anchor_n is True:
-        verdicts.append("✅ EP2: beat_anchor=true — beat 时间锚已激活")
+        verdicts.append("✅ beat anchor: beat_anchor=true — beat 时间锚已激活")
     elif beat_anchor_n is False:
-        verdicts.append("⚠️ EP2: beat_anchor=false — LLM 未返回 approx_ratio，"
+        verdicts.append("⚠️ beat anchor: beat_anchor=false — LLM 未返回 approx_ratio，"
                        "回退到 timeline_mode")
     else:
-        verdicts.append("— EP2: beat_anchor 字段不存在（版本 < v0.4.26?）")
+        verdicts.append("— beat anchor: beat_anchor 字段不存在（版本 < v0.4.26?）")
 
-    # Check EP4
+    # Check hook templates
     hook_n = new.get("hook_templates")
     if hook_n and len(hook_n) > 0:
-        verdicts.append(f"✅ EP4: hook_templates 配置了 {len(hook_n)} 条模板")
+        verdicts.append(f"✅ hook templates: hook_templates 配置了 {len(hook_n)} 条模板")
     else:
-        verdicts.append("— EP4: hook_templates 未配置或为空")
+        verdicts.append("— hook templates: hook_templates 未配置或为空")
 
-    # Check EP5
+    # Check title card
     title_card_n = new.get("render_title_card_sec")
     if title_card_n and title_card_n > 0:
-        verdicts.append(f"✅ EP5: render_title_card_sec={title_card_n}s — "
+        verdicts.append(f"✅ title card: render_title_card_sec={title_card_n}s — "
                        "标题卡已启用")
     else:
-        verdicts.append("— EP5: render_title_card_sec=0 — 标题卡未启用")
+        verdicts.append("— title card: render_title_card_sec=0 — 标题卡未启用")
 
-    # Check EP6
+    # Check loudness normalization
     loudnorm_n = new.get("bgm_loudnorm")
     if loudnorm_n is True:
-        verdicts.append("✅ EP6: bgm_loudnorm=true — RMS 响度归一化已启用")
+        verdicts.append("✅ loudness normalization: bgm_loudnorm=true — RMS 响度归一化已启用")
     else:
-        verdicts.append("— EP6: bgm_loudnorm=false — 使用峰值归一化")
+        verdicts.append("— loudness normalization: bgm_loudnorm=false — 使用峰值归一化")
 
     for v in verdicts:
         lines.append(f"- {v}")

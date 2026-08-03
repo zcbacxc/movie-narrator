@@ -225,7 +225,7 @@ def build_context(
     subtitle_mode: Optional[str] = None,
     services: Optional[Services] = None,
     narration_preset: Optional[str] = None,
-    lang: str = "zh",  # R2-NA-LANG: narration language
+    lang: str = "zh",  # narration language
     log_level: int = logging.DEBUG,
     verbose: bool = False,
     json_format: bool = False,
@@ -297,7 +297,7 @@ def build_context(
             "translate_provider": (params or {}).get("translate_provider", "llm"),
             "translate_retries": (params or {}).get("translate_retries", 3),
             "research_provider": (params or {}).get("research_provider", "llm"),
-            # R2-NA-LANG: single source of truth for narration language.
+            # Single source of truth for narration language.
             "lang": lang,
             # v0.7.2: preview mode — render only the first N seconds for quick
             # iteration.  OFF by default (backward compatible).  These keys are
@@ -308,7 +308,7 @@ def build_context(
         }
     )
 
-    # R2-NA-LANG: consistency check — warn if subtitle target language
+    # Narration-language consistency check — warn if subtitle target language
     # matches narration language (translation would be a no-op).
     if subtitle_lang and subtitle_lang.lower() == lang.lower():
         services.console.inline_warn(
@@ -339,7 +339,7 @@ def build_context(
             if key in effective_params and effective_params[key] is not None:
                 ctx.metadata[key] = effective_params[key]
 
-    # ── WP7: Draft profile — fast iteration override ──
+    # ── Draft profile — fast iteration override ──
     # When render_profile=draft, override render params for speed.
     # User-supplied params (via job.yaml or preset) always take precedence
     # over draft defaults — draft only fills gaps.
@@ -366,7 +366,7 @@ def build_context(
 
 
 def _save_pipeline_state(ctx: Context, completed_step: str) -> Path:
-    """Serialize pipeline state for resume (EP9).
+    """Serialize pipeline state for resume.
 
     Writes ``pipeline_state.json`` to ``ctx.output_dir``. Excludes the
     non-serializable ``services`` field — the ``Context`` model_validator
@@ -388,7 +388,7 @@ def _save_pipeline_state(ctx: Context, completed_step: str) -> Path:
 
 
 def _load_pipeline_state(state_path: Path) -> tuple[Context, str]:
-    """Load pipeline state from a file (EP9).
+    """Load pipeline state from a file.
 
     Returns ``(context, completed_step)``. The context's ``services``
     field is auto-filled with ``SilentConsole`` by the model_validator —
@@ -421,7 +421,7 @@ def run_pipeline(
     passes a ``GradioController`` so the user can request a cooperative
     cancel at step boundaries.
 
-    ``start_step`` (EP9): when set, skip all steps before this step name.
+    ``start_step``: when set, skip all steps before this step name.
     Used by ``mn resume`` to avoid re-running already-completed steps.
 
     ``PipelineCancelled`` raises before ``_check_strict``, so ``--strict``
@@ -429,7 +429,7 @@ def run_pipeline(
     it is NOT a soft-step warning and does NOT set status fields to
     ``failed``.
 
-    ``PipelinePaused`` (EP9) raises after a step completes when
+    ``PipelinePaused`` raises after a step completes when
     ``ctx.metadata["pause_at"]`` matches the step name. The pipeline
     state is serialized before raising so ``mn resume`` can continue.
     """
@@ -452,13 +452,13 @@ def run_pipeline(
 
     total_start = time.time()
 
-    # EP9: When resuming, skip steps before start_step
+    # When resuming, skip steps before start_step
     _resume_started = start_step is None
 
     for step in STEPS:
         name = step.__name__
 
-        # EP9: Skip already-completed steps when resuming
+        # Skip already-completed steps when resuming
         if not _resume_started:
             if name == start_step:
                 _resume_started = True
@@ -470,7 +470,7 @@ def run_pipeline(
         # ── Pre-check: workflow_steps disabled? ──────────────
         # Authoritative path: runner short-circuits before step runs.
         # Checks both the function-name key and any short alias (spec §9).
-        # WP1: now uses _step_enabled() for full short-key coverage.
+        # Now uses _step_enabled() for full short-key coverage.
         if not _step_enabled(workflow_steps, name):
             ctx.step_state = StepState(
                 result=StepResult.SKIPPED, message="disabled by workflow config"
@@ -514,7 +514,7 @@ def run_pipeline(
                 raise
             except Exception as e:  # noqa: BLE001 — pipeline step barrier: catch all for retry/degrade policy
                 elapsed = time.time() - step_start
-                # R2-NA-ORCH: detect retryable (transient) errors via the
+                # Retryable-error orchestration: detect retryable (transient) errors via the
                 # `retryable` attribute on ProviderError subclasses (and any
                 # wrapped exception that sets it). Network timeouts / rate
                 # limits / temporary-unavailable set it True; config and
@@ -558,7 +558,7 @@ def run_pipeline(
 
         elapsed = time.time() - step_start
 
-        # ── F3: surface soft-step degradation from non-exception paths ──
+        # ── Surface soft-step degradation from non-exception paths ──
         # Some soft steps (e.g. align_audio in C1 fix) internally catch
         # exceptions and set status.<field>='failed' + step_state.result
         # = WARNING without re-raising. The runner's outer except block
@@ -583,7 +583,7 @@ def run_pipeline(
         _render_step_result(ctx, name, elapsed, console)
         _check_strict(ctx, name)
 
-        # ── EP9: Pause-at check ─────────────────────────────
+        # ── Pause-at check ─────────────────────────────────
         # If the user requested a pause after this step, serialize state
         # and raise PipelinePaused so the CLI can inform the user.
         pause_at = ctx.metadata.get("pause_at")
@@ -612,7 +612,7 @@ def run_pipeline(
             f"{', '.join(degraded)}. The final output may have reduced quality."
         )
 
-    # ── WP1: Re-export metadata.json after all steps ────
+    # ── Re-export metadata.json after all steps ──────────
     # render_video writes metadata.json before QA runs, so qa_report and
     # other late-stage diagnostics are missing. Re-export here to capture
     # the full picture (qa_report, degraded_steps, match_summary, etc.).
@@ -689,7 +689,7 @@ def _handle_step_error(
     GradioController or ``controller=None``), returns ``ABORT`` to
     preserve the existing fail-fast behavior.
 
-    R2-NA-ORCH: before delegating, inspect the exception's ``retryable``
+    Retryable-error orchestration: before delegating, inspect the exception's ``retryable``
     attribute. A retryable (transient, network-type) failure is a good
     candidate for an interactive [R]etry/[S]kip/[A]bort choice:
 

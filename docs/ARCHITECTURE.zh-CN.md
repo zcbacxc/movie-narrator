@@ -78,7 +78,7 @@ run_qa_gate → render_video → validate_deliverable → export_clips
 | align_audio | 软 | WhisperX 词级对齐；失败时回退到 faster-whisper 段级 | 词级时间戳 |
 | detect_scenes | 软 | PySceneDetect 将源视频切分为 `Scene` 列表 | 场景列表 |
 | match_clips | 软 | 将场景映射到台词段：embedding 重排（`[ml]` 已安装时）或比例启发式；探测/模型失败时回退 | `matches.json` |
-| mix_bgm | 软 | 为旁白叠加背景音乐；EP6 duck 曲线随旁白能量缩放深度 | `mixed.mp3` |
+| mix_bgm | 软 | 为旁白叠加背景音乐；duck 曲线随旁白能量缩放深度 | `mixed.mp3` |
 | translate_subtitles | 软 | 按配置的 provider 分段翻译（默认 `llm`）；重试后软降级；CI 直通 | `ctx.translated_texts` |
 | generate_subtitle | 硬 | 从 timed_segments 格式化 SRT；双语支持（`subtitle.<lang>.srt`、`subtitle.bilingual.srt`） | `subtitle.srt` 及变体 |
 | run_qa_gate | 软 | 质量校验门 | QA 报告 |
@@ -335,7 +335,7 @@ class MyPlugin:
 
 插件通过 `importlib.metadata` entry points 的 `movie_narrator.plugins` 组自动发现。完整参考实现见 `examples/plugins/watermark/`。
 
-## 流水线暂停/恢复（EP9，v0.4.26+）
+## 流水线暂停/恢复（v0.4.26+）
 
 流水线通过 `PipelinePaused` 异常和状态序列化支持人工暂停点：
 
@@ -359,7 +359,7 @@ run_pipeline(ctx, start_step="align_audio")  # 跳过已完成步骤
 
 **暂停点**：`--pause-at script`（脚本生成后）或 `--pause-at match`（场景匹配后）。用户可在恢复前编辑 `script.md` 或 `matches.json`。
 
-## 场景过滤（WP6，v0.5+）
+## 场景过滤（v0.5+）
 
 `pipeline/scene_filter.py` 模块提供三个场景过滤功能，通过移除非内容片段和偏向高亮区域来提升解说质量：
 

@@ -64,9 +64,9 @@
 | `captioning` | object | WhisperX 字幕状态（`used`、`usable_label_ratio`、`cached`、`language`、`model`） |
 | `embedding_model` | str | 使用的嵌入模型名称 |
 | `degraded_reason` | str\|null | `"fake_captions"` / `"all_heuristic"` / null |
-| `diversity` | object | WP3 多样性后处理审计（`swaps`、`swaps_log`、`window`、`max_reuse`） |
-| `timeline` | object | EP1/EP2 时间线审计（`mode`、`act_weights`、`segments_per_act`、`anchored_count`） |
-| `topk` | object | EP3 top-K 重排审计（`k`、`reuse_penalty`、`topk_count`、`top1_count`） |
+| `diversity` | object | 多样性后处理审计（`swaps`、`swaps_log`、`window`、`max_reuse`） |
+| `timeline` | object | 时间线审计（`mode`、`act_weights`、`segments_per_act`、`anchored_count`） |
+| `topk` | object | top-K 重排审计（`k`、`reuse_penalty`、`topk_count`、`top1_count`） |
 
 **向后兼容字段**（旧版消费者）：`total` = `segments`，`embedding` = `source_counts.embedding`，`heuristic` = `source_counts.heuristic`，`captions_fake` =（`degraded_reason == "fake_captions"`）。
 
@@ -170,7 +170,7 @@
 | `act` | int | 幕号（1–4） |
 | `approx_ratio` | float | 用于时间锚定场景搜索的时间锚点比率（0–1） |
 
-**EP2 拍锚点优先级**：当拍元数据可用时，启发式基线使用 `approx_ratio` 作为主要时间锚点。优先级链：EP2 拍锚点 > EP1 加权幕 > 均匀比例映射。
+**拍锚点优先级**：当拍元数据可用时，启发式基线使用 `approx_ratio` 作为主要时间锚点。优先级链：拍锚点 > 加权幕 > 均匀比例映射。
 
 ---
 

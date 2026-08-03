@@ -64,9 +64,9 @@ Records the match-quality breakdown for manual QA verification and downstream co
 | `captioning` | object | WhisperX captioning status (`used`, `usable_label_ratio`, `cached`, `language`, `model`) |
 | `embedding_model` | str | Embedding model name used |
 | `degraded_reason` | str\|null | `"fake_captions"` / `"all_heuristic"` / null |
-| `diversity` | object | WP3 diversity post-processing audit (`swaps`, `swaps_log`, `window`, `max_reuse`) |
-| `timeline` | object | EP1/EP2 timeline audit (`mode`, `act_weights`, `segments_per_act`, `anchored_count`) |
-| `topk` | object | EP3 top-K rerank audit (`k`, `reuse_penalty`, `topk_count`, `top1_count`) |
+| `diversity` | object | Diversity post-processing audit (`swaps`, `swaps_log`, `window`, `max_reuse`) |
+| `timeline` | object | Timeline audit (`mode`, `act_weights`, `segments_per_act`, `anchored_count`) |
+| `topk` | object | Top-K rerank audit (`k`, `reuse_penalty`, `topk_count`, `top1_count`) |
 
 **Back-compat fields** (legacy consumers): `total` = `segments`, `embedding` = `source_counts.embedding`, `heuristic` = `source_counts.heuristic`, `captions_fake` = (`degraded_reason == "fake_captions"`).
 
@@ -170,7 +170,7 @@ Per-beat metadata from structured LLM output. Absent when two-phase script gener
 | `act` | int | Act number (1–4) |
 | `approx_ratio` | float | Time anchor ratio (0–1) for time-anchored scene search |
 
-**EP2 beat anchor priority**: when beat metadata is available, the heuristic baseline uses `approx_ratio` as the primary time anchor. Priority chain: EP2 beat anchor > EP1 weighted acts > uniform proportional mapping.
+**Beat anchor priority**: when beat metadata is available, the heuristic baseline uses `approx_ratio` as the primary time anchor. Priority chain: beat anchor > weighted-act timeline > uniform proportional mapping.
 
 ---
 

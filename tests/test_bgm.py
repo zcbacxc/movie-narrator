@@ -138,3 +138,66 @@ def test_mix_bgm_success(tmp_path):
     name = Path(ctx.final_audio_path).name
     assert name in ("mixed.mp3", "mixed.wav")
     assert Path(ctx.final_audio_path).exists()
+
+
+def test_mix_bgm_ambient_success(tmp_path):
+    """v0.7.1 ambient: a valid ambient track is mixed in and recorded."""
+    narr = _write_tone_mp3(tmp_path / "narration.mp3", 800, freq=440)
+    bgm = _write_tone_mp3(tmp_path / "bgm.mp3", 400, freq=880)
+    ambient = _write_tone_mp3(tmp_path / "ambient.mp3", 600, freq=220)
+    ctx = Context(
+        movie_name="m",
+        output_dir=str(tmp_path),
+        audio_path=str(narr),
+        assets=Assets(bgm=str(bgm)),
+    )
+    ctx.metadata["bgm_request"] = "explicit"
+    ctx.metadata["bgm_ambient_path"] = str(ambient)
+    mix_bgm(ctx)
+    assert ctx.status.bgm == "success"
+    assert ctx.metadata.get("ambient_track", {}).get("path") == str(ambient)
+    assert ctx.metadata["ambient_track"]["gain_db"] == -12.0
+    assert ctx.metadata["ambient_track"]["duck_db"] == -10.0
+    assert Path(ctx.final_audio_path).exists()
+
+
+def test_mix_bgm_ambient_missing_soft_fail(tmp_path):
+    """v0.7.1 ambient: a missing ambient file warns and keeps the mix going."""
+    narr = _write_tone_mp3(tmp_path / "narration.mp3", 800, freq=440)
+    bgm = _write_tone_mp3(tmp_path / "bgm.mp3", 400, freq=880)
+    ctx = Context(
+        movie_name="m",
+        output_dir=str(tmp_path),
+        audio_path=str(narr),
+        assets=Assets(bgm=str(bgm)),
+    )
+    ctx.metadata["bgm_request"] = "explicit"
+    ctx.metadata["bgm_ambient_path"] = str(tmp_path / "missing.mp3")
+    mix_bgm(ctx)
+    # Soft failure: BGM mix still succeeds, ambient skipped with an error.
+    assert ctx.status.bgm == "success"
+    info = ctx.metadata.get("ambient_track")
+    assert info is None or "error" in info
+    assert Path(ctx.final_audio_path).exists()
+
+
+def test_mix_bgm_ambient_ducking_applied(tmp_path):
+    """v0.7.1 ambient: ducking must reduce ambient loudness under narration."""
+    from movie_narrator.pipeline.bgm import _mix_ambient_track
+
+    narr = _write_tone_mp3(tmp_path / "narration.mp3", 800, freq=440)
+    ambient = _write_tone_mp3(tmp_path / "ambient.mp3", 400, freq=220)
+
+    base_mixed = AudioSegment.from_file(narr).overlay(
+        AudioSegment.from_file(ambient).apply_gain(0)
+    )
+    ducked_mixed, info = _mix_ambient_track(
+        AudioSegment.from_file(narr),
+        str(ambient),
+        ambient_gain_db=0.0,
+        duck_db=-20.0,
+    )
+    assert "error" not in info
+    # Ducking must attenuate the ambient, so the ducked mix is quieter
+    # than an equal-gain overlay (narration energy dominates both).
+    assert ducked_mixed.dBFS < base_mixed.dBFS

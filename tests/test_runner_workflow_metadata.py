@@ -55,16 +55,16 @@ def test_run_pipeline_omits_workflow_keys_when_empty(tmp_path):
     assert "config_path" not in ctx.metadata
 
 
-# ── F3: runner surfaces soft-step degradation from non-exception paths ──
+# ── Soft-step degradation: runner surfaces it from non-exception paths ──
 
 
 def test_run_pipeline_accumulates_degraded_steps_for_internal_fallback(tmp_path):
-    """F3: soft step that internally sets status='failed'+WARNING (no raise)
+    """Soft-step degradation: soft step that internally sets status='failed'+WARNING (no raise)
     is accumulated into _degraded_steps by the runner.
 
     Reproduces the C1 align_fallback scenario: align_audio catches
     whisperx.align() exception internally, sets status.align='failed'
-    + step_state.result=WARNING, and returns normally. Before F3, the
+    + step_state.result=WARNING, and returns normally. Before this fix, the
     runner's outer except block never fired, so _degraded_steps stayed
     empty and the degradation was invisible in the runner's summary.
     """
@@ -97,17 +97,17 @@ def test_run_pipeline_accumulates_degraded_steps_for_internal_fallback(tmp_path)
     with patch("movie_narrator.pipeline.runner.STEPS", fake_steps):
         ctx = run_pipeline(ctx)
 
-    # F3: _degraded_steps should contain 'align_audio' even though the
+    # Soft-step degradation: _degraded_steps should contain 'align_audio' even though the
     # step returned normally (no exception propagated to runner).
     degraded = ctx.metadata.get("_degraded_steps", [])
     assert "align_audio" in degraded, (
-        f"F3: align_audio should be in _degraded_steps for internal fallback, "
+        f"Soft-step degradation: align_audio should be in _degraded_steps for internal fallback, "
         f"got {degraded}"
     )
 
 
 def test_run_pipeline_does_not_duplicate_degraded_steps(tmp_path):
-    """F3: if a soft step both raises AND sets status='failed', the runner
+    """Soft-step degradation: if a soft step both raises AND sets status='failed', the runner
     should not add it to _degraded_steps twice (idempotent)."""
     def _passthrough(ctx: Context) -> Context:
         return ctx
@@ -137,15 +137,15 @@ def test_run_pipeline_does_not_duplicate_degraded_steps(tmp_path):
         ctx = run_pipeline(ctx)
 
     degraded = ctx.metadata.get("_degraded_steps", [])
-    # Should appear exactly once (exception path adds it, F3 dedupes)
+    # Should appear exactly once (exception path adds it; soft-step degradation dedupes)
     assert degraded.count("align_audio") == 1, (
-        f"F3: align_audio should appear exactly once in _degraded_steps, "
+        f"Soft-step degradation: align_audio should appear exactly once in _degraded_steps, "
         f"got {degraded}"
     )
 
 
 def test_run_pipeline_no_degraded_when_step_succeeds(tmp_path):
-    """F3: a step that returns normally with status='success' should NOT
+    """Soft-step degradation: a step that returns normally with status='success' should NOT
     be added to _degraded_steps."""
     def _passthrough(ctx: Context) -> Context:
         return ctx
@@ -172,6 +172,6 @@ def test_run_pipeline_no_degraded_when_step_succeeds(tmp_path):
 
     degraded = ctx.metadata.get("_degraded_steps", [])
     assert "align_audio" not in degraded, (
-        f"F3: align_audio should NOT be in _degraded_steps when it succeeds, "
+        f"Soft-step degradation: align_audio should NOT be in _degraded_steps when it succeeds, "
         f"got {degraded}"
     )
