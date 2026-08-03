@@ -1328,6 +1328,14 @@ def serve(
         False, "--insecure",
         help="Allow starting on public interface without API key (not recommended).",
     ),
+    log_format: Optional[str] = typer.Option(
+        None, "--log-format",
+        help="日志格式 / Log format: text|json (default: MN_LOG_FORMAT, else text).",
+    ),
+    log_level: Optional[str] = typer.Option(
+        None, "--log-level",
+        help="日志级别 / Log level: DEBUG|INFO|WARNING|ERROR (default: MN_LOG_LEVEL, else INFO).",
+    ),
 ):
     """启动远程推理服务 / Start the remote inference API server.
 
@@ -1350,10 +1358,29 @@ def serve(
     MN_API_KEY 环境变量),否则拒绝启动. 使用 --insecure 可跳过此
     安��检查(不推荐).
     v0.8.0 已增加 X-API-Key 认证支持,通过 --api-key 启用.
+
+    \b
+    v0.8.1 观测性 / Observability:
+        mn serve --log-format json --log-level INFO
+        GET /metrics — Prometheus 指标(默认需 X-API-Key;
+        设置 MN_METRICS_PUBLIC=1 可免认证供集群内抓取).
+        每个响应都会回显 X-Correlation-ID.
     """
     from .cloud import run_daemon
     from .config import get_settings
+    from .utils.logging_config import configure_logging
     from pathlib import Path
+
+    # v0.8.1: configure structured logging before anything can log.
+    # Flags are left at None by default so MN_LOG_FORMAT / MN_LOG_LEVEL
+    # still apply; an explicit flag overrides the environment.
+    if log_format is not None and log_format.lower() not in {"text", "json"}:
+        typer.echo("--log-format must be 'text' or 'json'", err=True)
+        raise typer.Exit(2)
+    configure_logging(
+        json_mode=(log_format.lower() == "json") if log_format else None,
+        level=log_level,
+    )
 
     if public:
         host = "0.0.0.0"

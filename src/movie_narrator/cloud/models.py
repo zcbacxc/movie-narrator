@@ -195,6 +195,11 @@ class Task(BaseModel):
     retries: int = 0
     last_error: Optional[str] = None
     worker_id: Optional[str] = None
+    # v0.8.1: correlation ID captured at submission time, so worker-side
+    # logs can be joined with the API access log for the same request.
+    # Optional because task JSON persisted by earlier versions has no
+    # such key and must still load.
+    correlation_id: Optional[str] = None
 
     # Allow arbitrary types for future extensibility
     model_config = {"arbitrary_types_allowed": True}

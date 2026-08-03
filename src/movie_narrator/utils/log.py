@@ -18,9 +18,23 @@ from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+from .logging_config import CORRELATION_FIELD, get_correlation_id
+
 
 class _JsonFormatter(logging.Formatter):
-    """JSON line formatter for structured log aggregation (ELK/Loki)."""
+    """JSON line formatter for structured log aggregation (ELK/Loki).
+
+    When a correlation ID is bound to the current context (see
+    :mod:`movie_narrator.utils.logging_config`), it is added under the
+    ``correlation_id`` key so that all records belonging to one request
+    or task can be joined downstream. The key is omitted entirely when
+    no ID is bound — emitting an explicit null would bloat every line
+    and force consumers to special-case it.
+
+    A record attribute of the same name takes precedence, which lets
+    callers attach an ID explicitly via ``logger.info(msg, extra=...)``
+    from a thread that does not own the context.
+    """
 
     def format(self, record: logging.LogRecord) -> str:
         log_entry = {
@@ -31,6 +45,9 @@ class _JsonFormatter(logging.Formatter):
             "message": record.getMessage(),
             "logger": record.name,
         }
+        correlation_id = getattr(record, CORRELATION_FIELD, None) or get_correlation_id()
+        if correlation_id:
+            log_entry[CORRELATION_FIELD] = correlation_id
         if record.exc_info and record.exc_info[1] is not None:
             log_entry["traceback"] = self.formatException(record.exc_info)
         return json.dumps(log_entry, ensure_ascii=False)

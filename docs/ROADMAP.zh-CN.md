@@ -53,8 +53,8 @@
 - [ ] docker-compose.yml — 本地集群（API + N workers + 存储）
 - [ ] 存储后端抽象 — `StorageBackend` 协议（local / S3）
 - [ ] 产物生命周期 — 基于 TTL 的清理
-- [ ] 结构化日志 — JSON 格式，带关联 ID
-- [ ] Prometheus 指标 — `/metrics` 端点（任务数、队列深度、渲染时长、错误率）
+- [x] 结构化日志 — JSON 格式，带关联 ID（v0.8.1）
+- [x] Prometheus 指标 — `/metrics` 端点（任务数、队列深度、渲染时长、错误率）（v0.8.1）
 - [ ] 健康/就绪探针 — `/ready` 端点 + 带依赖连通性的深度健康检查（`/health` 已在 v0.6.1 实现）
 - [ ] OpenAPI 规范 — 自动生成的 API 文档
 

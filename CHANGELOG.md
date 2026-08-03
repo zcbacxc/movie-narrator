@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-08-03
+
+### Added
+
+- **Structured logging** — opt-in JSON log format with correlation IDs. New `movie_narrator.utils.logging_config` module provides `JsonFormatter`, a `contextvars`-backed correlation ID (`set_correlation_id`, `get_correlation_id`, `new_correlation_id`, `correlation_scope`) and an idempotent `configure_logging()`. Enable with `mn serve --log-format json` or `MN_LOG_FORMAT=json`; level via `--log-level` or `MN_LOG_LEVEL`.
+- The API server accepts an inbound `X-Request-ID` / `X-Correlation-ID` header (generating one when absent), binds it for the duration of the request, echoes it back as `X-Correlation-ID` on every response, and propagates it to the worker so task logs share the same ID.
+- `Task.correlation_id` optional field for backward-compatible task persistence.
+- **Prometheus metrics** — new `GET /metrics` endpoint rendering the Prometheus text exposition format v0.0.4. Exposes `mn_build_info`, `mn_tasks_total{status}`, `mn_queue_depth`, `mn_active_tasks`, `mn_task_duration_seconds`, `mn_render_duration_seconds`, `mn_errors_total{type}` and `mn_http_requests_total{method,path,code}`. HTTP paths are recorded as route templates to bound label cardinality. Authenticated like other endpoints by default; set `MN_METRICS_PUBLIC=1` for unauthenticated in-cluster scraping.
+- Dependency-free metrics primitives (`Counter`, `Gauge`, `Histogram`, `MetricsRegistry`) in `movie_narrator.cloud.metrics`, exported via the SDK.
+- `docs/OBSERVABILITY.md` and `docs/OBSERVABILITY.zh-CN.md` — bilingual observability guide.
+- `tests/test_v081_logging.py` and `tests/test_v081_metrics.py` — 34 test cases covering JSON rendering, cross-thread correlation propagation, metric primitives, exposition-format escaping and route-template mapping.
+
+### Changed
+
+- `CONTRACT_VERSION` bumped from (0, 8, 0) to (0, 8, 1).
+
 ## [0.8.0] - 2026-07-31
 
 ### Added

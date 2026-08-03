@@ -20,6 +20,15 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 from typing import Dict, List, Optional, Protocol, runtime_checkable
 
+from ..utils.logging_config import correlation_scope, get_correlation_id
+from .metrics import (
+    observe_task_duration,
+    record_error,
+    record_task_submitted,
+    record_task_terminal,
+    set_active_tasks,
+    set_queue_depth,
+)
 from .models import Task, TaskProgress, TaskRequest, TaskResult, TaskStatus
 from .storage import TaskStorage
 from .worker import CancelController, run_task
@@ -185,7 +194,9 @@ class LocalTaskQueue:
         if not self._started or not self._executor:
             raise RuntimeError("TaskQueue is not started. Call start() first.")
 
-        task = Task(request=request)
+        # v0.8.1: inherit the caller's correlation ID (set per-request by
+        # the API server) so the worker's logs join the access log.
+        task = Task(request=request, correlation_id=get_correlation_id())
         self._storage.save(task)
 
         # Create cancellation controller and completion event
@@ -195,6 +206,9 @@ class LocalTaskQueue:
             self._controllers[task.id] = controller
             self._completion_events[task.id] = event
             self._active_count += 1
+
+        record_task_submitted()
+        self._publish_queue_metrics()
 
         # Submit to executor
         future = self._executor.submit(
@@ -255,6 +269,8 @@ class LocalTaskQueue:
         with self._lock:
             self._active_count = max(0, self._active_count - 1)
             event = self._completion_events.pop(task_id, None)
+        record_task_terminal(TaskStatus.CANCELLED.value)
+        self._publish_queue_metrics()
         if event is not None:
             event.set()
         return True
@@ -368,19 +384,28 @@ class LocalTaskQueue:
                 logger.error("Task %s not found in storage", task_id)
                 return
 
-            def on_status_change(updated: Task) -> None:
-                self._storage.save(updated)
+            # v0.8.1: re-bind the submitter's correlation ID inside the
+            # worker thread. contextvars are copied per-thread at thread
+            # creation, so the executor thread would otherwise start with
+            # an empty context and its logs would not join the request.
+            with correlation_scope(task.correlation_id):
+                started = time.monotonic()
 
-            def on_progress(updated: Task) -> None:
-                self._storage.save(updated)
+                def on_status_change(updated: Task) -> None:
+                    self._storage.save(updated)
+                    self._publish_queue_metrics()
 
-            task = run_task(
-                task,
-                controller=controller,
-                on_progress=on_progress,
-                on_status_change=on_status_change,
-            )
-            self._storage.save(task)
+                def on_progress(updated: Task) -> None:
+                    self._storage.save(updated)
+
+                task = run_task(
+                    task,
+                    controller=controller,
+                    on_progress=on_progress,
+                    on_status_change=on_status_change,
+                )
+                self._storage.save(task)
+                self._record_task_outcome(task, time.monotonic() - started)
 
         except Exception as e:  # noqa: BLE001 — worker top-level must never crash the executor
             logger.exception("Worker thread error for task %s: %s", task_id, e)
@@ -395,6 +420,8 @@ class LocalTaskQueue:
                     self._storage.save(task)
             except (OSError, ValueError):
                 logger.debug("Failed to mark task as failed after worker error", exc_info=True)
+            record_error("worker_thread")
+            record_task_terminal(TaskStatus.FAILED.value)
 
         finally:
             with self._lock:
@@ -402,8 +429,48 @@ class LocalTaskQueue:
                 self._controllers.pop(task_id, None)
                 self._active_count = max(0, self._active_count - 1)
                 event = self._completion_events.pop(task_id, None)
+            self._publish_queue_metrics()
             if event is not None:
                 event.set()
+
+    # ── Observability (v0.8.1) ───────────────────────────────
+
+    def _publish_queue_metrics(self) -> None:
+        """Refresh the queue depth / active task gauges.
+
+        Reads from ``TaskStorage``, whose counts are served from an
+        in-memory dict, so this is a cheap scan rather than disk I/O.
+        It runs on task lifecycle events (submit, status change,
+        completion) instead of on scrape, which keeps ``/metrics`` free
+        of side effects.
+        """
+        try:
+            set_queue_depth(self._storage.count(TaskStatus.PENDING))
+            set_active_tasks(self._storage.count(TaskStatus.RUNNING))
+        except Exception:  # noqa: BLE001 — telemetry must never break the queue
+            logger.debug("Failed to publish queue gauges", exc_info=True)
+
+    def _record_task_outcome(self, task: Task, duration: float) -> None:
+        """Count a terminal transition and record its duration.
+
+        ``duration`` is the worker-side execution span (all retry
+        attempts included) rather than time since submission, so queue
+        waiting time does not inflate the histogram.
+        """
+        try:
+            if not task.is_terminal:
+                return
+            record_task_terminal(task.status.value)
+            observe_task_duration(duration)
+            if task.status == TaskStatus.FAILED:
+                error_type = (
+                    task.result.error_type
+                    if task.result and task.result.error_type
+                    else "unknown"
+                )
+                record_error(error_type)
+        except Exception:  # noqa: BLE001 — telemetry must never break the queue
+            logger.debug("Failed to record task outcome metrics", exc_info=True)
 
     # ── Properties ───────────────────────────────────────────
 
