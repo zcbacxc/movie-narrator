@@ -23,6 +23,9 @@ Robustness features:
   - **HTTP 429 retry**: rate-limited responses are retried up to 3 times
     with exponential backoff (1s, 2s, 4s). When the server supplies a
     ``Retry-After`` header, its value is used as the wait time instead.
+  - **Circuit breaker (v0.9.1)**: requests run under the shared ``"tmdb"``
+    breaker — repeated network failures open the circuit and subsequent
+    calls fail fast with ``CircuitOpenError`` instead of hammering the API.
   - **In-memory cache**: a process-level ``_TMDB_CACHE`` memoizes
     responses by URL, avoiding duplicate requests for the same resource
     within a single process. No expiry policy is applied.
@@ -44,6 +47,7 @@ from typing import Any, Dict, List, Optional
 
 from ..config import Settings
 from ..models import Context, MovieCard, ResearchInfo
+from ..reliability import CIRCUIT_REGISTRY, CircuitOpenError
 from .registry import register_research
 
 logger = logging.getLogger(__name__)
@@ -95,6 +99,10 @@ def _tmdb_get(
     """Make a GET request to the TMDB API and return parsed JSON.
 
     Behavior:
+      - **Circuit breaker (v0.9.1)**: the request runs under the shared
+        ``"tmdb"`` breaker. When the circuit is open the call fails fast
+        with :class:`CircuitOpenError` (retryable) without touching the
+        network. Recovered/cached requests are unaffected.
       - **Cache**: the response for each URL is memoized in the
         process-level ``_TMDB_CACHE``. A cache hit returns immediately
         without issuing a network request.
@@ -116,6 +124,30 @@ def _tmdb_get(
         logger.debug(f"TMDB cache hit for {path}")
         return _TMDB_CACHE[url]
 
+    breaker = CIRCUIT_REGISTRY["tmdb"]
+    try:
+        with breaker.guard():
+            return _tmdb_get_network(url, path, params, timeout)
+    except CircuitOpenError as e:
+        # Circuit is open — fail fast without a network attempt. The
+        # exception is retryable so the pipeline can retry later.
+        logger.debug(f"TMDB request rejected for {path}: {e}")
+        raise
+
+
+def _tmdb_get_network(
+    url: str,
+    path: str,
+    params: Dict[str, str],
+    timeout: int,
+) -> Optional[Dict[str, Any]]:
+    """Execute the TMDB GET request with HTTP 429 retry (no cache/breaker).
+
+    Extracted from ``_tmdb_get`` so the circuit breaker wraps a single,
+    uncached network round-trip. Returns parsed JSON, ``None`` for
+    non-429 HTTP errors / JSON parse failures, and propagates
+    ``URLError`` / ``OSError``.
+    """
     req = urllib.request.Request(url, headers={"Accept": "application/json"})
     for attempt in range(_TMDB_MAX_RETRIES + 1):  # initial attempt + retries
         try:

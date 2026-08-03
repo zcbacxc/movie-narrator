@@ -144,6 +144,15 @@ class Settings(BaseSettings):
     mimo_base_url: str = "https://api.xiaomimimo.com/v1"
     mimo_style_prompt: str = ""
     tts_cache_max_mb: int = 500
+    # ── Reliability (v0.9.1) ──
+    # Circuit breaker protects external API calls (LLM / TTS / TMDB / VLM)
+    # from repeatedly hitting an unhealthy endpoint. ``failure_threshold``
+    # consecutive failures open the circuit; after ``recovery_timeout``
+    # seconds it half-opens and allows ``half_open_max_calls`` concurrent
+    # probe requests before deciding whether to close again.
+    circuit_failure_threshold: int = 5
+    circuit_recovery_timeout: float = 30.0
+    circuit_half_open_max_calls: int = 1
 
     model_config = SettingsConfigDict(
         env_file=(".env", str(_USER_ENV)),

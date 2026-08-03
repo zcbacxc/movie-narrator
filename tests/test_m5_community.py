@@ -28,7 +28,7 @@ class TestCheckVersion:
     def test_check_version_raises_when_below(self):
         """check_version raises ImportError when CONTRACT_VERSION < required."""
         with pytest.raises(ImportError, match="below the required"):
-            check_version((0, 9, 0))
+            check_version((0, 9, 2))
 
     def test_check_version_raises_with_future_major(self):
         with pytest.raises(ImportError, match="below the required"):
