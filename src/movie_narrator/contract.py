@@ -50,7 +50,7 @@ from typing import Callable, Optional, Protocol, runtime_checkable
 #   MAJOR — breaking changes to exported symbols or signatures
 #   MINOR — new exports added (backward compatible)
 #   PATCH — bug fixes, doc changes (no API surface change)
-CONTRACT_VERSION: tuple[int, int, int] = (0, 8, 4)
+CONTRACT_VERSION: tuple[int, int, int] = (0, 8, 3)
 
 
 def check_version(required: tuple[int, int, int]) -> None:
