@@ -92,9 +92,11 @@ def generate_voice(ctx: Context) -> Context:
 
     async def _run_all():
         sem = asyncio.Semaphore(max_concurrent)
-        # v0.7-fix: parallel to ``results``, tracks whether each segment was
-        # served from the on-disk cache so cost tracking can mark it cached.
-        cached_flags: list[bool] = []
+        # v0.7-fix: the per-segment cache-hit flag is returned alongside the
+        # audio (not collected as a side-effect list), so ``asyncio.gather``
+        # keeps it aligned with the input segment order even under
+        # concurrency. Collecting via append() would order flags by
+        # completion time, mismatching the gather results.
 
         async def _one(seg):
             async with sem:
@@ -109,8 +111,9 @@ def generate_voice(ctx: Context) -> Context:
                     await provider.synthesize(seg.text, voice, tmp)
                     audio = AudioSegment.from_mp3(tmp)
                     tmp.unlink(missing_ok=True)
-                    cached_flags.append(False)
+                    cached_flag = False
                 else:
+                    cached_flag = cached.exists()
                     if not cached.exists():
                         # Per-segment retry: a single network hiccup shouldn't
                         # kill the entire batch.  Retry up to _TTS_SEGMENT_RETRIES
@@ -137,9 +140,6 @@ def generate_voice(ctx: Context) -> Context:
                                     )
                         if last_err is not None:
                             raise last_err
-                        cached_flags.append(False)
-                    else:
-                        cached_flags.append(True)
                     # ST-07: if cached file is corrupt (from a previous
                     # interrupted write before the fix), delete and retry once.
                     try:
@@ -151,21 +151,31 @@ def generate_voice(ctx: Context) -> Context:
                         cached.unlink(missing_ok=True)
                         await provider.synthesize(seg.text, voice, cached)
                         audio = AudioSegment.from_mp3(cached)
-                        cached_flags[-1] = False
-                return audio, round(len(audio) / 1000.0, 3)
+                        cached_flag = False
+                return audio, round(len(audio) / 1000.0, 3), cached_flag
 
-        return await tqdm_asyncio.gather(
+        # gather preserves input order: triplets[i] matches ctx.segments[i].
+        # Split the cache-hit flag out (aligned by construction) while
+        # keeping ``results`` as (audio, duration) pairs for downstream
+        # prosody adjustment and _build_audio.
+        triplets = await tqdm_asyncio.gather(
             *[_one(s) for s in ctx.segments],
             desc="Narrating",
             unit="seg",
-        ), cached_flags
+        )
+        results = [(audio, duration) for audio, duration, _ in triplets]
+        cached_flags = [flag for _, _, flag in triplets]
+        return results, cached_flags
 
     with step_timing(console, "tts_batch_synthesize"):
         results, cached_flags = run_async(_run_all())
 
     # v0.7.0: Record TTS usage for cost tracking.
     # v0.7-fix: use the per-segment cache-hit flags so cached segments are
-    # not double-counted in the estimated cost.
+    # not double-counted in the estimated cost. ``cached_flags`` is derived
+    # from the gather results (ordered by input segment), NOT collected as
+    # a side-effect, so the flags stay aligned with ``ctx.segments`` even
+    # when segments complete out of order under ``tts_max_concurrent``.
     if hasattr(ctx, 'cost_tracker') and ctx.cost_tracker is not None:
         provider_name = settings.tts_provider.value
         tts_model = (
