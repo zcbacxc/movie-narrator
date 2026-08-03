@@ -60,9 +60,12 @@ CircuitOpenError, RetryPolicy, with_retry, with_async_retry
 
 - 针对性：`tests/test_v091_reliability.py` — **37 passed**（熔断状态机流转、恢复探测、探测槽位并发、并发安全、`CircuitOpenError` 传播与 retryable、`with_retry` 指数退避与耗尽、async 退避、`should_retry` 自定义、registry 按服务隔离、TMDB/VLM/LLM/TTS mock 接入）。
 - 既有回归（逐文件通过）：`test_contract.py` 60、`test_settings.py` 4、`test_tmdb_provider.py` 41、`test_tts_providers.py` 61、`test_preflight.py`、`test_step_retry.py`。
-- 全量回归由收尾脚本后台执行（`tests/` 全量，20+ 分钟）。
+- 全量回归：`tests/` 全量 **1937 passed, 5 skipped, 6 failed**（530s）。6 个失败全部为既有失败（在基线提交 `05d2661` 上同样复现，与本次改动无关）：
+  - `test_runner_workflow_metadata.py` × 5（pipeline runner 元数据断言）
+  - `test_script.py::test_generate_script_phase1_ok_phase2_fail_then_retry`（LLM 调用次数断言 4 vs 5）
+- 静态检查：ruff `All checks passed!`；mypy（`utils/`、`workflow/`、`reliability/`）`Success: no issues found`。
 
-> 注意：共享 Python 环境（`.workbuddy/.../3.13.12`）在开发期间被并行子代理重装而破坏（pydantic/pip 文件缺失、editable 指向 wt-v092）。本项目测试基于独立 venv `.venv/`（gitignore 已含 `.venv`）完成，避免相互干扰。
+> 注意：共享 Python 环境（`.workbuddy/.../3.13.12`）在开发期间被并行子代理重装而破坏（pydantic/pip 文件缺失、editable 指向 wt-v092），且存在偶发进程被杀。本项目测试基于独立 venv `.venv/`（gitignore 已含 `.venv`）完成，避免相互干扰；全量跑通一次，若收尾复跑遇进程被杀可重试。
 
 ## 6. 与其他版本可能的冲突点
 
