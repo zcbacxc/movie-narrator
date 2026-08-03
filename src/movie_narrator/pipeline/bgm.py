@@ -407,9 +407,9 @@ def _mix_ambient_track(
 ) -> tuple[AudioSegment, dict]:
     """Mix an ambient/SFX track beneath the narration+BGM audio.
 
-    v0.7.1: Loads the ambient track, loops/trims it to match the
-    narration duration, applies gain reduction, and overlays it
-    with ducking during active narration segments.
+    v0.7.1: Loads the ambient track, applies gain reduction, and ducks it
+    under the narration in real time via :func:`duck_bgm`, so the ambient
+    sits lower while narration is active and swells back up in the pauses.
 
     Returns ``(mixed_audio, ambient_info_dict)``. On any error,
     returns the original audio unchanged with an empty info dict.
@@ -421,30 +421,22 @@ def _mix_ambient_track(
         logger.debug("ambient track load failed", exc_info=True)
         return narration_or_mixed, {"error": f"ambient load failed: {e}"}
 
-    target_ms = len(narration_or_mixed)
-    ambient_ms = len(ambient)
-
-    # Loop ambient track to match target duration
-    if ambient_ms < target_ms:
-        loops = int(target_ms / ambient_ms) + 1
-        ambient = ambient * loops
-    ambient = ambient[:target_ms]
-
-    # Apply gain reduction
-    ambient = ambient.apply_gain(ambient_gain_db)
-
-    # Simple ducking: reduce ambient volume further during narration
-    # We use a moderate fixed duck since per-segment ducking is already
-    # applied to BGM — the ambient sits even lower in the mix.
-    ambient = ambient.apply_gain(duck_db)
-
-    mixed = narration_or_mixed.overlay(ambient)
+    # duck_bgm handles loop/trim to narration length, per-window dynamic
+    # ducking (attack/release smoothed) and the overlay. ``timed_segments``
+    # is accepted for API compatibility; ducking is driven by the actual
+    # narration audio energy, which is more accurate than segment bounds.
+    mixed = duck_bgm(
+        narration_or_mixed,
+        ambient,
+        bgm_gain_db=ambient_gain_db,
+        duck_db=duck_db,
+    )
 
     info = {
         "path": str(ambient_path),
         "gain_db": ambient_gain_db,
         "duck_db": duck_db,
-        "duration_sec": round(target_ms / 1000.0, 2),
+        "duration_sec": round(len(narration_or_mixed) / 1000.0, 2),
     }
     return mixed, info
 

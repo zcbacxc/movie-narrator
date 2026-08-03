@@ -92,6 +92,9 @@ def generate_voice(ctx: Context) -> Context:
 
     async def _run_all():
         sem = asyncio.Semaphore(max_concurrent)
+        # v0.7-fix: parallel to ``results``, tracks whether each segment was
+        # served from the on-disk cache so cost tracking can mark it cached.
+        cached_flags: list[bool] = []
 
         async def _one(seg):
             async with sem:
@@ -106,6 +109,7 @@ def generate_voice(ctx: Context) -> Context:
                     await provider.synthesize(seg.text, voice, tmp)
                     audio = AudioSegment.from_mp3(tmp)
                     tmp.unlink(missing_ok=True)
+                    cached_flags.append(False)
                 else:
                     if not cached.exists():
                         # Per-segment retry: a single network hiccup shouldn't
@@ -133,6 +137,9 @@ def generate_voice(ctx: Context) -> Context:
                                     )
                         if last_err is not None:
                             raise last_err
+                        cached_flags.append(False)
+                    else:
+                        cached_flags.append(True)
                     # ST-07: if cached file is corrupt (from a previous
                     # interrupted write before the fix), delete and retry once.
                     try:
@@ -144,18 +151,21 @@ def generate_voice(ctx: Context) -> Context:
                         cached.unlink(missing_ok=True)
                         await provider.synthesize(seg.text, voice, cached)
                         audio = AudioSegment.from_mp3(cached)
+                        cached_flags[-1] = False
                 return audio, round(len(audio) / 1000.0, 3)
 
         return await tqdm_asyncio.gather(
             *[_one(s) for s in ctx.segments],
             desc="Narrating",
             unit="seg",
-        )
+        ), cached_flags
 
     with step_timing(console, "tts_batch_synthesize"):
-        results = run_async(_run_all())
+        results, cached_flags = run_async(_run_all())
 
-    # v0.7.0: Record TTS usage for cost tracking
+    # v0.7.0: Record TTS usage for cost tracking.
+    # v0.7-fix: use the per-segment cache-hit flags so cached segments are
+    # not double-counted in the estimated cost.
     if hasattr(ctx, 'cost_tracker') and ctx.cost_tracker is not None:
         provider_name = settings.tts_provider.value
         tts_model = (
@@ -163,13 +173,14 @@ def generate_voice(ctx: Context) -> Context:
             else settings.mimo_tts_model if settings.tts_provider is TTSProviderType.MIMO
             else ""
         )
-        for seg in ctx.segments:
+        for i, seg in enumerate(ctx.segments):
+            was_cached = cached_flags[i] if i < len(cached_flags) else False
             ctx.cost_tracker.record_tts_call(
                 provider=provider_name,
                 model=tts_model,
                 characters=len(seg.text),
                 segments=1,
-                cached=False,
+                cached=was_cached,
             )
 
     # ── v0.5.9: Emotion-aware prosody ───────────────────────

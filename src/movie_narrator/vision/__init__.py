@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""Vision captioning abstraction layer (EP8 / Q-M5).
+"""Vision captioning abstraction layer (VLM captioning).
 
 Public API:
     from movie_narrator.vision import (

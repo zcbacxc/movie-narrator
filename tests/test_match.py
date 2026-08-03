@@ -91,11 +91,11 @@ def test_match_clips_embedding_disabled_keeps_heuristic(tmp_path, monkeypatch):
     assert all(m.source == "heuristic" for m in ctx.matched_clips)
 
 
-# ── F1: match_summary full schema validation ──
+# ── match_summary full schema validation ──
 
 
 def test_match_summary_full_schema_when_embedding_path_runs(tmp_path, monkeypatch):
-    """F1: match_summary contains all CORE_ENGINE_TREATMENT_PLAN §5.2.3 fields
+    """match_summary contains all CORE_ENGINE_TREATMENT_PLAN §5.2.3 fields
     when embedding path runs successfully with real transcript."""
     ctx = _make_ctx(tmp_path)
     (tmp_path / "video.mp4").write_bytes(b"00")
@@ -137,7 +137,7 @@ def test_match_summary_full_schema_when_embedding_path_runs(tmp_path, monkeypatc
     match_clips(ctx)
     summary = ctx.metadata["match_summary"]
 
-    # F1: all required fields present
+    # All required fields present
     required_fields = [
         "version", "status", "segments", "scenes_in", "scenes_after_merge",
         "scenes_after_drop", "merge_min_duration", "drop_min_duration",
@@ -149,7 +149,7 @@ def test_match_summary_full_schema_when_embedding_path_runs(tmp_path, monkeypatc
         "total", "embedding", "heuristic", "captions_fake",
     ]
     for field in required_fields:
-        assert field in summary, f"F1: missing field '{field}' in match_summary"
+        assert field in summary, f"match_summary: missing field '{field}' in match_summary"
 
     # Specific value checks
     assert summary["version"] == 1
@@ -170,7 +170,7 @@ def test_match_summary_full_schema_when_embedding_path_runs(tmp_path, monkeypatc
 
 
 def test_match_summary_degraded_reason_all_heuristic(tmp_path, monkeypatch):
-    """F1: degraded_reason='all_heuristic' when all clips fall back to heuristic."""
+    """match_summary: degraded_reason='all_heuristic' when all clips fall back to heuristic."""
     ctx = _make_ctx(tmp_path)
     (tmp_path / "video.mp4").write_bytes(b"00")
     ctx.scenes = [
@@ -192,7 +192,7 @@ def test_match_summary_degraded_reason_all_heuristic(tmp_path, monkeypatch):
 
 
 def test_match_summary_low_score_fallback_count(tmp_path, monkeypatch):
-    """F1: low_score_fallback_count tracks segments that fell back due to low score."""
+    """match_summary: low_score_fallback_count tracks segments that fell back due to low score."""
     ctx = _make_ctx(tmp_path)
     (tmp_path / "video.mp4").write_bytes(b"00")
     ctx.scenes = [
@@ -252,11 +252,11 @@ def test_match_summary_low_score_fallback_count(tmp_path, monkeypatch):
     assert summary["raw_score"]["min"] == 0.0  # gamma's score
 
 
-# ── F2: is_fake contract tests ──
+# ── is_fake contract tests ──
 
 
 def test_build_scene_captions_returns_tuples_with_is_fake_flag():
-    """F2: _build_scene_captions returns List[Tuple[str, bool]] not List[str].
+    """is_fake contract: _build_scene_captions returns List[Tuple[str, bool]] not List[str].
 
     The is_fake flag replaces fragile string-pattern matching for detecting
     placeholder labels. Callers should use the flag, not startswith().
@@ -281,7 +281,7 @@ def test_build_scene_captions_returns_tuples_with_is_fake_flag():
 
 
 def test_build_scene_captions_real_transcript_marks_is_fake_false():
-    """F2: scenes with overlapping speech get is_fake=False."""
+    """is_fake contract: scenes with overlapping speech get is_fake=False."""
     from movie_narrator.pipeline.match import _build_scene_captions
 
     scenes = [
@@ -302,7 +302,7 @@ def test_build_scene_captions_real_transcript_marks_is_fake_false():
 
 
 def test_build_scene_captions_mixed_real_and_fake():
-    """F2: scenes without overlapping speech get is_fake=True even with transcript."""
+    """is_fake contract: scenes without overlapping speech get is_fake=True even with transcript."""
     from movie_narrator.pipeline.match import _build_scene_captions
 
     scenes = [
@@ -322,11 +322,11 @@ def test_build_scene_captions_mixed_real_and_fake():
     assert result[2][1] is False  # scene 2 has speech
 
 
-# ── F1 back-compat: old metadata_export consumers must not break ──
+# ── Legacy match_summary fields: old metadata_export consumers must not break ──
 
 
 def test_match_summary_keys_compatible_with_old_metadata_export(tmp_path, monkeypatch):
-    """F1 back-compat: match_summary preserves the 4 legacy fields
+    """Legacy match_summary fields: match_summary preserves the 4 legacy fields
     (total/embedding/heuristic/captions_fake) so existing consumers
     (metadata_export, QA checklist jq queries, older scripts) don't break.
     """
@@ -375,7 +375,7 @@ def test_match_summary_keys_compatible_with_old_metadata_export(tmp_path, monkey
     legacy_fields = ["total", "embedding", "heuristic", "captions_fake"]
     for field in legacy_fields:
         assert field in summary, (
-            f"F1 back-compat: legacy field '{field}' missing from match_summary — "
+            f"Legacy match_summary fields: legacy field '{field}' missing from match_summary — "
             f"existing metadata_export consumers will break"
         )
 
@@ -387,7 +387,7 @@ def test_match_summary_keys_compatible_with_old_metadata_export(tmp_path, monkey
 
 
 def test_match_summary_legacy_fields_when_all_heuristic(tmp_path, monkeypatch):
-    """F1 back-compat: legacy fields present even when embedding path doesn't run."""
+    """Legacy match_summary fields: legacy fields present even when embedding path doesn't run."""
     ctx = _make_ctx(tmp_path)
     (tmp_path / "video.mp4").write_bytes(b"00")
     ctx.scenes = [

@@ -120,8 +120,8 @@ params:
   # match_max_scene_reuse: 2        # 窗口内同一场景最大允许出现次数（超过则换景）
   # match_timeline_mode: uniform    # uniform（默认，全片比例映射）| weighted_acts（四幕时间桶，高光集中在高潮幕）
   # match_act_weights: [0.15, 0.25, 0.40, 0.20]  # 四幕时间占比（开/中/高潮/尾），仅 weighted_acts 模式生效
-  # match_topk: 5                    # EP3: 每句取 top-K 候选场景，贪心分配时避免近期已用场景（默认 5，0/1 = 禁用退回 top-1）
-  # match_topk_reuse_penalty: 0.15   # EP3: 近期已用场景的分数扣减值（默认 0.15，越大越倾向换景）
+  # match_topk: 5                    # 每句取 top-K 候选场景，贪心分配时避免近期已用场景（默认 5，0/1 = 禁用退回 top-1）
+  # match_topk_reuse_penalty: 0.15   # 近期已用场景的分数扣减值（默认 0.15，越大越倾向换景）
 
   # ---- BGM / 音频 ----
   # bgm_gain_db: -18          # BGM 基础增益（dB）
@@ -145,7 +145,7 @@ params:
   # ---- 调研 ----
   research_provider: llm    # 调研后端（目前仅支持 llm）
 
-  # ---- 视觉描述（Q-M5）----
+  # ---- 视觉描述（VLM 字幕）----
   # vision_captioner: vlm    # none（默认）| stub（占位标签）| vlm（云端 VLM API，需配置 MN_VLM_* 环境变量）
   # vlm provider 会从每个场景中点提取关键帧，发送给 OpenAI 兼容的视觉 API（GPT-4o/Qwen-VL 等）
   # 返回真实视觉描述，解锁 match.py 中的 embedding re-rank 功能
@@ -176,7 +176,7 @@ params:
   # render_require_footage: false    # true=覆盖率低于阈值时 warn + 标记 _degraded_steps
   # render_min_footage_coverage: 0.5 # footage 覆盖率阈值（0-1）
   # render_profile: publish          # publish（默认，crf=18/preset=slow）| draft（crf=28/preset=ultrafast，快速迭代）
-  # ---- EP5: 包装三件套（v0.4.26+，由 preset 自动注入）----
+  # ---- 包装三件套（v0.4.26+，由 preset 自动注入）----
   # render_title_card_sec: 1.0        # 片头标题卡时长（秒，0=禁用）；douyin-fast=1.0, bilibili-long=1.2
   # render_cover_export: true         # 导出 cover.jpg（取最高分镜头中点帧 + 电影名叠加）；失败不影响管线
   # render_vertical_safe_area: true   # 9:16 竖屏时自动收紧字幕安全区（bottom_margin≥0.15, max_width≤0.82）
