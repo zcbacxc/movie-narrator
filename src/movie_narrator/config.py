@@ -117,6 +117,13 @@ class Settings(BaseSettings):
     # SIGTERM, ``mn serve`` and ``TaskAPIServer.stop()`` wait up to this
     # long for in-flight tasks to finish before force-cancelling them.
     graceful_shutdown_timeout: float = 30.0
+    # ── Scheduled jobs (v0.9.3) ──
+    # When enabled, ``mn serve`` starts a background thread that submits
+    # cron-scheduled jobs to the task queue. The API routes (POST/GET/
+    # DELETE /schedules) remain available even when disabled — only the
+    # trigger loop is off.
+    scheduler_enabled: bool = True
+    scheduler_poll_interval: float = 15.0
     # ── LLM ──
     llm_provider: str = "openai"  # registered LLM provider name (see llm_registry)
     llm_base_url: str = "http://localhost:11434/v1"

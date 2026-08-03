@@ -31,6 +31,7 @@ from typing import Optional
 
 from .api import TaskAPIServer
 from .queue import LocalTaskQueue
+from .scheduler import JobScheduler
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +100,33 @@ def _is_loopback(host: str) -> bool:
     return host.lower() in _LOOPBACK_HOSTS
 
 
+def _build_scheduler(
+    queue: LocalTaskQueue,
+    storage_dir: Optional[Path],
+) -> JobScheduler:
+    """Construct a ``JobScheduler`` from the daemon configuration.
+
+    The scheduler is always created so the ``/schedules`` routes work,
+    but its loop is only started when ``mn_scheduler_enabled`` is set
+    (see :func:`run_daemon`). The poll interval comes from Settings.
+    """
+    from ..config import get_settings
+
+    settings = get_settings()
+    return JobScheduler(
+        queue=queue,
+        storage_dir=storage_dir,
+        poll_interval=settings.scheduler_poll_interval,
+    )
+
+
+def _scheduler_enabled() -> bool:
+    """Whether the daemon should start the scheduler loop (v0.9.3)."""
+    from ..config import get_settings
+
+    return bool(get_settings().scheduler_enabled)
+
+
 def run_daemon(
     host: str = "127.0.0.1",
     port: int = 8765,
@@ -157,13 +185,21 @@ def run_daemon(
         max_workers=max_workers,
     )
 
+    # v0.9.3: the scheduler backs the /schedules routes and, when enabled,
+    # runs a thread that submits due jobs to the queue.
+    scheduler = _build_scheduler(queue, storage_dir)
+
     # Create and start the API server
     server = TaskAPIServer(
         host=host,
         port=port,
         queue=queue,
         api_key=api_key,
+        scheduler=scheduler,
     )
+
+    if _scheduler_enabled():
+        scheduler.start()
 
     if blocking:
         # v0.9.2: graceful shutdown — drain in-flight tasks with a bounded
@@ -258,6 +294,11 @@ class WorkerDaemon:
             storage_dir=self._storage_dir,
             max_workers=self._max_workers,
         )
+        # v0.9.3: swap in a scheduler tuned from Settings and start its loop.
+        scheduler = _build_scheduler(self._server.queue, self._storage_dir)
+        self._server.scheduler = scheduler
+        if _scheduler_enabled():
+            scheduler.start()
         self._port = self._server.port  # update actual port
         self._server.start(blocking=blocking)
 

@@ -363,6 +363,13 @@ __all__ = [
     "CheckpointStore",
     "ResumePlan",
     "QueueShutdownError",
+    # Cloud / Batch & Schedule (v0.9.3)
+    "BatchRequest",
+    "Batch",
+    "BatchProgress",
+    "ScheduleRequest",
+    "JobScheduler",
+    "ScheduleError",
 ]
 
 
@@ -463,4 +470,13 @@ from .cloud import (  # noqa: E402
     QueueShutdownError,
     ResumePlan,
     TaskCheckpoint,
+)
+# Cloud / batch & schedule (v0.9.3) — new exports, backward compatible.
+from .cloud import (  # noqa: E402
+    Batch,
+    BatchProgress,
+    BatchRequest,
+    JobScheduler,
+    ScheduleError,
+    ScheduleRequest,
 )
