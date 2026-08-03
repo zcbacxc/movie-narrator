@@ -50,7 +50,7 @@ from typing import Callable, Optional, Protocol, runtime_checkable
 #   MAJOR — breaking changes to exported symbols or signatures
 #   MINOR — new exports added (backward compatible)
 #   PATCH — bug fixes, doc changes (no API surface change)
-CONTRACT_VERSION: tuple[int, int, int] = (0, 8, 1)
+CONTRACT_VERSION: tuple[int, int, int] = (0, 8, 2)
 
 
 def check_version(required: tuple[int, int, int]) -> None:
@@ -335,6 +335,10 @@ __all__ = [
     "MetricsRegistry",
     "get_registry",
     "render_prometheus_text",
+    # Cloud / Health probes + OpenAPI (v0.8.2)
+    "build_health_payload",
+    "build_readiness_payload",
+    "build_openapi_spec",
 ]
 
 
@@ -392,4 +396,11 @@ from .cloud import (  # noqa: E402
     MetricsRegistry,
     get_registry,
     render_prometheus_text,
+)
+
+# Cloud / health probes + OpenAPI (v0.8.2) — new exports, backward compatible.
+from .cloud import (  # noqa: E402
+    build_health_payload,
+    build_openapi_spec,
+    build_readiness_payload,
 )

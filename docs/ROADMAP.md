@@ -55,8 +55,8 @@ The original v0.6.2–v0.6.4 plan (distributed rendering, API gateway & auth, cl
 - [ ] Artifact lifecycle — TTL-based cleanup
 - [x] Structured logging — JSON format with correlation IDs (v0.8.1)
 - [x] Prometheus metrics — `/metrics` endpoint (task count, queue depth, render duration, error rate) (v0.8.1)
-- [ ] Health/readiness probes — `/ready` endpoint + deep health check with dependency connectivity (`/health` already exists in v0.6.1)
-- [ ] OpenAPI spec — auto-generated API documentation
+- [x] Health/readiness probes — `/ready` endpoint + deep health check with dependency connectivity (`/health` already exists in v0.6.1) (v0.8.2)
+- [x] OpenAPI spec — auto-generated API documentation (v0.8.2)
 
 ### v0.9.0 — Reliability & Batch (planned)
 

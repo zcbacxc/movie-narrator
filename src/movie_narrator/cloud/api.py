@@ -17,9 +17,12 @@ Endpoints::
     GET    /tasks/{id}/result           — get task result (terminal only)
     GET    /tasks/{id}/artifacts        — list output files
     GET    /tasks/{id}/download/{file}  — download an output file
-    GET    /health                      — health check
+    GET    /health                      — health check (?deep=1 for the
+                                          full report, see cloud.health)
+    GET    /ready                       — readiness probe (v0.8.2)
     GET    /info                        — server info (version, worker count)
     GET    /metrics                     — Prometheus metrics (v0.8.1)
+    GET    /openapi.json                — OpenAPI 3.1 spec (v0.8.2)
 
 Typical usage::
 
@@ -48,6 +51,7 @@ from ..utils.logging_config import (
     correlation_scope,
     get_correlation_id,
 )
+from .health import build_health_payload, build_readiness_payload, parse_deep_flag
 from .metrics import (
     CONTENT_TYPE_LATEST,
     record_error,
@@ -55,6 +59,7 @@ from .metrics import (
     render_prometheus_text,
 )
 from .models import Task, TaskRequest, TaskStatus
+from .openapi import build_openapi_spec
 from .queue import LocalTaskQueue
 
 logger = logging.getLogger(__name__)
@@ -74,7 +79,9 @@ _METRICS_PATH = "/metrics"
 _ENV_METRICS_PUBLIC = "MN_METRICS_PUBLIC"
 
 #: Paths that are already templates (no variable segment).
-_STATIC_PATHS = frozenset({"/health", "/info", "/tasks", _METRICS_PATH})
+_STATIC_PATHS = frozenset(
+    {"/health", "/info", "/tasks", "/ready", "/openapi.json", _METRICS_PATH}
+)
 
 #: Concrete path -> route template. Labelling the HTTP metric with the
 #: raw path would give every task ID its own time series, so each match
@@ -215,6 +222,11 @@ class _APIHandler(BaseHTTPRequestHandler):
         """Access the task queue from the server instance."""
         return self.server.queue  # type: ignore[attr-defined]
 
+    def _is_shutting_down(self) -> bool:
+        """Whether the owning ``TaskAPIServer`` has begun shutting down."""
+        event = getattr(self.server, "shutting_down", None)
+        return bool(event is not None and event.is_set())
+
     # ── Authentication ─────────────────────────────────────
 
     def _check_auth(self) -> bool:
@@ -249,9 +261,35 @@ class _APIHandler(BaseHTTPRequestHandler):
     def _do_GET(self) -> None:
         path = self.path.split("?")[0]
 
-        # Health check — exempt from authentication (always allowed)
+        # Health check — exempt from authentication (always allowed).
+        # A plain GET /health keeps the v0.6.1 shape; ?deep=1 opts in to
+        # the full report (see cloud.health).
         if path == "/health":
-            self._send_json({"status": "ok"})
+            payload, status = build_health_payload(
+                self.queue,
+                shutting_down=self._is_shutting_down(),
+                deep=parse_deep_flag(self._parse_query()),
+            )
+            self._send_json(payload, status=status)
+            return
+
+        # Readiness probe — exempt from authentication (v0.8.2).
+        # Orchestrator probes cannot present an API key.
+        if path == "/ready":
+            payload, status = build_readiness_payload(
+                self.queue,
+                shutting_down=self._is_shutting_down(),
+            )
+            self._send_json(payload, status=status)
+            return
+
+        # OpenAPI spec — exempt from authentication (v0.8.2).
+        # A spec is not sensitive and tooling needs it unauthenticated.
+        if path == "/openapi.json":
+            host = self.headers.get("Host")
+            self._send_json(
+                build_openapi_spec(server_url=f"http://{host}" if host else None)
+            )
             return
 
         # Metrics (v0.8.1) — authenticated like every other route unless
@@ -544,11 +582,19 @@ class TaskAPIServer:
         )
         self._server: Optional[ThreadingHTTPServer] = None
         self._thread: Optional[threading.Thread] = None
+        # Set by stop() so the /ready and /health probes can report that
+        # the server is draining (v0.8.2).
+        self._shutting_down = threading.Event()
 
     @property
     def queue(self) -> LocalTaskQueue:
         """The underlying task queue."""
         return self._queue
+
+    @property
+    def is_shutting_down(self) -> bool:
+        """Whether ``stop()`` has been called (readiness probes fail)."""
+        return self._shutting_down.is_set()
 
     @property
     def is_running(self) -> bool:
@@ -570,12 +616,14 @@ class TaskAPIServer:
         if self._server is not None:
             raise RuntimeError("Server is already running")
 
+        self._shutting_down.clear()
         self._server = ThreadingHTTPServer(
             (self.host, self.port),
             _APIHandler,
         )
         self._server.queue = self._queue  # type: ignore[attr-defined]
         self._server.api_key = self.api_key  # type: ignore[attr-defined]
+        self._server.shutting_down = self._shutting_down  # type: ignore[attr-defined]
         # Update actual port (in case port=0 was used)
         self.port = self._server.server_address[1]
 
@@ -598,6 +646,7 @@ class TaskAPIServer:
 
     def stop(self) -> None:
         """Stop the HTTP server."""
+        self._shutting_down.set()
         if self._server is not None:
             self._server.shutdown()
             self._server.server_close()
