@@ -30,6 +30,10 @@ class TaskStatus(str, Enum):
     FAILED = "failed"
     CANCELLED = "cancelled"
     RETRYING = "retrying"
+    # v0.9.4: retries exhausted AND the task is unrecoverable — routed to
+    # the dead-letter queue instead of a plain FAILED. Still terminal, so
+    # every consumer of TERMINAL_STATES keeps working unchanged.
+    DEAD = "dead"
 
 
 class TaskPriority(int, Enum):
@@ -44,7 +48,7 @@ class TaskPriority(int, Enum):
 # ── Terminal states ────────────────────────────────────────
 
 TERMINAL_STATES: frozenset[TaskStatus] = frozenset(
-    {TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED}
+    {TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED, TaskStatus.DEAD}
 )
 
 ACTIVE_STATES: frozenset[TaskStatus] = frozenset(
@@ -93,6 +97,10 @@ class TaskRequest(BaseModel):
     keep_cache: bool = False
     log_level: str = "DEBUG"
     verbose: bool = False
+    # v0.9.4: when True (default) and retries are exhausted, the task is
+    # routed to the dead-letter queue (``TaskStatus.DEAD``) instead of a
+    # plain ``FAILED``. Set to False for the pre-v0.9.4 behaviour.
+    enable_dlq: bool = True
 
     # GAP-5 (v0.8.0): allow population by the new field name
     # (``video_format``) while still accepting the legacy ``format``
@@ -112,6 +120,11 @@ class TaskProgress(BaseModel):
     steps_completed: List[str] = Field(default_factory=list)
     steps_skipped: List[str] = Field(default_factory=list)
     steps_failed: List[str] = Field(default_factory=list)
+    # v0.9.2: last pipeline step safely persisted to a task checkpoint.
+    # Populated while a task runs (checkpointing enabled), so API clients
+    # can show "render survived up to step X" even after a crash.
+    latest_checkpoint_step: Optional[str] = None
+    checkpoint_updated_at: Optional[str] = None
 
     def update_step(
         self,
@@ -248,3 +261,67 @@ class Task(BaseModel):
             "completed_at": self.completed_at or "",
             "error": self.last_error or "",
         }
+
+
+# ── Batch (v0.9.3) ────────────────────────────────────────
+
+
+class BatchStatus(str, Enum):
+    """Lifecycle states for a batch of tasks.
+
+    A batch aggregates the outcomes of its member tasks:
+
+    - ``pending`` — created, no member task has started yet
+    - ``running`` — at least one member task is still active
+    - ``completed`` — every member task reached a terminal state
+      and none failed
+    - ``partial_failed`` — some members failed (or never submitted)
+      while others completed
+    - ``failed`` — every member task failed (nothing succeeded)
+    """
+
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    PARTIAL_FAILED = "partial_failed"
+    FAILED = "failed"
+
+
+class BatchProgress(BaseModel):
+    """Aggregated progress across the member tasks of a batch.
+
+    Every member task carries equal weight: ``percentage`` is the
+    arithmetic mean of the individual task percentages, where a terminal
+    task counts as 100% and a pending task as 0%.
+    """
+
+    total: int = 0
+    completed: int = 0
+    failed: int = 0
+    cancelled: int = 0
+    running: int = 0
+    percentage: float = 0.0
+
+
+class BatchRequest(BaseModel):
+    """Input parameters for submitting a batch of pipeline tasks."""
+
+    requests: List[TaskRequest] = Field(min_length=1, max_length=50)
+    name: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class Batch(BaseModel):
+    """A group of tasks submitted together and tracked as one unit."""
+
+    batch_id: str = Field(default_factory=lambda: uuid4().hex[:12])
+    name: Optional[str] = None
+    task_ids: List[str] = Field(default_factory=list)
+    status: BatchStatus = BatchStatus.PENDING
+    created_at: str = Field(default_factory=_utc_now_iso)
+    completed_at: Optional[str] = None
+    progress: BatchProgress = Field(default_factory=BatchProgress)
+    # Result summary, populated once the batch reaches a terminal state.
+    success_count: int = 0
+    failure_ids: List[str] = Field(default_factory=list)
+    metadata: Optional[Dict[str, Any]] = None

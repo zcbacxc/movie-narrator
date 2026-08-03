@@ -9,6 +9,7 @@ from pathlib import Path
 
 from pydub import AudioSegment
 
+from ..reliability import CIRCUIT_REGISTRY, CircuitOpenError
 from ..workflow.errors import ProviderError, is_network_error
 from .protocol import TTSProvider
 
@@ -51,8 +52,19 @@ class BaseTTSProvider(TTSProvider):
         # [R]etry/[S]kip/[A]bort when --retry is enabled. Config/logic errors
         # (ConfigError, invalid voice, missing voice-clone file) are NOT
         # network errors and are re-raised unchanged (non-retryable).
+        #
+        # Since v0.9.1 the call also runs under the shared "tts" circuit
+        # breaker: when the circuit is open, synthesis fails fast with a
+        # retryable ProviderError instead of hitting the network.
+        breaker = CIRCUIT_REGISTRY["tts"]
         try:
-            await self._real_synthesize(text, voice, output_path)
+            with breaker.guard():
+                await self._real_synthesize(text, voice, output_path)
+        except CircuitOpenError as e:
+            raise ProviderError(
+                f"TTS synthesis skipped (circuit breaker open for 'tts'): {e}",
+                retryable=True,
+            ) from e
         except Exception as e:  # noqa: BLE001 — classify all errors via is_network_error for retry policy
             if is_network_error(e):
                 raise ProviderError(

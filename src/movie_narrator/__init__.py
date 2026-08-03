@@ -70,4 +70,11 @@ from .contract import (  # noqa: F401
     register_remote_llm,
     register_remote_tts,
     run_daemon,
+    # Cloud / Batch & Schedule (v0.9.3)
+    Batch,
+    BatchProgress,
+    BatchRequest,
+    JobScheduler,
+    ScheduleError,
+    ScheduleRequest,
 )

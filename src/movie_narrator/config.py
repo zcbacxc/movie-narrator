@@ -113,6 +113,17 @@ class Settings(BaseSettings):
     # (``mn serve``). When None, the API server runs unauthenticated —
     # safe only on loopback. Required when binding to a public interface.
     api_key: Optional[str] = None
+    # v0.9.2: graceful-shutdown drain budget (seconds). After SIGINT /
+    # SIGTERM, ``mn serve`` and ``TaskAPIServer.stop()`` wait up to this
+    # long for in-flight tasks to finish before force-cancelling them.
+    graceful_shutdown_timeout: float = 30.0
+    # ── Scheduled jobs (v0.9.3) ──
+    # When enabled, ``mn serve`` starts a background thread that submits
+    # cron-scheduled jobs to the task queue. The API routes (POST/GET/
+    # DELETE /schedules) remain available even when disabled — only the
+    # trigger loop is off.
+    scheduler_enabled: bool = True
+    scheduler_poll_interval: float = 15.0
     # ── LLM ──
     llm_provider: str = "openai"  # registered LLM provider name (see llm_registry)
     llm_base_url: str = "http://localhost:11434/v1"
@@ -144,6 +155,23 @@ class Settings(BaseSettings):
     mimo_base_url: str = "https://api.xiaomimimo.com/v1"
     mimo_style_prompt: str = ""
     tts_cache_max_mb: int = 500
+    # ── Reliability (v0.9.1) ──
+    # Circuit breaker protects external API calls (LLM / TTS / TMDB / VLM)
+    # from repeatedly hitting an unhealthy endpoint. ``failure_threshold``
+    # consecutive failures open the circuit; after ``recovery_timeout``
+    # seconds it half-opens and allows ``half_open_max_calls`` concurrent
+    # probe requests before deciding whether to close again.
+    circuit_failure_threshold: int = 5
+    circuit_recovery_timeout: float = 30.0
+    circuit_half_open_max_calls: int = 1
+    # ── Conditional distributed rendering (v0.9.4) ──
+    # Offload the render phase to remote nodes when every precondition
+    # holds (enabled + at least one healthy node + long-enough render).
+    # Defaults keep the single-machine behaviour unchanged.
+    distributed_enabled: bool = False
+    distributed_nodes: str = ""  # comma-separated base_url list
+    distributed_min_render_seconds: float = 600.0
+    distributed_node_health_timeout: float = 5.0
 
     model_config = SettingsConfigDict(
         env_file=(".env", str(_USER_ENV)),

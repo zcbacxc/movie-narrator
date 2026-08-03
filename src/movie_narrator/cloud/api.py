@@ -23,6 +23,14 @@ Endpoints::
     GET    /info                        — server info (version, worker count)
     GET    /metrics                     — Prometheus metrics (v0.8.1)
     GET    /openapi.json                — OpenAPI 3.1 spec (v0.8.2)
+    POST   /tasks/batch                 — submit a batch of tasks (v0.9.3)
+    GET    /batches                     — list batches (v0.9.3)
+    GET    /batches/{id}                — get a batch with aggregate progress
+    DELETE /batches/{id}                — cancel every task in a batch
+    POST   /schedules                   — create a cron scheduled job (v0.9.3)
+    GET    /schedules                   — list scheduled jobs
+    DELETE /schedules/{id}              — delete a scheduled job
+    GET    /schedules/{id}/runs         — recent trigger records
 
 Typical usage::
 
@@ -60,6 +68,7 @@ from .artifact_store import (  # v0.8.3 — artifact storage abstraction
     get_artifact_store,
     get_task_artifact_store,
 )
+from .dlq import DeadLetterStore, replay_dead_letter  # v0.9.4 — dead letters
 from .health import build_health_payload, build_readiness_payload, parse_deep_flag
 from .lifecycle import (  # v0.8.3 — artifact lifecycle / TTL cleanup
     ArtifactLifecyclePolicy,
@@ -72,9 +81,10 @@ from .metrics import (
     record_http_request,
     render_prometheus_text,
 )
-from .models import Task, TaskRequest, TaskStatus
+from .models import BatchRequest, Task, TaskRequest, TaskStatus
 from .openapi import build_openapi_spec
 from .queue import LocalTaskQueue
+from .scheduler import JobScheduler, ScheduleError
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +94,16 @@ _TASK_PATTERN = re.compile(r"^/tasks/([a-f0-9]+)$")
 _TASK_RESULT_PATTERN = re.compile(r"^/tasks/([a-f0-9]+)/result$")
 _TASK_ARTIFACTS_PATTERN = re.compile(r"^/tasks/([a-f0-9]+)/artifacts$")
 _TASK_DOWNLOAD_PATTERN = re.compile(r"^/tasks/([a-f0-9]+)/download/(.+)$")
+# v0.9.4: dead-letter queue routes
+_DEADLETTER_PATTERN = re.compile(r"^/deadletters/([a-f0-9]+)$")
+_DEADLETTER_REPLAY_PATTERN = re.compile(r"^/deadletters/([a-f0-9]+)/replay$")
+
+# v0.9.3: batch aggregates and scheduled jobs. Note ``/tasks/batch`` is a
+# static path — the task-ID pattern above cannot match it because "batch"
+# contains letters outside ``[a-f0-9]``.
+_BATCH_PATTERN = re.compile(r"^/batches/([a-f0-9]+)$")
+_SCHEDULE_PATTERN = re.compile(r"^/schedules/([a-f0-9]+)$")
+_SCHEDULE_RUNS_PATTERN = re.compile(r"^/schedules/([a-f0-9]+)/runs$")
 
 # ── Observability (v0.8.1) ─────────────────────────────────
 
@@ -94,17 +114,26 @@ _ENV_METRICS_PUBLIC = "MN_METRICS_PUBLIC"
 
 #: Paths that are already templates (no variable segment).
 _STATIC_PATHS = frozenset(
-    {"/health", "/info", "/tasks", "/ready", "/openapi.json", _METRICS_PATH}
+    {
+        "/health", "/info", "/tasks", "/ready", "/openapi.json",
+        _METRICS_PATH, "/tasks/batch", "/batches", "/schedules",
+        "/deadletters",
+    }
 )
 
 #: Concrete path -> route template. Labelling the HTTP metric with the
 #: raw path would give every task ID its own time series, so each match
 #: is folded back into the template that produced it. Order matters:
-#: ``_TASK_PATTERN`` is last because it is the least specific.
+#: the most specific patterns come first.
 _ROUTE_TEMPLATES = (
     (_TASK_RESULT_PATTERN, "/tasks/{id}/result"),
     (_TASK_ARTIFACTS_PATTERN, "/tasks/{id}/artifacts"),
     (_TASK_DOWNLOAD_PATTERN, "/tasks/{id}/download/{filename}"),
+    (_SCHEDULE_RUNS_PATTERN, "/schedules/{id}/runs"),
+    (_SCHEDULE_PATTERN, "/schedules/{id}"),
+    (_BATCH_PATTERN, "/batches/{id}"),
+    (_DEADLETTER_REPLAY_PATTERN, "/deadletters/{id}/replay"),
+    (_DEADLETTER_PATTERN, "/deadletters/{id}"),
     (_TASK_PATTERN, "/tasks/{id}"),
 )
 
@@ -236,6 +265,26 @@ class _APIHandler(BaseHTTPRequestHandler):
         """Access the task queue from the server instance."""
         return self.server.queue  # type: ignore[attr-defined]
 
+    @property
+    def scheduler(self) -> JobScheduler:
+        """Access the job scheduler from the server instance (v0.9.3)."""
+        return self.server.scheduler  # type: ignore[attr-defined]
+
+    @property
+    def dead_letter_store(self) -> DeadLetterStore:
+        """Access the dead-letter store for this server (v0.9.4).
+
+        Uses the server's injected store when present, otherwise the
+        process-wide default — which is also what the worker writes to,
+        so ``GET /deadletters`` always reflects freshly dead tasks.
+        """
+        override = getattr(self.server, "dead_letter_store_override", None)
+        if isinstance(override, DeadLetterStore):
+            return override
+        from .dlq import get_default_store
+
+        return get_default_store()
+
     def _is_shutting_down(self) -> bool:
         """Whether the owning ``TaskAPIServer`` has begun shutting down."""
         event = getattr(self.server, "shutting_down", None)
@@ -324,6 +373,9 @@ class _APIHandler(BaseHTTPRequestHandler):
                 "version": __version__,
                 "active_tasks": self.queue.active_count,
                 "is_started": self.queue.is_started,
+                # v0.9.2: orchestration tooling can watch this to detect
+                # that the server has begun its graceful shutdown.
+                "shutting_down": self._is_shutting_down(),
             })
             return
 
@@ -391,6 +443,79 @@ class _APIHandler(BaseHTTPRequestHandler):
             self._send_json(task.model_dump(mode="json"))
             return
 
+        # List batches (v0.9.3)
+        if path == "/batches":
+            query = self._parse_query()
+            try:
+                limit = int(query.get("limit", "50"))
+            except ValueError:
+                self._send_error(HTTPStatus.BAD_REQUEST, "Invalid limit")
+                return
+            batches = self.queue.list_batches(limit=limit)
+            self._send_json({
+                "batches": [b.model_dump(mode="json") for b in batches],
+                "count": len(batches),
+            })
+            return
+
+        # Get batch with aggregated progress (v0.9.3)
+        match = _BATCH_PATTERN.match(path)
+        if match:
+            batch_id = match.group(1)
+            batch = self.queue.get_batch(batch_id)
+            if batch is None:
+                self._send_error(HTTPStatus.NOT_FOUND, f"Batch {batch_id} not found")
+                return
+            self._send_json(batch.model_dump(mode="json"))
+            return
+
+        # List schedules (v0.9.3)
+        if path == "/schedules":
+            schedules = self.scheduler.list_schedules()
+            self._send_json({
+                "schedules": [s.model_dump(mode="json") for s in schedules],
+                "count": len(schedules),
+            })
+            return
+
+        # Get recent runs for a schedule (v0.9.3)
+        match = _SCHEDULE_RUNS_PATTERN.match(path)
+        if match:
+            schedule_id = match.group(1)
+            if self.scheduler.get_schedule(schedule_id) is None:
+                self._send_error(
+                    HTTPStatus.NOT_FOUND, f"Schedule {schedule_id} not found"
+                )
+                return
+            runs = self.scheduler.get_runs(schedule_id)
+            self._send_json({
+                "runs": [r.model_dump(mode="json") for r in runs],
+                "count": len(runs),
+            })
+            return
+
+        # List dead letters (v0.9.4)
+        if path == "/deadletters":
+            records = self.dead_letter_store.list()
+            self._send_json({
+                "deadletters": [r.model_dump(mode="json") for r in records],
+                "count": len(records),
+            })
+            return
+
+        # Get a dead letter (v0.9.4)
+        match = _DEADLETTER_PATTERN.match(path)
+        if match:
+            task_id = match.group(1)
+            record = self.dead_letter_store.get(task_id)
+            if record is None:
+                self._send_error(
+                    HTTPStatus.NOT_FOUND, f"Dead letter {task_id} not found"
+                )
+                return
+            self._send_json(record.model_dump(mode="json"))
+            return
+
         self._send_error(HTTPStatus.NOT_FOUND, f"Unknown path: {path}")
 
     # ── POST ────────────────────────────────────────────────
@@ -406,6 +531,16 @@ class _APIHandler(BaseHTTPRequestHandler):
             return
 
         if path == "/tasks":
+            # v0.9.2: draining servers stop accepting new work. Probes
+            # (/ready, /health) still answer so orchestrators see a clean
+            # shutdown instead of a connection error.
+            if self._is_shutting_down():
+                self._send_error(
+                    HTTPStatus.SERVICE_UNAVAILABLE,
+                    "server is shutting down — not accepting new tasks",
+                )
+                return
+
             try:
                 body = self._read_body()
             except ValueError as e:
@@ -422,6 +557,84 @@ class _APIHandler(BaseHTTPRequestHandler):
             task_id = self.queue.submit(request)
             self._send_json(
                 {"task_id": task_id, "status": "pending"},
+                status=HTTPStatus.CREATED,
+            )
+            return
+
+        # Submit a batch of tasks (v0.9.3)
+        if path == "/tasks/batch":
+            try:
+                body = self._read_body()
+            except ValueError as e:
+                self._send_error(HTTPStatus.BAD_REQUEST, str(e))
+                return
+            try:
+                request = BatchRequest(**body)
+            except Exception as e:  # noqa: BLE001
+                logger.debug("POST /tasks/batch rejected: invalid BatchRequest: %s", e)
+                self._send_error(HTTPStatus.BAD_REQUEST, f"Invalid batch request: {e}")
+                return
+            batch = self.queue.submit_batch(request)
+            self._send_json(
+                {
+                    "batch_id": batch.batch_id,
+                    "status": batch.status.value,
+                    "task_ids": batch.task_ids,
+                },
+                status=HTTPStatus.CREATED,
+            )
+            return
+
+        # Replay a dead letter (v0.9.4) — resubmits the original request
+        # with a fresh task ID.
+        match = _DEADLETTER_REPLAY_PATTERN.match(path)
+        if match:
+            task_id = match.group(1)
+            try:
+                new_task_id = replay_dead_letter(task_id, queue=self.queue)
+            except KeyError:
+                self._send_error(
+                    HTTPStatus.NOT_FOUND, f"Dead letter {task_id} not found"
+                )
+                return
+            self._send_json(
+                {
+                    "original_task_id": task_id,
+                    "task_id": new_task_id,
+                    "status": "pending",
+                },
+                status=HTTPStatus.CREATED,
+            )
+            return
+
+        # Create a scheduled job (v0.9.3)
+        if path == "/schedules":
+            try:
+                body = self._read_body()
+            except ValueError as e:
+                self._send_error(HTTPStatus.BAD_REQUEST, str(e))
+                return
+            try:
+                cron = body.get("cron")
+                if not cron or not isinstance(cron, str):
+                    raise ScheduleError("'cron' must be a 5-field cron string")
+                task_request = TaskRequest(**body.get("task_request", {}))
+                enabled = body.get("enabled", True)
+                schedule = self.scheduler.register_schedule(
+                    cron,
+                    task_request,
+                    enabled=bool(enabled),
+                )
+            except ScheduleError as e:
+                logger.debug("POST /schedules rejected: %s", e)
+                self._send_error(HTTPStatus.BAD_REQUEST, f"Invalid schedule: {e}")
+                return
+            except Exception as e:  # noqa: BLE001
+                logger.debug("POST /schedules rejected: invalid payload: %s", e)
+                self._send_error(HTTPStatus.BAD_REQUEST, f"Invalid schedule: {e}")
+                return
+            self._send_json(
+                schedule.model_dump(mode="json"),
                 status=HTTPStatus.CREATED,
             )
             return
@@ -450,6 +663,41 @@ class _APIHandler(BaseHTTPRequestHandler):
                 self._send_error(
                     HTTPStatus.NOT_FOUND,
                     f"Task {task_id} not found or already terminal",
+                )
+            return
+
+        # Cancel every active task in a batch (v0.9.3)
+        match = _BATCH_PATTERN.match(path)
+        if match:
+            batch_id = match.group(1)
+            if self.queue.cancel_batch(batch_id):
+                self._send_json({"batch_id": batch_id, "cancelled": True})
+            else:
+                self._send_error(HTTPStatus.NOT_FOUND, f"Batch {batch_id} not found")
+            return
+
+        # Delete a scheduled job (v0.9.3)
+        match = _SCHEDULE_PATTERN.match(path)
+        if match:
+            schedule_id = match.group(1)
+            if self.scheduler.cancel_schedule(schedule_id):
+                self._send_json({"schedule_id": schedule_id, "deleted": True})
+            else:
+                self._send_error(
+                    HTTPStatus.NOT_FOUND, f"Schedule {schedule_id} not found"
+                )
+            return
+
+        # Remove a dead letter (v0.9.4)
+        match = _DEADLETTER_PATTERN.match(path)
+        if match:
+            task_id = match.group(1)
+            removed = self.dead_letter_store.remove(task_id)
+            if removed:
+                self._send_json({"task_id": task_id, "removed": True})
+            else:
+                self._send_error(
+                    HTTPStatus.NOT_FOUND, f"Dead letter {task_id} not found"
                 )
             return
 
@@ -577,6 +825,14 @@ class TaskAPIServer:
         artifact_policy: Retention policy for that sweeper (v0.8.3).
             Defaults to ``ArtifactLifecyclePolicy.from_env()``; when no
             retention rule is configured no sweeper thread is started.
+        drain_timeout: Graceful-shutdown drain budget in seconds (v0.9.2).
+            When the server owns its task queue, ``stop()`` waits up to
+            this long for in-flight tasks. None defers to
+            ``MN_GRACEFUL_SHUTDOWN_TIMEOUT``.
+        dead_letter_store: Dead-letter store used by the ``/deadletters``
+            endpoints (v0.9.4). Defaults to the process-wide store —
+            which is also where the worker writes records, so the two
+            stay in sync.
     """
 
     def __init__(
@@ -590,6 +846,9 @@ class TaskAPIServer:
         api_key: Optional[str] = None,
         artifact_store: Optional[StorageBackend] = None,
         artifact_policy: Optional[ArtifactLifecyclePolicy] = None,
+        drain_timeout: Optional[float] = None,
+        scheduler: Optional[JobScheduler] = None,
+        dead_letter_store: Optional[DeadLetterStore] = None,
     ) -> None:
         self.host = host
         self.port = port
@@ -599,6 +858,14 @@ class TaskAPIServer:
             storage_dir=storage_dir,
             max_workers=max_workers,
         )
+        # v0.9.3: the scheduler backs the /schedules routes. When none is
+        # supplied a scheduler is created against the queue's storage; the
+        # scheduling *loop* is only started by the daemon (see daemon.py),
+        # so a bare API server still accepts CRUD without triggering runs.
+        self._scheduler = scheduler or JobScheduler(
+            queue=self._queue,
+            storage_dir=self._queue.storage.storage_dir,
+        )
         self._server: Optional[ThreadingHTTPServer] = None
         self._thread: Optional[threading.Thread] = None
         # Set by stop() so the /ready and /health probes can report that
@@ -607,11 +874,39 @@ class TaskAPIServer:
         self._artifact_store = artifact_store
         self._artifact_policy = artifact_policy
         self._sweeper: Optional[ArtifactSweeper] = None
+        # v0.9.2: graceful-shutdown drain budget (seconds). None defers to
+        # ``MN_GRACEFUL_SHUTDOWN_TIMEOUT`` at ``stop()`` time.
+        self._drain_timeout = drain_timeout
+        self._dead_letter_store = dead_letter_store
 
     @property
     def queue(self) -> LocalTaskQueue:
         """The underlying task queue."""
         return self._queue
+
+    @property
+    def scheduler(self) -> JobScheduler:
+        """The scheduler backing the ``/schedules`` routes (v0.9.3)."""
+        return self._scheduler
+
+    @scheduler.setter
+    def scheduler(self, scheduler: JobScheduler) -> None:
+        """Replace the scheduler (used by the daemon for Settings tuning)."""
+        self._scheduler = scheduler
+        if self._server is not None:
+            self._server.scheduler = scheduler  # type: ignore[attr-defined]
+
+    @property
+    def dead_letter_store(self) -> DeadLetterStore:
+        """The dead-letter store backing this server (v0.9.4).
+
+        The process-wide default when no explicit store was injected.
+        """
+        if self._dead_letter_store is not None:
+            return self._dead_letter_store
+        from .dlq import get_default_store
+
+        return get_default_store()
 
     @property
     def is_shutting_down(self) -> bool:
@@ -646,6 +941,9 @@ class TaskAPIServer:
         self._server.queue = self._queue  # type: ignore[attr-defined]
         self._server.api_key = self.api_key  # type: ignore[attr-defined]
         self._server.shutting_down = self._shutting_down  # type: ignore[attr-defined]
+        self._server.scheduler = self._scheduler  # type: ignore[attr-defined]
+        # v0.9.4: optional explicit dead-letter store (None → default)
+        self._server.dead_letter_store_override = self._dead_letter_store  # type: ignore[attr-defined]
         # Update actual port (in case port=0 was used)
         self.port = self._server.server_address[1]
 
@@ -702,14 +1000,51 @@ class TaskAPIServer:
         )
         self._sweeper.start()
 
-    def stop(self) -> None:
-        """Stop the HTTP server."""
-        # Flag the draining state first so in-flight probes report it
-        # immediately, then tear the sweeper down.
+    def begin_drain(self, drain_timeout: Optional[float] = None) -> None:
+        """Enter draining mode: reject new tasks and drain in-flight ones.
+
+        v0.9.2 graceful-shutdown lifecycle, in order:
+
+        1. Flag ``_shutting_down`` — new ``POST /tasks`` are rejected and
+           the ``/ready`` / ``/health`` / ``/info`` endpoints report the
+           draining state.
+        2. Stop the artifact sweeper (its thread may not outlive us).
+        3. When this server owns the task queue, drain it: wait up to
+           ``drain_timeout`` (default ``MN_GRACEFUL_SHUTDOWN_TIMEOUT``)
+           for in-flight tasks, force-cancelling whatever remains.
+
+        The HTTP loop is *not* stopped here — extracted from ``stop()`` so
+        the daemon's signal path can drain while probes still answer.
+        Idempotent; safe to call more than once.
+        """
         self._shutting_down.set()
         if self._sweeper is not None:
             self._sweeper.stop()
             self._sweeper = None
+
+        if self._owns_queue:
+            timeout = (
+                drain_timeout
+                if drain_timeout is not None
+                else self._drain_timeout
+            )
+            if timeout is None:
+                from .daemon import graceful_shutdown_timeout
+
+                timeout = graceful_shutdown_timeout()
+            self._queue.shutdown(wait=True, timeout=timeout)
+
+    def stop(self, drain_timeout: Optional[float] = None) -> None:
+        """Stop the HTTP server, draining in-flight tasks first.
+
+        v0.9.2 drain semantics: new submissions are rejected immediately,
+        in-flight tasks get a bounded chance to finish, and only then is
+        the HTTP loop torn down. ``drain_timeout`` overrides the value
+        given at construction / ``MN_GRACEFUL_SHUTDOWN_TIMEOUT``.
+        """
+        self.begin_drain(drain_timeout)
+        # v0.9.3: stop the scheduler loop (no-op when it was never started).
+        self._scheduler.stop()
         if self._server is not None:
             self._server.shutdown()
             self._server.server_close()
@@ -717,9 +1052,6 @@ class TaskAPIServer:
         if self._thread is not None:
             self._thread.join(timeout=5)
             self._thread = None
-
-        if self._owns_queue:
-            self._queue.shutdown()
 
     def __enter__(self) -> "TaskAPIServer":
         self.start(blocking=False)

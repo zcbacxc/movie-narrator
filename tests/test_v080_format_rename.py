@@ -72,6 +72,6 @@ class TestResolvedJobFormatRename:
 class TestContractVersionBump:
     """Tests for CONTRACT_VERSION bump."""
 
-    def test_contract_version_is_0_8_0(self):
-        """CONTRACT_VERSION is (0, 8, 3)."""
-        assert CONTRACT_VERSION == (0, 8, 3)
+    def test_contract_version_is_0_9_2(self):
+        """CONTRACT_VERSION is (0, 9, 4)."""
+        assert CONTRACT_VERSION == (0, 9, 4)

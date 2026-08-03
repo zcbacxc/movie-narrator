@@ -50,7 +50,7 @@ from typing import Callable, Optional, Protocol, runtime_checkable
 #   MAJOR — breaking changes to exported symbols or signatures
 #   MINOR — new exports added (backward compatible)
 #   PATCH — bug fixes, doc changes (no API surface change)
-CONTRACT_VERSION: tuple[int, int, int] = (0, 8, 3)
+CONTRACT_VERSION: tuple[int, int, int] = (0, 9, 4)
 
 
 def check_version(required: tuple[int, int, int]) -> None:
@@ -349,6 +349,36 @@ __all__ = [
     "StorageBackend",
     "cleanup_artifacts",
     "get_artifact_store",
+    # Reliability (v0.9.1)
+    "CircuitState",
+    "CircuitBreaker",
+    "CircuitBreakerRegistry",
+    "CircuitOpenError",
+    "RetryPolicy",
+    "with_retry",
+    "with_async_retry",
+    # Task Lifecycle (v0.9.2)
+    # Task checkpointing + graceful shutdown types.
+    "TaskCheckpoint",
+    "CheckpointStore",
+    "ResumePlan",
+    "QueueShutdownError",
+    # Cloud / Batch & Schedule (v0.9.3)
+    "BatchRequest",
+    "Batch",
+    "BatchProgress",
+    "ScheduleRequest",
+    "JobScheduler",
+    "ScheduleError",
+    # Queue & Distributed (v0.9.4)
+    # TaskStatus is already exported above (Cloud / Task Queue v0.6.0).
+    "DeadLetterRecord",
+    "DeadLetterStore",
+    "replay_dead_letter",
+    "NodeRegistry",
+    "DistributedRenderPlanner",
+    "DistributedRenderError",
+    "render_task_dispatcher",
 ]
 
 
@@ -428,4 +458,46 @@ from .cloud import (  # noqa: E402
     StorageBackend,
     cleanup_artifacts,
     get_artifact_store,
+)
+
+# Reliability (v0.9.1) — circuit breaker + retry policy framework. The
+# reliability package itself has no imports back into contract, so this
+# is placed at the bottom purely for grouping consistency.
+from .reliability import (  # noqa: E402
+    CircuitBreaker,
+    CircuitBreakerRegistry,
+    CircuitOpenError,
+    CircuitState,
+    RetryPolicy,
+    with_async_retry,
+    with_retry,
+)
+# Cloud / task lifecycle (v0.9.2) — task checkpointing + graceful
+# shutdown. Backward compatible: existing exports are untouched.
+from .cloud import (  # noqa: E402
+    CheckpointStore,
+    QueueShutdownError,
+    ResumePlan,
+    TaskCheckpoint,
+)
+# Cloud / batch & schedule (v0.9.3) — new exports, backward compatible.
+from .cloud import (  # noqa: E402
+    Batch,
+    BatchProgress,
+    BatchRequest,
+    JobScheduler,
+    ScheduleError,
+    ScheduleRequest,
+)
+# Cloud / dead-letter queue + conditional distributed rendering (v0.9.4) —
+# new exports, backward compatible. TaskStatus was already exported with
+# the v0.6.0 Cloud / Task Queue group above.
+from .cloud import (  # noqa: E402
+    DeadLetterRecord,
+    DeadLetterStore,
+    DistributedRenderError,
+    DistributedRenderPlanner,
+    NodeRegistry,
+    render_task_dispatcher,
+    replay_dead_letter,
 )

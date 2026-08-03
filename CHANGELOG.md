@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-08-03
+
+### Added
+
+- **Dead-letter queue** — new `movie_narrator.cloud.dlq` module with `DeadLetterRecord` (original request, failure reason, attempts, replay count), a `DeadLetterStore` persisting records atomically under `<storage>/deadletters/` and `replay_dead_letter()` which rebuilds the original request and queues it under a fresh task ID (keeping the record). `TaskStatus` gains a `DEAD` terminal state; when a task exhausts its retry budget on a retryable error and `TaskRequest.enable_dlq` is set (default), the worker routes it to the DLQ instead of a plain `FAILED`. Non-retryable failures and DLQ-disabled tasks keep the pre-v0.9.4 `FAILED` behaviour. New API routes `GET /deadletters`, `GET /deadletters/{id}`, `POST /deadletters/{id}/replay` and `DELETE /deadletters/{id}` with matching OpenAPI paths and schemas.
+- **Conditional distributed rendering** — new `movie_narrator.cloud.distributed` module with a `NodeRegistry` (parses `MN_DISTRIBUTED_NODES`, health-probes `/ready`), a `DistributedRenderPlanner` (dispatch only when enabled + a healthy node exists + estimated render ≥ `MN_DISTRIBUTED_MIN_RENDER_SECONDS`) and `render_task_dispatcher` (submits the render phase as a task to a remote node and downloads the artifacts back). The worker hooks the render step as a soft, opt-in leg: any distribution failure falls back to the local render path, so the feature can never turn a would-be-successful task into a failed one.
+- New public exports on `movie_narrator.contract`: `DeadLetterRecord`, `DeadLetterStore`, `replay_dead_letter`, `NodeRegistry`, `DistributedRenderPlanner`, `DistributedRenderError`, `render_task_dispatcher`.
+- `tests/test_v094_dlq_distributed.py` — 28 test cases covering DLQ write/read/replay, DEAD-state semantics, the /deadletters routes and distributed-rendering planning/fallback.
+
+## [0.9.3] - 2026-08-03
+
+### Added
+
+- **Batch job submission** — new `BatchRequest` (1–50 task requests with validation), `Batch` and `BatchProgress` models in `movie_narrator.cloud.models`. `TaskQueue` / `LocalTaskQueue` gain `submit_batch` / `get_batch` / `list_batches` / `cancel_batch` (atomic batch record creation, per-task submission, partial-failure downgrade, equal-weight aggregate progress, success/failure summary); `RemoteTaskQueue` mirrors the batch client. New API routes `POST /tasks/batch`, `GET /batches`, `GET /batches/{id}` and `DELETE /batches/{id}` with matching OpenAPI paths and component schemas.
+- **Scheduled jobs** — new `movie_narrator.cloud.scheduler` module with a dependency-free 5-field cron parser (`*` / `*/n` / `a,b,c` / `a-b` / ranges; invalid expressions raise `ScheduleError`), a `JobScheduler` background thread (`threading.Event` wait, due-check → submit from the `TaskRequest` template → advance `next_run_at`) and JSON persistence under the task storage directory. New API routes `POST /schedules`, `GET /schedules`, `DELETE /schedules/{id}` and `GET /schedules/{id}/runs`; `mn serve` starts the trigger loop when `MN_SCHEDULER_ENABLED` is set (poll interval `MN_SCHEDULER_POLL_INTERVAL`, default 15 s).
+- New public exports on `movie_narrator.contract`: `BatchRequest`, `Batch`, `BatchProgress`, `ScheduleRequest`, `JobScheduler`, `ScheduleError`.
+- `tests/test_v093_batch_schedule.py` — 48 test cases covering batch validation/aggregation/cancellation, cron parsing, scheduler due-triggering and the API routes.
+
+## [0.9.2] - 2026-08-03
+
+### Added
+
+- **Task checkpointing** — new `movie_narrator.cloud.checkpoint` module with `TaskCheckpoint` (task id, completed step, context snapshot, saved-at, attempt), `ResumePlan` and a `CheckpointStore` that persists checkpoints atomically to `<storage>/checkpoints/<task_id>.json`. The worker writes a checkpoint after every completed pipeline step (`ProgressConsole.on_step_complete`) and resolves a resume plan at each attempt, continuing from the next step via `run_pipeline(start_step=...)` instead of restarting; a checkpoint on the final step short-circuits straight to result extraction. Checkpoints are deleted on COMPLETED and kept for FAILED/CANCELLED.
+- **Graceful shutdown** — `LocalTaskQueue.shutdown(wait, timeout)` now drains in-flight workers (join with timeout, then cooperative cancel), rejects new submissions with `QueueShutdownError`, and is restartable via `start()`. `TaskAPIServer.begin_drain()` / `stop(drain_timeout)` mark the server draining (rejecting `POST /tasks` with 503, `/ready` 503, `/info` reports `shutting_down`) before stopping the HTTP loop. The daemon's SIGINT/SIGTERM handler drains in-flight tasks (`MN_GRACEFUL_SHUTDOWN_TIMEOUT`, default 30 s) before exiting.
+- New public exports on `movie_narrator.contract`: `TaskCheckpoint`, `CheckpointStore`, `ResumePlan`, `QueueShutdownError`.
+- `tests/test_v092_lifecycle.py` — 27 test cases covering checkpoint write/load/atomicity, crash recovery (start-step hand-off, context restore, done short-circuit), queue shutdown join/timeout/cancel, API drain semantics and daemon drain ordering.
+
+## [0.9.1] - 2026-08-03
+
+### Added
+
+- **Circuit breaker** — new `movie_narrator.reliability.circuit_breaker` module with a thread-safe `CircuitBreaker` (CLOSED → OPEN → HALF_OPEN → CLOSED state machine), a `CircuitBreakerRegistry` keyed by service name and a `CircuitOpenError` (marked retryable). A `@circuit_guard("service")` decorator / context-manager guards external API calls for LLM (`utils/llm.py`), TTS (`tts/base.py`), TMDB (`providers/tmdb.py`) and VLM (`vision/vlm.py`); when a circuit is open the guarded call raises without hitting the network. Breaker thresholds are configurable via `MN_CIRCUIT_FAILURE_THRESHOLD`, `MN_CIRCUIT_RECOVERY_TIMEOUT` and `MN_CIRCUIT_HALF_OPEN_MAX_CALLS`.
+- **Retry policy framework** — new `movie_narrator.reliability.retry` module with a configurable `RetryPolicy` (max attempts, exponential backoff with jitter, retryable-exception set / `should_retry` callable), `with_retry` / `with_async_retry` decorators and an idempotent `compute_delay` helper. Retryability by default follows `ProviderError.retryable` / `is_network_error()`.
+- New public exports on `movie_narrator.contract`: `CircuitState`, `CircuitBreaker`, `CircuitBreakerRegistry`, `CircuitOpenError`, `RetryPolicy`, `with_retry`, `with_async_retry`.
+- `tests/test_v091_reliability.py` — 37 test cases covering state-machine transitions, recovery probing, concurrent access, `CircuitOpenError` propagation and the retry-policy decorators.
+
 ## [0.8.4] - 2026-08-03
 
 ### Added

@@ -18,6 +18,7 @@
 | v0.6.1 | Remote Inference | REST API server, remote task queue, worker daemon, artifact management, remote provider proxies, CLI commands. `CONTRACT_VERSION` → `(0, 6, 1)` |
 | v0.7.x | Output Experience | GPU encoding, cost tracking, preview mode, scene transitions, text animation, multi-track audio, security hardening. `CONTRACT_VERSION` → `(0, 7, 2)` |
 | v0.8.0 | Service Deployment Basics | API key authentication (X-API-Key middleware), format→video_format rename, render template system (preset styling with safe areas), exception narrowing (45 broad catches → specific types), ruff/mypy lint toolchain + pytest-timeout, queue deadlock fix. `CONTRACT_VERSION` → `(0, 8, 0)` |
+| v0.9.x | Reliability & Batch | Circuit breaker, retry policy framework, task checkpointing, graceful shutdown, batch submission + aggregate progress, cron scheduling, dead-letter queue, conditional distributed rendering. `CONTRACT_VERSION` → `(0, 9, 4)` |
 
 ---
 
@@ -58,20 +59,21 @@ The original v0.6.2–v0.6.4 plan (distributed rendering, API gateway & auth, cl
 - [x] Health/readiness probes — `/ready` endpoint + deep health check with dependency connectivity (`/health` already exists in v0.6.1) (v0.8.2)
 - [x] OpenAPI spec — auto-generated API documentation (v0.8.2)
 
-### v0.9.0 — Reliability & Batch (planned)
+### v0.9.x — Reliability & Batch (delivered)
 
 > **Goal**: Long-running tasks don't lose progress; batch video production has scheduling.
+> Delivered across v0.9.1–v0.9.4 (2026-08-03). `CONTRACT_VERSION` → `(0, 9, 4)`.
 
-- [ ] Circuit breaker — for external APIs (LLM, TTS, TMDB, VLM)
-- [ ] Task checkpointing — save intermediate state for long renders, support resume from checkpoint
-- [ ] Graceful shutdown — drain in-flight tasks before process exit
-- [ ] Retry policy framework — configurable per-step retry strategies (task-level exponential backoff already exists in `cloud/worker.py`)
-- [ ] Batch job submission — submit N movies in one API request
-- [ ] Scheduled jobs — cron-based recurring task submission
-- [ ] Batch progress tracking — aggregate progress across sub-tasks
-- [ ] Dead letter queue — failed tasks moved to DLQ for inspection and replay
-- [ ] Distributed rendering (conditional) — trigger: single-machine render > 10 minutes with multiple nodes; builds on v0.8.0 containerization
-- [ ] CONTRACT_VERSION → `(0, 9, 0)` — reliability and batch types exported via SDK
+- [x] Circuit breaker — for external APIs (LLM, TTS, TMDB, VLM) (v0.9.1)
+- [x] Task checkpointing — save intermediate state for long renders, support resume from checkpoint (v0.9.2)
+- [x] Graceful shutdown — drain in-flight tasks before process exit (v0.9.2)
+- [x] Retry policy framework — configurable per-step retry strategies (task-level exponential backoff already exists in `cloud/worker.py`) (v0.9.1)
+- [x] Batch job submission — submit N movies in one API request (v0.9.3)
+- [x] Scheduled jobs — cron-based recurring task submission (v0.9.3)
+- [x] Batch progress tracking — aggregate progress across sub-tasks (v0.9.3)
+- [x] Dead letter queue — failed tasks moved to DLQ for inspection and replay (v0.9.4)
+- [x] Distributed rendering (conditional) — trigger: single-machine render > 10 minutes with multiple nodes; builds on v0.8.0 containerization (v0.9.4)
+- [x] CONTRACT_VERSION → `(0, 9, 4)` — reliability and batch types exported via SDK
 
 #### v0.9.1 — Polish & Completeness (planned)
 

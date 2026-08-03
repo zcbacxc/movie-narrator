@@ -10,16 +10,23 @@ External plugins can register additional LLM providers via
 ``get_llm_client()`` remains a zero-argument callable that returns a
 context manager yielding :class:`LLMClient`. This preserves backward
 compatibility with all existing call sites and test patches.
+
+Since v0.9.1 the yielded client context runs under the shared ``"llm"``
+circuit breaker: when the circuit is open, entering ``with
+get_llm_client() as llm:`` raises :class:`CircuitOpenError` (retryable)
+without creating a client or touching the network.
 """
 
 from dataclasses import dataclass
 from contextlib import contextmanager
+from typing import Iterator
 
 import httpx
 from openai import OpenAI
 
 from ..config import get_settings
 from ..providers import llm_registry, register_llm
+from ..reliability import CIRCUIT_REGISTRY
 
 
 @dataclass
@@ -59,16 +66,28 @@ def _make_openai_llm():
 # ── Public factory function ──────────────────────────────
 
 
-def get_llm_client():
+@contextmanager
+def get_llm_client() -> Iterator[LLMClient]:
     """Yield an LLMClient via the llm_registry.
 
     Dispatches to the provider configured by ``settings.llm_provider``
     (default: ``"openai"``). The returned object is a context manager
     that must be used in a ``with`` statement.
 
+    Since v0.9.1 the client context runs under the shared ``"llm"``
+    circuit breaker: when the circuit is open, entering the ``with``
+    block raises :class:`CircuitOpenError` (retryable) before the
+    provider factory is invoked, so no client is created and no network
+    request is attempted. Exceptions raised inside the ``with`` body are
+    recorded as breaker failures before propagating unchanged.
+
     This function's module path (``movie_narrator.utils.llm``) and
     zero-argument signature are preserved for backward compatibility
     with existing call sites and test patches.
     """
     settings = get_settings()
-    return llm_registry.create(settings.llm_provider)
+    breaker = CIRCUIT_REGISTRY["llm"]
+    with breaker.guard():
+        cm = llm_registry.create(settings.llm_provider)
+        with cm as llm:
+            yield llm

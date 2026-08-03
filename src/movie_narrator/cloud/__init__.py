@@ -20,6 +20,14 @@ are:
 - ``build_readiness_payload`` / ``build_health_payload`` — probe logic
   behind ``GET /ready`` and ``GET /health?deep=1`` (v0.8.2)
 - ``build_openapi_spec`` — OpenAPI 3.1 document for the REST API (v0.8.2)
+- ``Batch`` / ``BatchRequest`` / ``BatchProgress`` — batch task submission
+  and aggregate tracking (v0.9.3)
+- ``JobScheduler`` / ``ScheduleRequest`` / ``ScheduleError`` — cron-driven
+  scheduled job submission (v0.9.3)
+- ``DeadLetterStore`` / ``DeadLetterRecord`` / ``replay_dead_letter`` —
+  dead-letter queue for failed tasks (v0.9.4)
+- ``NodeRegistry`` / ``DistributedRenderPlanner`` /
+  ``render_task_dispatcher`` — conditional distributed rendering (v0.9.4)
 
 Typical usage (local)::
 
@@ -52,6 +60,10 @@ from .metrics import (
 from .models import (
     ACTIVE_STATES,
     TERMINAL_STATES,
+    Batch,
+    BatchProgress,
+    BatchRequest,
+    BatchStatus,
     Task,
     TaskPriority,
     TaskProgress,
@@ -59,7 +71,7 @@ from .models import (
     TaskResult,
     TaskStatus,
 )
-from .storage import TaskStorage
+from .storage import JsonModelStore, TaskStorage
 from .artifact_store import (
     ArtifactInfo,
     ArtifactNotFoundError,
@@ -77,13 +89,23 @@ from .lifecycle import (
     CleanupReport,
     cleanup_artifacts,
 )
-from .queue import LocalTaskQueue, TaskQueue
+from .checkpoint import CheckpointStore, ResumePlan, TaskCheckpoint
+from .queue import LocalTaskQueue, QueueShutdownError, TaskQueue
 from .worker import CancelController, ProgressConsole, run_task
 from .health import build_health_payload, build_readiness_payload
 from .openapi import build_openapi_spec
 from .api import TaskAPIServer
 from .remote_queue import RemoteQueueError, RemoteTaskQueue
+from .scheduler import JobScheduler, ScheduleError, ScheduleRequest, ScheduleRun
 from .daemon import WorkerDaemon, run_daemon
+from .dlq import DeadLetterRecord, DeadLetterStore, replay_dead_letter  # v0.9.4
+from .distributed import (  # v0.9.4
+    DistributedRenderError,
+    DistributedRenderPlanner,
+    NodeRegistry,
+    estimate_render_seconds,
+    render_task_dispatcher,
+)
 from .remote_provider import (
     download_all_artifacts,
     download_artifact,
@@ -122,6 +144,11 @@ __all__ = [
     # Queue
     "TaskQueue",
     "LocalTaskQueue",
+    "QueueShutdownError",
+    # Task lifecycle / checkpoints (v0.9.2)
+    "TaskCheckpoint",
+    "CheckpointStore",
+    "ResumePlan",
     # Worker
     "CancelController",
     "ProgressConsole",
@@ -154,4 +181,24 @@ __all__ = [
     "build_readiness_payload",
     # OpenAPI spec (v0.8.2)
     "build_openapi_spec",
+    # Batch & Schedule (v0.9.3)
+    "Batch",
+    "BatchRequest",
+    "BatchProgress",
+    "BatchStatus",
+    "JsonModelStore",
+    "JobScheduler",
+    "ScheduleError",
+    "ScheduleRequest",
+    "ScheduleRun",
+    # Dead-letter queue (v0.9.4)
+    "DeadLetterRecord",
+    "DeadLetterStore",
+    "replay_dead_letter",
+    # Conditional distributed rendering (v0.9.4)
+    "NodeRegistry",
+    "DistributedRenderPlanner",
+    "DistributedRenderError",
+    "render_task_dispatcher",
+    "estimate_render_seconds",
 ]
