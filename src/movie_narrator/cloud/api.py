@@ -23,6 +23,14 @@ Endpoints::
     GET    /info                        — server info (version, worker count)
     GET    /metrics                     — Prometheus metrics (v0.8.1)
     GET    /openapi.json                — OpenAPI 3.1 spec (v0.8.2)
+    POST   /tasks/batch                 — submit a batch of tasks (v0.9.3)
+    GET    /batches                     — list batches (v0.9.3)
+    GET    /batches/{id}                — get a batch with aggregate progress
+    DELETE /batches/{id}                — cancel every task in a batch
+    POST   /schedules                   — create a cron scheduled job (v0.9.3)
+    GET    /schedules                   — list scheduled jobs
+    DELETE /schedules/{id}              — delete a scheduled job
+    GET    /schedules/{id}/runs         — recent trigger records
 
 Typical usage::
 
@@ -72,9 +80,10 @@ from .metrics import (
     record_http_request,
     render_prometheus_text,
 )
-from .models import Task, TaskRequest, TaskStatus
+from .models import BatchRequest, Task, TaskRequest, TaskStatus
 from .openapi import build_openapi_spec
 from .queue import LocalTaskQueue
+from .scheduler import JobScheduler, ScheduleError
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +94,13 @@ _TASK_RESULT_PATTERN = re.compile(r"^/tasks/([a-f0-9]+)/result$")
 _TASK_ARTIFACTS_PATTERN = re.compile(r"^/tasks/([a-f0-9]+)/artifacts$")
 _TASK_DOWNLOAD_PATTERN = re.compile(r"^/tasks/([a-f0-9]+)/download/(.+)$")
 
+# v0.9.3: batch aggregates and scheduled jobs. Note ``/tasks/batch`` is a
+# static path — the task-ID pattern above cannot match it because "batch"
+# contains letters outside ``[a-f0-9]``.
+_BATCH_PATTERN = re.compile(r"^/batches/([a-f0-9]+)$")
+_SCHEDULE_PATTERN = re.compile(r"^/schedules/([a-f0-9]+)$")
+_SCHEDULE_RUNS_PATTERN = re.compile(r"^/schedules/([a-f0-9]+)/runs$")
+
 # ── Observability (v0.8.1) ─────────────────────────────────
 
 _METRICS_PATH = "/metrics"
@@ -94,17 +110,23 @@ _ENV_METRICS_PUBLIC = "MN_METRICS_PUBLIC"
 
 #: Paths that are already templates (no variable segment).
 _STATIC_PATHS = frozenset(
-    {"/health", "/info", "/tasks", "/ready", "/openapi.json", _METRICS_PATH}
+    {
+        "/health", "/info", "/tasks", "/ready", "/openapi.json",
+        _METRICS_PATH, "/tasks/batch", "/batches", "/schedules",
+    }
 )
 
 #: Concrete path -> route template. Labelling the HTTP metric with the
 #: raw path would give every task ID its own time series, so each match
 #: is folded back into the template that produced it. Order matters:
-#: ``_TASK_PATTERN`` is last because it is the least specific.
+#: the most specific patterns come first.
 _ROUTE_TEMPLATES = (
     (_TASK_RESULT_PATTERN, "/tasks/{id}/result"),
     (_TASK_ARTIFACTS_PATTERN, "/tasks/{id}/artifacts"),
     (_TASK_DOWNLOAD_PATTERN, "/tasks/{id}/download/{filename}"),
+    (_SCHEDULE_RUNS_PATTERN, "/schedules/{id}/runs"),
+    (_SCHEDULE_PATTERN, "/schedules/{id}"),
+    (_BATCH_PATTERN, "/batches/{id}"),
     (_TASK_PATTERN, "/tasks/{id}"),
 )
 
@@ -235,6 +257,11 @@ class _APIHandler(BaseHTTPRequestHandler):
     def queue(self) -> LocalTaskQueue:
         """Access the task queue from the server instance."""
         return self.server.queue  # type: ignore[attr-defined]
+
+    @property
+    def scheduler(self) -> JobScheduler:
+        """Access the job scheduler from the server instance (v0.9.3)."""
+        return self.server.scheduler  # type: ignore[attr-defined]
 
     def _is_shutting_down(self) -> bool:
         """Whether the owning ``TaskAPIServer`` has begun shutting down."""
@@ -394,6 +421,57 @@ class _APIHandler(BaseHTTPRequestHandler):
             self._send_json(task.model_dump(mode="json"))
             return
 
+        # List batches (v0.9.3)
+        if path == "/batches":
+            query = self._parse_query()
+            try:
+                limit = int(query.get("limit", "50"))
+            except ValueError:
+                self._send_error(HTTPStatus.BAD_REQUEST, "Invalid limit")
+                return
+            batches = self.queue.list_batches(limit=limit)
+            self._send_json({
+                "batches": [b.model_dump(mode="json") for b in batches],
+                "count": len(batches),
+            })
+            return
+
+        # Get batch with aggregated progress (v0.9.3)
+        match = _BATCH_PATTERN.match(path)
+        if match:
+            batch_id = match.group(1)
+            batch = self.queue.get_batch(batch_id)
+            if batch is None:
+                self._send_error(HTTPStatus.NOT_FOUND, f"Batch {batch_id} not found")
+                return
+            self._send_json(batch.model_dump(mode="json"))
+            return
+
+        # List schedules (v0.9.3)
+        if path == "/schedules":
+            schedules = self.scheduler.list_schedules()
+            self._send_json({
+                "schedules": [s.model_dump(mode="json") for s in schedules],
+                "count": len(schedules),
+            })
+            return
+
+        # Get recent runs for a schedule (v0.9.3)
+        match = _SCHEDULE_RUNS_PATTERN.match(path)
+        if match:
+            schedule_id = match.group(1)
+            if self.scheduler.get_schedule(schedule_id) is None:
+                self._send_error(
+                    HTTPStatus.NOT_FOUND, f"Schedule {schedule_id} not found"
+                )
+                return
+            runs = self.scheduler.get_runs(schedule_id)
+            self._send_json({
+                "runs": [r.model_dump(mode="json") for r in runs],
+                "count": len(runs),
+            })
+            return
+
         self._send_error(HTTPStatus.NOT_FOUND, f"Unknown path: {path}")
 
     # ── POST ────────────────────────────────────────────────
@@ -439,6 +517,62 @@ class _APIHandler(BaseHTTPRequestHandler):
             )
             return
 
+        # Submit a batch of tasks (v0.9.3)
+        if path == "/tasks/batch":
+            try:
+                body = self._read_body()
+            except ValueError as e:
+                self._send_error(HTTPStatus.BAD_REQUEST, str(e))
+                return
+            try:
+                request = BatchRequest(**body)
+            except Exception as e:  # noqa: BLE001
+                logger.debug("POST /tasks/batch rejected: invalid BatchRequest: %s", e)
+                self._send_error(HTTPStatus.BAD_REQUEST, f"Invalid batch request: {e}")
+                return
+            batch = self.queue.submit_batch(request)
+            self._send_json(
+                {
+                    "batch_id": batch.batch_id,
+                    "status": batch.status.value,
+                    "task_ids": batch.task_ids,
+                },
+                status=HTTPStatus.CREATED,
+            )
+            return
+
+        # Create a scheduled job (v0.9.3)
+        if path == "/schedules":
+            try:
+                body = self._read_body()
+            except ValueError as e:
+                self._send_error(HTTPStatus.BAD_REQUEST, str(e))
+                return
+            try:
+                cron = body.get("cron")
+                if not cron or not isinstance(cron, str):
+                    raise ScheduleError("'cron' must be a 5-field cron string")
+                task_request = TaskRequest(**body.get("task_request", {}))
+                enabled = body.get("enabled", True)
+                schedule = self.scheduler.register_schedule(
+                    cron,
+                    task_request,
+                    enabled=bool(enabled),
+                )
+            except ScheduleError as e:
+                logger.debug("POST /schedules rejected: %s", e)
+                self._send_error(HTTPStatus.BAD_REQUEST, f"Invalid schedule: {e}")
+                return
+            except Exception as e:  # noqa: BLE001
+                logger.debug("POST /schedules rejected: invalid payload: %s", e)
+                self._send_error(HTTPStatus.BAD_REQUEST, f"Invalid schedule: {e}")
+                return
+            self._send_json(
+                schedule.model_dump(mode="json"),
+                status=HTTPStatus.CREATED,
+            )
+            return
+
         self._send_error(HTTPStatus.NOT_FOUND, f"Unknown path: {path}")
 
     # ── DELETE ──────────────────────────────────────────────
@@ -463,6 +597,28 @@ class _APIHandler(BaseHTTPRequestHandler):
                 self._send_error(
                     HTTPStatus.NOT_FOUND,
                     f"Task {task_id} not found or already terminal",
+                )
+            return
+
+        # Cancel every active task in a batch (v0.9.3)
+        match = _BATCH_PATTERN.match(path)
+        if match:
+            batch_id = match.group(1)
+            if self.queue.cancel_batch(batch_id):
+                self._send_json({"batch_id": batch_id, "cancelled": True})
+            else:
+                self._send_error(HTTPStatus.NOT_FOUND, f"Batch {batch_id} not found")
+            return
+
+        # Delete a scheduled job (v0.9.3)
+        match = _SCHEDULE_PATTERN.match(path)
+        if match:
+            schedule_id = match.group(1)
+            if self.scheduler.cancel_schedule(schedule_id):
+                self._send_json({"schedule_id": schedule_id, "deleted": True})
+            else:
+                self._send_error(
+                    HTTPStatus.NOT_FOUND, f"Schedule {schedule_id} not found"
                 )
             return
 
@@ -608,6 +764,7 @@ class TaskAPIServer:
         artifact_store: Optional[StorageBackend] = None,
         artifact_policy: Optional[ArtifactLifecyclePolicy] = None,
         drain_timeout: Optional[float] = None,
+        scheduler: Optional[JobScheduler] = None,
     ) -> None:
         self.host = host
         self.port = port
@@ -616,6 +773,14 @@ class TaskAPIServer:
         self._queue = queue or LocalTaskQueue(
             storage_dir=storage_dir,
             max_workers=max_workers,
+        )
+        # v0.9.3: the scheduler backs the /schedules routes. When none is
+        # supplied a scheduler is created against the queue's storage; the
+        # scheduling *loop* is only started by the daemon (see daemon.py),
+        # so a bare API server still accepts CRUD without triggering runs.
+        self._scheduler = scheduler or JobScheduler(
+            queue=self._queue,
+            storage_dir=self._queue.storage.storage_dir,
         )
         self._server: Optional[ThreadingHTTPServer] = None
         self._thread: Optional[threading.Thread] = None
@@ -633,6 +798,18 @@ class TaskAPIServer:
     def queue(self) -> LocalTaskQueue:
         """The underlying task queue."""
         return self._queue
+
+    @property
+    def scheduler(self) -> JobScheduler:
+        """The scheduler backing the ``/schedules`` routes (v0.9.3)."""
+        return self._scheduler
+
+    @scheduler.setter
+    def scheduler(self, scheduler: JobScheduler) -> None:
+        """Replace the scheduler (used by the daemon for Settings tuning)."""
+        self._scheduler = scheduler
+        if self._server is not None:
+            self._server.scheduler = scheduler  # type: ignore[attr-defined]
 
     @property
     def is_shutting_down(self) -> bool:
@@ -667,6 +844,7 @@ class TaskAPIServer:
         self._server.queue = self._queue  # type: ignore[attr-defined]
         self._server.api_key = self.api_key  # type: ignore[attr-defined]
         self._server.shutting_down = self._shutting_down  # type: ignore[attr-defined]
+        self._server.scheduler = self._scheduler  # type: ignore[attr-defined]
         # Update actual port (in case port=0 was used)
         self.port = self._server.server_address[1]
 
@@ -766,6 +944,8 @@ class TaskAPIServer:
         given at construction / ``MN_GRACEFUL_SHUTDOWN_TIMEOUT``.
         """
         self.begin_drain(drain_timeout)
+        # v0.9.3: stop the scheduler loop (no-op when it was never started).
+        self._scheduler.stop()
         if self._server is not None:
             self._server.shutdown()
             self._server.server_close()

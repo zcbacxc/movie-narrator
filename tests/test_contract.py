@@ -210,13 +210,13 @@ class TestContractVersion:
     """CONTRACT_VERSION is the stable API boundary for external consumers."""
 
     def test_contract_version_value(self):
-        """CONTRACT_VERSION is (0, 9, 2) — task lifecycle types exported (v0.9.2).
+        """CONTRACT_VERSION is (0, 9, 3) — batch & schedule types exported (v0.9.3).
 
-        v0.9.1 added reliability exports, v0.9.2 adds task checkpointing and
-        graceful-shutdown exports; each bumps the contract version per the
-        semver policy in contract.py.
+        v0.9.1 added reliability exports, v0.9.2 added task checkpointing and
+        graceful-shutdown exports, v0.9.3 adds batch and scheduled-job types;
+        each bumps the contract version per the semver policy in contract.py.
         """
-        assert CONTRACT_VERSION == (0, 9, 2)
+        assert CONTRACT_VERSION == (0, 9, 3)
 
     def test_contract_version_is_tuple(self):
         """CONTRACT_VERSION is a 3-tuple of ints (semver)."""
