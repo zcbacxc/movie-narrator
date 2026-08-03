@@ -275,6 +275,46 @@ params:
 
 ---
 
+## 黄金样片回归
+
+成片质量可能在版本间悄悄退化。把黄金样片回归制度化，让质量变化在**发版前**就被发现，而不是等用户反馈。
+
+### 何时运行
+
+- **每次发版前**（打 tag 时）。
+- **任何触及** `render`、`match`、`bgm`、`script`、`tts` **的 PR**。
+
+### 样片矩阵
+
+| ID | 源片 | 比例 | 语言 | 目的 |
+|----|------|------|------|------|
+| G1 | 预告片 / 高清正片 | 16:9 | 中文 | 主要使用场景 |
+| G2 | 预告片 / 高清正片 | 16:9 | 英文 | 翻译 + TTS 路径 |
+| G3 | 预告片 / 高清正片 | 9:16 | 中文 | 竖屏发布路径 |
+
+每次运行归档到 `output/l2-runs/<date>-<sample>-<sha>/`（本地，gitignored），保证跨版本可比。
+
+### 通过 / 失败阈值
+
+沿用 L2 手测验收（`§B.3.5`）：
+
+- `match_summary.heuristic_ratio` ≤ 0.5
+- `match_summary.scenes_after_drop` ≥ 3
+- `speed_factor` **不能**钉在 clamp 边界（不能正好等于 `match_speed_clamp_max` / `min`）
+
+### 工具
+
+- `scripts/compare_runs.py` — 对比两份 `metadata.json`（基线 vs 新版）用于人工 QA。
+- `scripts/match_trend.py` — 扫描全部 `output/l2-runs/*/metadata.json`，输出 `heuristic_ratio` / `embedding_ratio` / `score.avg` / `speed_factor.avg` 趋势表；相邻运行间 `heuristic_ratio` 回升超过 `0.1` 时告警。
+
+```bash
+python scripts/match_trend.py --root output/l2-runs --warn-delta 0.1
+```
+
+任何把 `heuristic_ratio` 推过阈值（或较上一版本回升 > 0.1）的运行，必须在发版前排查清楚。
+
+---
+
 ## 快速决策树
 
 ```
@@ -297,6 +337,7 @@ params:
 | `scripts/llm_check.py` | 检查 LLM 连通性和响应质量 | LLM 选择 |
 | `scripts/bgm_analyze.py` | 分析 BGM 特征（BPM/能量/时长） | BGM 选择 |
 | `scripts/genre_advisor.py` | 按片种推荐 preset 和参数 | 片种分流 |
+| `scripts/match_trend.py` | 回归样片趋势分析（heuristic_ratio / embedding_ratio） | 黄金样片回归 |
 
 所有工具均为独立脚本，不依赖 movie_narrator 包安装，可直接运行：
 
