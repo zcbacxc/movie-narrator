@@ -34,6 +34,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from ..models import Scene
+from ..reliability import CIRCUIT_REGISTRY, CircuitOpenError
 from .protocol import VisionCaptioner
 
 logger = logging.getLogger(__name__)
@@ -173,7 +174,13 @@ class VLMCaptioner(VisionCaptioner):
     # ── VLM API call ─────────────────────────────────────────
 
     def _caption_frame(self, frame_b64: str, scene: Scene) -> str:
-        """Send a frame to the VLM API and return the caption text."""
+        """Send a frame to the VLM API and return the caption text.
+
+        Runs under the shared ``"vlm"`` circuit breaker (v0.9.1): when
+        the circuit is open the call fails fast with
+        :class:`CircuitOpenError` without a network attempt; network
+        failures recorded here contribute to opening the circuit.
+        """
         prompt = self._build_prompt(scene)
 
         payload = {
@@ -202,6 +209,23 @@ class VLMCaptioner(VisionCaptioner):
         url = f"{self._base_url}/chat/completions"
         data = json.dumps(payload).encode("utf-8")
 
+        breaker = CIRCUIT_REGISTRY["vlm"]
+        try:
+            with breaker.guard():
+                return self._caption_frame_send(url, data, scene)
+        except CircuitOpenError as e:
+            # Circuit open — fail fast, no network attempt. Retryable;
+            # caption_scenes degrades this scene to a fallback label.
+            logger.debug(f"VLM request rejected for scene {scene.index}: {e}")
+            raise
+
+    def _caption_frame_send(self, url: str, data: bytes, scene: Scene) -> str:
+        """POST *data* to *url* with per-attempt retry (no breaker).
+
+        Extracted from ``_caption_frame`` so the circuit breaker wraps a
+        single, uncached network round-trip. Retries transient HTTP
+        errors (429 / 5xx) up to ``self._max_retries`` times.
+        """
         last_error: Optional[str] = None
         for attempt in range(self._max_retries + 1):
             try:
