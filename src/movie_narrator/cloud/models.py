@@ -30,6 +30,10 @@ class TaskStatus(str, Enum):
     FAILED = "failed"
     CANCELLED = "cancelled"
     RETRYING = "retrying"
+    # v0.9.4: retries exhausted AND the task is unrecoverable — routed to
+    # the dead-letter queue instead of a plain FAILED. Still terminal, so
+    # every consumer of TERMINAL_STATES keeps working unchanged.
+    DEAD = "dead"
 
 
 class TaskPriority(int, Enum):
@@ -44,7 +48,7 @@ class TaskPriority(int, Enum):
 # ── Terminal states ────────────────────────────────────────
 
 TERMINAL_STATES: frozenset[TaskStatus] = frozenset(
-    {TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED}
+    {TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED, TaskStatus.DEAD}
 )
 
 ACTIVE_STATES: frozenset[TaskStatus] = frozenset(
@@ -93,6 +97,10 @@ class TaskRequest(BaseModel):
     keep_cache: bool = False
     log_level: str = "DEBUG"
     verbose: bool = False
+    # v0.9.4: when True (default) and retries are exhausted, the task is
+    # routed to the dead-letter queue (``TaskStatus.DEAD``) instead of a
+    # plain ``FAILED``. Set to False for the pre-v0.9.4 behaviour.
+    enable_dlq: bool = True
 
     # GAP-5 (v0.8.0): allow population by the new field name
     # (``video_format``) while still accepting the legacy ``format``

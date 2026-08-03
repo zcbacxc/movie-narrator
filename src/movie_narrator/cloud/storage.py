@@ -216,14 +216,20 @@ class TaskStorage:
         """Remove all tasks in terminal states. Returns count removed."""
         with self._lock:
             self._ensure_loaded()
+            terminal_values = {
+                TaskStatus.COMPLETED.value,
+                TaskStatus.FAILED.value,
+                TaskStatus.CANCELLED.value,
+                # v0.9.4: DEAD is terminal (dead-letter queue), so it is
+                # swept by ``cleanup_terminal`` like every other terminal
+                # state. The DLQ record in ``~/.mn_tasks/deadletters/`` is
+                # independent and survives this sweep.
+                TaskStatus.DEAD.value,
+            }
             to_remove = [
                 tid
                 for tid, data in self._cache.items()
-                if data.get("status") in (
-                    TaskStatus.COMPLETED.value,
-                    TaskStatus.FAILED.value,
-                    TaskStatus.CANCELLED.value,
-                )
+                if data.get("status") in terminal_values
             ]
             for tid in to_remove:
                 del self._cache[tid]
