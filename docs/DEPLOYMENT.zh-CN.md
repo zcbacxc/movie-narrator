@@ -244,6 +244,36 @@ docker compose --profile s3 up -d
 `MN_DEFAULT_VOICE`、`MN_TTS_PROVIDER`、`MN_TMDB_API_KEY` 等）会从 `.env`
 直接透传。完整列表见 `.env.example`。
 
+#### 可靠性（v0.9.1）
+
+| 变量 | 默认值 | 含义 |
+|---|---|---|
+| `MN_CIRCUIT_FAILURE_THRESHOLD` | `5` | 连续失败次数达到即打开熔断器 |
+| `MN_CIRCUIT_RECOVERY_TIMEOUT` | `30.0` | OPEN 状态秒数，超时后允许半开探测 |
+| `MN_CIRCUIT_HALF_OPEN_MAX_CALLS` | `1` | 半开期间允许的并发探测请求数 |
+
+#### 任务生命周期（v0.9.2）
+
+| 变量 | 默认值 | 含义 |
+|---|---|---|
+| `MN_GRACEFUL_SHUTDOWN_TIMEOUT` | `30.0` | SIGINT/SIGTERM 后排空在途任务的秒数 |
+
+#### 批量与定时（v0.9.3）
+
+| 变量 | 默认值 | 含义 |
+|---|---|---|
+| `MN_SCHEDULER_ENABLED` | `1` | 在 `mn serve` 内运行 cron 触发循环（API CRUD 不受影响） |
+| `MN_SCHEDULER_POLL_INTERVAL` | `15.0` | 两次 due 检查之间的秒数 |
+
+#### 分布式渲染（v0.9.4）
+
+| 变量 | 默认值 | 含义 |
+|---|---|---|
+| `MN_DISTRIBUTED_ENABLED` | `0` | 选择启用远端节点渲染卸载 |
+| `MN_DISTRIBUTED_NODES` | *(空)* | 逗号分隔的节点 base_url 列表 |
+| `MN_DISTRIBUTED_MIN_RENDER_SECONDS` | `600.0` | 触发分发所需的预计渲染时长 |
+| `MN_DISTRIBUTED_NODE_HEALTH_TIMEOUT` | `5.0` | 每节点 `/ready` 探测超时 |
+
 如果 LLM 运行在宿主机上（例如 Ollama），容器内应指向 `host.docker.internal`
 而不是 `localhost`：
 

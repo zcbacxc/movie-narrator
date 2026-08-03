@@ -163,9 +163,23 @@ pending → running → completed
                cancelled
 ```
 
-- **`TaskStatus`**：`pending | running | retrying | completed | failed | cancelled`
-- **终态**：`completed`、`failed`、`cancelled`
+- **`TaskStatus`**：`pending | running | retrying | completed | failed | cancelled | dead`（v0.9.4）
+- **终态**：`completed`、`failed`、`cancelled`、`dead`
 - **重试**：瞬态错误（ConnectionError、TimeoutError、RateLimitError）触发指数退避重试，上限 `max_retries`（默认 3）
+- **死信路由**（v0.9.4）：任务在可重试错误上耗尽重试预算且 `TaskRequest.enable_dlq` 开启（默认）时，转入死信队列（`TaskStatus.DEAD`）而非普通 `FAILED`——可通过 `/deadletters` 检查与重放。
+
+### 可靠性与批量（v0.9.x）
+
+v0.9 系列在云端层之上增加了容错与批量生产能力：
+
+- **熔断器**（v0.9.1）——`reliability/circuit_breaker.py`：按服务的 `CircuitBreaker`（CLOSED → OPEN → HALF_OPEN 状态机）守护外部 API 调用（LLM / TTS / TMDB / VLM）。电路打开时被守护调用直接抛 `CircuitOpenError`（可重试）而不触网。配置：`MN_CIRCUIT_FAILURE_THRESHOLD`、`MN_CIRCUIT_RECOVERY_TIMEOUT`、`MN_CIRCUIT_HALF_OPEN_MAX_CALLS`。
+- **重试策略框架**（v0.9.1）——`reliability/retry.py`：策略驱动的 `with_retry` / `with_async_retry`，指数退避 + 抖动，统一的可重试判定。
+- **任务检查点**（v0.9.2）——`cloud/checkpoint.py`：worker 在每步完成后把流水线 `Context` 快照写入 `<storage>/checkpoints/<task_id>.json`；重试或崩溃重启时任务从下一步续跑而非全部重来。`COMPLETED` 时删除检查点，`FAILED` / `CANCELLED` 保留。
+- **优雅关闭**（v0.9.2）——`LocalTaskQueue.shutdown(wait, timeout)` 排空在途任务（有界等待后协作取消）；API 服务器 `begin_drain()` 拒绝新提交（503）而探针保持响应；daemon 信号处理器退出前排空。配置：`MN_GRACEFUL_SHUTDOWN_TIMEOUT`。
+- **批量提交**（v0.9.3）——`BatchRequest`（1–50 任务）/ `Batch` / `BatchProgress`；`submit_batch` 先持久化批次记录再逐条提交，部分失败降级。聚合进度为成员百分比的等权均值。
+- **定时任务**（v0.9.3）——`cloud/scheduler.py`：无第三方依赖的 5 段 cron 解析器 + `JobScheduler` 后台线程；调度记录持久化于存储目录。配置：`MN_SCHEDULER_ENABLED`、`MN_SCHEDULER_POLL_INTERVAL`。
+- **死信队列**（v0.9.4）——`cloud/dlq.py`：`DeadLetterStore`（每任务原子 JSON）+ `replay_dead_letter()`（以新任务 ID 重建原始请求重新入队）。
+- **条件分布式渲染**（v0.9.4）——`cloud/distributed.py`：`NodeRegistry` 探测节点 `/ready` 端点；`DistributedRenderPlanner` 仅在「启用 + 有健康节点 + 预计渲染足够长（`MN_DISTRIBUTED_MIN_RENDER_SECONDS`）」时把渲染阶段分发到远端节点。worker 钩子为软路径——任何分发失败都回退本地渲染。配置：`MN_DISTRIBUTED_*`。
 
 ### 关键模块
 
@@ -179,6 +193,11 @@ pending → running → completed
 | `cloud/worker.py` | `run_task` —— 流水线执行包装器，含取消 + 进度 + 重试；`CancelController` 实现 `RunController` |
 | `cloud/storage.py` | `TaskStorage` —— JSON 持久化，原子写入 |
 | `cloud/remote_provider.py` | `register_remote_llm` / `register_remote_tts` —— 代理推理；`download_artifact` / `list_artifacts` —— 拉取产物 |
+| `reliability/` | 熔断器 + 重试策略框架（v0.9.1） |
+| `cloud/checkpoint.py` | 任务级检查点存储 + 恢复计划（v0.9.2） |
+| `cloud/scheduler.py` | cron 解析器 + 定时任务触发循环（v0.9.3） |
+| `cloud/dlq.py` | 死信存储 + 重放（v0.9.4） |
+| `cloud/distributed.py` | 节点注册表 + 分布式渲染规划器 + 分发器（v0.9.4） |
 
 ### REST API 端点
 
@@ -195,6 +214,15 @@ pending → running → completed
 | GET | `/ready` | 就绪探针（v0.8.2） |
 | GET | `/info` | 服务端信息（版本、worker 数） |
 | GET | `/openapi.json` | OpenAPI 3.1 规范（v0.8.2） |
+| POST | `/tasks/batch` | 一次提交至多 50 个任务为一批（v0.9.3） |
+| GET | `/batches` | 列出批次（v0.9.3） |
+| GET/DELETE | `/batches/{id}` | 获取批次聚合进度 / 取消成员（v0.9.3） |
+| POST/GET | `/schedules` | 创建 / 列出 cron 定时任务（v0.9.3） |
+| DELETE | `/schedules/{id}` | 移除定时任务（v0.9.3） |
+| GET | `/schedules/{id}/runs` | 最近触发记录（v0.9.3） |
+| GET | `/deadletters` | 列出死信记录（v0.9.4） |
+| GET/DELETE | `/deadletters/{id}` | 获取 / 移除死信记录（v0.9.4） |
+| POST | `/deadletters/{id}/replay` | 以新任务 ID 重新入队原始请求（v0.9.4） |
 
 ### 健康与就绪探针（v0.8.2）
 

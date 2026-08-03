@@ -763,6 +763,11 @@ class LocalTaskQueue:
                     else "unknown"
                 )
                 record_error(error_type)
+            elif task.status == TaskStatus.DEAD:
+                # v0.9.4: dead-letter routing is a failure from an ops
+                # perspective — count it so DLQ'd tasks are visible in
+                # the error-rate metrics instead of silently vanishing.
+                record_error("dead_letter")
         except Exception:  # noqa: BLE001 — telemetry must never break the queue
             logger.debug("Failed to record task outcome metrics", exc_info=True)
 

@@ -255,6 +255,36 @@ All existing `MN_*` settings (`MN_LLM_BASE_URL`, `MN_LLM_API_KEY`,
 `MN_LLM_MODEL`, `MN_DEFAULT_VOICE`, `MN_TTS_PROVIDER`, `MN_TMDB_API_KEY`, …)
 pass straight through from `.env`. See `.env.example` for the full list.
 
+#### Reliability (v0.9.1)
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `MN_CIRCUIT_FAILURE_THRESHOLD` | `5` | consecutive failures before the circuit opens |
+| `MN_CIRCUIT_RECOVERY_TIMEOUT` | `30.0` | seconds OPEN before half-open probes are allowed |
+| `MN_CIRCUIT_HALF_OPEN_MAX_CALLS` | `1` | concurrent probe requests while half-open |
+
+#### Task lifecycle (v0.9.2)
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `MN_GRACEFUL_SHUTDOWN_TIMEOUT` | `30.0` | seconds to drain in-flight tasks on SIGINT/SIGTERM |
+
+#### Batch & schedule (v0.9.3)
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `MN_SCHEDULER_ENABLED` | `1` | run the cron trigger loop inside `mn serve` (API CRUD works regardless) |
+| `MN_SCHEDULER_POLL_INTERVAL` | `15.0` | seconds between due-check cycles |
+
+#### Distributed rendering (v0.9.4)
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `MN_DISTRIBUTED_ENABLED` | `0` | opt in to remote-node render offload |
+| `MN_DISTRIBUTED_NODES` | *(empty)* | comma-separated node base URLs |
+| `MN_DISTRIBUTED_MIN_RENDER_SECONDS` | `600.0` | estimated render length that justifies dispatch |
+| `MN_DISTRIBUTED_NODE_HEALTH_TIMEOUT` | `5.0` | per-node `/ready` probe timeout |
+
 If your LLM runs on the host (e.g. Ollama), point the containers at
 `host.docker.internal` rather than `localhost`:
 

@@ -165,9 +165,23 @@ pending → running → completed
                cancelled
 ```
 
-- **`TaskStatus`**: `pending | running | retrying | completed | failed | cancelled`
-- **Terminal states**: `completed`, `failed`, `cancelled`
+- **`TaskStatus`**: `pending | running | retrying | completed | failed | cancelled | dead` (v0.9.4)
+- **Terminal states**: `completed`, `failed`, `cancelled`, `dead`
 - **Retry**: transient errors (ConnectionError, TimeoutError, RateLimitError) trigger exponential backoff up to `max_retries` (default 3)
+- **Dead-letter routing** (v0.9.4): when a task exhausts its retry budget on a retryable error and `TaskRequest.enable_dlq` is set (default), it is routed to the dead-letter queue (`TaskStatus.DEAD`) instead of a plain `FAILED` — inspectable and replayable via `/deadletters`.
+
+### Reliability & batch (v0.9.x)
+
+The v0.9 line adds fault-tolerance and batch-production capabilities on top of the cloud layer:
+
+- **Circuit breaker** (v0.9.1) — `reliability/circuit_breaker.py`: per-service `CircuitBreaker` (CLOSED → OPEN → HALF_OPEN state machine) guards external API calls (LLM / TTS / TMDB / VLM). When a circuit is open the guarded call raises `CircuitOpenError` (retryable) without touching the network. Config via `MN_CIRCUIT_FAILURE_THRESHOLD`, `MN_CIRCUIT_RECOVERY_TIMEOUT`, `MN_CIRCUIT_HALF_OPEN_MAX_CALLS`.
+- **Retry policy framework** (v0.9.1) — `reliability/retry.py`: policy-driven `with_retry` / `with_async_retry` with exponential backoff + jitter and a uniform retryability decision.
+- **Task checkpointing** (v0.9.2) — `cloud/checkpoint.py`: the worker snapshots the pipeline `Context` after every completed step to `<storage>/checkpoints/<task_id>.json`; on retry or crash-restart the task resumes from the next step instead of re-running everything. Checkpoints are deleted on `COMPLETED` and kept for `FAILED` / `CANCELLED`.
+- **Graceful shutdown** (v0.9.2) — `LocalTaskQueue.shutdown(wait, timeout)` drains in-flight tasks (bounded wait, then cooperative cancel); the API server's `begin_drain()` rejects new submissions (503) while probes keep answering; the daemon's signal handler drains before exit. Config via `MN_GRACEFUL_SHUTDOWN_TIMEOUT`.
+- **Batch submission** (v0.9.3) — `BatchRequest` (1–50 tasks) / `Batch` / `BatchProgress`; `submit_batch` persists the batch record first, then submits members individually with partial-failure downgrade. Aggregate progress is the equal-weight mean of member percentages.
+- **Scheduled jobs** (v0.9.3) — `cloud/scheduler.py`: dependency-free 5-field cron parser + `JobScheduler` background thread; schedules persist under the storage directory. Config via `MN_SCHEDULER_ENABLED`, `MN_SCHEDULER_POLL_INTERVAL`.
+- **Dead-letter queue** (v0.9.4) — `cloud/dlq.py`: `DeadLetterStore` (atomic JSON per task) + `replay_dead_letter()` which rebuilds the original request under a fresh task ID.
+- **Conditional distributed rendering** (v0.9.4) — `cloud/distributed.py`: `NodeRegistry` probes node `/ready` endpoints; `DistributedRenderPlanner` dispatches the render phase to a remote node only when enabled + a healthy node exists + the estimated render is long enough (`MN_DISTRIBUTED_MIN_RENDER_SECONDS`). The worker hook is a soft leg — any distribution failure falls back to the local render path. Config via `MN_DISTRIBUTED_*`.
 
 ### Key modules
 
@@ -181,6 +195,11 @@ pending → running → completed
 | `cloud/worker.py` | `run_task` — pipeline wrapper with cancel + progress + retry; `CancelController` implements `RunController` |
 | `cloud/storage.py` | `TaskStorage` — JSON persistence with atomic writes |
 | `cloud/remote_provider.py` | `register_remote_llm` / `register_remote_tts` — proxy inference; `download_artifact` / `list_artifacts` — fetch outputs |
+| `reliability/` | Circuit breaker + retry policy framework (v0.9.1) |
+| `cloud/checkpoint.py` | Task-level checkpoint store + resume plans (v0.9.2) |
+| `cloud/scheduler.py` | Cron parser + scheduled-job trigger loop (v0.9.3) |
+| `cloud/dlq.py` | Dead-letter store + replay (v0.9.4) |
+| `cloud/distributed.py` | Node registry + distributed-render planner + dispatcher (v0.9.4) |
 
 ### REST API endpoints
 
@@ -197,6 +216,15 @@ pending → running → completed
 | GET | `/ready` | Readiness probe (v0.8.2) |
 | GET | `/info` | Server info (version, worker count) |
 | GET | `/openapi.json` | OpenAPI 3.1 specification (v0.8.2) |
+| POST | `/tasks/batch` | Submit up to 50 tasks as one batch (v0.9.3) |
+| GET | `/batches` | List batches (v0.9.3) |
+| GET/DELETE | `/batches/{id}` | Get batch with aggregate progress / cancel members (v0.9.3) |
+| POST/GET | `/schedules` | Create / list cron schedules (v0.9.3) |
+| DELETE | `/schedules/{id}` | Remove a schedule (v0.9.3) |
+| GET | `/schedules/{id}/runs` | Recent trigger records (v0.9.3) |
+| GET | `/deadletters` | List dead-letter records (v0.9.4) |
+| GET/DELETE | `/deadletters/{id}` | Get / remove a dead-letter record (v0.9.4) |
+| POST | `/deadletters/{id}/replay` | Requeue the original request under a fresh task ID (v0.9.4) |
 
 ### Health & readiness probes (v0.8.2)
 

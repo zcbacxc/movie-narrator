@@ -503,9 +503,13 @@ def _execute_task(
     # planner decides the render phase should be dispatched, the remote
     # leg runs before the local pipeline; on success the pipeline resumes
     # after the render step, and on failure we fall back to the full
-    # local run below (the default path is untouched).
+    # local run below (the default path is untouched). Skipped when a
+    # checkpoint already finished every step (``resume.done``) — nothing
+    # is left to distribute.
     distributed_start = time.monotonic()
-    distributed_result = _maybe_dispatch_render(task, progress)
+    distributed_result = None
+    if not (resume is not None and resume.done):
+        distributed_result = _maybe_dispatch_render(task, progress)
     distributed_elapsed = time.monotonic() - distributed_start
 
     # Execute pipeline

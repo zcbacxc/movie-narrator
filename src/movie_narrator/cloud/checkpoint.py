@@ -31,8 +31,10 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
 from datetime import datetime, timezone
+from itertools import count
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -44,6 +46,9 @@ logger = logging.getLogger(__name__)
 
 #: Name of the subdirectory holding checkpoint files under the storage dir.
 CHECKPOINT_DIR_NAME = "checkpoints"
+
+#: Monotonic counter for unique temp-file names (see ``CheckpointStore.save``).
+_tmp_counter = count(1)
 
 
 def _utc_now_iso() -> str:
@@ -127,10 +132,12 @@ class CheckpointStore:
 
         The payload is written to a temporary sibling file first and then
         moved into place with :func:`os.replace`, so a reader (or a crash)
-        never observes a half-written checkpoint.
+        never observes a half-written checkpoint. The temp name is
+        unique per call (pid + counter) so concurrent writers for the
+        same task cannot clobber each other's temp file.
         """
         path = self.path_for(checkpoint.task_id)
-        tmp = path.with_suffix(".tmp")
+        tmp = path.with_suffix(f".{os.getpid()}.{next(_tmp_counter)}.tmp")
         with self._lock:
             tmp.write_text(
                 json.dumps(
