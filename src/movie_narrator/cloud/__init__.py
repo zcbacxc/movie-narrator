@@ -15,6 +15,8 @@ are:
 - ``ProgressConsole`` — progress-tracking console wrapper
 - ``run_task`` — pipeline execution with retry support
 - ``run_daemon`` / ``WorkerDaemon`` — server-side worker process (v0.6.1)
+- ``metrics`` — Prometheus counters/gauges/histograms and the text
+  exposition renderer behind ``GET /metrics`` (v0.8.1)
 
 Typical usage (local)::
 
@@ -35,6 +37,15 @@ Typical usage (remote)::
 
 from __future__ import annotations
 
+from .metrics import (
+    CONTENT_TYPE_LATEST,
+    Counter,
+    Gauge,
+    Histogram,
+    MetricsRegistry,
+    get_registry,
+    render_prometheus_text,
+)
 from .models import (
     ACTIVE_STATES,
     TERMINAL_STATES,
@@ -93,4 +104,12 @@ __all__ = [
     # Remote providers (v0.6.1)
     "register_remote_llm",
     "register_remote_tts",
+    # Metrics (v0.8.1)
+    "CONTENT_TYPE_LATEST",
+    "Counter",
+    "Gauge",
+    "Histogram",
+    "MetricsRegistry",
+    "get_registry",
+    "render_prometheus_text",
 ]

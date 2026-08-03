@@ -50,7 +50,7 @@ from typing import Callable, Optional, Protocol, runtime_checkable
 #   MAJOR — breaking changes to exported symbols or signatures
 #   MINOR — new exports added (backward compatible)
 #   PATCH — bug fixes, doc changes (no API surface change)
-CONTRACT_VERSION: tuple[int, int, int] = (0, 8, 0)
+CONTRACT_VERSION: tuple[int, int, int] = (0, 8, 1)
 
 
 def check_version(required: tuple[int, int, int]) -> None:
@@ -79,6 +79,17 @@ def check_version(required: tuple[int, int, int]) -> None:
 
 from .utils.console import BaseConsole, Console
 from .utils.sanitize import sanitize_filename
+
+# ── Re-exports: structured logging / correlation (v0.8.1) ──
+
+from .utils.logging_config import (
+    JsonFormatter,
+    configure_logging,
+    correlation_scope,
+    get_correlation_id,
+    new_correlation_id,
+    set_correlation_id,
+)
 
 # ── Re-exports: pipeline errors ────────────────────────────
 
@@ -313,6 +324,17 @@ __all__ = [
     "list_artifacts",
     "register_remote_llm",
     "register_remote_tts",
+    # Observability (v0.8.1)
+    "JsonFormatter",
+    "configure_logging",
+    "correlation_scope",
+    "get_correlation_id",
+    "new_correlation_id",
+    "set_correlation_id",
+    "CONTENT_TYPE_LATEST",
+    "MetricsRegistry",
+    "get_registry",
+    "render_prometheus_text",
 ]
 
 
@@ -362,4 +384,12 @@ from .cloud import (  # noqa: E402
     register_remote_llm,
     register_remote_tts,
     run_daemon,
+)
+
+# Cloud / metrics (v0.8.1) — new exports, backward compatible.
+from .cloud import (  # noqa: E402
+    CONTENT_TYPE_LATEST,
+    MetricsRegistry,
+    get_registry,
+    render_prometheus_text,
 )

@@ -19,6 +19,7 @@ Endpoints::
     GET    /tasks/{id}/download/{file}  — download an output file
     GET    /health                      — health check
     GET    /info                        — server info (version, worker count)
+    GET    /metrics                     — Prometheus metrics (v0.8.1)
 
 Typical usage::
 
@@ -33,13 +34,26 @@ from __future__ import annotations
 import hmac
 import json
 import logging
+import os
 import re
 import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 from .. import __version__
+from ..utils.logging_config import (
+    CORRELATION_HEADER,
+    REQUEST_ID_HEADER,
+    correlation_scope,
+    get_correlation_id,
+)
+from .metrics import (
+    CONTENT_TYPE_LATEST,
+    record_error,
+    record_http_request,
+    render_prometheus_text,
+)
 from .models import Task, TaskRequest, TaskStatus
 from .queue import LocalTaskQueue
 
@@ -51,6 +65,54 @@ _TASK_PATTERN = re.compile(r"^/tasks/([a-f0-9]+)$")
 _TASK_RESULT_PATTERN = re.compile(r"^/tasks/([a-f0-9]+)/result$")
 _TASK_ARTIFACTS_PATTERN = re.compile(r"^/tasks/([a-f0-9]+)/artifacts$")
 _TASK_DOWNLOAD_PATTERN = re.compile(r"^/tasks/([a-f0-9]+)/download/(.+)$")
+
+# ── Observability (v0.8.1) ─────────────────────────────────
+
+_METRICS_PATH = "/metrics"
+
+#: Environment variable opting ``/metrics`` out of API-key auth.
+_ENV_METRICS_PUBLIC = "MN_METRICS_PUBLIC"
+
+#: Paths that are already templates (no variable segment).
+_STATIC_PATHS = frozenset({"/health", "/info", "/tasks", _METRICS_PATH})
+
+#: Concrete path -> route template. Labelling the HTTP metric with the
+#: raw path would give every task ID its own time series, so each match
+#: is folded back into the template that produced it. Order matters:
+#: ``_TASK_PATTERN`` is last because it is the least specific.
+_ROUTE_TEMPLATES = (
+    (_TASK_RESULT_PATTERN, "/tasks/{id}/result"),
+    (_TASK_ARTIFACTS_PATTERN, "/tasks/{id}/artifacts"),
+    (_TASK_DOWNLOAD_PATTERN, "/tasks/{id}/download/{filename}"),
+    (_TASK_PATTERN, "/tasks/{id}"),
+)
+
+
+def _route_template(path: str) -> str:
+    """Map a concrete request path onto a bounded route template.
+
+    Unrecognised paths collapse to ``/other`` so that a scanner probing
+    random URLs cannot grow the metric's cardinality without bound.
+    """
+    if path in _STATIC_PATHS:
+        return path
+    for pattern, template in _ROUTE_TEMPLATES:
+        if pattern.match(path):
+            return template
+    return "/other"
+
+
+def _metrics_public() -> bool:
+    """Whether ``/metrics`` may be scraped without an API key.
+
+    In-cluster Prometheus scrapers usually cannot present a secret, so
+    ``MN_METRICS_PUBLIC=1`` opts the endpoint out of authentication.
+    It stays authenticated by default: the payload leaks task volumes
+    and error rates.
+    """
+    return os.environ.get(_ENV_METRICS_PUBLIC, "").strip().lower() in {
+        "1", "true", "yes", "on",
+    }
 
 
 class _APIHandler(BaseHTTPRequestHandler):
@@ -94,6 +156,60 @@ class _APIHandler(BaseHTTPRequestHandler):
         """Send an error response."""
         self._send_json({"error": message}, status=status)
 
+    # ── Observability (v0.8.1) ──────────────────────────────
+
+    def _dispatch(self, handler: Callable[[], None]) -> None:
+        """Run one request inside a correlation scope.
+
+        The ID is adopted from ``X-Request-ID`` / ``X-Correlation-ID``
+        when the client supplies one, so a trace started upstream (load
+        balancer, another service) continues here; otherwise a fresh one
+        is generated. :meth:`send_response` echoes it on every response.
+        """
+        inbound = (
+            self.headers.get(REQUEST_ID_HEADER)
+            or self.headers.get(CORRELATION_HEADER)
+            or None
+        )
+        with correlation_scope(inbound):
+            handler()
+
+    def send_response(self, code: int, message: Optional[str] = None) -> None:
+        """Echo the correlation ID and count the request.
+
+        Overriding the single point every response funnels through —
+        including ``send_error`` and the artifact download path — means
+        the header and the metric cannot be forgotten at a call site.
+        """
+        super().send_response(code, message)
+        correlation_id = get_correlation_id()
+        if correlation_id:
+            self.send_header(CORRELATION_HEADER, correlation_id)
+        try:
+            # ``path`` / ``command`` are unset when the request line
+            # itself failed to parse, hence the broad guard.
+            path = self.path.split("?")[0]
+            status = int(code)
+            record_http_request(self.command or "", _route_template(path), status)
+            if status >= 400:
+                record_error(f"http_{status}")
+        except Exception:  # noqa: BLE001 — telemetry must never break a response
+            logger.debug("Failed to record request metrics", exc_info=True)
+
+    def _send_metrics(self) -> None:
+        """Serve the Prometheus text exposition payload."""
+        try:
+            body = render_prometheus_text().encode("utf-8")
+        except Exception:  # noqa: BLE001 — a bad scrape must not take the server down
+            logger.exception("Failed to render metrics")
+            self._send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "metrics unavailable")
+            return
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", CONTENT_TYPE_LATEST)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     @property
     def queue(self) -> LocalTaskQueue:
         """Access the task queue from the server instance."""
@@ -128,11 +244,22 @@ class _APIHandler(BaseHTTPRequestHandler):
     # ── GET ─────────────────────────────────────────────────
 
     def do_GET(self) -> None:
+        self._dispatch(self._do_GET)
+
+    def _do_GET(self) -> None:
         path = self.path.split("?")[0]
 
         # Health check — exempt from authentication (always allowed)
         if path == "/health":
             self._send_json({"status": "ok"})
+            return
+
+        # Metrics (v0.8.1) — authenticated like every other route unless
+        # MN_METRICS_PUBLIC opts in to unauthenticated scraping.
+        if path == _METRICS_PATH:
+            if not _metrics_public() and not self._check_auth():
+                return
+            self._send_metrics()
             return
 
         # Authenticate all other routes
@@ -217,6 +344,9 @@ class _APIHandler(BaseHTTPRequestHandler):
     # ── POST ────────────────────────────────────────────────
 
     def do_POST(self) -> None:
+        self._dispatch(self._do_POST)
+
+    def _do_POST(self) -> None:
         path = self.path.split("?")[0]
 
         # Authenticate all routes
@@ -233,6 +363,7 @@ class _APIHandler(BaseHTTPRequestHandler):
             try:
                 request = TaskRequest(**body)
             except Exception as e:  # noqa: BLE001
+                logger.debug("POST /tasks rejected: invalid TaskRequest payload: %s", e)
                 self._send_error(HTTPStatus.BAD_REQUEST, f"Invalid task request: {e}")
                 return
 
@@ -248,6 +379,9 @@ class _APIHandler(BaseHTTPRequestHandler):
     # ── DELETE ──────────────────────────────────────────────
 
     def do_DELETE(self) -> None:
+        self._dispatch(self._do_DELETE)
+
+    def _do_DELETE(self) -> None:
         path = self.path.split("?")[0]
 
         # Authenticate all routes
@@ -331,6 +465,7 @@ class _APIHandler(BaseHTTPRequestHandler):
                 self._send_error(HTTPStatus.FORBIDDEN, "Access denied")
                 return
         except Exception:  # noqa: BLE001
+            logger.debug("Rejected artifact download: unsafe path %r failed resolution", filename)
             self._send_error(HTTPStatus.BAD_REQUEST, "Invalid filename")
             return
 

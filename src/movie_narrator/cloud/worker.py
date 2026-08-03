@@ -31,12 +31,19 @@ from ..utils.console import (
     build_console,
 )
 from ..utils.log import resolve_log_level
+from .metrics import observe_render_duration
 from .models import Task, TaskProgress, TaskRequest, TaskResult, TaskStatus
 
 logger = logging.getLogger(__name__)
 
 # Total pipeline steps for progress calculation
 _TOTAL_STEPS = len(STEPS)
+
+# v0.8.1: name of the pipeline step whose duration feeds
+# ``mn_render_duration_seconds``. The runner labels each step with the
+# step function's ``__name__``, so this is the hook point that does not
+# require touching the pipeline package.
+_RENDER_STEP = "render_video"
 
 
 # ── CancelController ───────────────────────────────────────
@@ -102,6 +109,8 @@ class ProgressConsole(BaseConsole):
 
     def step_ok(self, name: str, elapsed: float) -> None:
         self._progress.mark_completed(name)
+        if name == _RENDER_STEP:
+            observe_render_duration(elapsed)
         self._step_index += 1
         self._progress.update_step(
             step_name=name,

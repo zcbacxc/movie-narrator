@@ -53,8 +53,8 @@ The original v0.6.2–v0.6.4 plan (distributed rendering, API gateway & auth, cl
 - [ ] docker-compose.yml — local cluster (API + N workers + storage)
 - [ ] Storage backend abstraction — `StorageBackend` protocol (local / S3)
 - [ ] Artifact lifecycle — TTL-based cleanup
-- [ ] Structured logging — JSON format with correlation IDs
-- [ ] Prometheus metrics — `/metrics` endpoint (task count, queue depth, render duration, error rate)
+- [x] Structured logging — JSON format with correlation IDs (v0.8.1)
+- [x] Prometheus metrics — `/metrics` endpoint (task count, queue depth, render duration, error rate) (v0.8.1)
 - [ ] Health/readiness probes — `/ready` endpoint + deep health check with dependency connectivity (`/health` already exists in v0.6.1)
 - [ ] OpenAPI spec — auto-generated API documentation
 
