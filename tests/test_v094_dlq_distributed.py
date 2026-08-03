@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Tests for v0.9.4: dead-letter queue + conditional distributed rendering.
 
 Covers:
@@ -92,6 +95,15 @@ def _run_with_error(monkeypatch, exc, max_retries=1, retry_delay=0.01, **kwargs)
     )
     task = Task(request=req)
     return run_task(task, CancelController())
+
+
+def _failing_pipeline_factory(exc):
+    """Return a pipeline callable that always raises *exc*."""
+
+    def failing_pipeline(ctx, **kw):
+        raise exc
+
+    return failing_pipeline
 
 
 # ── HTTP helpers ───────────────────────────────────────────
@@ -215,6 +227,41 @@ class TestDeadLetterRouting:
             record = dlq_store.get(task.id)
             assert record is not None
             assert record.replay_count == 1  # record kept, history preserved
+        finally:
+            queue.shutdown()
+
+    def test_dead_counts_error_metric(self, monkeypatch, dlq_store, tmp_path):
+        """DLQ'd tasks increment the error metric (v0.9.4 review fix)."""
+        monkeypatch.setenv("CI", "1")
+        recorded = []
+
+        def fake_record_error(error_type: str) -> None:
+            recorded.append(error_type)
+
+        monkeypatch.setattr(
+            "movie_narrator.cloud.queue.record_error",
+            fake_record_error,
+        )
+        monkeypatch.setattr(
+            "movie_narrator.cloud.worker.run_pipeline",
+            _failing_pipeline_factory(ConnectionError("down")),
+        )
+
+        queue = LocalTaskQueue(storage_dir=tmp_path / "tasks", max_workers=1)
+        try:
+            req = TaskRequest(
+                movie_name="DLQTest",
+                output_dir=str(Path("output") / "dlqtest"),
+                max_retries=1,
+                retry_delay=0.01,
+            )
+            task_id = queue.submit(req)
+            result = queue.wait(task_id, timeout=10, poll_interval=0.05)
+            assert result is not None
+            task = queue.get_task(task_id)
+            assert task is not None
+            assert task.status == TaskStatus.DEAD
+            assert "dead_letter" in recorded
         finally:
             queue.shutdown()
 

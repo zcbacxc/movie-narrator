@@ -905,7 +905,7 @@ class TaskAPIServer:
             return self._dead_letter_store
         from .dlq import get_default_store
 
-    @property
+        return get_default_store()
 
     @property
     def is_shutting_down(self) -> bool:
