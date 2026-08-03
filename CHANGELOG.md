@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-08-03
+
+### Added
+
+- **Task checkpointing** — new `movie_narrator.cloud.checkpoint` module with `TaskCheckpoint` (task id, completed step, context snapshot, saved-at, attempt), `ResumePlan` and a `CheckpointStore` that persists checkpoints atomically to `<storage>/checkpoints/<task_id>.json` (temp file + `os.replace`, unique temp name per call). The worker writes a checkpoint after every completed pipeline step (`ProgressConsole.on_step_complete`) and resolves a resume plan at each attempt, continuing from the next step via `run_pipeline(start_step=...)` instead of restarting; a checkpoint on the final step short-circuits straight to result extraction. Checkpoints are deleted on COMPLETED and kept for FAILED/CANCELLED.
+- **Graceful shutdown** — `LocalTaskQueue.shutdown(wait, timeout)` now drains in-flight workers (join with timeout, then cooperative cancel), rejects new submissions with `QueueShutdownError`, and is restartable via `start()`. `TaskAPIServer.begin_drain()` / `stop(drain_timeout)` mark the server draining (rejecting `POST /tasks` with 503, `/ready` 503, `/info` reports `shutting_down`) before stopping the HTTP loop. The daemon's SIGINT/SIGTERM handler drains in-flight tasks (`MN_GRACEFUL_SHUTDOWN_TIMEOUT`, default 30 s) before exiting.
+- New public exports on `movie_narrator.contract`: `TaskCheckpoint`, `CheckpointStore`, `ResumePlan`, `QueueShutdownError`.
+- `tests/test_v092_lifecycle.py` — 27 test cases covering checkpoint write/load/atomicity, crash recovery (start-step hand-off, context restore, done short-circuit), queue shutdown join/timeout/cancel, API drain semantics and daemon drain ordering.
+
 ## [0.9.1] - 2026-08-03
 
 ### Added

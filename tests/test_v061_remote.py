@@ -550,9 +550,9 @@ class TestContractExports:
     """Verify v0.6.1 types are exported from contract."""
 
     def test_contract_version_bumped(self):
-        """CONTRACT_VERSION is (0, 9, 1)."""
+        """CONTRACT_VERSION is (0, 9, 2)."""
         from movie_narrator.contract import CONTRACT_VERSION
-        assert CONTRACT_VERSION == (0, 9, 1)
+        assert CONTRACT_VERSION == (0, 9, 2)
 
     def test_remote_types_in_contract_all(self):
         """Remote inference types are in contract __all__."""
