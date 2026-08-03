@@ -25,7 +25,6 @@ from unittest import mock
 import pytest
 
 from movie_narrator.reliability import (
-    CIRCUIT_REGISTRY,
     CircuitBreaker,
     CircuitBreakerRegistry,
     CircuitOpenError,
@@ -522,7 +521,6 @@ class TestTmdbIntegration:
         return registry
 
     def test_tmdb_network_error_counts_toward_breaker(self):
-        from movie_narrator import providers
         from movie_narrator.providers import tmdb as tmdb_module
 
         tmdb_module._TMDB_CACHE.clear()
@@ -618,7 +616,6 @@ class TestVlmIntegration:
 
 class TestLlmIntegration:
     def test_llm_client_open_circuit_fails_fast(self):
-        from movie_narrator import utils
         from movie_narrator.utils import llm as llm_module
 
         registry = CircuitBreakerRegistry()
