@@ -19,11 +19,11 @@ import time
 import traceback as tb_module
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Dict, Optional
 
-from ..models import Services
+from ..models import Context, Services
 from ..pipeline.errors import PipelineCancelled
-from ..pipeline.runner import build_context, common_build_kwargs, run_pipeline, STEPS
+from ..pipeline.runner import STEPS, build_context, common_build_kwargs, run_pipeline
 from ..utils.console import (
     BaseConsole,
     Console,
@@ -31,6 +31,7 @@ from ..utils.console import (
     build_console,
 )
 from ..utils.log import resolve_log_level
+from .checkpoint import CheckpointStore, ResumePlan, TaskCheckpoint
 from .metrics import observe_render_duration
 from .models import Task, TaskProgress, TaskRequest, TaskResult, TaskStatus
 
@@ -82,6 +83,12 @@ class ProgressConsole(BaseConsole):
     Delegates all output to the wrapped ``Console`` (e.g. ``PlainConsole``
     for real runs, ``SilentConsole`` for CI) while updating the
     ``TaskProgress`` model in real-time.
+
+    v0.9.2: an optional ``on_step_complete`` callback fires whenever a
+    pipeline step finishes (success, skip or soft-degrade) and the runner
+    moves on to the next one. The worker uses it to write task
+    checkpoints, so the step's ``Context`` state is captured at the
+    earliest safe moment after the step ran.
     """
 
     def __init__(
@@ -89,12 +96,26 @@ class ProgressConsole(BaseConsole):
         inner: Console,
         progress: TaskProgress,
         start_time: float,
+        *,
+        on_step_complete: Optional[Callable[[str], None]] = None,
+        initial_step_index: int = 0,
     ) -> None:
         self._inner = inner
         self._progress = progress
         self._start_time = start_time
         self._step_start: float = 0.0
-        self._step_index = 0
+        self._step_index = initial_step_index
+        self._on_step_complete = on_step_complete
+
+    def _notify_complete(self, name: str) -> None:
+        """Invoke the checkpoint hook, never letting it break the run."""
+        if self._on_step_complete is not None:
+            try:
+                self._on_step_complete(name)
+            except Exception:  # noqa: BLE001 — checkpointing must not break the pipeline
+                logger.debug(
+                    "Checkpoint callback failed for step %s", name, exc_info=True
+                )
 
     def step(self, name: str) -> None:
         self._step_start = time.time()
@@ -120,14 +141,17 @@ class ProgressConsole(BaseConsole):
         )
         self._progress.elapsed_seconds = time.time() - self._start_time
         self._inner.step_ok(name, elapsed)
+        self._notify_complete(name)
 
     def step_skip(self, name: str, reason: str) -> None:
         self._progress.mark_skipped(name)
         self._step_index += 1
         self._inner.step_skip(name, reason)
+        self._notify_complete(name)
 
     def step_warn(self, name: str, reason: str) -> None:
         self._inner.step_warn(name, reason)
+        self._notify_complete(name)
 
     def step_err(self, name: str, exc: Exception, elapsed: float) -> None:
         self._progress.mark_failed(name)
@@ -173,12 +197,69 @@ def _is_retryable_error(exc: Exception) -> bool:
     return bool(getattr(exc, "retryable", False))
 
 
+def _extract_result(ctx: Context, output_dir: Path) -> TaskResult:
+    """Build a ``TaskResult`` from a finished pipeline context."""
+    return TaskResult(
+        video_path=ctx.video_path,
+        audio_path=ctx.audio_path,
+        output_dir=ctx.output_dir,
+        subtitle_path=ctx.subtitle_path,
+        script_md_path=ctx.script_md_path,
+        clips_dir=ctx.clips_dir,
+        metadata=ctx.metadata,
+    )
+
+
+def _restore_context(
+    context_dump: Dict[str, Any],
+    services: Services,
+) -> Context:
+    """Rebuild a ``Context`` from a checkpoint dump.
+
+    The dump excludes ``services`` (auto-injected ``SilentConsole`` by the
+    model validator) and ``cost_tracker`` (contains a non-serializable
+    lock); both are re-seeded here so the resumed pipeline has live
+    infrastructure.
+    """
+    ctx = Context(**context_dump)
+    ctx.services = services
+    from ..utils.cost_tracker import CostTracker
+    ctx.cost_tracker = CostTracker()
+    return ctx
+
+
+def _step_index_of(step_name: str) -> int:
+    """Return the zero-based index of ``step_name`` in ``STEPS``.
+
+    Used to seed progress counters when resuming so the percentage does
+    not restart at 0% for a task that already finished several steps.
+    """
+    for i, step in enumerate(STEPS):
+        if step.__name__ == step_name:
+            return i
+    return 0
+
+
 def _execute_task(
     task: Task,
     controller: CancelController,
     on_progress: Optional[Callable[..., Any]] = None,
+    *,
+    resume: Optional[ResumePlan] = None,
+    attempt: int = 0,
+    checkpoint_store: Optional[CheckpointStore] = None,
 ) -> Task:
     """Execute a single pipeline attempt (no retry).
+
+    v0.9.2 additions:
+    - ``resume`` carries the task's checkpoint state; when present the
+      pipeline starts from ``resume.start_step`` with the restored
+      ``Context`` instead of a fresh ``build_context``.
+    - When ``resume.done`` is True every step already finished before the
+      crash, so the result is reconstructed from the saved context and
+      ``run_pipeline`` is skipped entirely.
+    - ``checkpoint_store`` enables per-step checkpoint writing through
+      the ``ProgressConsole`` hook.
 
     Updates ``task`` in-place and returns it.
     """
@@ -204,63 +285,94 @@ def _execute_task(
             verbose=request.verbose,
         )
 
-    # Wrap with progress-tracking console
-    progress_console = ProgressConsole(
-        inner=inner_console,
-        progress=progress,
-        start_time=start_time,
-    )
-
     services = Services(
-        console=progress_console,
+        console=inner_console,
         logger=getattr(inner_console, "_log", None),
     )
 
-    # Build pipeline context
-    ctx = build_context(**common_build_kwargs(
-        movie=request.movie_name,
-        style=request.style,
-        duration=request.duration,
-        voice=request.voice,
-        video_format=request.video_format,
-        output_dir=output_dir,
-        keep_cache=request.keep_cache,
-        video=request.video,
-        library_dir=request.library_dir,
-        research=request.research,
-        bgm=request.bgm,
-        no_bgm=request.no_bgm,
-        no_clips=request.no_clips,
-        strict=request.strict,
-        workflow_steps=request.workflow_steps,
-        params=request.params,
-        config_path=request.config_path,
-        subtitle_lang=request.subtitle_lang,
-        subtitle_mode=request.subtitle_mode,
-        services=services,
-        narration_preset=request.narration_preset,
-        lang=request.lang,
-        log_level=log_level,
-        verbose=request.verbose,
-    ))
+    # v0.9.2: restored context (from a checkpoint) or a fresh build_context
+    if resume is not None and resume.context_dump is not None:
+        ctx = _restore_context(resume.context_dump, services)
+        logger.info(
+            "Task %s: resuming from checkpoint (completed=%s, next=%s)",
+            task.id,
+            resume.completed_step,
+            resume.start_step if resume.start_step else "<done>",
+        )
+    else:
+        ctx = build_context(**common_build_kwargs(
+            movie=request.movie_name,
+            style=request.style,
+            duration=request.duration,
+            voice=request.voice,
+            video_format=request.video_format,
+            output_dir=output_dir,
+            keep_cache=request.keep_cache,
+            video=request.video,
+            library_dir=request.library_dir,
+            research=request.research,
+            bgm=request.bgm,
+            no_bgm=request.no_bgm,
+            no_clips=request.no_clips,
+            strict=request.strict,
+            workflow_steps=request.workflow_steps,
+            params=request.params,
+            config_path=request.config_path,
+            subtitle_lang=request.subtitle_lang,
+            subtitle_mode=request.subtitle_mode,
+            services=services,
+            narration_preset=request.narration_preset,
+            lang=request.lang,
+            log_level=log_level,
+            verbose=request.verbose,
+        ))
+
+    # v0.9.2: checkpoint hook — snapshot the context after each completed
+    # step. The closure reads the current ``ctx`` (steps mutate it in
+    # place per the shared-mutable-Context design), so the checkpoint
+    # always reflects the state right after the step ran.
+    if checkpoint_store is not None:
+
+        def _write_checkpoint(step_name: str) -> None:
+            checkpoint_store.save(TaskCheckpoint(
+                task_id=task.id,
+                completed_step=step_name,
+                context_dump=ctx.model_dump(mode="json", exclude={"services", "cost_tracker"}),
+                attempt=attempt,
+            ))
+            progress.latest_checkpoint_step = step_name
+            progress.checkpoint_updated_at = datetime.now(timezone.utc).isoformat()
+
+    def _noop_checkpoint(step_name: str) -> None:
+        del step_name  # checkpointing disabled
+
+    progress_console = ProgressConsole(
+        inner=services.console,
+        progress=progress,
+        start_time=start_time,
+        on_step_complete=_write_checkpoint if checkpoint_store is not None else _noop_checkpoint,
+        initial_step_index=(
+            _step_index_of(resume.start_step)
+            if resume is not None and resume.start_step
+            else 0
+        ),
+    )
+    services.console = progress_console
 
     # Execute pipeline
     try:
-        ctx = run_pipeline(ctx, controller=controller)
-
-        # Extract results
-        result = TaskResult(
-            video_path=ctx.video_path,
-            audio_path=ctx.audio_path,
-            output_dir=ctx.output_dir,
-            subtitle_path=ctx.subtitle_path,
-            script_md_path=ctx.script_md_path,
-            clips_dir=ctx.clips_dir,
-            metadata=ctx.metadata,
-        )
-        task.result = result
-        task.status = TaskStatus.COMPLETED
-        task.completed_at = datetime.now(timezone.utc).isoformat()
+        if resume is not None and resume.done:
+            # All steps already completed before the crash; only result
+            # extraction was pending.
+            task.result = _extract_result(ctx, output_dir)
+            task.status = TaskStatus.COMPLETED
+            task.completed_at = datetime.now(timezone.utc).isoformat()
+        else:
+            start_step = resume.start_step if resume is not None else None
+            ctx = run_pipeline(ctx, controller=controller, start_step=start_step)
+            task.result = _extract_result(ctx, output_dir)
+            task.status = TaskStatus.COMPLETED
+            task.completed_at = datetime.now(timezone.utc).isoformat()
 
     except PipelineCancelled:
         task.status = TaskStatus.CANCELLED
@@ -297,6 +409,7 @@ def run_task(
     controller: CancelController,
     on_progress: Optional[Callable[..., Any]] = None,
     on_status_change: Optional[Callable[..., Any]] = None,
+    checkpoint_store: Optional[CheckpointStore] = None,
 ) -> Task:
     """Execute a pipeline task with retry support.
 
@@ -305,6 +418,11 @@ def run_task(
         controller: Cancellation controller.
         on_progress: Optional callback called on each progress update.
         on_status_change: Optional callback called when status changes.
+        checkpoint_store: Optional store for task checkpoints (v0.9.2).
+            When provided, the task resumes from its latest checkpoint at
+            the start of every attempt — a crash or a retryable failure
+            does not redo already-completed pipeline steps. The
+            checkpoint is removed once the task reaches ``COMPLETED``.
 
     Returns:
         The updated task with result and final status.
@@ -325,11 +443,43 @@ def run_task(
         if on_status_change:
             on_status_change(task)
 
+        # v0.9.2: resolve the resume point from the task's checkpoint at
+        # the start of each attempt. A fresh task has no checkpoint; a
+        # retry (or a crash-restarted run) picks up the most recent one.
+        resume = None
+        if checkpoint_store is not None:
+            try:
+                resume = checkpoint_store.resolve_resume(task.id)
+            except Exception:  # noqa: BLE001 — checkpointing must never block a run
+                logger.debug(
+                    "Failed to resolve checkpoint for task %s", task.id, exc_info=True
+                )
+            if resume is not None and not resume.done:
+                logger.info(
+                    "Task %s: resuming from checkpoint (start at '%s')",
+                    task.id,
+                    resume.start_step or "<first step>",
+                )
+
         # Execute the task
-        task = _execute_task(task, controller, on_progress=on_progress)
+        task = _execute_task(
+            task,
+            controller,
+            on_progress=on_progress,
+            resume=resume,
+            attempt=attempt,
+            checkpoint_store=checkpoint_store,
+        )
 
         # Check result
         if task.status == TaskStatus.COMPLETED:
+            if checkpoint_store is not None:
+                try:
+                    checkpoint_store.delete(task.id)
+                except Exception:  # noqa: BLE001 — best-effort cleanup
+                    logger.debug(
+                        "Failed to delete checkpoint for task %s", task.id, exc_info=True
+                    )
             if on_status_change:
                 on_status_change(task)
             return task

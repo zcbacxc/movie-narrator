@@ -226,9 +226,9 @@ class RemoteTaskQueue:
             time.sleep(min(interval, 10.0))
             interval = min(interval * 1.5, 10.0)
 
-    def shutdown(self, wait: bool = True) -> None:
+    def shutdown(self, wait: bool = True, timeout: Optional[float] = None) -> None:
         """No-op for remote queue — no local resources to clean up."""
-        pass
+        del wait, timeout
 
     # ── Health check ────────────────────────────────────────
 

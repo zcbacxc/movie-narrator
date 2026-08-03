@@ -112,6 +112,11 @@ class TaskProgress(BaseModel):
     steps_completed: List[str] = Field(default_factory=list)
     steps_skipped: List[str] = Field(default_factory=list)
     steps_failed: List[str] = Field(default_factory=list)
+    # v0.9.2: last pipeline step safely persisted to a task checkpoint.
+    # Populated while a task runs (checkpointing enabled), so API clients
+    # can show "render survived up to step X" even after a crash.
+    latest_checkpoint_step: Optional[str] = None
+    checkpoint_updated_at: Optional[str] = None
 
     def update_step(
         self,

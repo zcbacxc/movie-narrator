@@ -349,6 +349,14 @@ __all__ = [
     "StorageBackend",
     "cleanup_artifacts",
     "get_artifact_store",
+    # Task Lifecycle (v0.9.2)
+    # Task checkpointing + graceful shutdown types. Version bump of the
+    # CONTRACT_VERSION is owned by the integration step (V09_PLAN) — this
+    # branch adds the exports without changing the pinned version.
+    "TaskCheckpoint",
+    "CheckpointStore",
+    "ResumePlan",
+    "QueueShutdownError",
 ]
 
 
@@ -428,4 +436,13 @@ from .cloud import (  # noqa: E402
     StorageBackend,
     cleanup_artifacts,
     get_artifact_store,
+)
+
+# Cloud / task lifecycle (v0.9.2) — task checkpointing + graceful
+# shutdown. Backward compatible: existing exports are untouched.
+from .cloud import (  # noqa: E402
+    CheckpointStore,
+    QueueShutdownError,
+    ResumePlan,
+    TaskCheckpoint,
 )
