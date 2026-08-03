@@ -1,0 +1,222 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# movie-narrator — local cluster (v0.8.4)
+#
+#   docker compose up -d                     # api + workers (CPU)
+#   docker compose up -d --scale worker=4    # more capacity
+#   docker compose --profile s3 up -d        # + MinIO (experimental)
+#   docker compose --profile gpu up -d       # + CUDA worker (needs nvidia-ctk)
+#
+# Requires Docker Compose v2.24+ (for the `env_file: [{path, required}]`
+# long syntax). No top-level `version:` key — it is obsolete in the
+# Compose Spec.
+#
+# ── Storage model ────────────────────────────────────────────
+# The project has no database and no external broker, so "storage" here
+# is modelled with named volumes rather than an invented service:
+#
+#   mn-output   artifacts (rendered video/audio/subtitles) — SHARED by
+#               the api and every worker replica.
+#   mn-tasks    the api's authoritative task index (tasks.json).
+#
+# IMPORTANT: `LocalTaskQueue` is an in-process ThreadPoolExecutor and
+# `TaskStorage` keeps the whole index cached in memory, rewriting the
+# file on every save. Two processes pointing at the same --storage-dir
+# would clobber each other. Worker replicas therefore get a PRIVATE
+# anonymous volume for /app/.mn_tasks and act as independent inference
+# endpoints reached via `--remote http://worker:8765`, not as consumers
+# of the api's queue. See docs/DEPLOYMENT.md for the consequences.
+
+name: movie-narrator
+
+# ── Reusable fragments ───────────────────────────────────────
+x-mn-build: &mn-build
+  context: .
+  dockerfile: Dockerfile
+  target: runtime
+  args:
+    MN_EXTRAS: ${MN_EXTRAS:-media}
+
+x-mn-env: &mn-env
+  # Loads MN_LLM_*, MN_TTS_*, MN_TMDB_* … from the local .env.
+  # Optional so that `docker compose config` works on a fresh clone.
+  - path: .env
+    required: false
+
+x-mn-healthcheck: &mn-healthcheck
+  # /health is exempt from X-API-Key authentication (v0.6.1), so the
+  # probe needs no credentials. Uses the stdlib to avoid shipping curl.
+  test:
+    - CMD
+    - python
+    - -c
+    - "import sys,urllib.request as u; sys.exit(0 if u.urlopen('http://127.0.0.1:8765/health', timeout=4).status == 200 else 1)"
+  interval: 30s
+  timeout: 5s
+  retries: 3
+  start_period: 20s
+
+services:
+
+  # ── REST API — the front door ──────────────────────────────
+  api:
+    build: *mn-build
+    image: movie-narrator:${MN_IMAGE_TAG:-local}
+    # ENTRYPOINT is ["mn"], so `command` supplies the subcommand + flags.
+    command:
+      - serve
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8765"
+      - --storage-dir
+      - /app/.mn_tasks
+      - --max-workers
+      - "${MN_MAX_WORKERS:-2}"
+    env_file: *mn-env
+    environment:
+      # Never hardcode the key — it is read from .env / the host env.
+      # `mn serve` refuses to bind 0.0.0.0 without it (add --insecure to
+      # override, at your own risk).
+      MN_API_KEY: ${MN_API_KEY:-}
+    ports:
+      - "${MN_API_PORT:-8765}:8765"
+    volumes:
+      - mn-tasks:/app/.mn_tasks
+      - mn-output:/app/output
+    healthcheck: *mn-healthcheck
+    restart: unless-stopped
+
+  # ── Worker pool — extra inference capacity ─────────────────
+  # Scale with `--scale worker=N` or MN_WORKER_REPLICAS.
+  # Compose's internal DNS round-robins `worker` across replicas.
+  worker:
+    build: *mn-build
+    image: movie-narrator:${MN_IMAGE_TAG:-local}
+    command:
+      - serve
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8765"
+      - --storage-dir
+      - /app/.mn_tasks
+      - --max-workers
+      - "${MN_MAX_WORKERS:-2}"
+    env_file: *mn-env
+    environment:
+      MN_API_KEY: ${MN_API_KEY:-}
+    # No published ports — replicas would collide on the host port.
+    expose:
+      - "8765"
+    volumes:
+      # Anonymous per-replica volume: task state must NOT be shared.
+      - /app/.mn_tasks
+      # Artifacts, on the other hand, are shared with the api.
+      - mn-output:/app/output
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck: *mn-healthcheck
+    deploy:
+      replicas: ${MN_WORKER_REPLICAS:-2}
+    restart: unless-stopped
+
+  # ── GPU worker (profile: gpu) ──────────────────────────────
+  # Requires the NVIDIA Container Toolkit on the host.
+  # Equivalent to `docker run --gpus all`.
+  worker-gpu:
+    profiles:
+      - gpu
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime-gpu
+      args:
+        MN_GPU_EXTRAS: ${MN_GPU_EXTRAS:-full}
+    image: movie-narrator:${MN_IMAGE_TAG:-local}-gpu
+    command:
+      - serve
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8765"
+      - --storage-dir
+      - /app/.mn_tasks
+      - --max-workers
+      - "${MN_MAX_WORKERS:-2}"
+    env_file: *mn-env
+    environment:
+      MN_API_KEY: ${MN_API_KEY:-}
+    expose:
+      - "8765"
+    volumes:
+      - /app/.mn_tasks
+      - mn-output:/app/output
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      # The CUDA image exposes Ubuntu's interpreter as `python3`.
+      test:
+        - CMD
+        - python3
+        - -c
+        - "import sys,urllib.request as u; sys.exit(0 if u.urlopen('http://127.0.0.1:8765/health', timeout=4).status == 200 else 1)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities:
+                - gpu
+    restart: unless-stopped
+
+  # ── MinIO (profile: s3) — EXPERIMENTAL ─────────────────────
+  # movie-narrator does NOT speak S3 yet; artifacts still land on the
+  # mn-output volume. This service exists so the storage-backend work
+  # (`StorageBackend` protocol, deferred to a later v0.8.x point
+  # release) has an S3-compatible endpoint to develop against.
+  minio:
+    profiles:
+      - s3
+    # Pin a dated RELEASE tag before using this for anything real.
+    image: minio/minio:latest
+    command:
+      - server
+      - /data
+      - --console-address
+      - ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - mn-minio:/data
+    healthcheck:
+      test:
+        - CMD
+        - mc
+        - ready
+        - local
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  # Rendered artifacts — shared by api + workers. Back this up.
+  mn-output:
+  # api task index (tasks.json). Small but not reproducible.
+  mn-tasks:
+  # MinIO object store (profile: s3 only).
+  mn-minio:

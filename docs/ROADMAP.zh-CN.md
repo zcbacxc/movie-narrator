@@ -49,8 +49,8 @@
 
 **推迟到 v0.8.x 点版本：**
 
-- [ ] Dockerfile — 多阶段构建（builder + runtime），支持 GPU
-- [ ] docker-compose.yml — 本地集群（API + N workers + 存储）
+- [x] Dockerfile — 多阶段构建（builder + runtime），支持 GPU（v0.8.4）
+- [x] docker-compose.yml — 本地集群（API + N workers + 存储）（v0.8.4）
 - [ ] 存储后端抽象 — `StorageBackend` 协议（local / S3）
 - [ ] 产物生命周期 — 基于 TTL 的清理
 - [x] 结构化日志 — JSON 格式，带关联 ID（v0.8.1）

@@ -11,6 +11,7 @@ Use the navigation on the left, or start here:
 - [Architecture](ARCHITECTURE.md) — system design and component relationships
 - [Roadmap](ROADMAP.md) — version planning
 - [Contributing](CONTRIBUTING.md) — development setup and conventions
+- [Deployment](DEPLOYMENT.md) — Docker image, local cluster, GPU, volumes
 - [Packaging](PACKAGING.md) — versioning and PyPI publishing
 - [LLM Providers](LLM_PROVIDERS.md) — LLM backend setup guides
 - SDK Reference — auto-generated API documentation (Contract, Models,
