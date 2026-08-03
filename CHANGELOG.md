@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-08-03
+
+### Added
+
+- **Batch job submission** — new `BatchRequest` (1–50 task requests with validation), `Batch` and `BatchProgress` models in `movie_narrator.cloud.models`. `TaskQueue` / `LocalTaskQueue` gain `submit_batch` / `get_batch` / `list_batches` / `cancel_batch` (atomic batch record creation, per-task submission, partial-failure downgrade, equal-weight aggregate progress, success/failure summary); `RemoteTaskQueue` mirrors the batch client. New API routes `POST /tasks/batch`, `GET /batches`, `GET /batches/{id}` and `DELETE /batches/{id}` with matching OpenAPI paths and component schemas.
+- **Scheduled jobs** — new `movie_narrator.cloud.scheduler` module with a dependency-free 5-field cron parser (`*` / `*/n` / `a,b,c` / `a-b` / ranges; invalid expressions raise `ScheduleError`), a `JobScheduler` background thread (`threading.Event` wait, due-check → submit from the `TaskRequest` template → advance `next_run_at`) and JSON persistence under the task storage directory. New API routes `POST /schedules`, `GET /schedules`, `DELETE /schedules/{id}` and `GET /schedules/{id}/runs`; `mn serve` starts the trigger loop when `MN_SCHEDULER_ENABLED` is set (poll interval `MN_SCHEDULER_POLL_INTERVAL`, default 15 s).
+- New public exports on `movie_narrator.contract`: `BatchRequest`, `Batch`, `BatchProgress`, `ScheduleRequest`, `JobScheduler`, `ScheduleError`.
+- `tests/test_v093_batch_schedule.py` — 48 test cases covering batch validation/aggregation/cancellation, cron parsing, scheduler due-triggering and the API routes.
+
 ## [0.9.2] - 2026-08-03
 
 ### Added
