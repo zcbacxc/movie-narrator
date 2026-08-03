@@ -77,7 +77,8 @@ from .lifecycle import (
     CleanupReport,
     cleanup_artifacts,
 )
-from .queue import LocalTaskQueue, TaskQueue
+from .checkpoint import CheckpointStore, ResumePlan, TaskCheckpoint
+from .queue import LocalTaskQueue, QueueShutdownError, TaskQueue
 from .worker import CancelController, ProgressConsole, run_task
 from .health import build_health_payload, build_readiness_payload
 from .openapi import build_openapi_spec
@@ -122,6 +123,11 @@ __all__ = [
     # Queue
     "TaskQueue",
     "LocalTaskQueue",
+    "QueueShutdownError",
+    # Task lifecycle / checkpoints (v0.9.2)
+    "TaskCheckpoint",
+    "CheckpointStore",
+    "ResumePlan",
     # Worker
     "CancelController",
     "ProgressConsole",

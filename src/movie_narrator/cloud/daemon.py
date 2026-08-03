@@ -23,6 +23,7 @@ Typical usage::
 from __future__ import annotations
 
 import logging
+import os
 import signal
 import sys
 from pathlib import Path
@@ -43,6 +44,54 @@ _LOOPBACK_HOSTS = frozenset({
     "::1",
     "0:0:0:0:0:0:0:1",  # expanded ::1
 })
+
+#: Fallback drain budget when ``MN_GRACEFUL_SHUTDOWN_TIMEOUT`` is unset
+#: or unreadable (v0.9.2).
+_DEFAULT_DRAIN_TIMEOUT = 30.0
+
+
+def graceful_shutdown_timeout() -> float:
+    """Return the graceful-shutdown drain budget in seconds (v0.9.2).
+
+    Reads ``MN_GRACEFUL_SHUTDOWN_TIMEOUT`` through :func:`get_settings`
+    (default :data:`_DEFAULT_DRAIN_TIMEOUT`). Falls back to the default
+    when settings cannot be loaded, so a signal handler never raises.
+    """
+    try:
+        from ..config import get_settings
+
+        value = get_settings().graceful_shutdown_timeout
+        if value is not None and value > 0:
+            return float(value)
+    except Exception:  # noqa: BLE001 — a signal path must never raise
+        logger.debug("Failed to resolve graceful shutdown timeout", exc_info=True)
+    return _DEFAULT_DRAIN_TIMEOUT
+
+
+def drain_inflight(
+    server: TaskAPIServer,
+    queue: LocalTaskQueue,
+    timeout: float,
+) -> None:
+    """Drain a server + queue pair during graceful shutdown (v0.9.2).
+
+    Orders the shutdown so that new work stops being accepted first and
+    in-flight tasks get a bounded chance to finish:
+
+    1. ``server.begin_drain`` flips the draining flag (``/ready`` and
+       ``/info`` report it, ``POST /tasks`` is rejected) and stops the
+       artifact sweeper. It does not tear the HTTP loop down, so probes
+       keep answering while we wait.
+    2. ``queue.shutdown(wait=True, timeout=timeout)`` waits for in-flight
+       tasks up to the budget, force-cancelling whatever remains.
+
+    Extracted from the signal handler so tests can exercise the exact
+    shutdown ordering without sending real signals.
+    """
+    logger.info("Entering draining mode (timeout=%.0fs)...", timeout)
+    server.begin_drain(timeout)
+    queue.shutdown(wait=True, timeout=timeout)
+    logger.info("Drain complete.")
 
 
 def _is_loopback(host: str) -> bool:
@@ -117,12 +166,22 @@ def run_daemon(
     )
 
     if blocking:
-        # Set up signal handlers for graceful shutdown
+        # v0.9.2: graceful shutdown — drain in-flight tasks with a bounded
+        # timeout before exiting. ``server.begin_drain`` (via
+        # ``drain_inflight``) makes /ready + /info report the draining
+        # state and rejects new submissions, but deliberately does not
+        # stop the HTTP loop from inside the signal handler (that would
+        # deadlock: serve_forever runs on the same thread as the handler).
+        drain_timeout = graceful_shutdown_timeout()
+
         def _shutdown(signum, frame):
             sig_name = signal.Signals(signum).name if hasattr(signal, 'Signals') else str(signum)
             logger.info("Received %s, shutting down...", sig_name)
-            server.stop()
-            sys.exit(0)
+            drain_inflight(server, queue, drain_timeout)
+            # Hard exit: the daemon's worker threads are non-daemon, so a
+            # plain ``sys.exit`` would wait for a stuck render to finish.
+            logging.shutdown()
+            os._exit(0)
 
         signal.signal(signal.SIGINT, _shutdown)
         if hasattr(signal, "SIGTERM"):

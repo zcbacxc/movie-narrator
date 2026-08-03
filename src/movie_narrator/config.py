@@ -113,6 +113,10 @@ class Settings(BaseSettings):
     # (``mn serve``). When None, the API server runs unauthenticated —
     # safe only on loopback. Required when binding to a public interface.
     api_key: Optional[str] = None
+    # v0.9.2: graceful-shutdown drain budget (seconds). After SIGINT /
+    # SIGTERM, ``mn serve`` and ``TaskAPIServer.stop()`` wait up to this
+    # long for in-flight tasks to finish before force-cancelling them.
+    graceful_shutdown_timeout: float = 30.0
     # ── LLM ──
     llm_provider: str = "openai"  # registered LLM provider name (see llm_registry)
     llm_base_url: str = "http://localhost:11434/v1"

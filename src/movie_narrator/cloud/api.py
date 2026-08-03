@@ -324,6 +324,9 @@ class _APIHandler(BaseHTTPRequestHandler):
                 "version": __version__,
                 "active_tasks": self.queue.active_count,
                 "is_started": self.queue.is_started,
+                # v0.9.2: orchestration tooling can watch this to detect
+                # that the server has begun its graceful shutdown.
+                "shutting_down": self._is_shutting_down(),
             })
             return
 
@@ -406,6 +409,16 @@ class _APIHandler(BaseHTTPRequestHandler):
             return
 
         if path == "/tasks":
+            # v0.9.2: draining servers stop accepting new work. Probes
+            # (/ready, /health) still answer so orchestrators see a clean
+            # shutdown instead of a connection error.
+            if self._is_shutting_down():
+                self._send_error(
+                    HTTPStatus.SERVICE_UNAVAILABLE,
+                    "server is shutting down — not accepting new tasks",
+                )
+                return
+
             try:
                 body = self._read_body()
             except ValueError as e:
@@ -577,6 +590,10 @@ class TaskAPIServer:
         artifact_policy: Retention policy for that sweeper (v0.8.3).
             Defaults to ``ArtifactLifecyclePolicy.from_env()``; when no
             retention rule is configured no sweeper thread is started.
+        drain_timeout: Graceful-shutdown drain budget in seconds (v0.9.2).
+            When the server owns its task queue, ``stop()`` waits up to
+            this long for in-flight tasks. None defers to
+            ``MN_GRACEFUL_SHUTDOWN_TIMEOUT``.
     """
 
     def __init__(
@@ -590,6 +607,7 @@ class TaskAPIServer:
         api_key: Optional[str] = None,
         artifact_store: Optional[StorageBackend] = None,
         artifact_policy: Optional[ArtifactLifecyclePolicy] = None,
+        drain_timeout: Optional[float] = None,
     ) -> None:
         self.host = host
         self.port = port
@@ -607,6 +625,9 @@ class TaskAPIServer:
         self._artifact_store = artifact_store
         self._artifact_policy = artifact_policy
         self._sweeper: Optional[ArtifactSweeper] = None
+        # v0.9.2: graceful-shutdown drain budget (seconds). None defers to
+        # ``MN_GRACEFUL_SHUTDOWN_TIMEOUT`` at ``stop()`` time.
+        self._drain_timeout = drain_timeout
 
     @property
     def queue(self) -> LocalTaskQueue:
@@ -702,14 +723,49 @@ class TaskAPIServer:
         )
         self._sweeper.start()
 
-    def stop(self) -> None:
-        """Stop the HTTP server."""
-        # Flag the draining state first so in-flight probes report it
-        # immediately, then tear the sweeper down.
+    def begin_drain(self, drain_timeout: Optional[float] = None) -> None:
+        """Enter draining mode: reject new tasks and drain in-flight ones.
+
+        v0.9.2 graceful-shutdown lifecycle, in order:
+
+        1. Flag ``_shutting_down`` — new ``POST /tasks`` are rejected and
+           the ``/ready`` / ``/health`` / ``/info`` endpoints report the
+           draining state.
+        2. Stop the artifact sweeper (its thread may not outlive us).
+        3. When this server owns the task queue, drain it: wait up to
+           ``drain_timeout`` (default ``MN_GRACEFUL_SHUTDOWN_TIMEOUT``)
+           for in-flight tasks, force-cancelling whatever remains.
+
+        The HTTP loop is *not* stopped here — extracted from ``stop()`` so
+        the daemon's signal path can drain while probes still answer.
+        Idempotent; safe to call more than once.
+        """
         self._shutting_down.set()
         if self._sweeper is not None:
             self._sweeper.stop()
             self._sweeper = None
+
+        if self._owns_queue:
+            timeout = (
+                drain_timeout
+                if drain_timeout is not None
+                else self._drain_timeout
+            )
+            if timeout is None:
+                from .daemon import graceful_shutdown_timeout
+
+                timeout = graceful_shutdown_timeout()
+            self._queue.shutdown(wait=True, timeout=timeout)
+
+    def stop(self, drain_timeout: Optional[float] = None) -> None:
+        """Stop the HTTP server, draining in-flight tasks first.
+
+        v0.9.2 drain semantics: new submissions are rejected immediately,
+        in-flight tasks get a bounded chance to finish, and only then is
+        the HTTP loop torn down. ``drain_timeout`` overrides the value
+        given at construction / ``MN_GRACEFUL_SHUTDOWN_TIMEOUT``.
+        """
+        self.begin_drain(drain_timeout)
         if self._server is not None:
             self._server.shutdown()
             self._server.server_close()
@@ -717,9 +773,6 @@ class TaskAPIServer:
         if self._thread is not None:
             self._thread.join(timeout=5)
             self._thread = None
-
-        if self._owns_queue:
-            self._queue.shutdown()
 
     def __enter__(self) -> "TaskAPIServer":
         self.start(blocking=False)
