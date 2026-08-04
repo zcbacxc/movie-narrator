@@ -183,31 +183,108 @@ class SilentConsole(BaseConsole):
     use it as a context manager (with pbar: ...) simply do nothing.
     """
 
-    def step(self, name: str) -> None: ...
-    def step_ok(self, name: str, elapsed: float) -> None: ...
-    def step_skip(self, name: str, reason: str) -> None: ...
-    def step_warn(self, name: str, reason: str) -> None: ...
-    def step_err(self, name: str, exc: Exception, elapsed: float) -> None: ...
-    def warn(self, msg: str) -> None: ...
-    def info(self, msg: str) -> None: ...
-    def debug(self, msg: str) -> None: ...
-    def inline_warn(self, msg: str) -> None: ...
-    def final(self, msg: str) -> None: ...
-    def done(self, elapsed: float) -> None: ...
-    def cancelled(self, msg: str) -> None: ...
+    def step(self, name: str) -> None:
+        """Record the start of a pipeline step.
+
+        Args:
+            name: The step's display name.
+        """
+        ...
+
+    def step_ok(self, name: str, elapsed: float) -> None:
+        """Mark the current step as successfully completed.
+
+        Args:
+            name: The step's display name.
+            elapsed: Seconds the step took.
+        """
+        ...
+
+    def step_skip(self, name: str, reason: str) -> None:
+        """Mark the current step as skipped.
+
+        Args:
+            name: The step's display name.
+            reason: Why the step was skipped.
+        """
+        ...
+
+    def step_warn(self, name: str, reason: str) -> None:
+        """Mark the current step as completed with warnings.
+
+        Args:
+            name: The step's display name.
+            reason: The warning message.
+        """
+        ...
+
+    def step_err(self, name: str, exc: Exception, elapsed: float) -> None:
+        """Mark the current step as failed.
+
+        Args:
+            name: The step's display name.
+            exc: The exception that was raised.
+            elapsed: Seconds the step took before failing.
+        """
+        ...
+
+    def warn(self, msg: str) -> None:
+        """Emit a warning message.
+
+        Args:
+            msg: The warning text.
+        """
+        ...
+
+    def info(self, msg: str) -> None:
+        """Emit an informational message.
+
+        Args:
+            msg: The message text.
+        """
+        ...
+
+    def debug(self, msg: str) -> None:
+        """Emit a debug message.
+
+        Args:
+            msg: The debug text.
+        """
+        ...
+
+    def inline_warn(self, msg: str) -> None:
+        """Emit a warning message.
+
+        Args:
+            msg: The warning text.
+        """
+        ...
+
+    def final(self, msg: str) -> None:
+        """Print the final pipeline summary.
+
+        Args:
+            msg: The summary text.
+        """
+        ...
+
+    def done(self, elapsed: float) -> None:
+        """Mark the pipeline as complete.
+
+        Args:
+            elapsed: Total seconds for the run.
+        """
+        ...
+
+    def cancelled(self, msg: str) -> None:
+        """Mark the pipeline as cancelled.
+
+        Args:
+            msg: The cancellation reason.
+        """
+        ...
+
     def progress(self, *args, **kwargs):
-        """Record the start of a pipeline step."""
-        """Mark the current step as successfully completed."""
-        """Mark the current step as skipped."""
-        """Mark the current step as completed with warnings."""
-        """Mark the current step as failed."""
-        """Emit a warning message."""
-        """Emit an informational message."""
-        """Emit a debug message."""
-        """Emit a warning message."""
-        """Print the final pipeline summary."""
-        """Mark the pipeline as complete."""
-        """Mark the pipeline as cancelled."""
         """Update progress display."""
         return None
 
