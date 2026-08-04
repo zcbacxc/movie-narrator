@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.7] - 2026-08-04
+
+### Added
+
+- **Tutorial series** — new `docs/TUTORIAL.md` (+ `.zh-CN.md`): a from-zero-to-advanced usage walkthrough for content creators, covering quick creation, `job.yaml` configuration, presets & styles, multilingual & voice, advanced pipeline control, async jobs & remote service, batch & reliability, and plugin management.
+- **Architecture Decision Records** — new `docs/ADR.md` (+ `.zh-CN.md`): 10 ADRs (ADR-001..ADR-010) documenting key design decisions (contract layer isolation, provider registry, soft-step degradation, circuit breaker, checkpoints, batching/scheduling, DLQ & distributed rendering, config boundary, input sanitization, i18n & localized voice) with the standard Status/Context/Decision/Consequences/Alternatives structure.
+- **Migration guide** — new `docs/MIGRATION.md` (+ `.zh-CN.md`): a v0.x → v1.0 upgrade path covering breaking changes (`format` → `video_format`, `mn serve` binding), configuration boundary migration, plugin migration, `CONTRACT_VERSION` semantics, step-by-step upgrade and rollback procedures.
+- **Documentation governance** — `mkdocs.yml` nav, `docs/index.md`, `docs/AI_GUIDE.md` (+ `.zh-CN.md`) updated to surface the new tutorial, ADR, and migration pages; `.claude/rules/documentation.md` extended with the new documents' standards.
+
 ## [0.9.6] - 2026-08-04
 
 ### Added
@@ -1184,7 +1193,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `workflow_steps` and `params` metadata injection.
 - Console log refactoring design.
 
-[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v0.9.5...HEAD
+[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v0.9.7...HEAD
+[0.9.7]: https://github.com/zcbacxc/movie-narrator/compare/v0.9.6...v0.9.7
+[0.9.6]: https://github.com/zcbacxc/movie-narrator/compare/v0.9.5...v0.9.6
 [0.9.5]: https://github.com/zcbacxc/movie-narrator/compare/v0.9.4...v0.9.5
 [0.9.4]: https://github.com/zcbacxc/movie-narrator/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/zcbacxc/movie-narrator/compare/v0.9.2...v0.9.3

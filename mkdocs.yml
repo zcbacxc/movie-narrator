@@ -17,11 +17,14 @@ theme:
 nav:
   - Home: index.md
   - Quickstart: QUICKSTART.md
+  - Tutorial: TUTORIAL.md
   - Best Practices: BEST_PRACTICES.md
   - Plugin Development: PLUGIN_DEVELOPMENT.md
   - Architecture: ARCHITECTURE.md
+  - Architecture Decision Records: ADR.md
   - Metadata Schema: METADATA_SCHEMA.md
   - Roadmap: ROADMAP.md
+  - Migration Guide: MIGRATION.md
   - Contributing: CONTRIBUTING.md
   - Deployment: DEPLOYMENT.md
   - Observability: OBSERVABILITY.md
