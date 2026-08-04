@@ -5,7 +5,7 @@
 
 A complete from-zero-to-advanced walkthrough of **movie-narrator**, a Python engine that turns a single movie title into a narrated recap video. This tutorial is written for **content creators** — you do not need to be a developer to follow it. If you are a plugin author, please read [QUICKSTART.md](QUICKSTART.md) instead.
 
-> **Compatibility note.** This document describes version **0.9.7** governance. The engine itself is at **0.9.6** with `CONTRACT_VERSION=(0,9,5)`. Run `mn version` to check your installed build.
+> **Compatibility note.** This document describes version **1.0.0** governance. The engine is at **1.0.0** with `CONTRACT_VERSION=(1,0,0)`. Run `mn version` to check your installed build.
 
 ---
 

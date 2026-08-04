@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+"""Audio-to-script alignment using WhisperX."""
+
 from ..models import Context, StepResult
 from ..utils.optional_deps import probe  # noqa: F401  (re-exported for tests)
 from ..utils.alignment_qa import (
@@ -33,12 +35,14 @@ _MIN_SEGMENT_DURATION = 0.1
 
 
 def _detect_drift(ctx: Context, wx_segments: list, backend_name: str) -> bool:
-    """Return True if drift too large (caller should skip remapping).
+    """
+    Returns:
+        True if drift too large (caller should skip remapping).
 
-    Drift detection: if ASR finds only 1 segment for the entire
-    audio, it's unreliable. We compare its duration against the total
-    narration duration; if the drift exceeds _DRIFT_THRESHOLD, we skip
-    remapping and keep TTS estimates.
+        Drift detection: if ASR finds only 1 segment for the entire
+        audio, it's unreliable. We compare its duration against the total
+        narration duration; if the drift exceeds _DRIFT_THRESHOLD, we skip
+        remapping and keep TTS estimates.
     """
     if len(wx_segments) != 1 or not ctx.timed_segments:
         return False
@@ -68,8 +72,9 @@ def _remap_segments(ctx: Context, wx_segments: list) -> int:
     contains the narration midpoint (falls back to nearest midpoint).
     Enforces monotonic non-overlap with backward-jump detection.
 
-    Returns the count of segments skipped due to extreme backward jumps
-    (backward-jump diagnostic).
+    Returns:
+        The count of segments skipped due to extreme backward jumps
+        (backward-jump diagnostic).
     """
     prev_end = 0.0
     backward_skipped = 0

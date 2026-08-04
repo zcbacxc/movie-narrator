@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+"""Clip export step — export matched scenes as individual files."""
+
 import shutil
 import subprocess
 from pathlib import Path
@@ -13,6 +15,14 @@ from ..utils.warnings import append_warning
 
 
 def export_clips(ctx: Context) -> Context:
+    """Export matched scenes as individual video clips.
+
+    Args:
+        ctx: Pipeline execution context.
+
+    Returns:
+        Updated pipeline context with exported clips.
+    """
     if not ctx.metadata.get("export_clips", True):
         ctx.status.export = "skipped"
         ctx.step_state.result = StepResult.SKIPPED

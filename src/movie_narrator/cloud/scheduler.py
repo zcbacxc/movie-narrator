@@ -17,7 +17,7 @@ Typical usage::
     from movie_narrator.cloud import JobScheduler, ScheduleRequest
 
     scheduler = JobScheduler(queue=queue, poll_interval=15.0)
-    scheduler.register_schedule("*/5 * * * *", TaskRequest(movie_name="阿甘正传"))
+    scheduler.register_schedule("*/5 * * * *", TaskRequest(movie_name="Forrest Gump"))
     scheduler.start()
     ...
     scheduler.stop()
@@ -90,7 +90,10 @@ class ScheduleRun(BaseModel):
 
 
 def _utc_now_iso() -> str:
-    """Return the current UTC time in ISO-8601 format."""
+    """
+    Returns:
+        The current UTC time in ISO-8601 format.
+    """
     return datetime.now(timezone.utc).isoformat()
 
 
@@ -120,7 +123,10 @@ class CronField:
         self.values = values
 
     def matches(self, value: int) -> bool:
-        """Return True if ``value`` is allowed by this field."""
+        """
+        Returns:
+            True if ``value`` is allowed by this field.
+        """
         return self.wildcard or value in self.values
 
 
@@ -265,7 +271,10 @@ class CronExpression:
         return True
 
     def matches(self, dt: datetime) -> bool:
-        """Return True if ``dt`` falls on a scheduled instant."""
+        """
+        Returns:
+            True if ``dt`` falls on a scheduled instant.
+        """
         return (
             self.minute.matches(dt.minute)
             and self.hour.matches(dt.hour)
@@ -273,11 +282,13 @@ class CronExpression:
         )
 
     def next_after(self, dt: datetime) -> datetime:
-        """Return the next scheduled time strictly after ``dt``.
+        """
+        Returns:
+            The next scheduled time strictly after ``dt``.
 
-        Times are compared at minute resolution. Raises ``ScheduleError``
-        when no matching instant exists within :data:`_MAX_SCAN_DAYS`
-        (e.g. a ``Feb 30`` expression).
+            Times are compared at minute resolution. Raises ``ScheduleError``
+            when no matching instant exists within :data:`_MAX_SCAN_DAYS`
+            (e.g. a ``Feb 30`` expression).
         """
         for offset in range(_MAX_SCAN_DAYS):
             date = dt.date() + timedelta(days=offset)
@@ -400,7 +411,10 @@ class JobScheduler:
         return schedules
 
     def get_runs(self, schedule_id: str) -> List[ScheduleRun]:
-        """Return the most recent trigger records for one schedule."""
+        """
+        Returns:
+            The most recent trigger records for one schedule.
+        """
         runs = [r for r in self._runs_store.list() if r.schedule_id == schedule_id]
         runs.sort(key=lambda r: r.run_at, reverse=True)
         return runs[: self._max_runs]

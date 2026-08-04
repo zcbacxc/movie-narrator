@@ -1,22 +1,22 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""Mainstream-dry preset — 12 句×5s, 慢切镜, 厚背板字幕.
+"""Mainstream dry commentary preset — 12 sentences × 5s, slow cuts, thick backplate subtitles.
 
-主流干货剪辑风格(谷阿莫/影视飓风节奏)。句速放慢,切镜稳,BGM 轻。
-适合"电影速看"类中长视频。
+Mainstream dry editing style (Gu Amo / Movie Hurricane rhythm). Slower sentence pace, steady cuts, light BGM.
+Suitable for "movie quick recap" medium-long videos.
 """
 
 from typing import Any, Dict
 
 
 class MainstreamDryPreset:
-    """主流干货风格 — 谷阿莫/影视飓风节奏。"""
+    """Mainstream dry style — Gu Amo / Movie Hurricane rhythm."""
 
     name = "mainstream-dry"
 
     def render_template(self) -> Dict[str, Any]:
-        """横屏长视频包装模板 — 标题简洁, 无水印无免责声明。"""
+        """Landscape long-form video wrapper template — clean title, no watermark, no disclaimer."""
         return {
             "title_card_text": "{movie}",
             "end_card_text": "感谢观看",
@@ -27,23 +27,28 @@ class MainstreamDryPreset:
         }
 
     def params(self) -> Dict[str, Any]:
+        """Return the preset parameter dictionary.
+
+        Returns:
+            Dictionary of preset parameters.
+        """
         return {
-            # Match: 慢切镜,拒绝大幅拉伸
+            # Match: slow cuts, reject large stretch
             "match_speed_clamp_min": 0.9,
             "match_speed_clamp_max": 1.05,
             "scene_merge_min_duration": 3.5,
             "match_drop_scene_min_duration": 0.5,
-            # BGM: 更轻,不抢人声
+            # BGM: lighter, don't overpower the voice
             "bgm_duck_db": -15.0,
             "bgm_normalize": True,
             "audio_target_dbfs": -14.0,
-            # Render: 厚背板字幕
+            # Render: thick backplate subtitles
             "render_subtitle_position": "bottom",
             "render_font_size": 90,
-            # TTS: 留呼吸
+            # TTS: leave breathing room
             "tts_pause_ms": 200,
-            # Prompt: 12 句×~5s (60s 基准), max_chars 按字速 3.8 字/s 计算
-            # 5.0s × 3.8 = 19.0 字, max_chars=22 留 16% 余量
+            # Prompt: 12 sentences x ~5s (60s baseline); max_chars at 3.8 chars/s
+            # 5.0s x 3.8 = 19.0 chars, max_chars=22 leaves 16% headroom
             "prompt_target_sentences": 12,
             "prompt_target_segment_duration": 5.0,
             "prompt_max_chars_per_sentence": 22,
@@ -61,6 +66,11 @@ class MainstreamDryPreset:
         }
 
     def prompt_tags(self) -> Dict[str, str]:
+        """Return the prompt style tags for this preset.
+
+        Returns:
+            Dictionary of prompt style tags.
+        """
         return {
             "prompt_cadence": "measured",
             "prompt_register": "spoken",
@@ -68,4 +78,9 @@ class MainstreamDryPreset:
         }
 
     def description(self) -> str:
+        """Return a human-readable description of the preset.
+
+        Returns:
+            Preset description string.
+        """
         return "主流干货 — 12句×5s, 慢切镜, 谷阿莫/影视飓风节奏"

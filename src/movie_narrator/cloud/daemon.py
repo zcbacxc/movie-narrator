@@ -52,11 +52,13 @@ _DEFAULT_DRAIN_TIMEOUT = 30.0
 
 
 def graceful_shutdown_timeout() -> float:
-    """Return the graceful-shutdown drain budget in seconds (v0.9.2).
+    """
+    Returns:
+        The graceful-shutdown drain budget in seconds (v0.9.2).
 
-    Reads ``MN_GRACEFUL_SHUTDOWN_TIMEOUT`` through :func:`get_settings`
-    (default :data:`_DEFAULT_DRAIN_TIMEOUT`). Falls back to the default
-    when settings cannot be loaded, so a signal handler never raises.
+        Reads ``MN_GRACEFUL_SHUTDOWN_TIMEOUT`` through :func:`get_settings`
+        (default :data:`_DEFAULT_DRAIN_TIMEOUT`). Falls back to the default
+        when settings cannot be loaded, so a signal handler never raises.
     """
     try:
         from ..config import get_settings
@@ -96,7 +98,10 @@ def drain_inflight(
 
 
 def _is_loopback(host: str) -> bool:
-    """Return True if ``host`` is a loopback / local-only address."""
+    """
+    Returns:
+        True if ``host`` is a loopback / local-only address.
+    """
     return host.lower() in _LOOPBACK_HOSTS
 
 

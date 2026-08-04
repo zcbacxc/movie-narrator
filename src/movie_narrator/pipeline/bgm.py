@@ -1,9 +1,11 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+"""Background music mixing step."""
+
 import logging
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 import numpy as np
 import yaml
@@ -91,9 +93,10 @@ def ensure_final_audio(ctx: Context) -> Context:
 def _compute_emotion_profile(beats_meta: list) -> dict[str, float] | None:
     """Compute the emotion distribution as normalised weights.
 
-    Returns a dict mapping emotion -> fraction (0.0-1.0), or ``None``
-    when no usable emotions are present. The distribution considers
-    ALL emotions, not just the dominant one, enabling better BGM matching.
+    Returns:
+        A dict mapping emotion -> fraction (0.0-1.0), or ``None``
+        when no usable emotions are present. The distribution considers
+        ALL emotions, not just the dominant one, enabling better BGM matching.
     """
     counts: Dict[str, int] = {}
     for bm in beats_meta:
@@ -128,7 +131,8 @@ def _score_bgm_candidate(sample: dict, emotion_profile: dict[str, float]) -> flo
     - Energy alignment between BGM energy and weighted narration energy
     - Versatility bonus when the BGM mood covers a secondary emotion
 
-    Returns 0.0 when the sample's mood doesn't match any emotion.
+    Returns:
+        0.0 when the sample's mood doesn't match any emotion.
     """
     mood = sample.get("mood")
     if not isinstance(mood, str) or mood not in emotion_profile:
@@ -176,15 +180,16 @@ def select_bgm_by_emotion(ctx: Context) -> Optional[str]:
     - Energy alignment between narration intensity and BGM energy
     - Versatility for multi-emotion narratives
 
-    Returns the resolved path to the selected BGM file, or ``None`` when:
-      - no ``beats_meta`` / no usable emotions
-      - no BGM metadata file exists (or is unreadable)
-      - no sample matches any emotion in the profile
-      - the matched file does not exist on disk
+    Returns:
+        The resolved path to the selected BGM file, or ``None`` when:
+        - no ``beats_meta`` / no usable emotions
+        - no BGM metadata file exists (or is unreadable)
+        - no sample matches any emotion in the profile
+        - the matched file does not exist on disk
 
-    This is a SOFT enhancement: callers fall back to the existing BGM
-    selection logic when ``None`` is returned, so existing behaviour is
-    preserved when no metadata is available.
+        This is a SOFT enhancement: callers fall back to the existing BGM
+        selection logic when ``None`` is returned, so existing behaviour is
+        preserved when no metadata is available.
     """
     beats_meta = ctx.metadata.get("beats_meta") or []
     emotion_profile = _compute_emotion_profile(beats_meta)
@@ -271,10 +276,11 @@ def _detect_emotion_zones(
 ) -> list[dict]:
     """Detect contiguous emotion zones from per-segment emotions.
 
-    Returns a list of ``{start, end, emotion, segment_range}`` dicts
-    representing contiguous regions where the narration emotion is
-    constant.  Zone boundaries are the points where the emotion label
-    changes between consecutive segments.
+    Returns:
+        A list of ``{start, end, emotion, segment_range}`` dicts
+        representing contiguous regions where the narration emotion is
+        constant.  Zone boundaries are the points where the emotion label
+        changes between consecutive segments.
     """
     if not timed_segments or not segment_emotions:
         return []
@@ -321,9 +327,10 @@ def _apply_emotion_transitions(
     transitions from the previous zone's gain to the new zone's gain
     over ``transition_ms`` milliseconds, avoiding abrupt volume jumps.
 
-    Returns ``(adjusted_bgm, transitions)`` where ``transitions`` is a
-    list of ``{position_s, from_emotion, to_emotion, transition_ms}``
-    dicts for diagnostics.
+    Returns:
+        ``(adjusted_bgm, transitions)`` where ``transitions`` is a
+        list of ``{position_s, from_emotion, to_emotion, transition_ms}``
+        dicts for diagnostics.
     """
     if not zones or len(bgm) == 0:
         return bgm, []
@@ -333,7 +340,7 @@ def _apply_emotion_transitions(
     if n_samples == 0 or sample_rate == 0:
         return bgm, []
 
-    envelope = np.ones(n_samples, dtype=np.float64)
+    envelope: Any = np.ones(n_samples, dtype=np.float64)
     transitions: list[dict] = []
 
     for i, zone in enumerate(zones):
@@ -403,7 +410,7 @@ def _mix_ambient_track(
     ambient_path: str,
     ambient_gain_db: float = -12.0,
     duck_db: float = -10.0,
-    timed_segments: list = None,
+    timed_segments: Optional[list] = None,
 ) -> tuple[AudioSegment, dict]:
     """Mix an ambient/SFX track beneath the narration+BGM audio.
 
@@ -411,8 +418,9 @@ def _mix_ambient_track(
     under the narration in real time via :func:`duck_bgm`, so the ambient
     sits lower while narration is active and swells back up in the pauses.
 
-    Returns ``(mixed_audio, ambient_info_dict)``. On any error,
-    returns the original audio unchanged with an empty info dict.
+    Returns:
+        ``(mixed_audio, ambient_info_dict)``. On any error,
+        returns the original audio unchanged with an empty info dict.
     """
     info: dict = {}
     try:
@@ -442,6 +450,14 @@ def _mix_ambient_track(
 
 
 def mix_bgm(ctx: Context) -> Context:
+    """Mix background music with narration audio.
+
+    Args:
+        ctx: Pipeline execution context.
+
+    Returns:
+        Updated pipeline context with mixed audio.
+    """
     if not ctx.audio_path:
         ctx.status.bgm = "skipped"
         ctx.final_audio_path = ctx.audio_path

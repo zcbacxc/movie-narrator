@@ -54,11 +54,13 @@ _HINT_TO_CODEC: dict[str, str] = {
 
 
 def _candidate_order() -> list[str]:
-    """Return the platform-aware candidate detection order.
+    """
+    Returns:
+        The platform-aware candidate detection order.
 
-    Windows prefers NVENC, macOS prefers VideoToolbox, Linux prefers
-    VAAPI.  The remaining encoders keep their base relative order so a
-    secondary GPU is still picked up when the preferred one is absent.
+        Windows prefers NVENC, macOS prefers VideoToolbox, Linux prefers
+        VAAPI.  The remaining encoders keep their base relative order so a
+        secondary GPU is still picked up when the preferred one is absent.
     """
     system = platform.system()
     preferred = {

@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+"""Video rendering step — compose the final video."""
+
 import json
 import logging
 import shutil
@@ -54,6 +56,7 @@ class _RenderProgressLogger(TqdmProgressBarLogger):
     }
 
     def bars_callback(self, bar, attr, value, old_value):
+        """Callback for progress bar updates during rendering."""
         # Rename bar title before tqdm creates the bar (first callback only)
         if bar in self.bars and self.bars[bar]["title"] == bar:
             self.bars[bar]["title"] = self._BAR_LABELS.get(bar, bar)
@@ -61,10 +64,12 @@ class _RenderProgressLogger(TqdmProgressBarLogger):
 
 
 def _get_video_sizes(ctx: Context) -> dict:
-    """Return video_sizes dict from job params (ctx.metadata) with defaults fallback.
+    """
+    Returns:
+        Video_sizes dict from job params (ctx.metadata) with defaults fallback.
 
-    The metadata value (from YAML) is already a dict; ``{"16:9": (1920, 1080), "9:16": (1080, 1920)}``
-    is also a dict — no JSON parsing needed.
+        The metadata value (from YAML) is already a dict; ``{"16:9": (1920, 1080), "9:16": (1080, 1920)}``
+        is also a dict — no JSON parsing needed.
     """
     raw = ctx.metadata.get("video_sizes", {"16:9": (1920, 1080), "9:16": (1080, 1920)})
     return {k: tuple(v) for k, v in raw.items()}
@@ -208,7 +213,8 @@ def _export_cover_image(
 def _substitute_movie(text: str, movie_name: str) -> str:
     """Replace the ``{movie}`` placeholder with the actual movie name.
 
-    Returns the original text unchanged when the placeholder is absent.
+    Returns:
+        The original text unchanged when the placeholder is absent.
     """
     if not text:
         return text
@@ -219,7 +225,8 @@ def _create_watermark_image(text: str, size: tuple, fontsize: int = 36):
     """Create a full-canvas transparent image with small
     semi-transparent text anchored to the top-right corner.
 
-    Returns a ``numpy.ndarray`` (RGBA) suitable for ``ImageClip``.
+    Returns:
+        A ``numpy.ndarray`` (RGBA) suitable for ``ImageClip``.
     """
     import numpy as np
     from ..utils.font import get_font
@@ -243,6 +250,14 @@ def _create_watermark_image(text: str, size: tuple, fontsize: int = 36):
 
 
 def render_video(ctx: Context) -> Context:
+    """Render the final narrated video.
+
+    Args:
+        ctx: Pipeline execution context.
+
+    Returns:
+        Updated pipeline context with rendered output.
+    """
     # Safety net: ensure final audio is normalized even if mix_bgm
     # was skipped or failed. This guarantees render never receives raw
     # unnormalized narration when bgm_normalize=True.
@@ -649,9 +664,11 @@ def render_video(ctx: Context) -> Context:
             "ffmpeg binary not found on PATH — required for production-quality "
             "mux. Install ffmpeg (https://ffmpeg.org/download.html) and retry."
         )
+    ffmpeg_bin = shutil.which("ffmpeg")
+    assert ffmpeg_bin is not None
 
     mux_cmd = [
-        shutil.which("ffmpeg"),
+        ffmpeg_bin,
         "-y",
         "-loglevel", "error",
         "-i", str(video_only_path),

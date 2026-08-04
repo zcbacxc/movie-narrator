@@ -124,7 +124,10 @@ class ArtifactLifecyclePolicy:
 
 
 def sweep_interval_from_env(env: Optional[Mapping[str, str]] = None) -> float:
-    """Return the sweeper period from ``MN_ARTIFACT_SWEEP_INTERVAL``."""
+    """
+    Returns:
+        The sweeper period from ``MN_ARTIFACT_SWEEP_INTERVAL``.
+    """
     environ: Mapping[str, str] = os.environ if env is None else env
     raw = environ.get("MN_ARTIFACT_SWEEP_INTERVAL")
     if raw is None or not str(raw).strip():
@@ -183,7 +186,10 @@ class CleanupReport:
         return len(self.deleted)
 
     def summary(self) -> str:
-        """Return a one-line human-readable summary."""
+        """
+        Returns:
+            A one-line human-readable summary.
+        """
         prefix = "[dry-run] would delete" if self.dry_run else "deleted"
         return (
             f"{prefix} {len(self.deleted)} artifact(s), "
@@ -455,7 +461,10 @@ class ArtifactSweeper:
 
 
 def describe_policy(policy: ArtifactLifecyclePolicy) -> Sequence[str]:
-    """Return human-readable lines describing *policy* (used by the CLI)."""
+    """
+    Returns:
+        Human-readable lines describing *policy* (used by the CLI).
+    """
     lines = [
         f"ttl_seconds     : {policy.ttl_seconds or 'disabled'}",
         f"max_total_bytes : "

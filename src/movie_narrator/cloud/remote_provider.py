@@ -51,9 +51,10 @@ def list_artifacts(
 ) -> List[Dict[str, str]]:
     """List available output artifacts for a completed task.
 
-    Returns a list of dicts with ``filename``, ``size``, and ``path``
-    keys. Returns an empty list if the task has no output directory
-    or the directory doesn't exist.
+    Returns:
+        A list of dicts with ``filename``, ``size``, and ``path``
+        keys. Returns an empty list if the task has no output directory
+        or the directory doesn't exist.
     """
     url = f"{base_url.rstrip('/')}/tasks/{task_id}/artifacts"
     headers = {}
@@ -145,7 +146,8 @@ def download_all_artifacts(
 ) -> List[Path]:
     """Download all available artifacts for a task.
 
-    Returns a list of paths to downloaded files.
+    Returns:
+        A list of paths to downloaded files.
     """
     artifacts = list_artifacts(
         base_url, task_id, timeout=timeout, api_key=api_key
@@ -235,6 +237,7 @@ def register_remote_tts(base_url: str, api_key: Optional[str] = None) -> None:
             voice: str,
             output_path: Path,
         ) -> None:
+            """(async) Synthesize speech from text."""
             import asyncio
             payload = json.dumps({
                 "text": text,

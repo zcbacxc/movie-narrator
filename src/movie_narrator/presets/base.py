@@ -110,18 +110,22 @@ class Preset(Protocol):
     name: str
 
     def params(self) -> Dict[str, Any]:
-        """Return JobParams-compatible key-value defaults.
+        """
+        Returns:
+            JobParams-compatible key-value defaults.
 
-        Keys must be in :data:`ALLOWED_PARAM_KEYS`.  Values must be
-        valid for the corresponding :class:`JobParams` field.
+            Keys must be in :data:`ALLOWED_PARAM_KEYS`.  Values must be
+            valid for the corresponding :class:`JobParams` field.
         """
         ...
 
     def prompt_tags(self) -> Dict[str, str]:
-        """Return closed-vocabulary prompt shaping labels.
+        """
+        Returns:
+            Closed-vocabulary prompt shaping labels.
 
-        Keys must be in :data:`ALLOWED_PROMPT_TAGS` and values must be
-        in the corresponding allowed set.
+            Keys must be in :data:`ALLOWED_PROMPT_TAGS` and values must be
+            in the corresponding allowed set.
         """
         ...
 
@@ -130,20 +134,22 @@ class Preset(Protocol):
         ...
 
     def render_template(self) -> Dict[str, Any]:
-        """Return render styling options for overlay text.
+        """
+        Returns:
+            Render styling options for overlay text.
 
-        All keys are optional.  Recognised keys:
+            All keys are optional.  Recognised keys:
 
-        - ``title_card_text`` (str): text for the opening title card.
-        - ``end_card_text`` (str): text for the closing end card.
-        - ``watermark_text`` (str): small semi-transparent top-right text.
-        - ``disclaimer_text`` (str): small text shown at the very bottom.
-        - ``slogan_text`` (str): promotional slogan overlay.
-        - ``aspect_safe_area`` (dict): safe-area ratios with keys
-          ``max_width_ratio`` (float) and ``bottom_margin_ratio`` (float).
+            - ``title_card_text`` (str): text for the opening title card.
+            - ``end_card_text`` (str): text for the closing end card.
+            - ``watermark_text`` (str): small semi-transparent top-right text.
+            - ``disclaimer_text`` (str): small text shown at the very bottom.
+            - ``slogan_text`` (str): promotional slogan overlay.
+            - ``aspect_safe_area`` (dict): safe-area ratios with keys
+            ``max_width_ratio`` (float) and ``bottom_margin_ratio`` (float).
 
-        The ``{movie}`` placeholder in any string value is replaced with
-        the actual movie name at render time.
+            The ``{movie}`` placeholder in any string value is replaced with
+            the actual movie name at render time.
         """
         ...
 

@@ -18,8 +18,9 @@
 | v0.7.x | Output Experience / GPU encoding / cost tracking / preview mode / scene transitions / text animation / multi-track audio / security hardening |
 | v0.8.x | Service Deployment Basics / API key auth / video_format rename / render templates / exception narrowing / lint toolchain / queue deadlock fix |
 | v0.9.x | Reliability / Batch / Docs / circuit breaker / checkpoints / graceful shutdown / retry policy / batch jobs / cron / DLQ / distributed rendering / sanitization / SAST / coverage gate / integration tests / i18n / voice map / tutorial / ADR / migration guide |
+| v1.0.x | **Stable Release** / API freeze / stability guarantees / release checklist / final documentation pass / long-term support policy |
 
-`CONTRACT_VERSION` (current): `(0, 9, 5)`
+`CONTRACT_VERSION` (current): `(1, 0, 0)`
 
 ---
 
@@ -30,12 +31,26 @@
 ### v1.0.0 — Stable Release
 
 > **Goal**: API stability guarantee, production-ready, feature-complete for target use cases.
+> **Status**: Release Candidate phase — see [Release Checklist](RELEASE_CHECKLIST.md).
 
-- [ ] **CONTRACT_VERSION freeze** → `(1, 0, 0)` — API surface declared stable
-- [ ] **API stability guarantee** — no breaking changes in v1.x without v2.0
-- [ ] **Final documentation pass** — all docs reviewed and up-to-date
+- [x] **CONTRACT_VERSION freeze** → `(1, 0, 0)` — API surface declared stable
+- [x] **API stability guarantee** — no breaking changes in v1.x without v2.0; documented in [STABILITY.md](STABILITY.md)
+- [x] **Final documentation pass** — all docs reviewed and up-to-date
 - [ ] **Release announcement** — changelog, migration guide, blog post
-- [ ] **Long-term support policy** — v1.x maintenance branch and backport rules
+- [x] **Long-term support policy** — v1.x maintenance branch and backport rules (see [STABILITY.md](STABILITY.md#upgrade-guarantees))
+- [x] **Release checklist** — Definition of Done for v1.0 published
+
+---
+
+### v1.1.0 — Community & Polish (planning)
+
+> **Goal**: Community-driven improvements, plugin ecosystem growth, quality-of-life features.
+
+- [ ] Community preset sharing mechanism
+- [ ] Plugin marketplace / index
+- [ ] Enhanced error messages and diagnostics
+- [ ] Performance optimizations (incremental render cache)
+- [ ] Additional language support for narration
 
 ---
 

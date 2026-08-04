@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+"""Scene detection step — detect scene boundaries in source video."""
+
 import json
 from pathlib import Path
 
@@ -9,6 +11,14 @@ from ..utils.optional_deps import probe
 
 
 def detect_scenes(ctx: Context) -> Context:
+    """Detect scene boundaries in the source video.
+
+    Args:
+        ctx: Pipeline execution context.
+
+    Returns:
+        Updated pipeline context with scene information.
+    """
     ok, hint = probe("scenedetect")
     if not ok:
         ctx.status.scene = "disabled"

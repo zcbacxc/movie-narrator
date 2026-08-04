@@ -94,7 +94,10 @@ class DeadLetterStore:
         self._lock = threading.RLock()
 
     def _path(self, task_id: str) -> Path:
-        """Return the JSON path for *task_id*."""
+        """
+        Returns:
+            The JSON path for *task_id*.
+        """
         return self.storage_dir / f"{task_id}.json"
 
     def save(self, record: DeadLetterRecord) -> None:
@@ -184,10 +187,12 @@ def set_default_store(store: DeadLetterStore) -> None:
 
 
 def get_default_store() -> DeadLetterStore:
-    """Return the process-wide default dead-letter store.
+    """
+    Returns:
+        The process-wide default dead-letter store.
 
-    Lazily creates the default store at ``~/.mn_tasks/deadletters`` on
-    first use.
+        Lazily creates the default store at ``~/.mn_tasks/deadletters`` on
+        first use.
     """
     global _default_store
     if _default_store is None:

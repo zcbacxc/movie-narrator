@@ -103,7 +103,10 @@ class ProviderRegistry:
         del self._factories[name]
 
     def get(self, name: str) -> Optional[Callable[..., Any]]:
-        """Return the factory for *name*, or None."""
+        """
+        Returns:
+            The factory for *name*, or None.
+        """
         return self._factories.get(name)
 
     def create(self, name: str, *args: Any, **kwargs: Any) -> Any:
@@ -135,7 +138,10 @@ class ProviderRegistry:
         return instance
 
     def names(self) -> List[str]:
-        """Return all registered provider names."""
+        """
+        Returns:
+            All registered provider names.
+        """
         return list(self._factories.keys())
 
     def contains(self, name: str) -> bool:
@@ -143,10 +149,12 @@ class ProviderRegistry:
         return name in self._factories
 
     def info(self) -> List[Dict[str, Any]]:
-        """Return a list of dicts describing each registered provider.
+        """
+        Returns:
+            A list of dicts describing each registered provider.
 
-        Each dict contains the provider name, category, and whether
-        protocol validation is enabled.
+            Each dict contains the provider name, category, and whether
+            protocol validation is enabled.
         """
         return [
             {
@@ -201,6 +209,7 @@ def register_tts(name: str) -> Callable[[Callable[..., Any]], Callable[..., Any]
     """
 
     def decorator(factory: Callable[..., Any]) -> Callable[..., Any]:
+        """Register a decorator function."""
         return tts_registry.register(name, factory)
 
     return decorator
@@ -217,6 +226,7 @@ def register_vision(name: str) -> Callable[[Callable[..., Any]], Callable[..., A
     """
 
     def decorator(factory: Callable[..., Any]) -> Callable[..., Any]:
+        """Register a decorator function."""
         return vision_registry.register(name, factory)
 
     return decorator
@@ -240,6 +250,7 @@ def register_llm(name: str) -> Callable[[Callable[..., Any]], Callable[..., Any]
     """
 
     def decorator(factory: Callable[..., Any]) -> Callable[..., Any]:
+        """Register a decorator function."""
         return llm_registry.register(name, factory)
 
     return decorator
@@ -259,6 +270,7 @@ def register_research(name: str) -> Callable[[Callable[..., Any]], Callable[...,
     """
 
     def decorator(factory: Callable[..., Any]) -> Callable[..., Any]:
+        """Register a decorator function."""
         return research_registry.register(name, factory)
 
     return decorator

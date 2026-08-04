@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+"""Async utility helpers."""
+
 import asyncio
 import atexit
 import concurrent.futures
@@ -15,6 +17,7 @@ atexit.register(lambda: _executor.shutdown(wait=False))
 
 
 def run_async(coro: Coroutine[Any, Any, T], timeout: float = 300) -> T:
+    """Run a synchronous function asynchronously."""
     try:
         asyncio.get_running_loop()
     except RuntimeError:

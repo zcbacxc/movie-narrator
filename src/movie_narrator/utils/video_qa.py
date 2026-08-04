@@ -72,6 +72,11 @@ class VideoEncodingMetrics:
     audio_sample_rate: int = 0
 
     def to_dict(self) -> dict:
+        """Convert the QA result to a dictionary.
+
+        Returns:
+            Dictionary representation of the QA result.
+        """
         return {
             "codec": self.codec,
             "profile": self.profile,
@@ -97,6 +102,11 @@ class VideoQAReport:
     recommendations: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
+        """Convert the QA result to a dictionary.
+
+        Returns:
+            Dictionary representation of the QA result.
+        """
         return {
             "ok": self.ok,
             "metrics": self.metrics.to_dict(),
@@ -138,8 +148,9 @@ def _run_ffprobe(path: str, timeout: int = 30) -> Optional[dict]:
 def probe_video_encoding(path: str) -> VideoEncodingMetrics:
     """Extract video encoding metrics via ffprobe.
 
-    Returns a :class:`VideoEncodingMetrics` with all fields zeroed/empty
-    if ffprobe is unavailable or probing fails.
+    Returns:
+        A :class:`VideoEncodingMetrics` with all fields zeroed/empty
+        if ffprobe is unavailable or probing fails.
     """
     data = _run_ffprobe(path)
     if data is None:
@@ -201,8 +212,9 @@ def check_encoding_quality(
 ) -> VideoQAReport:
     """Validate encoding metrics against publishing thresholds.
 
-    Returns a :class:`VideoQAReport` with issues and recommendations.
-    The report is advisory — callers decide whether to act on it.
+    Returns:
+        A :class:`VideoQAReport` with issues and recommendations.
+        The report is advisory — callers decide whether to act on it.
     """
     report = VideoQAReport(metrics=metrics)
     issues: list[str] = []

@@ -106,11 +106,13 @@ probes: a failing *dependency* yields `"degraded"` with HTTP `200`
 
 
 def _pydantic_schemas() -> Dict[str, Any]:
-    """Return component schemas derived from the pydantic task models.
+    """
+    Returns:
+        Component schemas derived from the pydantic task models.
 
-    Nested models land in ``$defs``; they are hoisted to the top level
-    so that the ``#/components/schemas/{model}`` references produced by
-    ``ref_template`` all resolve.
+        Nested models land in ``$defs``; they are hoisted to the top level
+        so that the ``#/components/schemas/{model}`` references produced by
+        ``ref_template`` all resolve.
     """
     schemas: Dict[str, Any] = {}
     for model in _MODELS:
@@ -129,10 +131,12 @@ def _string(description: str, **extra: Any) -> Dict[str, Any]:
 
 
 def _manual_schemas() -> Dict[str, Any]:
-    """Return the component schemas for responses that have no model.
+    """
+    Returns:
+        The component schemas for responses that have no model.
 
-    These payloads are assembled inline by the request handler (plain
-    dicts rather than pydantic models), so they are described by hand.
+        These payloads are assembled inline by the request handler (plain
+        dicts rather than pydantic models), so they are described by hand.
     """
     check_result = {
         "type": "object",

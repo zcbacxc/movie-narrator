@@ -15,7 +15,7 @@ Typical usage::
     from movie_narrator.cloud import RemoteTaskQueue, TaskRequest
 
     queue = RemoteTaskQueue("http://worker-host:8765")
-    task_id = queue.submit(TaskRequest(movie_name="飞驰人生"))
+    task_id = queue.submit(TaskRequest(movie_name="The Dark Knight"))
     result = queue.wait(task_id, timeout=600)
 """
 
@@ -89,8 +89,9 @@ class RemoteTaskQueue:
     ) -> dict:
         """Make an HTTP request to the remote server.
 
-        Returns the parsed JSON response. Raises ``RemoteQueueError``
-        on network or protocol errors.
+        Returns:
+            The parsed JSON response. Raises ``RemoteQueueError``
+            on network or protocol errors.
         """
         url = f"{self._base_url}{path}"
         headers = {"Content-Type": "application/json; charset=utf-8"}
@@ -130,7 +131,8 @@ class RemoteTaskQueue:
     def submit(self, request: TaskRequest) -> str:
         """Submit a task to the remote server.
 
-        Returns the task ID assigned by the server.
+        Returns:
+            The task ID assigned by the server.
         """
         body = request.model_dump(mode="json", exclude_none=True)
         resp = self._request("POST", "/tasks", body=body)
@@ -172,7 +174,8 @@ class RemoteTaskQueue:
     def cancel(self, task_id: str) -> bool:
         """Request cancellation of a remote task.
 
-        Returns True if the cancellation was accepted by the server.
+        Returns:
+            True if the cancellation was accepted by the server.
         """
         try:
             resp = self._request("DELETE", f"/tasks/{task_id}")
@@ -216,8 +219,9 @@ class RemoteTaskQueue:
         iteration and is capped at 10 seconds to avoid excessive
         delays for long-running tasks.
 
-        Returns the ``TaskResult`` if the task completed, or None
-        if not found, cancelled, or timed out.
+        Returns:
+            The ``TaskResult`` if the task completed, or None
+            if not found, cancelled, or timed out.
         """
         start = time.time()
         interval = poll_interval
@@ -239,7 +243,8 @@ class RemoteTaskQueue:
     def submit_batch(self, request: BatchRequest) -> Batch:
         """Submit a batch of tasks to the remote server.
 
-        Returns the full ``Batch`` record assigned by the server.
+        Returns:
+            The full ``Batch`` record assigned by the server.
         """
         body = request.model_dump(mode="json", exclude_none=True)
         resp = self._request("POST", "/tasks/batch", body=body)
@@ -285,7 +290,8 @@ class RemoteTaskQueue:
     def health_check(self) -> bool:
         """Check if the remote server is reachable.
 
-        Returns True if the server responds to /health.
+        Returns:
+            True if the server responds to /health.
         """
         try:
             resp = self._request("GET", "/health")

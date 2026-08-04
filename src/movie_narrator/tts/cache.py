@@ -19,6 +19,8 @@ PROVIDER_CACHE_VERSIONS: dict[str, int] = {
 
 @dataclass(frozen=True, slots=True)
 class TTSCacheKey:
+    """Cache key for TTS audio results."""
+
     schema_version: int   # currently 3; bumps when key shape changes
     provider: str         # "edge" | "openai" | "mimo"
     provider_version: int  # per-backend encoding version

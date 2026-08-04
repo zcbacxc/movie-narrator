@@ -1,22 +1,22 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""Douyin-fast preset — 18 句×3.3s, 快切镜, 紧凑.
+"""Douyin fast-paced preset — 18 sentences × 3.3s, fast cuts, tight pacing.
 
-60s 短视频高完播率风格。句密高,切镜快,BGM 闪避深。
-这是 v0.4.13 的行为基线,作为默认 preset 保证向后兼容。
+60s short-form high-completion-rate style. Dense sentences, fast cuts, deep BGM ducking.
+This is the v0.4.13 behavior baseline, used as the default preset for backward compatibility.
 """
 
 from typing import Any, Dict
 
 
 class DouyinFastPreset:
-    """抖音快剪风格 — 高完播率短视频。"""
+    """Douyin fast-cut style — high completion rate short-form videos."""
 
     name = "douyin-fast"
 
     def render_template(self) -> Dict[str, Any]:
-        """竖屏短视频包装模板 — 有水印和免责声明。"""
+        """Portrait short-form video wrapper template — with watermark and disclaimer."""
         return {
             "title_card_text": "{movie}",
             "watermark_text": "{movie}解说",
@@ -30,24 +30,29 @@ class DouyinFastPreset:
         }
 
     def params(self) -> Dict[str, Any]:
+        """Return the preset parameter dictionary.
+
+        Returns:
+            Dictionary of preset parameters.
+        """
         return {
-            # Match: 快切镜,允许较大速度拉伸
+            # Match: fast cuts, allow larger speed stretch
             "match_speed_clamp_min": 0.85,
             "match_speed_clamp_max": 1.25,
             "scene_merge_min_duration": 2.0,
             "match_drop_scene_min_duration": 0.4,
-            # BGM: 深度闪避,不抢人声
+            # BGM: deep ducking, don't overpower the voice
             "bgm_duck_db": -10.0,
             "bgm_normalize": True,
             "audio_target_dbfs": -14.0,
             # RMS-based loudnorm for consistent loudness across short-form content
             "bgm_loudnorm": True,
-            # Render: 紧凑字幕
+            # Render: compact subtitles
             "render_subtitle_position": "bottom",
             "render_font_size": 100,
-            # TTS: 紧凑停顿
+            # TTS: tight pauses
             "tts_pause_ms": 150,
-            # Prompt: 18 句×~3.3s (60s 基准), max_chars 按字速 3.8 字/s 计算
+            # Prompt: 18 sentences x ~3.3s (60s baseline); max_chars at 3.8 chars/s
             "prompt_target_sentences": 18,
             "prompt_target_segment_duration": 3.3,
             "prompt_max_chars_per_sentence": 15,
@@ -71,6 +76,11 @@ class DouyinFastPreset:
         }
 
     def prompt_tags(self) -> Dict[str, str]:
+        """Return the prompt style tags for this preset.
+
+        Returns:
+            Dictionary of prompt style tags.
+        """
         return {
             "prompt_cadence": "brisk",
             "prompt_register": "spoken",
@@ -78,4 +88,9 @@ class DouyinFastPreset:
         }
 
     def description(self) -> str:
+        """Return a human-readable description of the preset.
+
+        Returns:
+            Preset description string.
+        """
         return "抖音快剪 — 18句×3.3s, 快切镜, 高完播率短视频风格"

@@ -16,7 +16,7 @@ import asyncio
 import base64
 from io import BytesIO
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
 from pydub import AudioSegment
 
@@ -61,7 +61,7 @@ class MimoTTSProvider(BaseTTSProvider):
     async def _real_synthesize(self, text: str, voice: str, output_path: Path) -> None:
         if self._model == MIMO_TTS:
             user_content = self._style_prompt
-            audio_param = {"format": "wav", "voice": voice}
+            audio_param: dict[str, Any] = {"format": "wav", "voice": voice}
         elif self._model == MIMO_VOICECLONE:
             user_content = ""
             voice_data_uri = self._encode_voice_file(voice)

@@ -235,7 +235,10 @@ class TaskResult(BaseModel):
 
 
 def _utc_now_iso() -> str:
-    """Return current UTC time in ISO format."""
+    """
+    Returns:
+        Current UTC time in ISO format.
+    """
     return datetime.now(timezone.utc).isoformat()
 
 
@@ -280,7 +283,8 @@ class Task(BaseModel):
     def elapsed_seconds(self) -> Optional[float]:
         """Elapsed time from start to completion (or now if still running).
 
-        Returns None if the task hasn't started yet.
+        Returns:
+            None if the task hasn't started yet.
         """
         if not self.started_at:
             return None
@@ -292,7 +296,10 @@ class Task(BaseModel):
         return (end - start).total_seconds()
 
     def to_summary(self) -> Dict[str, Any]:
-        """Return a compact summary dict for CLI display."""
+        """
+        Returns:
+            A compact summary dict for CLI display.
+        """
         return {
             "id": self.id,
             "movie": self.request.movie_name,

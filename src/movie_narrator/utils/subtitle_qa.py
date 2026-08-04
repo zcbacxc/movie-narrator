@@ -100,6 +100,11 @@ class SubtitleCueMetrics:
     issues: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
+        """Convert the QA result to a dictionary.
+
+        Returns:
+            Dictionary representation of the QA result.
+        """
         return {
             "index": self.index,
             "start": round(self.start, 3),
@@ -124,6 +129,11 @@ class SubtitleOverlap:
     overlap_s: float
 
     def to_dict(self) -> dict:
+        """Convert the QA result to a dictionary.
+
+        Returns:
+            Dictionary representation of the QA result.
+        """
         return {
             "index_a": self.index_a,
             "index_b": self.index_b,
@@ -143,8 +153,9 @@ def check_cps(
 ) -> tuple[float, bool]:
     """Calculate characters per second and check against threshold.
 
-    Returns ``(cps, is_high)`` where ``is_high`` is True when CPS
-    exceeds the script-appropriate threshold.
+    Returns:
+        ``(cps, is_high)`` where ``is_high`` is True when CPS
+        exceeds the script-appropriate threshold.
     """
     if duration_s <= 0:
         return 0.0, False
@@ -162,8 +173,9 @@ def check_line_length(
 ) -> tuple[int, bool]:
     """Estimate displayed line count and check against max chars per line.
 
-    Returns ``(estimated_lines, is_too_long)`` where ``is_too_long``
-    is True when any line exceeds the character limit.
+    Returns:
+        ``(estimated_lines, is_too_long)`` where ``is_too_long``
+        is True when any line exceeds the character limit.
     """
     is_cjk = _is_cjk_text(text)
     max_chars = max_chars_cjk if is_cjk else max_chars_latin
@@ -212,8 +224,9 @@ def check_overlaps(
 ) -> list[SubtitleOverlap]:
     """Detect overlapping cues in a list of timed segments.
 
-    Returns a list of :class:`SubtitleOverlap` instances.  An overlap
-    occurs when ``segments[i].end > segments[i+1].start``.
+    Returns:
+        A list of :class:`SubtitleOverlap` instances.  An overlap
+        occurs when ``segments[i].end > segments[i+1].start``.
     """
     overlaps: list[SubtitleOverlap] = []
     for i in range(len(segments) - 1):
@@ -242,7 +255,8 @@ def check_display_fit(
     Uses a heuristic character-width model (not pixel-precise, but
     good enough for flagging potential overflow before render).
 
-    Returns ``(fits, estimated_lines)``.
+    Returns:
+        ``(fits, estimated_lines)``.
     """
     if is_vertical:
         max_width_ratio = min(max_width_ratio, 0.82)
@@ -360,7 +374,8 @@ def validate_subtitles(
 ) -> dict:
     """Full subtitle validation: per-cue metrics + overlap detection.
 
-    Returns a dict suitable for ``ctx.metadata["subtitle_qa"]``.
+    Returns:
+        A dict suitable for ``ctx.metadata["subtitle_qa"]``.
     """
     use_translated = (
         translated_texts is not None

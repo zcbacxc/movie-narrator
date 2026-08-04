@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+"""Text-to-speech step — generate narration audio."""
+
 import asyncio
 import os
 from pathlib import Path
@@ -40,8 +42,9 @@ def _build_audio(
 ) -> tuple[AudioSegment, list[TimedSegment]]:
     """Assemble per-segment audio into a single track with inter-segment pauses.
 
-    Returns (combined_audio, timed_segments) where timed_segments[i] has
-    start/end timestamps relative to the combined track.
+    Returns:
+        (combined_audio, timed_segments) where timed_segments[i] has
+        start/end timestamps relative to the combined track.
     """
     combined = AudioSegment.empty()
     timed_segments: list[TimedSegment] = []
@@ -59,6 +62,14 @@ def _build_audio(
 
 
 def generate_voice(ctx: Context) -> Context:
+    """Generate TTS audio for the narration script.
+
+    Args:
+        ctx: Pipeline execution context.
+
+    Returns:
+        Updated pipeline context with generated audio.
+    """
     settings = get_settings()
     output_dir = Path(ctx.output_dir)
     cache_root = output_dir / "cache" / "tts" / settings.tts_provider.value

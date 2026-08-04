@@ -51,13 +51,26 @@ class GlossaryEntry:
 
     @property
     def translation_count(self) -> int:
+        """
+        Returns:
+            The number of translated glossary entries.
+        """
         return len(self.translations)
 
     @property
     def total_occurrences(self) -> int:
+        """
+        Returns:
+            The total number of glossary term occurrences.
+        """
         return sum(len(indices) for indices in self.translations.values())
 
     def to_dict(self) -> dict:
+        """Convert the QA result to a dictionary.
+
+        Returns:
+            Dictionary representation of the QA result.
+        """
         return {
             "source_term": self.source_term,
             "translations": {
@@ -78,6 +91,11 @@ class GlossaryReport:
     total_terms: int = 0
 
     def to_dict(self) -> dict:
+        """Convert the QA result to a dictionary.
+
+        Returns:
+            Dictionary representation of the QA result.
+        """
         return {
             "total_terms": self.total_terms,
             "inconsistent_count": self.inconsistent_count,
@@ -271,9 +289,10 @@ def mark_untranslated_lines(
 ) -> list[int]:
     """Identify lines where the translation equals the source (untranslated).
 
-    Returns a list of indices where ``translated_texts[i] == source_texts[i]``,
-    indicating the line was likely not translated (either by design or
-    due to a fallback/degradation).
+    Returns:
+        A list of indices where ``translated_texts[i] == source_texts[i]``,
+        indicating the line was likely not translated (either by design or
+        due to a fallback/degradation).
     """
     indices: list[int] = []
     for i, (src, tr) in enumerate(zip(source_texts, translated_texts)):

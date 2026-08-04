@@ -31,6 +31,8 @@ from ..reliability import CIRCUIT_REGISTRY
 
 @dataclass
 class LLMClient:
+    """LLM client wrapper with model reference."""
+
     client: OpenAI
     model: str
 
@@ -42,8 +44,9 @@ class LLMClient:
 def _make_openai_llm():
     """Factory for the OpenAI-compatible LLM provider.
 
-    Returns a context manager that yields an :class:`LLMClient`
-    backed by a managed ``httpx.Client`` (closed on exit).
+    Returns:
+        A context manager that yields an :class:`LLMClient`
+        backed by a managed ``httpx.Client`` (closed on exit).
     """
 
     @contextmanager

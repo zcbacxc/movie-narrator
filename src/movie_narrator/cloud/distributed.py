@@ -124,9 +124,10 @@ class NodeRegistry:
     def _probe(self, base_url: str) -> bool:
         """Probe one node's ``GET /ready`` endpoint.
 
-        Returns True when the node reports ``{"ready": true}`` (or any
-        truthy ``ready`` value). Never raises — unreachable or malformed
-        nodes simply read as unhealthy.
+        Returns:
+            True when the node reports ``{"ready": true}`` (or any
+            truthy ``ready`` value). Never raises — unreachable or malformed
+            nodes simply read as unhealthy.
         """
         url = f"{base_url.rstrip('/')}/ready"
         try:
@@ -139,7 +140,8 @@ class NodeRegistry:
     def refresh(self) -> List[str]:
         """Re-probe every configured node.
 
-        Returns the currently healthy node base URLs.
+        Returns:
+            The currently healthy node base URLs.
         """
         self._healthy = [
             url for url in self._nodes if self._probe(url)
@@ -148,10 +150,12 @@ class NodeRegistry:
         return list(self._healthy)
 
     def available_nodes(self) -> List[str]:
-        """Return healthy node base URLs.
+        """
+        Returns:
+            Healthy node base URLs.
 
-        Probes on first call; afterwards returns the cached result of
-        the most recent :meth:`refresh`.
+            Probes on first call; afterwards returns the cached result of
+            the most recent :meth:`refresh`.
         """
         if not self._probed:
             self.refresh()

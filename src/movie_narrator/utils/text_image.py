@@ -95,7 +95,7 @@ def create_text_image(
     """Render text to a transparent RGBA image, supporting multi-line.
 
     Multi-line behavior (spec §7.3):
-    - Lines are split on ``\\n``.
+    - Lines are split on ``\n``.
     - Fontscale per line: ``1.0 - 0.1 * (line_count - 1)``, clamped to ``[0.6, 1.0]``.
     - Lines are stacked vertically with a small spacing proportional to fontsize.
 
@@ -108,7 +108,8 @@ def create_text_image(
     padding. Used for publishable recaps where subtitles must sit under
     the footage without obscuring the action.
 
-    Returns a ``numpy.ndarray`` (RGBA) suitable for ``ImageClip``.
+    Returns:
+        A ``numpy.ndarray`` (RGBA) suitable for ``ImageClip``.
     """
     import numpy as np  # local import — only needed for return type
 
@@ -173,10 +174,11 @@ def _render_bottom(
       block (matches mainstream recap style: 65% alpha, 12 px vertical
       padding) so the text reads cleanly on any frame.
 
-    Returns a full-canvas ``numpy.ndarray`` (RGBA) suitable for ``ImageClip``.
-    The non-text region is fully transparent (alpha=0), so MoviePy's
-    position math (``with_position((center, bottom))``) places only the
-    text band at the bottom — the source footage above remains visible.
+    Returns:
+        A full-canvas ``numpy.ndarray`` (RGBA) suitable for ``ImageClip``.
+        The non-text region is fully transparent (alpha=0), so MoviePy's
+        position math (``with_position((center, bottom))``) places only the
+        text band at the bottom — the source footage above remains visible.
     """
     import numpy as np
 

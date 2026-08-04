@@ -65,6 +65,11 @@ class QualityDimension:
 
     @property
     def label(self) -> str:
+        """Return the human-readable label for this metric.
+
+        Returns:
+            Metric label string.
+        """
         if self.score >= _GOOD_THRESHOLD:
             return "good"
         elif self.score >= _ACCEPTABLE_THRESHOLD:
@@ -74,6 +79,11 @@ class QualityDimension:
         return "critical"
 
     def to_dict(self) -> dict:
+        """Convert the QA result to a dictionary.
+
+        Returns:
+            Dictionary representation of the QA result.
+        """
         return {
             "name": self.name,
             "score": round(self.score, 4),
@@ -95,11 +105,20 @@ class RegressionDelta:
 
     @property
     def direction(self) -> str:
+        """
+        Returns:
+            The quality direction (higher is better or lower).
+        """
         if abs(self.delta) < 0.01:
             return "stable"
         return "improved" if self.delta > 0 else "regressed"
 
     def to_dict(self) -> dict:
+        """Convert the QA result to a dictionary.
+
+        Returns:
+            Dictionary representation of the QA result.
+        """
         return {
             "name": self.name,
             "current": round(self.current, 4),
@@ -121,6 +140,11 @@ class QualityDashboard:
 
     @property
     def label(self) -> str:
+        """Return the human-readable label for this metric.
+
+        Returns:
+            Metric label string.
+        """
         if self.overall_score >= _GOOD_THRESHOLD:
             return "good"
         elif self.overall_score >= _ACCEPTABLE_THRESHOLD:
@@ -130,6 +154,11 @@ class QualityDashboard:
         return "critical"
 
     def to_dict(self) -> dict:
+        """Convert the QA result to a dictionary.
+
+        Returns:
+            Dictionary representation of the QA result.
+        """
         return {
             "overall_score": round(self.overall_score, 4),
             "label": self.label,
@@ -320,8 +349,9 @@ def collect_quality_dimensions(
 ) -> list[QualityDimension]:
     """Collect all available quality dimensions from pipeline metadata.
 
-    Returns a list of :class:`QualityDimension` for each dimension that
-    has data in ``metadata``. Dimensions without data are excluded.
+    Returns:
+        A list of :class:`QualityDimension` for each dimension that
+        has data in ``metadata``. Dimensions without data are excluded.
     """
     if weights is None:
         weights = _DEFAULT_WEIGHTS
@@ -407,7 +437,8 @@ def _compare_with_baseline(
 ) -> list[RegressionDelta]:
     """Compare current dimensions against a baseline metadata.json.
 
-    Returns deltas for dimensions present in both current and baseline.
+    Returns:
+        Deltas for dimensions present in both current and baseline.
     """
     try:
         baseline_file = Path(baseline_path)

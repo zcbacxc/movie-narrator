@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+"""Optional dependency probing."""
+
 from importlib import import_module
 import logging
 from typing import Tuple
@@ -16,7 +18,10 @@ _HINTS = {
 
 
 def probe(name: str) -> Tuple[bool, str]:
-    """Return (available, install_hint)."""
+    """
+    Returns:
+        (available, install_hint).
+    """
     module_names = {
         "scenedetect": "scenedetect",
         "whisperx": "whisperx",

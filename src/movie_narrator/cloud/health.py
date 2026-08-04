@@ -111,11 +111,13 @@ _ENV_TRUTHY = frozenset({"1", "true", "yes", "on"})
 
 
 def parse_deep_flag(query: Dict[str, str]) -> bool:
-    """Return True when a parsed query string asks for a deep check.
+    """
+    Returns:
+        True when a parsed query string asks for a deep check.
 
-    Accepts ``?deep=1``, ``?deep=true``, ``?deep=yes``, ``?deep=on`` and
-    a bare ``?deep``. Anything else (including ``?deep=0``) is False, so
-    a plain ``GET /health`` keeps the v0.6.1 shallow behaviour.
+        Accepts ``?deep=1``, ``?deep=true``, ``?deep=yes``, ``?deep=on`` and
+        a bare ``?deep``. Anything else (including ``?deep=0``) is False, so
+        a plain ``GET /health`` keeps the v0.6.1 shallow behaviour.
     """
     if "deep" not in query:
         return False
@@ -123,7 +125,10 @@ def parse_deep_flag(query: Dict[str, str]) -> bool:
 
 
 def _env_enabled(name: str) -> bool:
-    """Return True when environment variable *name* is set to a truthy value."""
+    """
+    Returns:
+        True when environment variable *name* is set to a truthy value.
+    """
     return os.environ.get(name, "").strip().lower() in _ENV_TRUTHY
 
 
@@ -251,9 +256,10 @@ def _all_passed(checks: Dict[str, Dict[str, Any]]) -> bool:
 def _dependency_targets() -> Dict[str, str]:
     """Resolve the outbound endpoints to probe.
 
-    Returns a mapping of :data:`DEPENDENCY_NAMES` to a URL. Names whose
-    dependency is not configured (e.g. the offline ``edge`` TTS backend)
-    are omitted and reported as ``skipped`` by the caller.
+    Returns:
+        A mapping of :data:`DEPENDENCY_NAMES` to a URL. Names whose
+        dependency is not configured (e.g. the offline ``edge`` TTS backend)
+        are omitted and reported as ``skipped`` by the caller.
     """
     targets: Dict[str, str] = {}
     try:
@@ -305,7 +311,10 @@ def _probe_url(url: str) -> Tuple[bool, str]:
 
 
 def _skipped_dependencies(reason: str) -> Dict[str, Dict[str, Any]]:
-    """Return a fully ``skipped`` dependency report with a shared reason."""
+    """
+    Returns:
+        A fully ``skipped`` dependency report with a shared reason.
+    """
     return {name: _result(STATUS_SKIPPED, reason, 0.0) for name in DEPENDENCY_NAMES}
 
 
@@ -361,10 +370,12 @@ def run_dependency_checks() -> Dict[str, Dict[str, Any]]:
 
 
 def dependency_report() -> Dict[str, Dict[str, Any]]:
-    """Return the dependency section of a deep health report.
+    """
+    Returns:
+        The dependency section of a deep health report.
 
-    Honours the opt-in / CI rules: probes only run when
-    ``MN_HEALTH_DEEP_DEPS`` is truthy and ``CI`` is not.
+        Honours the opt-in / CI rules: probes only run when
+        ``MN_HEALTH_DEEP_DEPS`` is truthy and ``CI`` is not.
     """
     if _env_enabled("CI"):
         return _skipped_dependencies("skipped: CI=1")

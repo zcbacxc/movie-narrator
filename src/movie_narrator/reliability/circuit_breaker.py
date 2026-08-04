@@ -240,10 +240,11 @@ class CircuitBreaker:
     def _acquire(self) -> bool:
         """Check the circuit and, if allowed, reserve a probe slot.
 
-        Returns True if this call is a HALF_OPEN probe request (a slot
-        was reserved and must be released on completion). Raises
-        :class:`CircuitOpenError` when the circuit is OPEN (or HALF_OPEN
-        with all probe slots busy).
+        Returns:
+            True if this call is a HALF_OPEN probe request (a slot
+            was reserved and must be released on completion). Raises
+            :class:`CircuitOpenError` when the circuit is OPEN (or HALF_OPEN
+            with all probe slots busy).
         """
         with self._lock:
             if self._state is CircuitState.CLOSED:
@@ -414,8 +415,10 @@ def circuit_guard(
     """
 
     def decorator(fn: Callable[..., _T]) -> Callable[..., _T]:
+        """Register a decorator function."""
         @wraps(fn)
         def wrapper(*args: Any, **kwargs: Any) -> _T:
+            """Wrapper function for the decorator pattern."""
             breaker = (registry if registry is not None else CIRCUIT_REGISTRY)[service]
             with breaker.guard():
                 return fn(*args, **kwargs)

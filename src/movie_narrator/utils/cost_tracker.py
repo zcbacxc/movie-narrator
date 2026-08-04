@@ -154,9 +154,10 @@ class CostTracker:
     def summary(self) -> Dict[str, Any]:
         """Export cost summary for ``metadata.json``.
 
-        Returns a dict with ``llm`` and ``tts`` sub-dicts. All cost
-        figures are flagged ``estimated`` (coarse approximation, not
-        precise billing values).
+        Returns:
+            A dict with ``llm`` and ``tts`` sub-dicts. All cost
+            figures are flagged ``estimated`` (coarse approximation, not
+            precise billing values).
         """
         by_step = self._llm_by_step()
         by_provider = self._tts_by_provider()

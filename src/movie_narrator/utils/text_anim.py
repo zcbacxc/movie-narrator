@@ -67,7 +67,10 @@ def _import_fade_effect():
 
 
 def _safe_clip_duration(clip: VideoClip) -> float:
-    """Return the clip's duration as a float, or 0.0 when unknown."""
+    """
+    Returns:
+        The clip's duration as a float, or 0.0 when unknown.
+    """
     try:
         d = getattr(clip, "duration", None)
         if d is None:
@@ -79,13 +82,15 @@ def _safe_clip_duration(clip: VideoClip) -> float:
 
 
 def _read_base_position(clip: Any) -> tuple[float, float]:
-    """Return the clip's resting (x, y) position as a numeric tuple.
+    """
+    Returns:
+        The clip's resting (x, y) position as a numeric tuple.
 
-    MoviePy 2.x stores the position set via ``with_position`` on
-    ``clip.pos``. When that attribute is a static 2-tuple of numbers we
-    use it as the animation base so the text settles exactly where it
-    was meant to be. Falls back to ``(0, 0)`` for clips without a stored
-    position or test mocks (subtitle overlays default to (0, 0)).
+        MoviePy 2.x stores the position set via ``with_position`` on
+        ``clip.pos``. When that attribute is a static 2-tuple of numbers we
+        use it as the animation base so the text settles exactly where it
+        was meant to be. Falls back to ``(0, 0)`` for clips without a stored
+        position or test mocks (subtitle overlays default to (0, 0)).
     """
     pos = getattr(clip, "pos", None)
     if isinstance(pos, (tuple, list)) and len(pos) == 2:
@@ -173,9 +178,10 @@ def _apply_slide_entrance(
     clip's current position when available). The slide distance is a
     fixed fraction of the clip dimensions so it is visible but gentle.
 
-    Returns the modified clip, or ``None`` when the clip does not expose
-    the hooks needed for a positional animation (caller falls back to a
-    fade in that case).
+    Returns:
+        The modified clip, or ``None`` when the clip does not expose
+        the hooks needed for a positional animation (caller falls back to a
+        fade in that case).
     """
     has_with_position = callable(getattr(clip, "with_position", None))
     if not has_with_position:

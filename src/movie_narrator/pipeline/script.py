@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+"""Script generation step — generate narration script via LLM."""
+
 from typing import List
 import re
 
@@ -448,7 +450,10 @@ def _is_int_le(value, threshold: int) -> bool:
 
 
 def _char_bigrams(text: str) -> frozenset[str]:
-    """Return the set of character bigrams for similarity comparison."""
+    """
+    Returns:
+        The set of character bigrams for similarity comparison.
+    """
     text = text.strip().lower()
     if len(text) < 2:
         return frozenset([text])
@@ -477,8 +482,9 @@ def _deduplicate_beats(
     semantically similar. When a duplicate is found, the first
     occurrence is kept and the duplicate is removed.
 
-    Returns ``(deduped_beats, deduped_meta)``.  When no duplicates
-    are found, the inputs are returned unchanged.
+    Returns:
+        ``(deduped_beats, deduped_meta)``.  When no duplicates
+        are found, the inputs are returned unchanged.
     """
     if len(beats) <= 1:
         return beats, beats_meta
@@ -780,7 +786,7 @@ def generate_script(ctx: Context) -> Context:
                     f"Check your LLM configuration (MN_LLM_BASE_URL, MN_LLM_API_KEY, MN_LLM_MODEL) "
                     f"and network connectivity."
                 )
-                wrapped.retryable = is_network_error(e)
+                setattr(wrapped, "retryable", is_network_error(e))
                 raise wrapped from e
             sleep(settings.script_retry_delay)
     return ctx

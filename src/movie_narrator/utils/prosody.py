@@ -39,8 +39,9 @@ _MAX_SPEED_DEVIATION = 0.15
 def emotion_to_speed(emotion: str | None) -> float:
     """Map an emotion label to a speed multiplier.
 
-    Returns 1.0 for unknown or missing emotions. Output is clamped to
-    ``[1.0 - _MAX_SPEED_DEVIATION, 1.0 + _MAX_SPEED_DEVIATION]``.
+    Returns:
+        1.0 for unknown or missing emotions. Output is clamped to
+        ``[1.0 - _MAX_SPEED_DEVIATION, 1.0 + _MAX_SPEED_DEVIATION]``.
     """
     if not emotion or emotion not in _EMOTION_SPEED:
         return 1.0
@@ -79,8 +80,9 @@ def map_segment_emotions(
     mapping: segment *i* gets the emotion of beat
     ``floor(i * n_beats / n_segments)``.
 
-    Returns a list of ``n_segments`` emotion strings (or ``None`` when
-    no beats_meta is available).
+    Returns:
+        A list of ``n_segments`` emotion strings (or ``None`` when
+        no beats_meta is available).
     """
     if not beats_meta or n_segments <= 0:
         return [None] * max(0, n_segments)

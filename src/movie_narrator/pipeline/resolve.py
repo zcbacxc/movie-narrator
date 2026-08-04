@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+"""Video resolution step — locate source video in library."""
+
 import re
 import unicodedata
 from pathlib import Path
@@ -12,6 +14,7 @@ _VIDEO_EXTS = {".mp4", ".mkv", ".mov", ".avi", ".webm", ".m4v"}
 
 
 def normalize_title(name: str) -> str:
+    """Normalize a movie title for matching."""
     name = unicodedata.normalize("NFKC", name)
     name = re.sub(r"[\(\[（].*?[\)\]）]", " ", name)
     name = re.sub(r"\s+", " ", name).strip().lower()
@@ -19,6 +22,7 @@ def normalize_title(name: str) -> str:
 
 
 def find_in_library(movie_name: str, library_dir: str) -> Optional[str]:
+    """Find a video file in the library directory."""
     root = Path(library_dir)
     if not root.is_dir():
         return None
@@ -42,6 +46,14 @@ def find_in_library(movie_name: str, library_dir: str) -> Optional[str]:
 
 
 def resolve_video(ctx: Context) -> Context:
+    """Resolve the source video path from the library.
+
+    Args:
+        ctx: Pipeline execution context.
+
+    Returns:
+        Updated pipeline context with resolved video path.
+    """
     video_arg = ctx.metadata.get("video_arg")
     if video_arg:
         p = Path(video_arg)

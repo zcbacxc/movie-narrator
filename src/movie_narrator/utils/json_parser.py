@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+"""JSON extraction and parsing utilities."""
+
 import json
 import re
 
@@ -110,12 +112,14 @@ def _is_balanced_braces(s: str) -> bool:
 
 
 def _find_last_complete_string_end(s: str) -> int:
-    """Return the index just past the last **complete** string in `s`,
-    or -1 if `s` contains fewer than one fully-closed string literal.
+    """
+    Returns:
+        The index just past the last **complete** string in `s`,
+        or -1 if `s` contains fewer than one fully-closed string literal.
 
-    A "complete" string is `"..."` whose closing `"` is itself unescaped
-    and whose opening `"` is also unescaped. The caller uses this to
-    decide where to truncate the LLM output before re-closing brackets.
+        A "complete" string is `"..."` whose closing `"` is itself unescaped
+        and whose opening `"` is also unescaped. The caller uses this to
+        decide where to truncate the LLM output before re-closing brackets.
     """
     _, last_string_end, _ = _scan_structural(s)
     return last_string_end
@@ -140,9 +144,10 @@ def _attempt_truncation_recovery(text: str) -> str | None:
       - Append any missing `]` / `}` (innermost first) to re-close the
         structure.
 
-    Returns the repaired text on success — which `json.loads` must
-    accept — or `None` if the gate fails or `json.loads` still rejects
-    the candidate.
+    Returns:
+        The repaired text on success — which `json.loads` must
+        accept — or `None` if the gate fails or `json.loads` still rejects
+        the candidate.
     """
     if _count_unescaped_quotes(text) % 2 != 1:
         return None
@@ -190,7 +195,8 @@ def extract_json(raw_text: str) -> dict:
     complete string to anchor the cut, and the structural skeleton up
     to that cut is matched. Healthy JSON is never modified.
 
-    Raises ``ValueError`` if no strategy yields a valid object.
+    Raises:
+        ValueError: If no strategy yields a valid object.
     """
     if not raw_text:
         raise ValueError("LLM returned empty response")

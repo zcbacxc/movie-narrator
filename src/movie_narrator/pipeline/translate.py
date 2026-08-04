@@ -60,10 +60,11 @@ def _chunk_texts(
 ) -> List[List[int]]:
     """Split `texts` into chunks by char budget and item count.
 
-    Returns a list of index-lists, each index-list being the positions
-    in `texts` that belong to the chunk. The final chunk may be smaller
-    than `max_items`. Splitting only happens when either budget is
-    exceeded; small inputs go through as a single chunk.
+    Returns:
+        A list of index-lists, each index-list being the positions
+        in `texts` that belong to the chunk. The final chunk may be smaller
+        than `max_items`. Splitting only happens when either budget is
+        exceeded; small inputs go through as a single chunk.
     """
     if not texts:
         return [[]]
@@ -99,11 +100,12 @@ def _call_llm_chunk(
 ) -> List[str]:
     """Make a single LLM call for one chunk. Returns translations aligned 1:1.
 
-    Raises on parse / shape / content failures so the caller can retry.
+    Raises:
+        On parse / shape / content failures so the caller can retry.
 
-    ``llm_factory`` is an optional callable returning a context-managed
-    LLM client (same interface as ``get_llm_client``).  Injected for
-    unit-testing chunk-level retry / degrade paths without a real LLM.
+            ``llm_factory`` is an optional callable returning a context-managed
+            LLM client (same interface as ``get_llm_client``).  Injected for
+            unit-testing chunk-level retry / degrade paths without a real LLM.
     """
     import json as _json
 
@@ -192,6 +194,7 @@ def _translate_via_llm(
             # Surface the reason at the caller's metadata layer.
             # Flag transient network errors as retryable so the
             # soft step can record it (audit/diagnostics in step_state).
+            assert last_error is not None
             raise _ChunkFailure(
                 chunk_indices=chunk_indices,
                 reason=str(last_error),

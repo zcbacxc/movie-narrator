@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+"""Job configuration schema definitions."""
+
 from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -8,6 +10,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class JobSteps(BaseModel):
+    """Job step configuration."""
+
     model_config = ConfigDict(extra="forbid")
 
     research: Optional[bool] = None
@@ -22,6 +26,8 @@ class JobSteps(BaseModel):
 
 
 class JobParams(BaseModel):
+    """Job parameter configuration."""
+
     model_config = ConfigDict(extra="forbid")
 
     # ── Scene detection ──
@@ -161,6 +167,8 @@ VALID_SUBTITLE_MODES = frozenset({"original", "translated", "bilingual"})
 
 
 class JobConfig(BaseModel):
+    """Complete job configuration."""
+
     model_config = ConfigDict(extra="forbid")
 
     movie: Optional[str] = None
@@ -210,6 +218,8 @@ class JobConfig(BaseModel):
 
 
 class ResolvedJob(BaseModel):
+    """Fully resolved job configuration after merging defaults."""
+
     movie: str
     style: str
     duration: int

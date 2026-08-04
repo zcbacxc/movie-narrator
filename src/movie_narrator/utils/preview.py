@@ -31,15 +31,17 @@ _PREVIEW_MAX_SEC = 60.0
 
 
 def truncate_segments_for_preview(segments: List, preview_sec: float) -> List:
-    """Return segments that start before ``preview_sec``, truncated to end at it.
+    """
+    Returns:
+        Segments that start before ``preview_sec``, truncated to end at it.
 
-    Each returned segment is a shallow copy with ``end`` clamped to
-    ``preview_sec`` so the preview never extends past the requested
-    window.  Segments that start at or after ``preview_sec`` are dropped
-    entirely — they would not be visible in the truncated output.
+        Each returned segment is a shallow copy with ``end`` clamped to
+        ``preview_sec`` so the preview never extends past the requested
+        window.  Segments that start at or after ``preview_sec`` are dropped
+        entirely — they would not be visible in the truncated output.
 
-    The input list is not mutated; segments that already fit inside the
-    window are reused by reference (no copy needed).
+        The input list is not mutated; segments that already fit inside the
+        window are reused by reference (no copy needed).
     """
     result: List = []
     for seg in segments:
@@ -55,14 +57,16 @@ def truncate_segments_for_preview(segments: List, preview_sec: float) -> List:
 
 
 def truncate_clips_for_preview(clips: List, preview_sec: float) -> List:
-    """Return clips whose ``narr_start < preview_sec``, truncated.
+    """
+    Returns:
+        Clips whose ``narr_start < preview_sec``, truncated.
 
-    Each returned clip is a shallow copy with ``narr_end`` clamped to
-    ``preview_sec``.  Clips that start at or after ``preview_sec`` are
-    dropped — they fall outside the preview window.
+        Each returned clip is a shallow copy with ``narr_end`` clamped to
+        ``preview_sec``.  Clips that start at or after ``preview_sec`` are
+        dropped — they fall outside the preview window.
 
-    The input list is not mutated; clips that already fit inside the
-    window are reused by reference (no copy needed).
+        The input list is not mutated; clips that already fit inside the
+        window are reused by reference (no copy needed).
     """
     result: List = []
     for clip in clips:
@@ -94,17 +98,19 @@ def get_preview_duration(requested: float, total_duration: float) -> float:
 
 
 def should_skip_step_for_preview(step_name: str, preview_mode: bool) -> bool:
-    """Return True when *step_name* may be skipped during preview rendering.
+    """
+    Returns:
+        True when *step_name* may be skipped during preview rendering.
 
-    Only SOFT steps that are non-essential for validating the first N
-    seconds (``research_plot``, ``translate_subtitles``, ``run_qa_gate``,
-    ``export_clips``) are skippable.  Hard steps (``generate_script``,
-    ``generate_voice``, ``render_video``, etc.) always run so the preview
-    is a faithful representation of the final output.
+        Only SOFT steps that are non-essential for validating the first N
+        seconds (``research_plot``, ``translate_subtitles``, ``run_qa_gate``,
+        ``export_clips``) are skippable.  Hard steps (``generate_script``,
+        ``generate_voice``, ``render_video``, etc.) always run so the preview
+        is a faithful representation of the final output.
 
-    When ``preview_mode`` is False the function always returns False,
-    preserving full-pipeline behaviour and keeping preview mode OFF by
-    default (backward compatible).
+        When ``preview_mode`` is False the function always returns False,
+        preserving full-pipeline behaviour and keeping preview mode OFF by
+        default (backward compatible).
     """
     if not preview_mode:
         return False

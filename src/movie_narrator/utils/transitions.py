@@ -152,7 +152,10 @@ def apply_transition(
 
 
 def _safe_clip_duration(clip: VideoClip) -> float:
-    """Return the clip's duration as a float, or 0.0 when unknown."""
+    """
+    Returns:
+        The clip's duration as a float, or 0.0 when unknown.
+    """
     try:
         d = getattr(clip, "duration", None)
         if d is None:
@@ -164,13 +167,15 @@ def _safe_clip_duration(clip: VideoClip) -> float:
 
 
 def _read_base_position(clip: VideoClip) -> tuple[float, float]:
-    """Return the clip's resting (x, y) position as a numeric tuple.
+    """
+    Returns:
+        The clip's resting (x, y) position as a numeric tuple.
 
-    MoviePy 2.x stores the position set via ``with_position`` on
-    ``clip.pos``. When that attribute is a static 2-tuple of numbers we
-    use it as the slide base so a centered (contain-mode) clip keeps its
-    vertical centering during the animation. Falls back to ``(0, 0)``
-    for clips without a stored position or test mocks.
+        MoviePy 2.x stores the position set via ``with_position`` on
+        ``clip.pos``. When that attribute is a static 2-tuple of numbers we
+        use it as the slide base so a centered (contain-mode) clip keeps its
+        vertical centering during the animation. Falls back to ``(0, 0)``
+        for clips without a stored position or test mocks.
     """
     pos = getattr(clip, "pos", None)
     if isinstance(pos, (tuple, list)) and len(pos) == 2:
@@ -196,9 +201,10 @@ def _apply_slide(
     delta (exit). The slide distance is a fixed fraction of the clip
     width so it is visible but not jarring.
 
-    Returns the modified clip, or ``None`` when the clip does not expose
-    the hooks needed for a positional animation (caller falls back to a
-    fade in that case).
+    Returns:
+        The modified clip, or ``None`` when the clip does not expose
+        the hooks needed for a positional animation (caller falls back to a
+        fade in that case).
     """
     width = getattr(clip, "w", None) or getattr(clip, "size", None)
     if isinstance(width, (tuple, list)):
