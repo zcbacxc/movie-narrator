@@ -95,8 +95,9 @@ class TaskQueue(Protocol):
     def cancel(self, task_id: str) -> bool:
         """Request cancellation of a running task.
 
-        Returns True if cancellation was requested (task was active),
-        False if the task was not found or already terminal.
+        Returns:
+            True if cancellation was requested (task was active),
+            False if the task was not found or already terminal.
         """
         ...
 
@@ -116,9 +117,10 @@ class TaskQueue(Protocol):
     ) -> Optional[TaskResult]:
         """Block until task reaches a terminal state.
 
-        Returns the ``TaskResult`` if the task completed (success or
-        failure), or None if the task was not found, was cancelled,
-        or timed out.
+        Returns:
+            The ``TaskResult`` if the task completed (success or
+            failure), or None if the task was not found, was cancelled,
+            or timed out.
         """
         ...
 
@@ -139,7 +141,8 @@ class TaskQueue(Protocol):
     def cancel_batch(self, batch_id: str) -> bool:
         """Cancel every active task in a batch.
 
-        Returns True if the batch exists, False otherwise.
+        Returns:
+            True if the batch exists, False otherwise.
         """
         ...
 
@@ -363,9 +366,10 @@ class LocalTaskQueue:
     def cancel(self, task_id: str) -> bool:
         """Request cancellation of a running task.
 
-        Returns True if the task was active and cancellation was
-        requested. Returns False if the task was not found, already
-        terminal, or not yet started.
+        Returns:
+            True if the task was active and cancellation was
+            requested. Returns False if the task was not found, already
+            terminal, or not yet started.
         """
         task = self._storage.load(task_id)
         if not task or task.is_terminal:
@@ -409,18 +413,19 @@ class LocalTaskQueue:
     ) -> Optional[TaskResult]:
         """Block until task reaches a terminal state.
 
-        Returns the ``TaskResult`` if the task completed (success or
-        failure). Returns None if:
-        - The task was not found
-        - The task was cancelled
-        - The timeout was reached
+        Returns:
+            The ``TaskResult`` if the task completed (success or
+            failure). Returns None if:
+            - The task was not found
+            - The task was cancelled
+            - The timeout was reached
 
-        Uses a ``threading.Event`` for efficient non-busy waiting when
-        the task was submitted through this queue instance. Falls back
-        to storage polling for cross-process scenarios (where no Event
-        is available). The ``poll_interval`` parameter is retained for
-        protocol compatibility and is only used in the polling fallback
-        path.
+            Uses a ``threading.Event`` for efficient non-busy waiting when
+            the task was submitted through this queue instance. Falls back
+            to storage polling for cross-process scenarios (where no Event
+            is available). The ``poll_interval`` parameter is retained for
+            protocol compatibility and is only used in the polling fallback
+            path.
         """
         start = time.time()
 
@@ -533,8 +538,9 @@ class LocalTaskQueue:
     def cancel_batch(self, batch_id: str) -> bool:
         """Cancel every active task in a batch.
 
-        Returns True if the batch exists (even when no member task was
-        active), False if no such batch is known.
+        Returns:
+            True if the batch exists (even when no member task was
+            active), False if no such batch is known.
         """
         batch = self._batch_storage.load(batch_id)
         if batch is None:
@@ -654,10 +660,18 @@ class LocalTaskQueue:
                 started = time.monotonic()
 
                 def on_status_change(updated: Task) -> None:
+                    """Callback invoked when task status changes.
+
+                    Persists the updated task and refreshes queue metrics.
+                    """
                     self._storage.save(updated)
                     self._publish_queue_metrics()
 
                 def on_progress(updated: Task) -> None:
+                    """Callback invoked when task progress updates.
+
+                    Persists the updated task with new progress data.
+                    """
                     self._storage.save(updated)
 
                 task = run_task(

@@ -121,8 +121,9 @@ def _get_video_duration(video_path: str) -> float:
 def _count_scenes(video_path: str, threshold: float = 27.0) -> tuple[int, List[Dict[str, Any]]]:
     """Count scene changes using PySceneDetect.
 
-    Returns (scene_count, scene_list) where scene_list contains
-    dicts with start/end timestamps.
+    Returns:
+        (scene_count, scene_list) where scene_list contains
+        dicts with start/end timestamps.
     """
     try:
         from scenedetect import open_video, SceneManager
@@ -424,7 +425,7 @@ def metrics_to_preset_name(metrics: ReferenceMetrics) -> str:
         "mainstream-dry": mainstream_score,
         "bilibili-long": bilibili_score,
     }
-    return max(scores, key=scores.get)
+    return max(scores, key=lambda k: scores[k])
 
 
 def format_analysis_report(metrics: ReferenceMetrics) -> str:

@@ -16,6 +16,7 @@ builds a cross-step quality dashboard, and exports a structured QA report
 from __future__ import annotations
 
 import logging
+from typing import Any, Dict, cast
 
 from ..models import Context
 from ..tts.base import is_ci
@@ -105,7 +106,7 @@ def validate_deliverable(ctx: Context) -> Context:
     # ── v0.5.12: Build quality dashboard ────────────────────
     # Aggregate all per-step QA metrics into a unified dashboard.
     baseline = ctx.metadata.get("qa_baseline_path")
-    dashboard = build_quality_dashboard(ctx.metadata, baseline_path=baseline)
+    dashboard = build_quality_dashboard(cast(Dict[str, Any], ctx.metadata), baseline_path=baseline)
     ctx.metadata["quality_dashboard"] = dashboard.to_dict()
     ctx.services.console.debug(
         f"Quality dashboard: overall={dashboard.overall_score:.1%} [{dashboard.label}], "
@@ -114,7 +115,7 @@ def validate_deliverable(ctx: Context) -> Context:
 
     # ── v0.5.12: Export structured QA report ────────────────
     export_qa_report(
-        ctx.metadata,
+        cast(Dict[str, Any], ctx.metadata),
         ctx.output_dir,
         movie_name=ctx.movie_name,
         baseline_path=baseline,

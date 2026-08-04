@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+"""Plot research step — gather movie information from external sources."""
+
 import json
 import logging
 from pathlib import Path
@@ -127,6 +129,14 @@ def _research_via_llm(ctx: Context, settings) -> ResearchInfo:
 
 
 def research_plot(ctx: Context) -> Context:
+    """Research movie plot and metadata from external sources.
+
+    Args:
+        ctx: Pipeline execution context.
+
+    Returns:
+        Updated pipeline context with research data.
+    """
     if not ctx.metadata.get("research_enabled"):
         ctx.status.research = "skipped"
         ctx.step_state.result = StepResult.SKIPPED

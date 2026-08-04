@@ -28,8 +28,9 @@ from .bilibili_long import BilibiliLongPreset
 def _validate(preset: Preset) -> PresetParam:
     """Validate a preset's params and tags against the closed vocabularies.
 
-    Raises :class:`ValueError` with a descriptive message if any key or
-    value is out of bounds.
+    Raises:
+        :class:`ValueError` with a descriptive message if any key or
+            value is out of bounds.
     """
     # Lazy import to avoid circular dependency (runner.py → presets → runner)
     from ..pipeline.runner import PARAM_WHITELIST
@@ -83,7 +84,7 @@ def _build_registry() -> Dict[str, PresetParam]:
     registry: Dict[str, PresetParam] = {}
 
     # 1. Built-in presets (hardcoded — Stage 0.5)
-    builtin = [
+    builtin: List[Preset] = [
         DouyinFastPreset(),
         MainstreamDryPreset(),
         BilibiliLongPreset(),
@@ -129,8 +130,9 @@ def _get_registry() -> Dict[str, PresetParam]:
 def get_preset(name: str) -> PresetParam:
     """Look up a validated preset by name.
 
-    Raises :class:`KeyError` if not found.  Use :func:`list_presets`
-    to see available names.
+    Raises:
+        :class:`KeyError` if not found.  Use :func:`list_presets`
+            to see available names.
     """
     reg = _get_registry()
     if name not in reg:
@@ -142,7 +144,10 @@ def get_preset(name: str) -> PresetParam:
 
 
 def list_presets() -> Dict[str, str]:
-    """Return ``{name: description}`` for all registered presets."""
+    """
+    Returns:
+        ``{name: description}`` for all registered presets.
+    """
     return {name: p.desc for name, p in _get_registry().items()}
 
 
@@ -164,12 +169,27 @@ class _LazyPresets:
         return item in _get_registry()
 
     def items(self):
+        """Return all registered items as (key, value) pairs.
+
+        Returns:
+            Iterator of (key, value) pairs.
+        """
         return _get_registry().items()
 
     def keys(self):
+        """Return all registered item keys.
+
+        Returns:
+            Iterator of registry keys.
+        """
         return _get_registry().keys()
 
     def values(self):
+        """Return all registered item values.
+
+        Returns:
+            Iterator of registry values.
+        """
         return _get_registry().values()
 
 

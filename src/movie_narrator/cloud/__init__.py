@@ -34,7 +34,7 @@ Typical usage (local)::
     from movie_narrator.cloud import LocalTaskQueue, TaskRequest
 
     queue = LocalTaskQueue()
-    task_id = queue.submit(TaskRequest(movie_name="飞驰人生", style="热血搞笑"))
+    task_id = queue.submit(TaskRequest(movie_name="The Dark Knight", style="passionate-comedy"))
     result = queue.wait(task_id, timeout=600)
 
 Typical usage (remote)::
@@ -42,7 +42,7 @@ Typical usage (remote)::
     from movie_narrator.cloud import RemoteTaskQueue, TaskRequest
 
     queue = RemoteTaskQueue("http://worker-host:8765")
-    task_id = queue.submit(TaskRequest(movie_name="飞驰人生"))
+    task_id = queue.submit(TaskRequest(movie_name="The Dark Knight"))
     result = queue.wait(task_id, timeout=600)
 """
 

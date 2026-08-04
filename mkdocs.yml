@@ -21,6 +21,8 @@ nav:
   - Best Practices: BEST_PRACTICES.md
   - Roadmap: ROADMAP.md
   - Migration Guide: MIGRATION.md
+  - API Stability: STABILITY.md
+  - Release Checklist: RELEASE_CHECKLIST.md
   - LLM Providers: LLM_PROVIDERS.md
   - AI Guide: AI_GUIDE.md
   - Plugin Development: PLUGIN_DEVELOPMENT.md

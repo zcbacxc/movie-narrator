@@ -13,6 +13,8 @@ Use the navigation on the left, or start here:
 - [Architecture Decision Records](ADR.md) — key design decisions
 - [Roadmap](ROADMAP.md) — version planning
 - [Migration Guide](MIGRATION.md) — v0.x → v1.0 upgrade path
+- [API Stability](STABILITY.md) — stability promise, versioning policy, contract compatibility
+- [Release Checklist](RELEASE_CHECKLIST.md) — v1.0 Definition of Done
 - [Contributing](CONTRIBUTING.md) — development setup and conventions
 - [Deployment](DEPLOYMENT.md) — Docker image, local cluster, GPU, volumes
 - [Packaging](PACKAGING.md) — versioning and PyPI publishing

@@ -1,4 +1,4 @@
-﻿# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """Configurable retry policy framework (v0.9.1).
@@ -70,10 +70,12 @@ class RetryPolicy:
     should_retry: Optional[Callable[[BaseException], bool]] = None
 
     def is_retryable(self, exc: BaseException) -> bool:
-        """Return True if *exc* warrants another attempt.
+        """
+        Returns:
+            True if *exc* warrants another attempt.
 
-        Resolution order: ``should_retry`` → ``retryable_exceptions``
-        (whitelist) → ``retryable`` attribute / ``is_network_error``.
+            Resolution order: ``should_retry`` → ``retryable_exceptions``
+            (whitelist) → ``retryable`` attribute / ``is_network_error``.
         """
         if self.should_retry is not None:
             return bool(self.should_retry(exc))
@@ -159,8 +161,10 @@ def with_retry(policy: RetryPolicy) -> Callable[[Callable[..., _T]], Callable[..
     _validate_policy(policy)
 
     def decorator(fn: Callable[..., _T]) -> Callable[..., _T]:
+        """Register a decorator function."""
         @wraps(fn)
         def wrapper(*args: Any, **kwargs: Any) -> _T:
+            """Wrapper function for the decorator pattern."""
             for attempt in range(policy.max_attempts):
                 try:
                     return fn(*args, **kwargs)
@@ -212,8 +216,10 @@ def with_async_retry(
     _validate_policy(policy)
 
     def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
+        """Register a decorator function."""
         @wraps(fn)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            """(async) Wrapper function for the decorator pattern."""
             for attempt in range(policy.max_attempts):
                 try:
                     return await fn(*args, **kwargs)

@@ -141,16 +141,25 @@ class StepRegistry:
     # ── Lookup ────────────────────────────────────────────────
 
     def get(self, name: str) -> Optional[StepEntry]:
-        """Return the entry for *name*, or None."""
+        """
+        Returns:
+            The entry for *name*, or None.
+        """
         return self._entries.get(name)
 
     def get_func(self, name: str) -> Optional[StepFunc]:
-        """Return the callable for *name*, or None."""
+        """
+        Returns:
+            The callable for *name*, or None.
+        """
         entry = self._entries.get(name)
         return entry.func if entry else None
 
     def names(self) -> List[str]:
-        """Return all registered step names (unordered)."""
+        """
+        Returns:
+            All registered step names (unordered).
+        """
         return list(self._entries.keys())
 
     def contains(self, name: str) -> bool:
@@ -160,17 +169,19 @@ class StepRegistry:
     # ── Ordered list ──────────────────────────────────────────
 
     def ordered_steps(self) -> List[StepFunc]:
-        """Return step functions in execution order.
+        """
+        Returns:
+            Step functions in execution order.
 
-        Algorithm:
+            Algorithm:
 
-        1. Built-in steps (seq >= 0) sorted by seq.
-        2. Plugin steps with ``after`` inserted right after the target.
-        3. Plugin steps with ``before`` inserted right before the target.
-        4. Plugin steps with neither appended to the end.
+            1. Built-in steps (seq >= 0) sorted by seq.
+            2. Plugin steps with ``after`` inserted right after the target.
+            3. Plugin steps with ``before`` inserted right before the target.
+            4. Plugin steps with neither appended to the end.
 
-        If a plugin step's ``after``/``before`` target is not found,
-        the step is appended to the end with a debug warning.
+            If a plugin step's ``after``/``before`` target is not found,
+            the step is appended to the end with a debug warning.
         """
         ordered: List[StepFunc] = []
         placed: set[str] = set()
@@ -228,7 +239,10 @@ class StepRegistry:
         return ordered
 
     def ordered_names(self) -> List[str]:
-        """Return step names in execution order."""
+        """
+        Returns:
+            Step names in execution order.
+        """
         func_to_name = {}
         for entry in self._entries.values():
             # Use id() as key to handle cases where the same callable
@@ -245,23 +259,35 @@ class StepRegistry:
     # ── Soft-step metadata ────────────────────────────────────
 
     def soft_step_names(self) -> set[str]:
-        """Return the set of soft step names."""
+        """
+        Returns:
+            The set of soft step names.
+        """
         return {e.name for e in self._entries.values() if e.soft}
 
     def status_field_for(self, name: str) -> Optional[str]:
-        """Return the status field for a soft step, or None."""
+        """
+        Returns:
+            The status field for a soft step, or None.
+        """
         entry = self._entries.get(name)
         return entry.status_field if entry else None
 
     def consequence_for(self, name: str) -> str:
-        """Return the degradation message for a soft step."""
+        """
+        Returns:
+            The degradation message for a soft step.
+        """
         entry = self._entries.get(name)
         return entry.consequence if entry else ""
 
     # ── Introspection ─────────────────────────────────────────
 
     def info(self) -> List[Dict[str, Any]]:
-        """Return a list of dicts describing each registered step."""
+        """
+        Returns:
+            A list of dicts describing each registered step.
+        """
         return [
             {
                 "name": e.name,
@@ -315,6 +341,7 @@ def register_step(
     """
 
     def decorator(func: StepFunc) -> StepFunc:
+        """Register a decorator function."""
         return step_registry.register(
             name,
             func,

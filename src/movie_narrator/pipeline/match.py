@@ -1,13 +1,15 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+"""Clip matching step — match script segments to video scenes."""
+
 import json
 import logging
 import hashlib
 import os
 import functools
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple, cast
 
 from ..models import Context, MatchedClip, Scene, StepResult
 from ..utils.optional_deps import probe
@@ -55,9 +57,10 @@ def _transcribe_video_audio(
     importable or fails (common on Windows CPU due to k2-fsa missing),
     falls back to faster-whisper (CTranslate2, no pyannote/k2-fsa deps).
 
-    Returns a list of ``{"start", "end", "text"}`` dicts, or ``None``
-    when both backends are unavailable or transcription fails.
-    Results are cached per video file hash + model + language.
+    Returns:
+        A list of ``{"start", "end", "text"}`` dicts, or ``None``
+        when both backends are unavailable or transcription fails.
+        Results are cached per video file hash + model + language.
     """
     cache_path = output_dir / _cache_key(video_path, model_name, language)
 
@@ -190,8 +193,9 @@ def _load_embedding_model(model_name: str):
 def _embed_texts(texts: List[str], model_name: str = _EMBEDDING_MODEL_NAME):
     """Encode a list of strings to L2-normalized vectors.
 
-    Returns ``None`` when sentence-transformers is unavailable or fails at
-    runtime, so the caller can fall back to the heuristic shape.
+    Returns:
+        ``None`` when sentence-transformers is unavailable or fails at
+        runtime, so the caller can fall back to the heuristic shape.
     """
     model = _load_embedding_model(model_name)
     vectors = model.encode(texts)
@@ -204,14 +208,16 @@ def _embed_texts(texts: List[str], model_name: str = _EMBEDDING_MODEL_NAME):
 
 
 def _resolve_match_texts(ctx: Context) -> List[str]:
-    """Return the narration texts to embed for matching in the target language.
+    """
+    Returns:
+        The narration texts to embed for matching in the target language.
 
-    i18n pipeline (v0.9.6): when ``translated_texts`` are present and aligned
-    with ``timed_segments`` (i.e. the narration was translated to
-    ``subtitle_lang``), the embedding re-rank should match against the
-    target-language text so it aligns with the scene captions' transcription
-    language. Otherwise fall back to the narration segments' own text (which is
-    already written in the narration ``lang``).
+        i18n pipeline (v0.9.6): when ``translated_texts`` are present and aligned
+        with ``timed_segments`` (i.e. the narration was translated to
+        ``subtitle_lang``), the embedding re-rank should match against the
+        target-language text so it aligns with the scene captions' transcription
+        language. Otherwise fall back to the narration segments' own text (which is
+        already written in the narration ``lang``).
     """
     if ctx.translated_texts and len(ctx.translated_texts) == len(ctx.timed_segments):
         return list(ctx.translated_texts)
@@ -219,10 +225,12 @@ def _resolve_match_texts(ctx: Context) -> List[str]:
 
 
 def _cosine_top1(target_vec, candidate_matrix) -> int:
-    """Return index of the candidate with the highest cosine similarity.
+    """
+    Returns:
+        Index of the candidate with the highest cosine similarity.
 
-    ``target_vec`` and row vectors in ``candidate_matrix`` are assumed L2-normalized,
-    so cosine reduces to dot product. Returns -1 if the matrix is empty.
+        ``target_vec`` and row vectors in ``candidate_matrix`` are assumed L2-normalized,
+        so cosine reduces to dot product. Returns -1 if the matrix is empty.
     """
     if candidate_matrix.size == 0:
         return -1
@@ -233,10 +241,12 @@ def _cosine_top1(target_vec, candidate_matrix) -> int:
 def _cosine_topk(
     target_vec, candidate_matrix, k: int = 5
 ) -> list[tuple[int, float]]:
-    """Return top-K candidates as ``(local_index, score)`` sorted by score descending.
+    """
+    Returns:
+        Top-K candidates as ``(local_index, score)`` sorted by score descending.
 
-    ``local_index`` is the row index within ``candidate_matrix``.
-    Returns an empty list if the matrix is empty or k <= 0.
+        ``local_index`` is the row index within ``candidate_matrix``.
+        Returns an empty list if the matrix is empty or k <= 0.
     """
     if candidate_matrix.size == 0 or k <= 0:
         return []
@@ -278,9 +288,10 @@ def _greedy_topk_assign(
     position in the film get a small boost.  The bonus is bounded by
     ``_RHYTHM_ADJUSTMENT_MAX`` and never turns into a penalty.
 
-    Returns a list of ``(scene_index, score, source)`` per segment.
-    ``source`` is ``"embedding_topk"`` when top-K ran, ``"embedding_top1"``
-    when top-K is disabled (k <= 1).
+    Returns:
+        A list of ``(scene_index, score, source)`` per segment.
+        ``source`` is ``"embedding_topk"`` when top-K ran, ``"embedding_top1"``
+        when top-K is disabled (k <= 1).
     """
     import numpy as np
 
@@ -298,7 +309,7 @@ def _greedy_topk_assign(
             rhythm_zone = beats_meta[i].get("rhythm_zone")
 
         # Determine candidate pool
-        if use_weighted_acts and act_assignments and act_scenes:
+        if use_weighted_acts and act_assignments and act_scenes and act_weights:
             act_idx = act_assignments[i]
             cand_indices = _get_act_candidate_indices(
                 act_idx, len(act_weights), act_scenes
@@ -438,7 +449,8 @@ def _clamp_scene_window(
     The window is centered on the original scene midpoint and clamped to
     [video_start, video_end].
 
-    Returns adjusted (src_start, src_end).
+    Returns:
+        Adjusted (src_start, src_end).
     """
     src_duration = scene_end - scene_start
     if narr_duration <= 0:
@@ -489,14 +501,15 @@ def _apply_diversity(
     sliding window of ``window`` segments, swap the latest occurrence
     to the nearest unused scene.
 
-    Returns ``(swaps_count, swaps_log)`` where ``swaps_log`` is a list
-    of ``{"segment_index": int, "old_scene": int, "new_scene": int}``
-    dicts for auditability — downstream consumers can distinguish
-    original embedding scores from post-swap scores.
+    Returns:
+        ``(swaps_count, swaps_log)`` where ``swaps_log`` is a list
+        of ``{"segment_index": int, "old_scene": int, "new_scene": int}``
+        dicts for auditability — downstream consumers can distinguish
+        original embedding scores from post-swap scores.
 
-    Only swaps ``scene_index`` / ``src_start`` / ``src_end`` — score
-    and source remain unchanged (the match quality is not affected,
-    just the footage selection).
+        Only swaps ``scene_index`` / ``src_start`` / ``src_end`` — score
+        and source remain unchanged (the match quality is not affected,
+        just the footage selection).
     """
     if not matched_clips or len(scenes) <= 1:
         return 0, []
@@ -561,8 +574,9 @@ def _partition_scenes_by_act(
 ) -> List[List[Scene]]:
     """Partition scenes into *n_acts* equal-time buckets.
 
-    Returns a list of scene lists, one per act.  Acts with no scenes
-    get an empty list — the caller is responsible for fallback.
+    Returns:
+        A list of scene lists, one per act.  Acts with no scenes
+        get an empty list — the caller is responsible for fallback.
     """
     if not scenes:
         return [[] for _ in range(n_acts)]
@@ -587,9 +601,10 @@ def _assign_segments_to_acts(
 ) -> List[int]:
     """Assign *n_segments* narration segments to acts by *weights*.
 
-    Returns a list of act indices (0-based), one per segment, in
-    chronological order.  Segment counts per act are proportional to
-    weights, adjusted to sum exactly to *n_segments*.
+    Returns:
+        A list of act indices (0-based), one per segment, in
+        chronological order.  Segment counts per act are proportional to
+        weights, adjusted to sum exactly to *n_segments*.
     """
     total = sum(weights)
     if total <= 0:
@@ -621,9 +636,11 @@ def _get_act_candidate_indices(
     act_scenes: List[List[Scene]],
     allow_overflow: bool = True,
 ) -> List[int]:
-    """Return global scene indices for act *act_idx* + optional adjacent overflow.
+    """
+    Returns:
+        Global scene indices for act *act_idx* + optional adjacent overflow.
 
-    When the target act has no scenes, expands search to all acts.
+        When the target act has no scenes, expands search to all acts.
     """
     # Start with the act's own scenes
     indices = [s.index for s in act_scenes[act_idx]]
@@ -660,9 +677,10 @@ def _apply_rhythm_density_hint(merge_min: float, beats_meta: list[dict]) -> floa
     ``hook``  -> more scenes (denser)  -> lower merge threshold.
     ``settle``-> fewer scenes (sparser)-> higher merge threshold.
 
-    Returns the (possibly adjusted) merge_min. When beats_meta is empty,
-    no beat carries a rhythm_zone, or merge_min is non-positive, the
-    original value is returned unchanged.
+    Returns:
+        The (possibly adjusted) merge_min. When beats_meta is empty,
+        no beat carries a rhythm_zone, or merge_min is non-positive, the
+        original value is returned unchanged.
     """
     if not beats_meta or merge_min <= 0:
         return merge_min
@@ -712,12 +730,13 @@ def _compute_rhythm_adjustment(
 ) -> float:
     """Soft score bonus for scenes whose timeline position matches a rhythm zone.
 
-    Returns a value in ``[0, _RHYTHM_ADJUSTMENT_MAX]``.  Zero when
-    *rhythm_zone* is ``None``, unknown, or *scene_span* is non-positive.
+    Returns:
+        A value in ``[0, _RHYTHM_ADJUSTMENT_MAX]``.  Zero when
+        *rhythm_zone* is ``None``, unknown, or *scene_span* is non-positive.
 
-    Only applies a **positive bonus** (never a penalty) so that a strong
-    semantic match in the "wrong" timeline position is still selected —
-    the rhythm zone merely breaks ties or nudges near-equal candidates.
+        Only applies a **positive bonus** (never a penalty) so that a strong
+        semantic match in the "wrong" timeline position is still selected —
+        the rhythm zone merely breaks ties or nudges near-equal candidates.
     """
     if rhythm_zone is None or scene_span <= 0:
         return 0.0
@@ -736,6 +755,14 @@ def _compute_rhythm_adjustment(
 
 
 def match_clips(ctx: Context) -> Context:
+    """Match script segments to video scenes.
+
+    Args:
+        ctx: Pipeline execution context.
+
+    Returns:
+        Updated pipeline context with matched clips.
+    """
     if not ctx.source_video_path:
         ctx.status.match = "skipped"
         ctx.step_state.result = StepResult.SKIPPED
@@ -951,6 +978,7 @@ def _match_clips_impl(
                 containing = scenes[0]
         elif use_weighted_acts:
             # Map within assigned act bucket
+            assert act_assignments is not None and act_scenes is not None
             act_idx = act_assignments[i]
             bucket = act_scenes[act_idx]
             if not bucket:
@@ -1011,7 +1039,7 @@ def _match_clips_impl(
     # --- Optional embedding re-rank ----------------------------------------
     # Initialize tracking variables for match_summary (defined in all
     # branches below, but referenced at function end after the try/except).
-    final = []
+    final: List[Tuple[dict[str, Any], float, Optional[Scene], str]] = []
     scene_captions: List[Tuple[str, bool]] = []
     usable_label_ratio: float = 0.0
     raw_scores: List[float] = []
@@ -1114,7 +1142,8 @@ def _match_clips_impl(
                     f"Install WhisperX with: pip install 'movie-narrator[ml]'"
                 )
                 ctx.metadata["match_captions_fake"] = True
-                final = [(h, 1.0, None, "heuristic") for h in heuristic]
+                final = cast(List[Tuple[dict[str, Any], float, Optional[Scene], str]],
+                         [(h, 1.0, None, "heuristic") for h in heuristic])
             else:
                 ctx.metadata["match_captions_fake"] = False
                 emb_model = ctx.metadata.get("embedding_model_name", _EMBEDDING_MODEL_NAME)
@@ -1152,18 +1181,21 @@ def _match_clips_impl(
                 f"embedding re-rank unavailable ({e}); using heuristic"
             )
             logger.debug("embedding re-rank failed", exc_info=True)
-            final = [(h, 1.0, None, "heuristic") for h in heuristic]
+            final = cast(List[Tuple[dict[str, Any], float, Optional[Scene], str]],
+                         [(h, 1.0, None, "heuristic") for h in heuristic])
     else:
-        final = [(h, 1.0, None, "heuristic") for h in heuristic]
+        final = cast(List[Tuple[dict[str, Any], float, Optional[Scene], str]],
+                     [(h, 1.0, None, "heuristic") for h in heuristic])
 
     # --- Build matched clips with speed clamp -------------------------------
     matched_clips = []
     video_total_duration = scene_end  # total video duration for boundary clamping
 
-    for h, score, best_scene, source in final:
-        scene_obj = best_scene if best_scene is not None else next(
-            s for s in scenes if s.index == h["scene_index"]
-        )
+    for h, score, best_scene, source in final:  # type: ignore[assignment]
+        if best_scene is not None:
+            scene_obj: Scene = best_scene
+        else:
+            scene_obj = next(s for s in scenes if s.index == h["scene_index"])
         if score < min_score:
             # Embedding score too low — fall back to heuristic for this segment
             # instead of dropping it entirely. Dropping causes missing video
@@ -1177,7 +1209,7 @@ def _match_clips_impl(
             score = 1.0
             low_score_fallback_count += 1  # count low-score fallbacks
 
-        narr_duration = h["narr_end"] - h["narr_start"]
+        narr_duration = cast(float, h["narr_end"]) - cast(float, h["narr_start"])
         # Apply speed clamp: adjust src_start/src_end so factor stays in [clamp_min, clamp_max]
         clamped_start, clamped_end = _clamp_scene_window(
             scene_obj.start,
@@ -1376,7 +1408,7 @@ def _match_clips_impl(
             ),
             "act_weights": act_weights if use_weighted_acts else None,
             "segments_per_act": (
-                [act_assignments.count(a) for a in range(len(act_weights))]
+                [cast(list[int], act_assignments).count(a) for a in range(len(cast(list[float], act_weights)))]
                 if use_weighted_acts else None
             ),
         },

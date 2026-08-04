@@ -50,17 +50,19 @@ class JobConfigError(ProviderError):
 
 
 def is_network_error(exc: BaseException) -> bool:
-    """Return True if *exc* looks like a transient network/timeout failure.
+    """
+    Returns:
+        True if *exc* looks like a transient network/timeout failure.
 
-    Network timeouts, connection resets, and rate limits are candidates for
-    retry; configuration and logic errors are not. Checks the exception type
-    against a generic, independently-authored list of network-type classes:
-    the stdlib ``ConnectionError`` / ``TimeoutError`` plus the OpenAI SDK's
-    ``APITimeoutError`` / ``APIConnectionError`` / ``RateLimitError`` when
-    the SDK is importable.
+        Network timeouts, connection resets, and rate limits are candidates for
+        retry; configuration and logic errors are not. Checks the exception type
+        against a generic, independently-authored list of network-type classes:
+        the stdlib ``ConnectionError`` / ``TimeoutError`` plus the OpenAI SDK's
+        ``APITimeoutError`` / ``APIConnectionError`` / ``RateLimitError`` when
+        the SDK is importable.
 
-    The OpenAI import is lazy so this module loads even when the ``openai``
-    package is absent (e.g. minimal CI environments).
+        The OpenAI import is lazy so this module loads even when the ``openai``
+        package is absent (e.g. minimal CI environments).
     """
     # Generic stdlib network errors. ConnectionError is the base for
     # ConnectionResetError / ConnectionAbortedError / ConnectionRefusedError;

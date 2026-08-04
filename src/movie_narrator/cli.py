@@ -1,9 +1,11 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+"""Command-line interface for Movie Narrator."""
+
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 import typer
 
@@ -18,7 +20,8 @@ from .utils.log import resolve_log_level
 def _format_match_summary(ctx: Context) -> Optional[str]:
     """Format a one-line match summary from ctx.metadata for CLI output.
 
-    Returns None if no match_summary is available (e.g. match step skipped).
+    Returns:
+        None if no match_summary is available (e.g. match step skipped).
     """
     ms: Optional[Dict[str, Any]] = ctx.metadata.get("match_summary")
     if not ms:
@@ -61,7 +64,10 @@ def _format_match_summary(ctx: Context) -> Optional[str]:
 
 
 def _format_degradation_hints(ctx: Context) -> list[str]:
-    """Return human-readable degradation hints for the CLI output."""
+    """
+    Returns:
+        Human-readable degradation hints for the CLI output.
+    """
     hints: list[str] = []
     ms: Optional[Dict[str, Any]] = ctx.metadata.get("match_summary")
     if ms:
@@ -114,9 +120,11 @@ class InteractiveCLIController:
         self._cancelled = False
 
     def is_cancelled(self) -> bool:
+        """Mark the pipeline as cancelled."""
         return self._cancelled
 
     def on_step_error(self, step_name: str, error: Exception, attempt: int):
+        """Handle errors during pipeline step execution."""
         from .pipeline.errors import StepAction
 
         typer.echo(
@@ -191,17 +199,18 @@ def create(
         help="在控制台显示 DEBUG 日志 / Show debug logs in console",
     ),
 ):
-    """生成解说短视频 — 从电影名到成片一站式产出.
+    """Generate a narrated short video — end-to-end from movie name to final output.
 
-    \b
-    快速开始 / Quick start:
-        mn create -m 满江红 -p douyin-fast
-        mn create -m 满江红 -p mainstream-dry --bgm music.mp3
-        mn create --config job.yaml
+    
 
-    \b
-    查看可用预设 / List available presets:
-        mn preset
+    Examples:
+            mn create -m Inception -p douyin-fast
+            mn create -m Inception -p mainstream-dry --bgm music.mp3
+            mn create --config job.yaml
+
+        
+        List available presets:
+            mn preset
     """
     from .config import get_settings
     from .workflow import JobConfigError, load_job_config, merge_job
@@ -376,18 +385,16 @@ def race(
         help="输出目录(默认 output/<电影名>_race) / Output directory",
     ),
 ):
-    """多候选赛马 — 同输��跑 N 套变体,打分选优.
+    """Run N variants in parallel and pick the best by score.
 
-    \b
-    每个候选使用不同的 preset x match 种子组合,跑完后按
-    match 质量/时长拟合/多样性/场景覆盖率 综合打分,
-    输出排名表供人工或自动选择.
+    Each candidate uses a different preset x match seed combination. After running,
+    scored by match quality / duration fit / diversity / scene coverage,
+    outputs a ranking table for manual or automatic selection.
 
-    \b
-    用法 / Usage:
-        mn race -m 满江红 --video movie.mp4
-        mn race -m 满江红 --video movie.mp4 -n 3 --auto-pick
-        mn race -m 满江红 --presets douyin-fast,mainstream-dry,bilibili-long
+    Examples:
+            mn race -m Inception --video movie.mp4
+            mn race -m Inception --video movie.mp4 -n 3 --auto-pick
+            mn race -m Inception --presets douyin-fast,mainstream-dry,bilibili-long
     """
     from .race import (
         generate_candidates,
@@ -415,7 +422,7 @@ def race(
     out_base = (
         Path(output_dir)
         if output_dir
-        else Path("output") / f"{_sanitize_filename(movie)}_race"
+        else Path("output") / f"{_sanitize_filename(cast(str, movie))}_race"
     )
     out_base.mkdir(parents=True, exist_ok=True)
 
@@ -502,17 +509,18 @@ def imitate(
         help="在控制台显示 DEBUG 日志 / Show debug logs in console",
     ),
 ):
-    """参考片模仿 — 从爆款解说提取风格,生成同风格新片.
+    """Reference video imitation — extract style from a hit video and generate new content in the same style.
 
-    \b
-    分析参考视频的句密/切密/节奏,自动生成临时 preset,
-    然后用该 preset 跑标准管线生成新解说.
+    
+    Analyzes sentence density, cut density, and rhythm of the reference video, automatically generates a temporary preset,
+    then runs the standard pipeline with that preset to generate new narration.
 
-    \b
-    用法 / Usage:
-        mn imitate -r viral_ref.mp4 -m 满江红 --video movie.mp4
-        mn imitate -r viral_ref.mp4 --analyze-only
-        mn imitate -r viral_ref.mp4 -m 满江红 --video movie.mp4 --strict
+    
+
+    Examples:
+            mn imitate -r viral_ref.mp4 -m Inception --video movie.mp4
+            mn imitate -r viral_ref.mp4 --analyze-only
+            mn imitate -r viral_ref.mp4 -m Inception --video movie.mp4 --strict
     """
     from .imitate import (
         analyze_reference,
@@ -566,6 +574,7 @@ def imitate(
 
     _resolved_level = resolve_log_level(log_level)
 
+    assert movie is not None
     ctx = build_context(**common_build_kwargs(
         movie=movie,
         style=style,
@@ -631,16 +640,17 @@ def resume(
         help="在控制台显示 DEBUG 日志 / Show debug logs in console",
     ),
 ):
-    """恢复暂停的管线 — 从上次暂停点继续执行.
+    """Resume a paused pipeline — continue from the last checkpoint.
 
-    \b
-    用法 / Usage:
-        mn resume --state output/movie/pipeline_state.json
+    
+
+    Examples:
+            mn resume --state output/movie/pipeline_state.json
     """
     from .pipeline.runner import _load_pipeline_state, _next_step_after, run_pipeline
     from .pipeline.errors import PipelinePaused
     from .pipeline.preflight import PreflightError
-    from .utils.console import build_console
+    from .utils.console import Console, build_console
 
     state_path = Path(state)
     if not state_path.is_file():
@@ -653,7 +663,7 @@ def resume(
 
     # Re-inject a real console (serialized state has SilentConsole)
     from .models import Services
-    console = build_console(
+    console: Console = build_console(
         Path(ctx.output_dir),
         log_level=_resolved_level,
         verbose=verbose,
@@ -709,7 +719,7 @@ def resolve(
         help="输出目录(默认 output/<电影名>) / Output directory (default: output/<movie>)",
     ),
 ):
-    """从影视库中查找电影 / Resolve a movie from library directory."""
+    """Resolve a movie from library directory."""
     out_dir = Path(output_dir) if output_dir else Path("output") / _sanitize_filename(movie)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -737,7 +747,7 @@ def research(
         help="输出目录(默认 output/<电影名>) / Output directory (default: output/<movie>)",
     ),
 ):
-    """运行剧��研究并输出 research.json / Run plot research."""
+    """Run plot research."""
     out_dir = Path(output_dir) if output_dir else Path("output") / _sanitize_filename(movie)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -761,7 +771,7 @@ def scenes(
     threshold: float = typer.Option(27.0, "--threshold", help="场景检测阈值 / Scene detection threshold"),
     output: Optional[str] = typer.Option(None, "--output", help="输出目录 / Output directory"),
 ):
-    """检测视频中的场景 / Detect scenes in a video file."""
+    """Detect scenes in a video file."""
     from movie_narrator.pipeline.scenes import detect_scenes
     from movie_narrator.models import Context
     out = Path(output) if output else Path("output") / "scenes_debug"
@@ -789,7 +799,7 @@ def align(
     script: Optional[str] = typer.Option(None, "--script", help="脚本文本文件(每行一句) / Script text file"),
     output: Optional[str] = typer.Option(None, "--output", help="输出目录 / Output directory"),
 ):
-    """使用 WhisperX 对齐音频与脚本 / Align audio with script using WhisperX."""
+    """Align audio with script using WhisperX."""
     from movie_narrator.pipeline.align import align_audio
     from movie_narrator.models import Context, TimedSegment
     out = Path(output) if output else Path("output") / "align_debug"
@@ -823,7 +833,7 @@ def clips(
     scenes_path: str = typer.Option(..., "--scenes", help="scenes.json 路径 / scenes.json path"),
     output: Optional[str] = typer.Option(None, "--output", help="输出目录 / Output directory"),
 ):
-    """从 scenes.json 导出片段 / Export clips from scenes.json."""
+    """Export clips from scenes.json."""
     from movie_narrator.pipeline.export_clips import export_clips
     from movie_narrator.models import Context, Scene
     import json
@@ -857,12 +867,13 @@ def plugin(
 ):
     """Plugin system commands — list, discover, inspect registries.
 
-    \b
-    用法 / Usage:
-        mn plugin list          # 列出已安��的 entry_points 插件
-        mn plugin discover      # 发现并加载所有插件
-        mn plugin registries    # 显示所有注册表中的 provider/step
-        mn plugin version       # 显示 CONTRACT_VERSION
+    
+
+    Examples:
+            mn plugin list          # list installed entry_points plugins
+            mn plugin discover      # discover and load all plugins
+            mn plugin registries    # show all registered providers/steps
+            mn plugin version       # show CONTRACT_VERSION
     """
     if action == "list":
         from .plugin_loader import list_available_plugins
@@ -949,7 +960,7 @@ def plugin(
 
 @app.command()
 def version():
-    """显示版本号 / Show version."""
+    """Show version."""
     typer.echo(f"movie-narrator v{__version__}")
 
 
@@ -959,12 +970,12 @@ def preset(
         None, help="预设名称(省略则列出��部) / Preset name (omitted = list all)"
     ),
 ):
-    """列出解说预设或查看指定预设详�� / List presets or show details.
+    """List presets or show details.
 
-    \b
-    示例 / Examples:
-        mn preset                  # 列出所有可用预设
-        mn preset mainstream-dry   # 查看 mainstream-dry 的参数和标签
+    
+    Examples:
+        mn preset                  # list all available presets
+        mn preset mainstream-dry   # show params and tags for mainstream-dry
     """
     from .presets import get_preset, list_presets
 
@@ -1045,13 +1056,13 @@ def submit(
         help="远程服务器URL / Remote server URL (e.g. http://worker:8765)"
     ),
 ):
-    """异步提交解说任务 / Submit an async narration task.
+    """Submit an async narration task.
 
-    \b
-    示例 / Examples:
-        mn submit -m 飞驰人生 -p douyin-fast
-        mn submit -m 满江红 --wait --timeout 600
-        mn submit -m 飞驰人生 --remote http://worker:8765 --wait
+    
+    Examples:
+        mn submit -m "The Dark Knight" -p douyin-fast
+        mn submit -m Inception --wait --timeout 600
+        mn submit -m The Dark Knight --remote http://worker:8765 --wait
     """
     from .cloud import TaskRequest
 
@@ -1109,10 +1120,10 @@ def status(
         help="远程服务器URL / Remote server URL"
     ),
 ):
-    """查看任务状态 / Show task status.
+    """Show task status.
 
-    \b
-    示例 / Example:
+    
+    Example:
         mn status abc123def456
         mn status abc123def456 --remote http://worker:8765
     """
@@ -1175,12 +1186,12 @@ def tasks(
         help="远程服务器URL / Remote server URL"
     ),
 ):
-    """列出任务 / List tasks.
+    """List tasks.
 
-    \b
-    示例 / Examples:
-        mn tasks                 # 列出最近20个任务
-        mn tasks --status running # 只显示运行中的任务
+    
+    Examples:
+        mn tasks                 # list last 20 tasks
+        mn tasks --status running # show only running tasks
         mn tasks --remote http://worker:8765
     """
     from .cloud.models import TaskStatus
@@ -1226,10 +1237,10 @@ def cancel(
         help="远程服务器URL / Remote server URL"
     ),
 ):
-    """取消任务 / Cancel a running task.
+    """Cancel a running task.
 
-    \b
-    示例 / Example:
+    
+    Example:
         mn cancel abc123def456
         mn cancel abc123def456 --remote http://worker:8765
     """
@@ -1262,12 +1273,11 @@ def wait(
         help="远程服务器URL / Remote server URL"
     ),
 ):
-    """等��任务完成 / Wait for task completion.
+    """Wait for task completion.
 
-    \b
-    示例 / Examples:
-        mn wait abc123def456              # 无限等��
-        mn wait abc123def456 -t 600       # 10分钟��时
+    Examples:
+        mn wait abc123def456              # wait indefinitely
+        mn wait abc123def456 -t 600       # 10 minute timeout
         mn wait abc123def456 --remote http://worker:8765
     """
     queue = _get_queue(remote=remote)
@@ -1289,12 +1299,11 @@ def cleanup(
         help="��除所有任务(��括运行中) / Clear all tasks including active ones"
     ),
 ):
-    """��理已完成任务 / Clean up terminal tasks.
+    """Clean up terminal tasks.
 
-    \b
-    示例 / Examples:
-        mn cleanup           # ��除已完成/失败/取消的任务
-        mn cleanup --all     # ��除所有任务
+    Examples:
+        mn cleanup           # remove completed/failed/cancelled tasks
+        mn cleanup --all     # remove all tasks
     """
     queue = _get_queue()
     if all_tasks:
@@ -1337,34 +1346,32 @@ def serve(
         help="日志级别 / Log level: DEBUG|INFO|WARNING|ERROR (default: MN_LOG_LEVEL, else INFO).",
     ),
 ):
-    """启动远程推理服务 / Start the remote inference API server.
+    """Start the remote inference API server.
 
-    启动一个 HTTP API 服务器,��许远程客户端提交和管理解说任务.
-    适用于将推理负载卸载到 GPU 机器或云端服务器.
+    Starts an HTTP API server that allows remote clients to submit and
+    manage narration tasks. Suitable for offloading inference workload
+    to GPU machines or cloud servers.
 
-    \b
     Start a worker daemon that accepts remote task submissions:
         mn serve --port 8765
         mn serve --max-workers 4
-        mn serve --public --api-key secret   # 监听所有接口 + 认证
+        mn serve --public --api-key secret   # listen on all interfaces + auth
 
-    \b
     From another machine, submit tasks:
-        mn submit -m 飞驰人生 --remote http://worker:8765 --wait
+        mn submit -m The Dark Knight --remote http://worker:8765 --wait
 
-    \b
-    安��提示: 默认��监听 127.0.0.1(本机访问),无需认证.
-    使用 --public 监听 0.0.0.0 时,��须提供 --api-key(或设置
-    MN_API_KEY 环境变量),否则拒绝启动. 使用 --insecure 可跳过此
-    安��检查(不推荐).
-    v0.8.0 已增加 X-API-Key 认证支持,通过 --api-key 启用.
+    Security note: By default, listens on 127.0.0.1 (local access only),
+    no authentication required. When using --public to listen on 0.0.0.0,
+    you must provide --api-key (or set the MN_API_KEY environment variable),
+    otherwise startup is rejected. Use --insecure to skip this security
+    check (not recommended). v0.8.0 adds X-API-Key authentication support,
+    enabled via --api-key.
 
-    \b
-    v0.8.1 观测性 / Observability:
+    v0.8.1 Observability:
         mn serve --log-format json --log-level INFO
-        GET /metrics — Prometheus 指标(默认需 X-API-Key;
-        设置 MN_METRICS_PUBLIC=1 可免认证供集群内抓取).
-        每个响应都会回显 X-Correlation-ID.
+        Prometheus metrics (requires X-API-Key by default;
+        set MN_METRICS_PUBLIC=1 to allow unauthenticated scraping within the cluster).
+        Every response echoes back X-Correlation-ID.
     """
     from .cloud import run_daemon
     from .config import get_settings
@@ -1428,10 +1435,10 @@ def download(
         help="保存目录 / Destination directory"
     ),
 ):
-    """从远程服务器下载产物 / Download artifacts from a remote server.
+    """Download artifacts from a remote server.
 
-    \b
-    示例 / Examples:
+    
+    Examples:
         mn download abc123 --remote http://worker:8765
         mn download abc123 -r http://worker:8765 -f final.mp4
         mn download abc123 -r http://worker:8765 -o ./output
@@ -1462,10 +1469,10 @@ def api_spec(
         help="JSON 缩进空格数(0 表示紧凑输出) / JSON indent width (0 = compact)"
     ),
 ):
-    """导出 REST API 的 OpenAPI 3.1 规范 / Dump the REST API OpenAPI 3.1 spec.
+    """Dump the REST API OpenAPI 3.1 spec.
 
-    \b
-    示例 / Examples:
+    
+    Examples:
         mn api-spec
         mn api-spec -o openapi.json
         mn api-spec --indent 0 -o openapi.min.json
@@ -1523,10 +1530,10 @@ def artifacts_list(
         None, "--root", help="本地后端根目录(默认读 MN_STORAGE_ROOT) / Local store root"
     ),
 ):
-    """列出产物存储中的文件 / List artifacts in the configured store.
+    """List artifacts in the configured store.
 
-    \b
-    示例 / Examples:
+    
+    Examples:
         mn artifacts list
         mn artifacts list --root output --prefix abc123
     """
@@ -1567,13 +1574,13 @@ def artifacts_cleanup(
         None, "--root", help="本地后端根目录(默认读 MN_STORAGE_ROOT) / Local store root"
     ),
 ):
-    """按 TTL / 容量上限清理产物 / Clean up artifacts by TTL and size cap.
+    """Clean up artifacts by TTL and size cap.
 
-    未显式指定的选项回落到 MN_ARTIFACT_* 环境变量.
+    Options not explicitly specified fall back to MN_ARTIFACT_* environment variables.
     Options left unset fall back to the MN_ARTIFACT_* environment variables.
 
-    \b
-    示例 / Examples:
+    
+    Examples:
         mn artifacts cleanup --dry-run
         mn artifacts cleanup --ttl 604800 --keep-last 5
         mn artifacts cleanup --max-bytes 10737418240

@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+"""Metadata JSON export."""
+
 from typing import Any, Dict
 
 from .. import __version__
@@ -8,6 +10,7 @@ from ..models import Context
 
 
 def build_metadata_json(ctx: Context) -> Dict[str, Any]:
+    """Build the metadata JSON structure for export."""
     subtitle_lang = ctx.metadata.get("subtitle_lang")
     # Default source/script/voice to zh-CN per spec §5.4; reserved for
     # future full-pipeline multi-language support.

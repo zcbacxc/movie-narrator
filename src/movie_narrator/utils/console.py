@@ -55,6 +55,7 @@ class Console(Protocol):
     def step_warn(self, name: str, reason: str) -> None: ...
     def step_err(self, name: str, exc: Exception, elapsed: float) -> None: ...
     def warn(self, msg: str) -> None: ...
+    def info(self, msg: str) -> None: ...
     def debug(self, msg: str) -> None: ...
     def inline_warn(self, msg: str) -> None: ...
     def final(self, msg: str) -> None: ...
@@ -97,12 +98,26 @@ class SilentConsole(BaseConsole):
     def step_warn(self, name: str, reason: str) -> None: ...
     def step_err(self, name: str, exc: Exception, elapsed: float) -> None: ...
     def warn(self, msg: str) -> None: ...
+    def info(self, msg: str) -> None: ...
     def debug(self, msg: str) -> None: ...
     def inline_warn(self, msg: str) -> None: ...
     def final(self, msg: str) -> None: ...
     def done(self, elapsed: float) -> None: ...
     def cancelled(self, msg: str) -> None: ...
     def progress(self, *args, **kwargs):
+        """Record the start of a pipeline step."""
+        """Mark the current step as successfully completed."""
+        """Mark the current step as skipped."""
+        """Mark the current step as completed with warnings."""
+        """Mark the current step as failed."""
+        """Emit a warning message."""
+        """Emit an informational message."""
+        """Emit a debug message."""
+        """Emit a warning message."""
+        """Print the final pipeline summary."""
+        """Mark the pipeline as complete."""
+        """Mark the pipeline as cancelled."""
+        """Update progress display."""
         return None
 
 
@@ -124,23 +139,28 @@ class PlainConsole(BaseConsole):
     # ── lifecycle events (called by runner) ──────────────────
 
     def step(self, name: str) -> None:
+        """Record the start of a pipeline step."""
         print(f"{_BLUE}▶{_RESET} {name}", end="", flush=True)
         self._log.info(f"STEP_START {name}")
 
     def step_ok(self, name: str, elapsed: float) -> None:
+        """Mark the current step as successfully completed."""
         t = _fmt_time(elapsed)
         print(f"\r{_GREEN}✓{_RESET} {name}  {_BOLD}{t}{_RESET}")
         self._log.info(f"STEP_OK {name} elapsed={elapsed:.3f}s")
 
     def step_skip(self, name: str, reason: str) -> None:
+        """Mark the current step as skipped."""
         print(f"\r{_YELLOW}⏭{_RESET} {name}: {reason}")
         self._log.info(f"STEP_SKIP {name} reason={reason}")
 
     def step_warn(self, name: str, reason: str) -> None:
+        """Mark the current step as completed with warnings."""
         print(f"\r{_YELLOW}⚠{_RESET} {name}: {reason}")
         self._log.warning(f"STEP_WARN {name} reason={reason}")
 
     def step_err(self, name: str, exc: Exception, elapsed: float) -> None:
+        """Mark the current step as failed."""
         t = _fmt_time(elapsed)
         print(f"\r{_RED}✗{_RESET} {name}: {exc} {_YELLOW}({t}){_RESET}")
         self._log.error(f"STEP_ERR {name}", exc_info=True)
@@ -158,9 +178,15 @@ class PlainConsole(BaseConsole):
     # ── in-process messages (called by steps directly) ─────
 
     def debug(self, msg: str) -> None:
+        """Emit a debug message."""
         self._log.debug(msg)
         if self._verbose:
             print(f"{_DIM}  {msg}{_RESET}")
+
+    def info(self, msg: str) -> None:
+        """Emit an informational message."""
+        self._log.info(msg)
+        print(f"  {msg}")
 
     def inline_warn(self, msg: str) -> None:
         """Non-fatal in-process warning (e.g. partial metadata missing)."""
@@ -187,6 +213,7 @@ class PlainConsole(BaseConsole):
     # ── progress bar (passthrough to tqdm) ──────────────────
 
     def progress(self, *args, **kwargs):
+        """Update progress display."""
         from tqdm import tqdm
 
         return tqdm(*args, **kwargs)

@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+"""LLM prompt templates."""
+
 # ── Narrative principles ─────────────────────────
 # Five storytelling principles distilled from general narrative craft
 # (hook, suspense, payoff, quotable line, cognitive reversal) plus
@@ -69,8 +71,9 @@ PLATFORM_TONE: dict[str, str] = {
 def build_platform_tone_hint(platform: str = "") -> str:
     """Build the platform tone hint block for EXPAND_PROMPT.
 
-    Returns empty string when platform is empty or unknown
-    (backward-compatible with configs that don't set target_platform).
+    Returns:
+        Empty string when platform is empty or unknown
+        (backward-compatible with configs that don't set target_platform).
     """
     if not platform:
         return ""
@@ -102,8 +105,9 @@ SUPPORTED_LANGS: frozenset[str] = frozenset(_LANG_NAMES)
 def build_language_hint(lang: str = "") -> str:
     """Build the language directive for BEATS_PROMPT and EXPAND_PROMPT.
 
-    Returns empty string when lang is empty or "zh" (default, backward-
-    compatible — existing prompts implicitly produce Chinese).
+    Returns:
+        Empty string when lang is empty or "zh" (default, backward-
+        compatible — existing prompts implicitly produce Chinese).
     """
     if not lang or lang == "zh":
         return ""
@@ -324,11 +328,13 @@ SCRIPT_PROMPT_ZH = """\
 
 
 def select_script_prompt(lang: str = "") -> str:
-    """Return the single-pass SCRIPT_PROMPT template matching *lang*.
+    """
+    Returns:
+        The single-pass SCRIPT_PROMPT template matching *lang*.
 
-    zh → Chinese instructions (SCRIPT_PROMPT_ZH); any other value
-    (including empty / "en") → the existing English template, keeping
-    backward compatibility.
+        zh → Chinese instructions (SCRIPT_PROMPT_ZH); any other value
+        (including empty / "en") → the existing English template, keeping
+        backward compatibility.
     """
     if lang == "zh":
         return SCRIPT_PROMPT_ZH

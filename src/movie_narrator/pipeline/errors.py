@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+"""Pipeline-specific error types."""
+
 from enum import Enum
 from typing import Any, Dict, Optional, Protocol
 
@@ -22,6 +24,8 @@ class StepAction(Enum):
 
 
 class PipelineStrictError(RuntimeError):
+    """Error raised when a soft-degraded step fails in strict mode."""
+
     def __init__(
         self,
         step: Optional[str],

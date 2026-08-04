@@ -52,7 +52,10 @@ _tmp_counter = count(1)
 
 
 def _utc_now_iso() -> str:
-    """Return the current UTC time as an ISO-8601 string."""
+    """
+    Returns:
+        The current UTC time as an ISO-8601 string.
+    """
     return datetime.now(timezone.utc).isoformat()
 
 
@@ -124,7 +127,10 @@ class CheckpointStore:
         return self._dir
 
     def path_for(self, task_id: str) -> Path:
-        """Return the checkpoint file path for ``task_id``."""
+        """
+        Returns:
+            The checkpoint file path for ``task_id``.
+        """
         return self._dir / f"{task_id}.json"
 
     def save(self, checkpoint: TaskCheckpoint) -> None:
@@ -184,10 +190,11 @@ class CheckpointStore:
     def resolve_resume(self, task_id: str) -> Optional[ResumePlan]:
         """Turn the checkpoint for ``task_id`` into a :class:`ResumePlan`.
 
-        Returns None when there is no checkpoint (a fresh task). The
-        returned plan's ``done`` flag is True only when the completed
-        step was the final pipeline step — everything already ran, so
-        the caller must not invoke the pipeline again.
+        Returns:
+            None when there is no checkpoint (a fresh task). The
+            returned plan's ``done`` flag is True only when the completed
+            step was the final pipeline step — everything already ran, so
+            the caller must not invoke the pipeline again.
         """
         checkpoint = self.load(task_id)
         if checkpoint is None:

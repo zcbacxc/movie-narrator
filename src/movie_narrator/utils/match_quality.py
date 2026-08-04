@@ -54,6 +54,11 @@ class MatchQualitySummary:
     diversity_penalty_count: int = 0  # clips with diversity_score < 1.0
 
     def to_dict(self) -> dict:
+        """Convert the QA result to a dictionary.
+
+        Returns:
+            Dictionary representation of the QA result.
+        """
         return {
             "total_clips": self.total_clips,
             "clips_with_composite": self.clips_with_composite,
@@ -85,7 +90,8 @@ def compute_composite_score(
     of available dimensions.  Missing dimensions (None) are excluded and
     their weight is redistributed proportionally.
 
-    Returns None if all dimensions are None (e.g. heuristic clips).
+    Returns:
+        None if all dimensions are None (e.g. heuristic clips).
     """
     if weights is None:
         weights = _DEFAULT_WEIGHTS
@@ -129,8 +135,9 @@ def compute_diversity_scores(
 
     Clipped to [0.0, 1.0].
 
-    Returns a list of diversity scores (one per clip).  Heuristic clips
-    (no scene_index) receive 1.0 (no penalty).
+    Returns:
+        A list of diversity scores (one per clip).  Heuristic clips
+        (no scene_index) receive 1.0 (no penalty).
     """
     scores: list[float] = []
     scene_history: list[int] = []
@@ -226,8 +233,9 @@ def aggregate_match_quality(
 ) -> MatchQualitySummary:
     """Aggregate per-clip quality scores into a summary.
 
-    Returns a :class:`MatchQualitySummary` suitable for
-    ``ctx.metadata["match_quality"]``.
+    Returns:
+        A :class:`MatchQualitySummary` suitable for
+        ``ctx.metadata["match_quality"]``.
     """
     summary = MatchQualitySummary(total_clips=len(matched_clips))
 

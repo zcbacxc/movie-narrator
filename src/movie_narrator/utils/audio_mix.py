@@ -73,7 +73,8 @@ def duck_bgm(
        ramps it out, avoiding abrupt volume jumps.
     4. Overlay ducked BGM under narration.
 
-    Returns a mix the same length as ``narration``.
+    Returns:
+        A mix the same length as ``narration``.
     """
     # Baseline BGM gain + loop/trim to narration length.
     bgm_base = bgm.apply_gain(bgm_gain_db)

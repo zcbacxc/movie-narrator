@@ -41,6 +41,7 @@ class BaseTTSProvider(TTSProvider):
     """Concrete providers implement ``_real_synthesize``. CI behavior is shared."""
 
     async def synthesize(self, text: str, voice: str, output_path: Path) -> None:
+        """(async) Synthesize speech from text."""
         if is_ci():
             await self._silent_synthesize(text, output_path)
             return

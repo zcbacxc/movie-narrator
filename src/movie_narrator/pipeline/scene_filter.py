@@ -39,7 +39,8 @@ def filter_intro_scenes(
     If filtering would remove *all* scenes, the original list is
     returned unchanged (skip is ignored).
 
-    Returns ``(filtered_scenes, dropped_count)``.
+    Returns:
+        ``(filtered_scenes, dropped_count)``.
     """
     if skip_intro_sec <= 0 or not scenes:
         return scenes, 0
@@ -73,8 +74,9 @@ def _extract_mid_frame(
 ) -> bool:
     """Extract a single frame at *timestamp* using ffmpeg.
 
-    Returns ``True`` on success, ``False`` on failure (ffmpeg missing,
-    corrupt video, etc.).
+    Returns:
+        ``True`` on success, ``False`` on failure (ffmpeg missing,
+        corrupt video, etc.).
     """
     ffmpeg_bin = shutil.which("ffmpeg")
     if not ffmpeg_bin:
@@ -138,7 +140,8 @@ def filter_dark_scenes(
     returned unchanged. Frames are cached by video hash + scene index
     to avoid re-extraction on re-runs.
 
-    Returns ``(filtered_scenes, dropped_count)``.
+    Returns:
+        ``(filtered_scenes, dropped_count)``.
     """
     if luma_threshold <= 0 or not scenes or not video_path:
         return scenes, 0
@@ -209,7 +212,8 @@ def apply_source_window(
     Scenes that fall entirely outside the window are dropped.
     Scenes that partially overlap are clipped to the window bounds.
 
-    Returns ``(filtered_scenes, dropped_count)``.
+    Returns:
+        ``(filtered_scenes, dropped_count)``.
     """
     if not window or not scenes or len(window) != 2:
         return scenes, 0

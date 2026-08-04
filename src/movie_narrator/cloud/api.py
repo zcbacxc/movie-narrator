@@ -50,7 +50,7 @@ import re
 import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from .. import __version__
 from ..utils.logging_config import (
@@ -88,7 +88,7 @@ from .scheduler import JobScheduler, ScheduleError
 
 logger = logging.getLogger(__name__)
 
-# ── Route patterns ─────────────────────────────────────────
+# ── Route patterns (for metrics cardinality / _route_template) ──
 
 _TASK_PATTERN = re.compile(r"^/tasks/([a-f0-9]+)$")
 _TASK_RESULT_PATTERN = re.compile(r"^/tasks/([a-f0-9]+)/result$")
@@ -183,11 +183,85 @@ def _metrics_public() -> bool:
     }
 
 
+# ── Route registry (v1.0 refactor) ─────────────────────────
+
+
+class _RouteRegistry:
+    """Registry of API routes with regex-based dispatch.
+
+    Each route is a ``(method, pattern, handler, auth_required)`` tuple.
+    Routes are matched in registration order, so more specific patterns
+    must be registered before less specific ones (e.g. ``/tasks/{id}/result``
+    before ``/tasks/{id}``).
+
+    Path parameters use named capture groups in the regex pattern and are
+    passed to the handler as keyword arguments.
+    """
+
+    def __init__(self) -> None:
+        self._routes: list[Tuple[str, re.Pattern[str], Callable[..., None], bool]] = []
+
+    def register(
+        self,
+        method: str,
+        pattern: str,
+        *,
+        auth_required: bool = True,
+    ) -> Callable[[Callable[..., None]], Callable[..., None]]:
+        """Decorator: register a handler method for *method* + *pattern*.
+
+        Args:
+            method: HTTP method (``"GET"``, ``"POST"``, ``"DELETE"``, ...).
+            pattern: Regex pattern with optional named capture groups for
+                path parameters (e.g. ``r"^/tasks/(?P<task_id>[a-f0-9]+)$"``).
+            auth_required: If True, ``_check_auth()`` is called before the
+                handler and the request is rejected on failure.  Routes
+                that are always public (``/health``) or manage auth
+                themselves (``/metrics``) set this to False.
+        """
+        compiled = re.compile(pattern)
+
+        def decorator(handler: Callable[..., None]) -> Callable[..., None]:
+            """Register a decorator function."""
+            self._routes.append((method, compiled, handler, auth_required))
+            return handler
+
+        return decorator
+
+    def dispatch(self, handler_instance: "_APIHandler", method: str, path: str) -> None:
+        """Find the first route matching *method* + *path* and invoke it.
+
+        If the route requires authentication, ``_check_auth()`` is called
+        first; on failure the handler is not invoked (a 401 response has
+        already been sent).
+
+        If no route matches, a 404 response is sent.
+        """
+        for route_method, pattern, handler, auth_required in self._routes:
+            if route_method != method:
+                continue
+            match = pattern.match(path)
+            if match:
+                if auth_required and not handler_instance._check_auth():
+                    return
+                handler(handler_instance, **match.groupdict())
+                return
+        handler_instance._send_error(HTTPStatus.NOT_FOUND, f"Unknown path: {path}")
+
+
+#: Module-level route registry populated by ``_APIHandler`` decorators.
+_route_registry = _RouteRegistry()
+
+
+# ── Request handler ────────────────────────────────────────
+
+
 class _APIHandler(BaseHTTPRequestHandler):
     """HTTP request handler for the task API."""
 
     # Suppress default logging
     def log_message(self, fmt: str, *args: Any) -> None:
+        """Log a message with correlation context."""
         logger.debug("API %s - %s", self.address_string(), fmt % args)
 
     # ── Helpers ─────────────────────────────────────────────
@@ -363,402 +437,351 @@ class _APIHandler(BaseHTTPRequestHandler):
         self._send_error(HTTPStatus.UNAUTHORIZED, "unauthorized")
         return False
 
-    # ── GET ─────────────────────────────────────────────────
+    # ── GET route handlers ──────────────────────────────────
+    #
+    # Order matters: more specific patterns must be registered before
+    # less specific ones (e.g. /tasks/{id}/result before /tasks/{id}).
+
+    @_route_registry.register("GET", r"^/health$", auth_required=False)
+    def _handle_get_health(self) -> None:
+        payload, status = build_health_payload(
+            self.queue,
+            shutting_down=self._is_shutting_down(),
+            deep=parse_deep_flag(self._parse_query()),
+        )
+        self._send_json(payload, status=status)
+
+    @_route_registry.register("GET", r"^/ready$", auth_required=False)
+    def _handle_get_ready(self) -> None:
+        payload, status = build_readiness_payload(
+            self.queue,
+            shutting_down=self._is_shutting_down(),
+        )
+        self._send_json(payload, status=status)
+
+    @_route_registry.register("GET", r"^/openapi\.json$", auth_required=False)
+    def _handle_get_openapi(self) -> None:
+        host = self.headers.get("Host")
+        self._send_json(
+            build_openapi_spec(server_url=f"http://{host}" if host else None)
+        )
+
+    @_route_registry.register("GET", r"^/metrics$", auth_required=False)
+    def _handle_get_metrics(self) -> None:
+        # Metrics — authenticated like every other route unless
+        # MN_METRICS_PUBLIC opts in to unauthenticated scraping.
+        if not _metrics_public() and not self._check_auth():
+            return
+        self._send_metrics()
+
+    @_route_registry.register("GET", r"^/info$")
+    def _handle_get_info(self) -> None:
+        self._send_json({
+            "version": __version__,
+            "active_tasks": self.queue.active_count,
+            "is_started": self.queue.is_started,
+            # v0.9.2: orchestration tooling can watch this to detect
+            # that the server has begun its graceful shutdown.
+            "shutting_down": self._is_shutting_down(),
+        })
+
+    @_route_registry.register("GET", r"^/tasks$")
+    def _handle_get_tasks(self) -> None:
+        query = self._parse_query()
+        status_filter = None
+        if "status" in query:
+            try:
+                status_filter = TaskStatus(query["status"])
+            except ValueError:
+                self._send_error(HTTPStatus.BAD_REQUEST, f"Invalid status: {query['status']}")
+                return
+        try:
+            limit = self._parse_limit(query.get("limit"))
+        except ValueError:
+            self._send_error(HTTPStatus.BAD_REQUEST, "Invalid limit")
+            return
+        tasks = self.queue.list_tasks(status=status_filter, limit=limit)
+        self._send_json({
+            "tasks": [t.to_summary() for t in tasks],
+            "count": len(tasks),
+        })
+
+    @_route_registry.register("GET", r"^/tasks/(?P<task_id>[a-f0-9]+)/result$")
+    def _handle_get_task_result(self, task_id: str) -> None:
+        result = self.queue.get_result(task_id)
+        if result is None:
+            self._send_error(HTTPStatus.NOT_FOUND, "Result not available")
+            return
+        self._send_json(result.model_dump(mode="json"))
+
+    @_route_registry.register("GET", r"^/tasks/(?P<task_id>[a-f0-9]+)/artifacts$")
+    def _handle_get_task_artifacts(self, task_id: str) -> None:
+        task = self.queue.get_task(task_id)
+        if task is None:
+            self._send_error(HTTPStatus.NOT_FOUND, f"Task {task_id} not found")
+            return
+        artifacts = self._list_task_artifacts(task)
+        self._send_json({"artifacts": artifacts, "count": len(artifacts)})
+
+    @_route_registry.register("GET", r"^/tasks/(?P<task_id>[a-f0-9]+)/download/(?P<filename>.+)$")
+    def _handle_get_task_download(self, task_id: str, filename: str) -> None:
+        task = self.queue.get_task(task_id)
+        if task is None:
+            self._send_error(HTTPStatus.NOT_FOUND, f"Task {task_id} not found")
+            return
+        self._serve_task_artifact(task, filename)
+
+    @_route_registry.register("GET", r"^/tasks/(?P<task_id>[a-f0-9]+)$")
+    def _handle_get_task(self, task_id: str) -> None:
+        task = self.queue.get_task(task_id)
+        if task is None:
+            self._send_error(HTTPStatus.NOT_FOUND, f"Task {task_id} not found")
+            return
+        self._send_json(task.model_dump(mode="json"))
+
+    @_route_registry.register("GET", r"^/batches$")
+    def _handle_get_batches(self) -> None:
+        query = self._parse_query()
+        try:
+            limit = self._parse_limit(query.get("limit"))
+        except ValueError:
+            self._send_error(HTTPStatus.BAD_REQUEST, "Invalid limit")
+            return
+        batches = self.queue.list_batches(limit=limit)
+        self._send_json({
+            "batches": [b.model_dump(mode="json") for b in batches],
+            "count": len(batches),
+        })
+
+    @_route_registry.register("GET", r"^/batches/(?P<batch_id>[a-f0-9]+)$")
+    def _handle_get_batch(self, batch_id: str) -> None:
+        batch = self.queue.get_batch(batch_id)
+        if batch is None:
+            self._send_error(HTTPStatus.NOT_FOUND, f"Batch {batch_id} not found")
+            return
+        self._send_json(batch.model_dump(mode="json"))
+
+    @_route_registry.register("GET", r"^/schedules$")
+    def _handle_get_schedules(self) -> None:
+        schedules = self.scheduler.list_schedules()
+        self._send_json({
+            "schedules": [s.model_dump(mode="json") for s in schedules],
+            "count": len(schedules),
+        })
+
+    @_route_registry.register("GET", r"^/schedules/(?P<schedule_id>[a-f0-9]+)/runs$")
+    def _handle_get_schedule_runs(self, schedule_id: str) -> None:
+        if self.scheduler.get_schedule(schedule_id) is None:
+            self._send_error(
+                HTTPStatus.NOT_FOUND, f"Schedule {schedule_id} not found"
+            )
+            return
+        runs = self.scheduler.get_runs(schedule_id)
+        self._send_json({
+            "runs": [r.model_dump(mode="json") for r in runs],
+            "count": len(runs),
+        })
+
+    @_route_registry.register("GET", r"^/deadletters$")
+    def _handle_get_deadletters(self) -> None:
+        records = self.dead_letter_store.list()
+        self._send_json({
+            "deadletters": [r.model_dump(mode="json") for r in records],
+            "count": len(records),
+        })
+
+    @_route_registry.register("GET", r"^/deadletters/(?P<task_id>[a-f0-9]+)$")
+    def _handle_get_deadletter(self, task_id: str) -> None:
+        record = self.dead_letter_store.get(task_id)
+        if record is None:
+            self._send_error(
+                HTTPStatus.NOT_FOUND, f"Dead letter {task_id} not found"
+            )
+            return
+        self._send_json(record.model_dump(mode="json"))
+
+    # ── POST route handlers ─────────────────────────────────
+
+    @_route_registry.register("POST", r"^/tasks$")
+    def _handle_post_tasks(self) -> None:
+        # v0.9.2: draining servers stop accepting new work. Probes
+        # (/ready, /health) still answer so orchestrators see a clean
+        # shutdown instead of a connection error.
+        if self._is_shutting_down():
+            self._send_error(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                "server is shutting down — not accepting new tasks",
+            )
+            return
+
+        try:
+            body = self._read_body()
+        except PayloadTooLargeError as e:
+            self._send_error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, str(e))
+            return
+        except ValueError as e:
+            self._send_error(HTTPStatus.BAD_REQUEST, str(e))
+            return
+
+        try:
+            request = TaskRequest(**body)
+        except Exception as e:  # noqa: BLE001
+            logger.debug("POST /tasks rejected: invalid TaskRequest payload: %s", e)
+            self._send_error(HTTPStatus.BAD_REQUEST, f"Invalid task request: {e}")
+            return
+
+        task_id = self.queue.submit(request)
+        self._send_json(
+            {"task_id": task_id, "status": "pending"},
+            status=HTTPStatus.CREATED,
+        )
+
+    @_route_registry.register("POST", r"^/tasks/batch$")
+    def _handle_post_tasks_batch(self) -> None:
+        try:
+            body = self._read_body()
+        except PayloadTooLargeError as e:
+            self._send_error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, str(e))
+            return
+        except ValueError as e:
+            self._send_error(HTTPStatus.BAD_REQUEST, str(e))
+            return
+        try:
+            request = BatchRequest(**body)
+        except Exception as e:  # noqa: BLE001
+            logger.debug("POST /tasks/batch rejected: invalid BatchRequest: %s", e)
+            self._send_error(HTTPStatus.BAD_REQUEST, f"Invalid batch request: {e}")
+            return
+        batch = self.queue.submit_batch(request)
+        self._send_json(
+            {
+                "batch_id": batch.batch_id,
+                "status": batch.status.value,
+                "task_ids": batch.task_ids,
+            },
+            status=HTTPStatus.CREATED,
+        )
+
+    @_route_registry.register("POST", r"^/deadletters/(?P<task_id>[a-f0-9]+)/replay$")
+    def _handle_post_deadletter_replay(self, task_id: str) -> None:
+        # Replay a dead letter — resubmits the original request
+        # with a fresh task ID.
+        try:
+            new_task_id = replay_dead_letter(task_id, queue=self.queue)
+        except KeyError:
+            self._send_error(
+                HTTPStatus.NOT_FOUND, f"Dead letter {task_id} not found"
+            )
+            return
+        self._send_json(
+            {
+                "original_task_id": task_id,
+                "task_id": new_task_id,
+            },
+            status=HTTPStatus.CREATED,
+        )
+
+    @_route_registry.register("POST", r"^/schedules$")
+    def _handle_post_schedules(self) -> None:
+        try:
+            body = self._read_body()
+        except PayloadTooLargeError as e:
+            self._send_error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, str(e))
+            return
+        except ValueError as e:
+            self._send_error(HTTPStatus.BAD_REQUEST, str(e))
+            return
+        try:
+            cron = body.get("cron")
+            if not cron or not isinstance(cron, str):
+                raise ScheduleError("'cron' must be a 5-field cron string")
+            task_request = TaskRequest(**body.get("task_request", {}))
+            enabled = body.get("enabled", True)
+            schedule = self.scheduler.register_schedule(
+                cron,
+                task_request,
+                enabled=bool(enabled),
+            )
+        except ScheduleError as e:
+            logger.debug("POST /schedules rejected: %s", e)
+            self._send_error(HTTPStatus.BAD_REQUEST, f"Invalid schedule: {e}")
+            return
+        except Exception as e:  # noqa: BLE001
+            logger.debug("POST /schedules rejected: invalid payload: %s", e)
+            self._send_error(HTTPStatus.BAD_REQUEST, f"Invalid schedule: {e}")
+            return
+        self._send_json(
+            schedule.model_dump(mode="json"),
+            status=HTTPStatus.CREATED,
+        )
+
+    # ── DELETE route handlers ───────────────────────────────
+
+    @_route_registry.register("DELETE", r"^/tasks/(?P<task_id>[a-f0-9]+)$")
+    def _handle_delete_task(self, task_id: str) -> None:
+        cancelled = self.queue.cancel(task_id)
+        if cancelled:
+            self._send_json({"task_id": task_id, "cancelled": True})
+        else:
+            self._send_error(
+                HTTPStatus.NOT_FOUND,
+                f"Task {task_id} not found or already terminal",
+            )
+
+    @_route_registry.register("DELETE", r"^/batches/(?P<batch_id>[a-f0-9]+)$")
+    def _handle_delete_batch(self, batch_id: str) -> None:
+        # Cancel every active task in a batch (v0.9.3)
+        if self.queue.cancel_batch(batch_id):
+            self._send_json({"batch_id": batch_id, "cancelled": True})
+        else:
+            self._send_error(HTTPStatus.NOT_FOUND, f"Batch {batch_id} not found")
+
+    @_route_registry.register("DELETE", r"^/schedules/(?P<schedule_id>[a-f0-9]+)$")
+    def _handle_delete_schedule(self, schedule_id: str) -> None:
+        # Delete a scheduled job (v0.9.3)
+        if self.scheduler.cancel_schedule(schedule_id):
+            self._send_json({"schedule_id": schedule_id, "deleted": True})
+        else:
+            self._send_error(
+                HTTPStatus.NOT_FOUND, f"Schedule {schedule_id} not found"
+            )
+
+    @_route_registry.register("DELETE", r"^/deadletters/(?P<task_id>[a-f0-9]+)$")
+    def _handle_delete_deadletter(self, task_id: str) -> None:
+        # Remove a dead letter (v0.9.4)
+        removed = self.dead_letter_store.remove(task_id)
+        if removed:
+            self._send_json({"task_id": task_id, "removed": True})
+        else:
+            self._send_error(
+                HTTPStatus.NOT_FOUND, f"Dead letter {task_id} not found"
+            )
+
+    # ── HTTP method dispatch ────────────────────────────────
 
     def do_GET(self) -> None:
+        """Handle HTTP GET requests."""
         self._dispatch(self._do_GET)
 
     def _do_GET(self) -> None:
         path = self.path.split("?")[0]
-
-        # Health check — exempt from authentication (always allowed).
-        # A plain GET /health keeps the v0.6.1 shape; ?deep=1 opts in to
-        # the full report (see cloud.health).
-        if path == "/health":
-            payload, status = build_health_payload(
-                self.queue,
-                shutting_down=self._is_shutting_down(),
-                deep=parse_deep_flag(self._parse_query()),
-            )
-            self._send_json(payload, status=status)
-            return
-
-        # Readiness probe — exempt from authentication (v0.8.2).
-        # Orchestrator probes cannot present an API key.
-        if path == "/ready":
-            payload, status = build_readiness_payload(
-                self.queue,
-                shutting_down=self._is_shutting_down(),
-            )
-            self._send_json(payload, status=status)
-            return
-
-        # OpenAPI spec — exempt from authentication (v0.8.2).
-        # A spec is not sensitive and tooling needs it unauthenticated.
-        if path == "/openapi.json":
-            host = self.headers.get("Host")
-            self._send_json(
-                build_openapi_spec(server_url=f"http://{host}" if host else None)
-            )
-            return
-
-        # Metrics (v0.8.1) — authenticated like every other route unless
-        # MN_METRICS_PUBLIC opts in to unauthenticated scraping.
-        if path == _METRICS_PATH:
-            if not _metrics_public() and not self._check_auth():
-                return
-            self._send_metrics()
-            return
-
-        # Authenticate all other routes
-        if not self._check_auth():
-            return
-
-        # Server info
-        if path == "/info":
-            self._send_json({
-                "version": __version__,
-                "active_tasks": self.queue.active_count,
-                "is_started": self.queue.is_started,
-                # v0.9.2: orchestration tooling can watch this to detect
-                # that the server has begun its graceful shutdown.
-                "shutting_down": self._is_shutting_down(),
-            })
-            return
-
-        # List tasks
-        if path == "/tasks":
-            query = self._parse_query()
-            status_filter = None
-            if "status" in query:
-                try:
-                    status_filter = TaskStatus(query["status"])
-                except ValueError:
-                    self._send_error(HTTPStatus.BAD_REQUEST, f"Invalid status: {query['status']}")
-                    return
-            try:
-                limit = self._parse_limit(query.get("limit"))
-            except ValueError:
-                self._send_error(HTTPStatus.BAD_REQUEST, "Invalid limit")
-                return
-            tasks = self.queue.list_tasks(status=status_filter, limit=limit)
-            self._send_json({
-                "tasks": [t.to_summary() for t in tasks],
-                "count": len(tasks),
-            })
-            return
-
-        # Get task result
-        match = _TASK_RESULT_PATTERN.match(path)
-        if match:
-            task_id = match.group(1)
-            result = self.queue.get_result(task_id)
-            if result is None:
-                self._send_error(HTTPStatus.NOT_FOUND, "Result not available")
-                return
-            self._send_json(result.model_dump(mode="json"))
-            return
-
-        # List task artifacts
-        match = _TASK_ARTIFACTS_PATTERN.match(path)
-        if match:
-            task_id = match.group(1)
-            task = self.queue.get_task(task_id)
-            if task is None:
-                self._send_error(HTTPStatus.NOT_FOUND, f"Task {task_id} not found")
-                return
-            artifacts = self._list_task_artifacts(task)
-            self._send_json({"artifacts": artifacts, "count": len(artifacts)})
-            return
-
-        # Download task artifact
-        match = _TASK_DOWNLOAD_PATTERN.match(path)
-        if match:
-            task_id = match.group(1)
-            filename = match.group(2)
-            task = self.queue.get_task(task_id)
-            if task is None:
-                self._send_error(HTTPStatus.NOT_FOUND, f"Task {task_id} not found")
-                return
-            self._serve_task_artifact(task, filename)
-            return
-
-        # Get task details
-        match = _TASK_PATTERN.match(path)
-        if match:
-            task_id = match.group(1)
-            task = self.queue.get_task(task_id)
-            if task is None:
-                self._send_error(HTTPStatus.NOT_FOUND, f"Task {task_id} not found")
-                return
-            self._send_json(task.model_dump(mode="json"))
-            return
-
-        # List batches (v0.9.3)
-        if path == "/batches":
-            query = self._parse_query()
-            try:
-                limit = self._parse_limit(query.get("limit"))
-            except ValueError:
-                self._send_error(HTTPStatus.BAD_REQUEST, "Invalid limit")
-                return
-            batches = self.queue.list_batches(limit=limit)
-            self._send_json({
-                "batches": [b.model_dump(mode="json") for b in batches],
-                "count": len(batches),
-            })
-            return
-
-        # Get batch with aggregated progress (v0.9.3)
-        match = _BATCH_PATTERN.match(path)
-        if match:
-            batch_id = match.group(1)
-            batch = self.queue.get_batch(batch_id)
-            if batch is None:
-                self._send_error(HTTPStatus.NOT_FOUND, f"Batch {batch_id} not found")
-                return
-            self._send_json(batch.model_dump(mode="json"))
-            return
-
-        # List schedules (v0.9.3)
-        if path == "/schedules":
-            schedules = self.scheduler.list_schedules()
-            self._send_json({
-                "schedules": [s.model_dump(mode="json") for s in schedules],
-                "count": len(schedules),
-            })
-            return
-
-        # Get recent runs for a schedule (v0.9.3)
-        match = _SCHEDULE_RUNS_PATTERN.match(path)
-        if match:
-            schedule_id = match.group(1)
-            if self.scheduler.get_schedule(schedule_id) is None:
-                self._send_error(
-                    HTTPStatus.NOT_FOUND, f"Schedule {schedule_id} not found"
-                )
-                return
-            runs = self.scheduler.get_runs(schedule_id)
-            self._send_json({
-                "runs": [r.model_dump(mode="json") for r in runs],
-                "count": len(runs),
-            })
-
-        # List dead letters (v0.9.4)
-        if path == "/deadletters":
-            records = self.dead_letter_store.list()
-            self._send_json({
-                "deadletters": [r.model_dump(mode="json") for r in records],
-                "count": len(records),
-            })
-            return
-
-        # Get a dead letter (v0.9.4)
-        match = _DEADLETTER_PATTERN.match(path)
-        if match:
-            task_id = match.group(1)
-            record = self.dead_letter_store.get(task_id)
-            if record is None:
-                self._send_error(
-                    HTTPStatus.NOT_FOUND, f"Dead letter {task_id} not found"
-                )
-                return
-            self._send_json(record.model_dump(mode="json"))
-            return
-
-        self._send_error(HTTPStatus.NOT_FOUND, f"Unknown path: {path}")
-
-    # ── POST ────────────────────────────────────────────────
+        _route_registry.dispatch(self, "GET", path)
 
     def do_POST(self) -> None:
+        """Handle HTTP POST requests."""
         self._dispatch(self._do_POST)
 
     def _do_POST(self) -> None:
         path = self.path.split("?")[0]
-
-        # Authenticate all routes
-        if not self._check_auth():
-            return
-
-        if path == "/tasks":
-            # v0.9.2: draining servers stop accepting new work. Probes
-            # (/ready, /health) still answer so orchestrators see a clean
-            # shutdown instead of a connection error.
-            if self._is_shutting_down():
-                self._send_error(
-                    HTTPStatus.SERVICE_UNAVAILABLE,
-                    "server is shutting down — not accepting new tasks",
-                )
-                return
-
-            try:
-                body = self._read_body()
-            except PayloadTooLargeError as e:
-                self._send_error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, str(e))
-                return
-            except ValueError as e:
-                self._send_error(HTTPStatus.BAD_REQUEST, str(e))
-                return
-
-            try:
-                request = TaskRequest(**body)
-            except Exception as e:  # noqa: BLE001
-                logger.debug("POST /tasks rejected: invalid TaskRequest payload: %s", e)
-                self._send_error(HTTPStatus.BAD_REQUEST, f"Invalid task request: {e}")
-                return
-
-            task_id = self.queue.submit(request)
-            self._send_json(
-                {"task_id": task_id, "status": "pending"},
-                status=HTTPStatus.CREATED,
-            )
-            return
-
-        # Submit a batch of tasks (v0.9.3)
-        if path == "/tasks/batch":
-            try:
-                body = self._read_body()
-            except PayloadTooLargeError as e:
-                self._send_error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, str(e))
-                return
-            except ValueError as e:
-                self._send_error(HTTPStatus.BAD_REQUEST, str(e))
-                return
-            try:
-                request = BatchRequest(**body)
-            except Exception as e:  # noqa: BLE001
-                logger.debug("POST /tasks/batch rejected: invalid BatchRequest: %s", e)
-                self._send_error(HTTPStatus.BAD_REQUEST, f"Invalid batch request: {e}")
-                return
-            batch = self.queue.submit_batch(request)
-            self._send_json(
-                {
-                    "batch_id": batch.batch_id,
-                    "status": batch.status.value,
-                    "task_ids": batch.task_ids,
-                },
-                status=HTTPStatus.CREATED,
-            )
-            return
-
-        # Replay a dead letter (v0.9.4) — resubmits the original request
-        # with a fresh task ID.
-        match = _DEADLETTER_REPLAY_PATTERN.match(path)
-        if match:
-            task_id = match.group(1)
-            try:
-                new_task_id = replay_dead_letter(task_id, queue=self.queue)
-            except KeyError:
-                self._send_error(
-                    HTTPStatus.NOT_FOUND, f"Dead letter {task_id} not found"
-                )
-                return
-            self._send_json(
-                {
-                    "original_task_id": task_id,
-                    "task_id": new_task_id,
-                },
-                status=HTTPStatus.CREATED,
-            )
-            return
-
-        # Create a scheduled job (v0.9.3)
-        if path == "/schedules":
-            try:
-                body = self._read_body()
-            except PayloadTooLargeError as e:
-                self._send_error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, str(e))
-                return
-            except ValueError as e:
-                self._send_error(HTTPStatus.BAD_REQUEST, str(e))
-                return
-            try:
-                cron = body.get("cron")
-                if not cron or not isinstance(cron, str):
-                    raise ScheduleError("'cron' must be a 5-field cron string")
-                task_request = TaskRequest(**body.get("task_request", {}))
-                enabled = body.get("enabled", True)
-                schedule = self.scheduler.register_schedule(
-                    cron,
-                    task_request,
-                    enabled=bool(enabled),
-                )
-            except ScheduleError as e:
-                logger.debug("POST /schedules rejected: %s", e)
-                self._send_error(HTTPStatus.BAD_REQUEST, f"Invalid schedule: {e}")
-                return
-            except Exception as e:  # noqa: BLE001
-                logger.debug("POST /schedules rejected: invalid payload: %s", e)
-                self._send_error(HTTPStatus.BAD_REQUEST, f"Invalid schedule: {e}")
-                return
-            self._send_json(
-                schedule.model_dump(mode="json"),
-                status=HTTPStatus.CREATED,
-            )
-            return
-        self._send_error(HTTPStatus.NOT_FOUND, f"Unknown path: {path}")
-
-    # ── DELETE ──────────────────────────────────────────────
+        _route_registry.dispatch(self, "POST", path)
 
     def do_DELETE(self) -> None:
+        """Handle HTTP DELETE requests."""
         self._dispatch(self._do_DELETE)
 
     def _do_DELETE(self) -> None:
         path = self.path.split("?")[0]
-
-        # Authenticate all routes
-        if not self._check_auth():
-            return
-
-        match = _TASK_PATTERN.match(path)
-        if match:
-            task_id = match.group(1)
-            cancelled = self.queue.cancel(task_id)
-            if cancelled:
-                self._send_json({"task_id": task_id, "cancelled": True})
-            else:
-                self._send_error(
-                    HTTPStatus.NOT_FOUND,
-                    f"Task {task_id} not found or already terminal",
-                )
-            return
-
-        # Cancel every active task in a batch (v0.9.3)
-        match = _BATCH_PATTERN.match(path)
-        if match:
-            batch_id = match.group(1)
-            if self.queue.cancel_batch(batch_id):
-                self._send_json({"batch_id": batch_id, "cancelled": True})
-            else:
-                self._send_error(HTTPStatus.NOT_FOUND, f"Batch {batch_id} not found")
-            return
-
-        # Delete a scheduled job (v0.9.3)
-        match = _SCHEDULE_PATTERN.match(path)
-        if match:
-            schedule_id = match.group(1)
-            if self.scheduler.cancel_schedule(schedule_id):
-                self._send_json({"schedule_id": schedule_id, "deleted": True})
-            else:
-                self._send_error(
-                    HTTPStatus.NOT_FOUND, f"Schedule {schedule_id} not found"
-                )
-            return
-
-        # Remove a dead letter (v0.9.4)
-        match = _DEADLETTER_PATTERN.match(path)
-        if match:
-            task_id = match.group(1)
-            removed = self.dead_letter_store.remove(task_id)
-            if removed:
-                self._send_json({"task_id": task_id, "removed": True})
-            else:
-                self._send_error(
-                    HTTPStatus.NOT_FOUND, f"Dead letter {task_id} not found"
-                )
-            return
-
-        self._send_error(HTTPStatus.NOT_FOUND, f"Unknown path: {path}")
+        _route_registry.dispatch(self, "DELETE", path)
 
     # ── Query parsing ───────────────────────────────────────
 
@@ -779,9 +802,10 @@ class _APIHandler(BaseHTTPRequestHandler):
     def _parse_limit(self, raw: Optional[str]) -> int:
         """Parse and clamp a ``limit`` query parameter (v0.9.5).
 
-        Returns the clamped value and raises :class:`ValueError` for a
-        non-numeric or negative input, so callers can return a 400
-        instead of letting :func:`int` raise an unhandled 500.
+        Returns:
+            The clamped value and raises :class:`ValueError` for a
+            non-numeric or negative input, so callers can return a 400
+            instead of letting :func:`int` raise an unhandled 500.
         """
         if raw is None:
             return 50

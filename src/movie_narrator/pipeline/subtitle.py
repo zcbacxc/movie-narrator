@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+"""Subtitle generation step — generate SRT subtitle files."""
+
 from pathlib import Path
 
 from ..models import Context, SubtitlePaths

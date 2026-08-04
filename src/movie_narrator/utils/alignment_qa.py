@@ -50,6 +50,11 @@ class AlignmentQualityMetrics:
     word_level_available: bool = False
 
     def to_dict(self) -> dict:
+        """Convert the QA result to a dictionary.
+
+        Returns:
+            Dictionary representation of the QA result.
+        """
         return {
             "total_segments": self.total_segments,
             "segments_with_words": self.segments_with_words,
@@ -74,8 +79,9 @@ def extract_word_segments(
     containing per-word entries: ``{"word": "...", "start": ..., "end": ...,
     "score": ...}``.
 
-    Returns a list of word dicts with normalized keys.  Returns an empty
-    list if no word-level data is available.
+    Returns:
+        A list of word dicts with normalized keys.  Returns an empty
+        list if no word-level data is available.
     """
     word_segments = whisperx_result.get("word_segments", [])
     if not word_segments:
@@ -108,7 +114,8 @@ def assign_words_to_segments(
 
     Modifies ``timed_segments`` in-place: sets ``.words`` and ``.confidence``.
 
-    Returns the count of segments that received word-level data.
+    Returns:
+        The count of segments that received word-level data.
     """
     if not word_segments:
         return 0
@@ -156,8 +163,9 @@ def compute_segment_confidence(
 ) -> float:
     """Compute segment-level confidence from word-level scores.
 
-    Returns the average word confidence score (0.0–1.0).
-    Returns 0.0 if the word list is empty.
+    Returns:
+        The average word confidence score (0.0–1.0).
+        Returns 0.0 if the word list is empty.
     """
     if not words:
         return 0.0
@@ -173,9 +181,10 @@ def flag_low_confidence_segments(
 ) -> list[int]:
     """Identify segments with confidence below the threshold.
 
-    Returns a list of indices of low-confidence segments.
-    Only checks segments that have word-level data (confidence > 0).
-    Segments without word-level data are not flagged (they use TTS estimates).
+    Returns:
+        A list of indices of low-confidence segments.
+        Only checks segments that have word-level data (confidence > 0).
+        Segments without word-level data are not flagged (they use TTS estimates).
     """
     indices: list[int] = []
     for i, ts in enumerate(timed_segments):
@@ -205,8 +214,9 @@ def word_level_remap(
     Enforces monotonic non-overlap: if the new start would be before
     ``prev_end``, it is clamped to ``prev_end``.
 
-    Returns the number of segments that were tightened (had their
-    boundaries adjusted to word-level precision).
+    Returns:
+        The number of segments that were tightened (had their
+        boundaries adjusted to word-level precision).
     """
     if not word_segments:
         return 0
@@ -259,8 +269,9 @@ def check_drift(
 ) -> tuple[bool, float]:
     """Check if ASR drift is too large for reliable alignment.
 
-    Returns ``(is_drift_too_large, drift_ratio)``.
-    Only triggers when ASR returns exactly 1 segment for the entire audio.
+    Returns:
+        ``(is_drift_too_large, drift_ratio)``.
+        Only triggers when ASR returns exactly 1 segment for the entire audio.
     """
     if len(wx_segments) != 1 or not timed_segments:
         return False, 0.0
@@ -282,8 +293,9 @@ def validate_alignment(
 ) -> AlignmentQualityMetrics:
     """Run full alignment quality validation.
 
-    Returns an :class:`AlignmentQualityMetrics` summary suitable for
-    ``ctx.metadata["alignment_qa"]``.
+    Returns:
+        An :class:`AlignmentQualityMetrics` summary suitable for
+        ``ctx.metadata["alignment_qa"]``.
     """
     metrics = AlignmentQualityMetrics(
         total_segments=len(timed_segments),

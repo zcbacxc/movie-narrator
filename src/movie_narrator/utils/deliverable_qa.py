@@ -43,11 +43,13 @@ class QAReport:
 
 
 def _ffmpeg_bin() -> str:
-    """Return a usable ffmpeg binary path.
+    """
+    Returns:
+        A usable ffmpeg binary path.
 
-    Prefers a system ``ffprobe``-adjacent ``ffmpeg``; falls back to the
-    imageio-ffmpeg bundled binary so probing works even without a system
-    ffmpeg install.
+        Prefers a system ``ffprobe``-adjacent ``ffmpeg``; falls back to the
+        imageio-ffmpeg bundled binary so probing works even without a system
+        ffmpeg install.
     """
     sys_ffmpeg = shutil.which("ffmpeg")
     if sys_ffmpeg:
@@ -179,7 +181,8 @@ def _file_size(path: str) -> int:
 def _detect_volume(path: str) -> Optional[float]:
     """Run ``ffmpeg -af volumedetect`` and parse mean_volume (dBFS).
 
-    Returns None if the file has no audio or ffmpeg fails.
+    Returns:
+        None if the file has no audio or ffmpeg fails.
     """
     bin_path = _ffmpeg_bin()
     try:
@@ -202,11 +205,13 @@ def _detect_volume(path: str) -> Optional[float]:
 
 
 def probe_media(path: str) -> dict:
-    """Return ffprobe-like metrics for ``path``.
+    """
+    Returns:
+        Ffprobe-like metrics for ``path``.
 
-    Keys: ``duration``, ``has_video``, ``has_audio``, ``mean_volume``,
-    ``width``, ``height``, ``size_bytes``. ``mean_volume`` is None when
-    the file has no audio or volumedetect is unavailable.
+        Keys: ``duration``, ``has_video``, ``has_audio``, ``mean_volume``,
+        ``width``, ``height``, ``size_bytes``. ``mean_volume`` is None when
+        the file has no audio or volumedetect is unavailable.
     """
     result = _probe_with_ffprobe(path)
     if result is None:

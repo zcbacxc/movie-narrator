@@ -1,13 +1,15 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+"""Pipeline runner — orchestrates step execution."""
+
 import logging
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 from .. import __version__
-from ..models import Assets, Context, Services, StepResult, StepState
+from ..models import Assets, Context, MetadataDict, Services, StepResult, StepState
 from ..utils.console import build_console
 from ..utils.environment import collect_environment
 from .align import align_audio
@@ -88,7 +90,7 @@ STEPS = step_registry.ordered_steps()
 SOFT_STATUS_STEPS: set[str] = step_registry.soft_step_names()
 
 STATUS_FIELD_FOR_STEP: Dict[str, str] = {
-    name: step_registry.status_field_for(name)
+    name: cast(str, step_registry.status_field_for(name))
     for name in SOFT_STATUS_STEPS
     if step_registry.status_field_for(name) is not None
 }
@@ -121,10 +123,12 @@ _STEP_ALIASES: Dict[str, str] = {v: k for k, v in _SHORT_TO_STEP.items()}
 
 
 def _step_enabled(workflow_steps: Optional[Dict[str, bool]], step_name: str) -> bool:
-    """Return False if either function-name or short alias is explicitly false.
+    """
+    Returns:
+        False if either function-name or short alias is explicitly false.
 
-    Replaces the old inline `workflow_steps.get(name, True)` check.
-    Now covers all 7 SOFT_STATUS_STEPS short keys, not just translate.
+        Replaces the old inline `workflow_steps.get(name, True)` check.
+        Now covers all 7 SOFT_STATUS_STEPS short keys, not just translate.
     """
     if not workflow_steps:
         return True
@@ -280,7 +284,7 @@ def build_context(
     from ..utils.cost_tracker import CostTracker
     ctx.cost_tracker = CostTracker()
     ctx.metadata.update(
-        {
+        cast(MetadataDict, {
             "voice": voice,
             "video_format": video_format,
             "keep_cache": keep_cache,
@@ -305,7 +309,7 @@ def build_context(
             # setting defaults here keeps them visible in metadata.json.
             "render_preview_mode": (params or {}).get("render_preview_mode", False),
             "render_preview_sec": (params or {}).get("render_preview_sec", 10.0),
-        }
+        })
     )
 
     # Narration-language consistency check — warn if subtitle target language
@@ -337,7 +341,7 @@ def build_context(
     if effective_params:
         for key in PARAM_WHITELIST:
             if key in effective_params and effective_params[key] is not None:
-                ctx.metadata[key] = effective_params[key]
+                cast(Dict[str, Any], ctx.metadata)[key] = effective_params[key]
 
     # ── Draft profile — fast iteration override ──
     # When render_profile=draft, override render params for speed.
@@ -353,7 +357,7 @@ def build_context(
         for dk, dv in _DRAFT_RENDER_DEFAULTS.items():
             # Only set if user didn't explicitly set this param
             if dk not in effective_params or effective_params.get(dk) is None:
-                ctx.metadata[dk] = dv
+                cast(Dict[str, Any], ctx.metadata)[dk] = dv
         ctx.metadata["render_profile"] = "draft"
 
     if config_path:
@@ -372,7 +376,8 @@ def _save_pipeline_state(ctx: Context, completed_step: str) -> Path:
     non-serializable ``services`` field — the ``Context`` model_validator
     auto-injects ``SilentConsole`` on load.
 
-    Returns the path to the saved state file.
+    Returns:
+        The path to the saved state file.
     """
     import json
     state = {
@@ -390,9 +395,10 @@ def _save_pipeline_state(ctx: Context, completed_step: str) -> Path:
 def _load_pipeline_state(state_path: Path) -> tuple[Context, str]:
     """Load pipeline state from a file.
 
-    Returns ``(context, completed_step)``. The context's ``services``
-    field is auto-filled with ``SilentConsole`` by the model_validator —
-    callers should assign a real console if interactive output is needed.
+    Returns:
+        ``(context, completed_step)``. The context's ``services``
+        field is auto-filled with ``SilentConsole`` by the model_validator —
+        callers should assign a real console if interactive output is needed.
     """
     import json
     data = json.loads(state_path.read_text(encoding="utf-8"))
@@ -402,7 +408,10 @@ def _load_pipeline_state(state_path: Path) -> tuple[Context, str]:
 
 
 def _next_step_after(completed_step: str) -> Optional[str]:
-    """Return the name of the step after *completed_step*, or None if last."""
+    """
+    Returns:
+        The name of the step after *completed_step*, or None if last.
+    """
     for i, step in enumerate(STEPS):
         if step.__name__ == completed_step and i + 1 < len(STEPS):
             return STEPS[i + 1].__name__
@@ -476,7 +485,7 @@ def run_pipeline(
                 result=StepResult.SKIPPED, message="disabled by workflow config"
             )
             _set_pipeline_status_disabled(ctx, name)
-            console.step_skip(name, ctx.step_state.message)
+            console.step_skip(name, ctx.step_state.message or "")
             _check_strict(ctx, name)
             continue
 
@@ -531,7 +540,7 @@ def run_pipeline(
                         result=StepResult.WARNING, message=msg,
                         step_retryable=is_retryable,
                     )
-                    console.step_warn(name, ctx.step_state.message)
+                    console.step_warn(name, ctx.step_state.message or "")
                     ctx.metadata.setdefault("_degraded_steps", []).append(name)
                     # AQ-10: write per-step error to metadata for audit
                     if name == "mix_bgm":
@@ -669,7 +678,10 @@ def _render_step_result(
 
 
 def _check_strict(ctx: Context, step_name: str) -> None:
-    """Raise PipelineStrictError if --strict and any status.* == 'failed'."""
+    """
+    Raises:
+        PipelineStrictError: If --strict and any status.* == 'failed'.
+    """
     if ctx.metadata.get("strict"):
         failed = [k for k, v in ctx.status.model_dump().items() if v == "failed"]
         if failed:

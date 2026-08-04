@@ -226,12 +226,16 @@ class Counter(_Metric):
             self._values[key] = self._values.get(key, 0.0) + amount
 
     def value(self, labels: Optional[Dict[str, str]] = None) -> float:
-        """Return the current value for a label set (0.0 if never set)."""
+        """
+        Returns:
+            The current value for a label set (0.0 if never set).
+        """
         key = self._key(labels)
         with self._lock:
             return self._values.get(key, 0.0)
 
     def render(self) -> List[str]:
+        """Render metrics in the specified format."""
         with self._lock:
             items = sorted(self._values.items())
         return [
@@ -283,12 +287,16 @@ class Gauge(_Metric):
         self.inc(-amount, labels=labels)
 
     def value(self, labels: Optional[Dict[str, str]] = None) -> float:
-        """Return the current value for a label set (0.0 if never set)."""
+        """
+        Returns:
+            The current value for a label set (0.0 if never set).
+        """
         key = self._key(labels)
         with self._lock:
             return self._values.get(key, 0.0)
 
     def render(self) -> List[str]:
+        """Render metrics in the specified format."""
         with self._lock:
             items = sorted(self._values.items())
         return [
@@ -371,6 +379,7 @@ class Histogram(_Metric):
             return list(counts) if counts else [0] * len(self.buckets)
 
     def render(self) -> List[str]:
+        """Render metrics in the specified format."""
         with self._lock:
             keys = sorted(self._counts)
             snapshot = {
@@ -504,7 +513,10 @@ _registry = MetricsRegistry()
 
 
 def get_registry() -> MetricsRegistry:
-    """Return the process-wide default registry."""
+    """
+    Returns:
+        The process-wide default registry.
+    """
     return _registry
 
 

@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+"""Job configuration merging and defaults."""
+
 import warnings
 from typing import Any, Dict, Optional
 
@@ -22,14 +24,17 @@ def merge_job(
     job: Optional[JobConfig],
     settings: Settings,
 ) -> ResolvedJob:
+    """Merge job configuration with defaults."""
     has_job = job is not None
 
     def yaml_get(name: str):
+        """Get a value from a YAML dictionary with optional fallback."""
         if job is None:
             return None
         return getattr(job, name)
 
     def pick_optional(cli_val, yaml_val, default=None):
+        """Pick an optional value from source if present."""
         if cli_val is not None and cli_val != "":
             return cli_val
         if yaml_val is not None and yaml_val != "":
@@ -37,6 +42,7 @@ def merge_job(
         return default
 
     def pick_bool_true_explicit(cli_val: bool, yaml_val: Optional[bool]) -> bool:
+        """Pick a boolean value that must be explicitly true."""
         if cli_val is True:
             return True
         if yaml_val is not None:
@@ -44,6 +50,7 @@ def merge_job(
         return False
 
     def pick_defaulted(cli_val, yaml_val, typer_default):
+        """Pick a value with a default fallback."""
         if has_job and yaml_val is not None and cli_val == typer_default:
             return yaml_val
         return cli_val if cli_val is not None else (

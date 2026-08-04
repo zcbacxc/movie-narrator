@@ -1,22 +1,22 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""Douyin-fast preset — 18 句×3.3s, 快切镜, 紧凑.
+"""Douyin fast-paced preset — 18 sentences × 3.3s, fast cuts, tight pacing.
 
-60s 短视频高完播率风格。句密高,切镜快,BGM 闪避深。
-这是 v0.4.13 的行为基线,作为默认 preset 保证向后兼容。
+60s short-form high-completion-rate style. Dense sentences, fast cuts, deep BGM ducking.
+This is the v0.4.13 behavior baseline, used as the default preset for backward compatibility.
 """
 
 from typing import Any, Dict
 
 
 class DouyinFastPreset:
-    """抖音快剪风格 — 高完播率短视频。"""
+    """Douyin fast-cut style — high completion rate short-form videos."""
 
     name = "douyin-fast"
 
     def render_template(self) -> Dict[str, Any]:
-        """竖屏短视频包装模板 — 有水印和免责声明。"""
+        """Portrait short-form video wrapper template — with watermark and disclaimer."""
         return {
             "title_card_text": "{movie}",
             "watermark_text": "{movie}解说",
@@ -30,6 +30,11 @@ class DouyinFastPreset:
         }
 
     def params(self) -> Dict[str, Any]:
+        """Return the preset parameter dictionary.
+
+        Returns:
+            Dictionary of preset parameters.
+        """
         return {
             # Match: 快切镜,允许较大速度拉伸
             "match_speed_clamp_min": 0.85,
@@ -71,6 +76,11 @@ class DouyinFastPreset:
         }
 
     def prompt_tags(self) -> Dict[str, str]:
+        """Return the prompt style tags for this preset.
+
+        Returns:
+            Dictionary of prompt style tags.
+        """
         return {
             "prompt_cadence": "brisk",
             "prompt_register": "spoken",
@@ -78,4 +88,9 @@ class DouyinFastPreset:
         }
 
     def description(self) -> str:
+        """Return a human-readable description of the preset.
+
+        Returns:
+            Preset description string.
+        """
         return "抖音快剪 — 18句×3.3s, 快切镜, 高完播率短视频风格"

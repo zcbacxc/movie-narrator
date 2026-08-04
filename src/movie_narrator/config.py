@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+"""Configuration and settings management."""
+
 import os
 import sys
 from enum import Enum
@@ -24,10 +26,12 @@ _EXAMPLE_ENV = _PROJECT_ROOT / ".env.example"
 
 
 def _read_example_env() -> str:
-    """Return the contents of ``.env.example``.
+    """
+    Returns:
+        The contents of ``.env.example``.
 
-    Falls back to a minimal inline template if the file is missing
-    (e.g. some packaging configurations strip it).
+        Falls back to a minimal inline template if the file is missing
+        (e.g. some packaging configurations strip it).
     """
     if _EXAMPLE_ENV.is_file():
         return _EXAMPLE_ENV.read_text(encoding="utf-8")
@@ -44,15 +48,16 @@ def _read_example_env() -> str:
 def ensure_user_config() -> Path:
     """Create ``~/.movie-narrator/.env`` from ``.env.example`` if it does not exist.
 
-    Returns the path to the user-level .env (existing or newly created).
-    Safe to call multiple times — never overwrites an existing file.
+    Returns:
+        The path to the user-level .env (existing or newly created).
+        Safe to call multiple times — never overwrites an existing file.
 
-    On first creation, prints a one-time informational message to stderr
-    telling the user where the config was created and which fields to edit.
-    This is non-interactive (no prompt) so the CLI remains scriptable.
+        On first creation, prints a one-time informational message to stderr
+        telling the user where the config was created and which fields to edit.
+        This is non-interactive (no prompt) so the CLI remains scriptable.
 
-    Write is atomic (temp file + ``os.replace``) to prevent partial writes
-    if the process is interrupted mid-write (TOCTOU safe).
+        Write is atomic (temp file + ``os.replace``) to prevent partial writes
+        if the process is interrupted mid-write (TOCTOU safe).
     """
     if not _USER_ENV.exists():
         import os
@@ -96,6 +101,8 @@ def _print_first_run_notice(env_path: Path) -> None:
 
 
 class TTSProviderType(str, Enum):
+    """Enumeration of supported TTS provider types."""
+
     EDGE = "edge"
     OPENAI = "openai"
     MIMO = "mimo"
@@ -189,5 +196,10 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    """Get the current application settings.
+
+    Returns:
+        Settings object with current configuration.
+    """
     ensure_user_config()
     return Settings()

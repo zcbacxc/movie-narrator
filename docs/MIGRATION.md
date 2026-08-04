@@ -5,6 +5,41 @@
 
 This guide helps existing users of `movie-narrator` **v0.x** migrate smoothly to **v1.0 stable**. It covers breaking changes, configuration migration, plugin updates, upgrade steps, and rollback procedures.
 
+## Upgrading to v1.0.0
+
+v1.0.0 is the first **stable release** of movie-narrator. The public API — defined by `CONTRACT_VERSION (1, 0, 0)` — is now frozen and will remain backward compatible throughout the entire v1.x series.
+
+### What's New in v1.0
+
+- **API freeze**: All symbols exported from `movie_narrator.contract` are declared stable. No breaking changes will occur in v1.x.
+- **Formal stability promise**: See [STABILITY.md](STABILITY.md) for the complete versioning, deprecation, and upgrade guarantee policy.
+- **Release checklist**: The [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) defines the v1.0 Definition of Done — every item was verified before release.
+- **All v0.9.x features preserved**: No features or APIs were removed in v1.0.0. The MAJOR version bump signals the start of stability, not a breaking rewrite.
+
+### CONTRACT_VERSION Changes
+
+| Before (v0.9.7) | After (v1.0.0) | Meaning |
+|-----------------|----------------|---------|
+| `(0, 9, 5)` | `(1, 0, 0)` | MAJOR bump — first stable release, API frozen |
+
+This is a MAJOR version bump in semver terms, but it does **not** mean APIs were removed or changed. Rather:
+
+- v0.x was a rapid-development pre-stable series where breaking changes could occur between minor versions.
+- v1.0 marks the point at which the API is declared stable. The same API surface that existed in v0.9.6 is now frozen and guaranteed for the entire v1.x series.
+- Plugins and external consumers built against v0.9.x will continue to work in v1.0.0 without changes.
+
+### Upgrade Steps (Summary)
+
+1. **Upgrade the package**: `pip install --upgrade movie-narrator`
+2. **Update `format` → `video_format`** in job files (if still using the deprecated key)
+3. **Verify configuration boundary** — no pipeline parameters in `.env`
+4. **Run `mn version`** to confirm v1.0.0
+5. **Add `check_version((1, 0, 0))`** to your plugins to declare stable API dependency
+
+See [Step-by-Step Upgrade Procedure](#step-by-step-upgrade-procedure) below for detailed instructions.
+
+---
+
 ## Overview
 
 movie-narrator v1.0 is the first stable release with long-term API and behavior guarantees. Most v0.9.x configurations and plugins will work with minimal changes, but some breaking changes require explicit updates.
@@ -249,8 +284,8 @@ v1.0 formalizes the `CONTRACT_VERSION` semantic versioning rules for the public 
 
 The version is bumped **only** when the public API surface changes. Internal refactoring that doesn't affect exported symbols doesn't require a version bump.
 
-**Current version (v0.9.7):** `(0, 9, 5)`
-**Target version (v1.0):** `(1, 0, 0)` — after v1.0, the contract will be frozen and backward compatibility will be guaranteed within the same major version.
+**Current version (v1.0.0):** `(1, 0, 0)`
+**First stable release — contract frozen.** All v1.x releases will maintain backward compatibility within the v1.x major series. See [STABILITY.md](STABILITY.md) for the full stability promise.
 
 ### Checking Contract Version in Your Code
 

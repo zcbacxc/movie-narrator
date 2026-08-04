@@ -33,6 +33,11 @@ class SegmentAudioMetrics:
     issues: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
+        """Convert the QA result to a dictionary.
+
+        Returns:
+            Dictionary representation of the QA result.
+        """
         return {
             "index": self.index,
             "duration_s": round(self.duration_s, 3),
@@ -48,8 +53,9 @@ class SegmentAudioMetrics:
 def detect_clipping(audio: AudioSegment, threshold_db: float = -0.5) -> float:
     """Detect clipping by counting samples at or near maximum amplitude.
 
-    Returns the ratio of clipped samples to total samples (0.0 – 1.0).
-    A ratio above 0.001 (0.1%) is generally audible distortion.
+    Returns:
+        The ratio of clipped samples to total samples (0.0 – 1.0).
+        A ratio above 0.001 (0.1%) is generally audible distortion.
     """
     samples = np.array(audio.get_array_of_samples(), dtype=np.float64)
     if len(samples) == 0:
@@ -69,10 +75,11 @@ def estimate_snr(audio: AudioSegment, silence_threshold_dbfs: float = -50.0) -> 
     ``silence_threshold_dbfs`` are classified as "noise"; the rest are
     "signal".  SNR = 20 * log10(signal_rms / noise_rms).
 
-    Returns ``None`` when there are no noise windows (all signal) or
-    no signal windows (all noise), making SNR undefined.  When noise
-    is pure silence (RMS = 0), a small floor is used so the SNR
-    reports as a very high value rather than undefined.
+    Returns:
+        ``None`` when there are no noise windows (all signal) or
+        no signal windows (all noise), making SNR undefined.  When noise
+        is pure silence (RMS = 0), a small floor is used so the SNR
+        reports as a very high value rather than undefined.
     """
     samples = np.array(audio.get_array_of_samples(), dtype=np.float64)
     if len(samples) == 0:
@@ -115,9 +122,10 @@ def estimate_snr(audio: AudioSegment, silence_threshold_dbfs: float = -50.0) -> 
 def check_silence(audio: AudioSegment, silence_threshold_dbfs: float = -50.0) -> float:
     """Check the ratio of silence in the audio.
 
-    Returns the fraction of 50ms windows that are below the silence
-    threshold.  A ratio above 0.5 means more than half the segment
-    is silent, which may indicate a TTS failure.
+    Returns:
+        The fraction of 50ms windows that are below the silence
+        threshold.  A ratio above 0.5 means more than half the segment
+        is silent, which may indicate a TTS failure.
     """
     samples = np.array(audio.get_array_of_samples(), dtype=np.float64)
     if len(samples) == 0:
@@ -151,8 +159,9 @@ def analyze_segment(
 ) -> SegmentAudioMetrics:
     """Run all quality checks on a single audio segment.
 
-    Returns a :class:`SegmentAudioMetrics` with all measurements and
-    a list of issue descriptions (empty if all checks pass).
+    Returns:
+        A :class:`SegmentAudioMetrics` with all measurements and
+        a list of issue descriptions (empty if all checks pass).
     """
     duration_s = len(audio) / 1000.0
     peak_dbfs = audio.max_dBFS

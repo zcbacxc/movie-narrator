@@ -49,7 +49,7 @@ jobs:
       - name: Ruff lint check
         run: ruff check src/
       - name: Mypy type check
-        run: mypy src/movie_narrator/workflow src/movie_narrator/cloud src/movie_narrator/utils
+        run: mypy src/movie_narrator
 
   test-matrix:
     runs-on: ubuntu-latest

@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-04
+
+### Added
+
+- **Stability policy** — new `docs/STABILITY.md` (+ `.zh-CN.md`): formal stability guarantees for the 1.x release series, covering `movie_narrator.contract` public exports, CLI commands, and REST API endpoints. Internal modules and experimental config formats are explicitly out of scope.
+- **Release checklist** — new `docs/RELEASE_CHECKLIST.md` (+ `.zh-CN.md`): the Definition of Done for every 1.x release, covering code quality (mypy / ruff / formatting), testing (unit / integration / E2E / contract / flake check), documentation (bilingual completeness / changelog / migration / ADR), version integrity (contract version parity / tag signature / PyPI upload), and release execution steps.
+- **v1.0 migration supplement** — `docs/MIGRATION.md` (+ `.zh-CN.md`) gains the full v0.x → v1.0 migration path: contract version parity, upgrade commands, rollback procedure, and a compatibility matrix.
+- **Route registry pattern** — `cloud/api.py` introduces `_RouteRegistry`, a declarative routing system with regex-based path matching, per-route auth flags, and centralized HTTP error handling. All 24 existing routes are registered as dedicated handler functions, replacing the monolithic `do_GET` / `do_POST` / `do_DELETE` if/elif dispatch.
+
+### Changed
+
+- **CONTRACT_VERSION → (1, 0, 0)** — the public API surface in `movie_narrator.contract` is declared stable. No breaking changes will be made within the 1.x release series.
+- **Package version 1.0.0** — `pyproject.toml` version bumped from `0.9.7` to `1.0.0`.
+- **Mypy full-package coverage** — type checking expanded from 3 submodules (`workflow`, `cloud`, `utils`) to the entire `src/movie_narrator` package (114 source files). Pipeline modules (`pipeline/`, `tts/`, `vision/`, `providers/`, `reliability/`, `presets/`, `workflow/`) are now fully typed. 251 type errors resolved.
+- **Docstring normalization** — all 114 Python source files audited and normalized to Google-style docstrings: 32 module docstrings added, 18 class docstrings added, 141 function/method docstrings added, 190 converted to `Args:`/`Returns:`/`Raises:` format, 37 Chinese docstrings translated to English. BOM header removed from `reliability/retry.py`.
+- **Coverage gate raised to 82%** — `.coveragerc` `fail_under` threshold raised from 80% to 82% after the type-debt and docstring cleanup pass (measured ~83%). Roadmap targets 88% for v1.1 and 95% for v1.2.
+- **CI mypy command** — updated from explicit submodule list to `mypy src/movie_narrator` to match the full-package type-checking scope.
+- **ROADMAP updated** — v1.0.0 marked as released; v1.1 and v1.2 themes defined (quality improvements, advanced features).
+
+### Fixed
+
+- `api.py` god-module anti-pattern resolved via the route registry refactor, improving testability and maintainability of the HTTP layer.
+- `reliability/retry.py` UTF-8 BOM header (U+FEFF) removed.
+
 ## [0.9.7] - 2026-08-04
 
 ### Added

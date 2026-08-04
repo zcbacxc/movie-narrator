@@ -36,19 +36,21 @@ class BackendUnavailable(Exception):
 
 
 def select_align_backend(ctx: Context) -> Tuple[str, str]:
-    """Return ``(backend, reason)``.
+    """
+    Returns:
+        ``(backend, reason)``.
 
-    ``backend`` is one of ``"whisperx"``, ``"faster_whisper"``, ``"none"``.
-    The decision is based on:
+        ``backend`` is one of ``"whisperx"``, ``"faster_whisper"``, ``"none"``.
+        The decision is based on:
 
-    1. Explicit override via ``ctx.metadata['align_backend']``
-    2. GPU available + whisperx importable → whisperx
-    3. CPU + whisperx importable + non-Windows → whisperx
-       (k2-fsa has prebuilt wheels on Linux/macOS)
-    4. Windows CPU + whisperx importable → faster_whisper
-       (k2-fsa has no prebuilt Windows CPU wheel)
-    5. whisperx not importable → faster_whisper
-    6. faster_whisper not importable → none
+        1. Explicit override via ``ctx.metadata['align_backend']``
+        2. GPU available + whisperx importable → whisperx
+        3. CPU + whisperx importable + non-Windows → whisperx
+        (k2-fsa has prebuilt wheels on Linux/macOS)
+        4. Windows CPU + whisperx importable → faster_whisper
+        (k2-fsa has no prebuilt Windows CPU wheel)
+        5. whisperx not importable → faster_whisper
+        6. faster_whisper not importable → none
     """
     # 1. Explicit override
     override = ctx.metadata.get("align_backend")
@@ -99,6 +101,7 @@ def run_faster_whisper(ctx: Context) -> List[dict]:
     This is sufficient for ``subtitle.py`` which only reads
     ``seg.start`` / ``seg.end`` / ``seg.text``.
     """
+    assert ctx.audio_path is not None, "audio_path must be set before alignment"
     return transcribe_with_faster_whisper(
         audio_path=ctx.audio_path,
         device=ctx.metadata.get("whisperx_device", "cpu"),

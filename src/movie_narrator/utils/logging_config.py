@@ -106,17 +106,22 @@ _correlation_id: ContextVar[Optional[str]] = ContextVar(
 
 
 def new_correlation_id() -> str:
-    """Return a fresh correlation ID (12 hex chars).
+    """
+    Returns:
+        A fresh correlation ID (12 hex chars).
 
-    Twelve hex characters carry 48 bits of entropy — ample to stay
-    unique inside a log-retention window, while remaining short enough
-    to eyeball in a terminal and to grep for.
+        Twelve hex characters carry 48 bits of entropy — ample to stay
+        unique inside a log-retention window, while remaining short enough
+        to eyeball in a terminal and to grep for.
     """
     return uuid.uuid4().hex[:12]
 
 
 def get_correlation_id() -> Optional[str]:
-    """Return the correlation ID bound to the current context, if any."""
+    """
+    Returns:
+        The correlation ID bound to the current context, if any.
+    """
     return _correlation_id.get()
 
 
@@ -170,6 +175,11 @@ class CorrelationIdFilter(logging.Filter):
     """
 
     def filter(self, record: logging.LogRecord) -> bool:
+        """Filter a log record.
+
+        Returns:
+            True if the record should be logged.
+        """
         if not getattr(record, CORRELATION_FIELD, None):
             setattr(record, CORRELATION_FIELD, get_correlation_id() or "")
         return True
@@ -257,6 +267,11 @@ class JsonFormatter(logging.Formatter):
     """
 
     def format(self, record: logging.LogRecord) -> str:
+        """Format a log record.
+
+        Returns:
+            Formatted log string.
+        """
         payload: Dict[str, Any] = {
             "ts": _isoformat_utc(record.created),
             "level": record.levelname,
@@ -309,6 +324,11 @@ class TextFormatter(logging.Formatter):
         )
 
     def format(self, record: logging.LogRecord) -> str:
+        """Format a log record.
+
+        Returns:
+            Formatted log string.
+        """
         base = super().format(record)
         correlation_id = getattr(record, CORRELATION_FIELD, None) or get_correlation_id()
         if correlation_id:
@@ -357,7 +377,10 @@ def _resolve_json_mode(json_mode: Optional[bool]) -> bool:
 
 
 def _find_managed_handler(logger: logging.Logger) -> Optional[logging.Handler]:
-    """Return the handler previously installed by this module, if any."""
+    """
+    Returns:
+        The handler previously installed by this module, if any.
+    """
     for handler in logger.handlers:
         if getattr(handler, _MANAGED_FLAG, False):
             return handler

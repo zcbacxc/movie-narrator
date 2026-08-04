@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+"""Job configuration loading."""
+
 from pathlib import Path
 from typing import Union
 import warnings
@@ -37,6 +39,7 @@ _ALLOWED_TOP = (
 
 
 def load_job_config(path: Union[str, Path]) -> JobConfig:
+    """Load a job configuration from file."""
     config_path = Path(path)
     if not config_path.is_file():
         raise JobConfigError(f"config not found: {config_path}")

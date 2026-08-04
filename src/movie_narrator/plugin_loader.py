@@ -97,7 +97,7 @@ def discover_plugins(*, group: str = ENTRY_POINT_GROUP) -> List[PluginLoadResult
         # Python 3.9 fallback (dict interface) — we require 3.10+,
         # but be defensive in case of unusual environments.
         all_eps = entry_points()
-        eps = all_eps.get(group, [])
+        eps = all_eps.get(group, [])  # type: ignore[arg-type]
 
     for ep in eps:
         try:
@@ -127,6 +127,6 @@ def list_available_plugins(*, group: str = ENTRY_POINT_GROUP) -> List[str]:
         eps = entry_points(group=group)
     except TypeError:
         all_eps = entry_points()
-        eps = all_eps.get(group, [])
+        eps = all_eps.get(group, [])  # type: ignore[arg-type]
 
     return [ep.name for ep in eps]

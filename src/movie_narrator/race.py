@@ -54,7 +54,7 @@ import logging
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from .models import Context
 
@@ -347,7 +347,7 @@ def run_race(
             if footage_coverage:
                 ctx.metadata["footage_coverage"] = footage_coverage
 
-            result.score, result.score_breakdown = score_candidate(ctx.metadata)
+            result.score, result.score_breakdown = score_candidate(cast(Dict[str, Any], ctx.metadata))
             result.metadata_path = cand_dir / "metadata.json"
 
         except PipelinePaused:
@@ -509,7 +509,7 @@ def save_race_report(
         results: List of candidate results.
         output_path: Path to write the JSON report.
     """
-    report = {
+    report: Dict[str, Any] = {
         "version": 1,
         "candidates": [],
     }

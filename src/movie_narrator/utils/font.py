@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+"""Font discovery and loading."""
+
 import platform
 from pathlib import Path
 
@@ -8,6 +10,7 @@ from PIL import ImageFont
 
 
 def get_font(fontsize: int = 100) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    """Get the path to a usable font file."""
     project_font = (
         Path(__file__).parent.parent.parent.parent
         / "assets"

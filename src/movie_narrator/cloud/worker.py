@@ -119,6 +119,7 @@ class ProgressConsole(BaseConsole):
                 )
 
     def step(self, name: str) -> None:
+        """Record the start of a pipeline step."""
         self._step_start = time.time()
         self._progress.update_step(
             step_name=name,
@@ -130,6 +131,7 @@ class ProgressConsole(BaseConsole):
         self._inner.step(name)
 
     def step_ok(self, name: str, elapsed: float) -> None:
+        """Mark the current step as successfully completed."""
         self._progress.mark_completed(name)
         if name == _RENDER_STEP:
             observe_render_duration(elapsed)
@@ -154,38 +156,52 @@ class ProgressConsole(BaseConsole):
         self._step_index = max(0, index)
 
     def step_skip(self, name: str, reason: str) -> None:
+        """Mark the current step as skipped."""
         self._progress.mark_skipped(name)
         self._step_index += 1
         self._inner.step_skip(name, reason)
         self._notify_complete(name)
 
     def step_warn(self, name: str, reason: str) -> None:
+        """Mark the current step as completed with warnings."""
         self._inner.step_warn(name, reason)
         self._notify_complete(name)
 
     def step_err(self, name: str, exc: Exception, elapsed: float) -> None:
+        """Mark the current step as failed."""
         self._progress.mark_failed(name)
         self._inner.step_err(name, exc, elapsed)
 
     def warn(self, msg: str) -> None:
+        """Emit a warning message."""
         self._inner.warn(msg)
 
+    def info(self, msg: str) -> None:
+        """Emit an informational message."""
+        self._inner.info(msg)
+
     def debug(self, msg: str) -> None:
+        """Emit a debug message."""
         self._inner.debug(msg)
 
     def inline_warn(self, msg: str) -> None:
+        """Emit a warning message."""
         self._inner.inline_warn(msg)
 
     def final(self, msg: str) -> None:
+        """Print the final pipeline summary."""
         self._inner.final(msg)
 
     def done(self, elapsed: float) -> None:
+        """Mark the pipeline as complete."""
         self._inner.done(elapsed)
 
     def cancelled(self, msg: str) -> None:
+        """Mark the pipeline as cancelled."""
         self._inner.cancelled(msg)
 
     def progress(self, *args, **kwargs):
+        """Update progress display."""
         return self._inner.progress(*args, **kwargs)
 
 
@@ -239,10 +255,12 @@ def _restore_context(
 
 
 def _step_index_of(step_name: str) -> int:
-    """Return the zero-based index of ``step_name`` in ``STEPS``.
+    """
+    Returns:
+        The zero-based index of ``step_name`` in ``STEPS``.
 
-    Used to seed progress counters when resuming so the percentage does
-    not restart at 0% for a task that already finished several steps.
+        Used to seed progress counters when resuming so the percentage does
+        not restart at 0% for a task that already finished several steps.
     """
     for i, step in enumerate(STEPS):
         if step.__name__ == step_name:

@@ -139,11 +139,17 @@ class StorageBackend(Protocol):
         ...
 
     def open(self, key: str) -> IO[bytes]:  # noqa: A003 - mirrors builtin open() intent
-        """Return a readable binary stream for *key*."""
+        """
+        Returns:
+            A readable binary stream for *key*.
+        """
         ...
 
     def exists(self, key: str) -> bool:
-        """Return True when *key* exists."""
+        """
+        Returns:
+            True when *key* exists.
+        """
         ...
 
     def delete(self, key: str) -> bool:
@@ -155,11 +161,17 @@ class StorageBackend(Protocol):
         ...
 
     def stat(self, key: str) -> ArtifactInfo:
-        """Return metadata for *key*, raising if it does not exist."""
+        """
+        Returns:
+            Metadata for *key*, raising if it does not exist.
+        """
         ...
 
     def url(self, key: str, *, expires_in: int = 3600) -> Optional[str]:
-        """Return a public/pre-signed URL for *key*, or None if unsupported."""
+        """
+        Returns:
+            A public/pre-signed URL for *key*, or None if unsupported.
+        """
         ...
 
 
@@ -277,7 +289,10 @@ class LocalArtifactStore:
         return self._existing_path(key).open("rb")
 
     def exists(self, key: str) -> bool:
-        """Return True when *key* is an existing regular file."""
+        """
+        Returns:
+            True when *key* is an existing regular file.
+        """
         try:
             return self._safe_path(key).is_file()
         except UnsafeKeyError:
@@ -311,7 +326,10 @@ class LocalArtifactStore:
             yield self._info(key, path)
 
     def stat(self, key: str) -> ArtifactInfo:
-        """Return metadata for *key*."""
+        """
+        Returns:
+            Metadata for *key*.
+        """
         path = self._existing_path(key)
         return self._info(normalize_key(key), path)
 
@@ -341,7 +359,10 @@ class LocalArtifactStore:
 
 
 def _is_within(path: Path, root: Path) -> bool:
-    """Return True when *path* is inside *root* (both already resolved)."""
+    """
+    Returns:
+        True when *path* is inside *root* (both already resolved).
+    """
     try:
         return path.is_relative_to(root)
     except (AttributeError, ValueError):  # pragma: no cover - py<3.9 / mixed drives
@@ -421,7 +442,10 @@ class S3ArtifactStore:
         return self._client
 
     def object_key(self, key: str) -> str:
-        """Return the fully-qualified bucket key for a store *key*."""
+        """
+        Returns:
+            The fully-qualified bucket key for a store *key*.
+        """
         return join_prefix(self.prefix, normalize_key(key))
 
     # ── StorageBackend ──────────────────────────────────────
@@ -446,7 +470,10 @@ class S3ArtifactStore:
         return dest
 
     def open(self, key: str) -> IO[bytes]:  # noqa: A003
-        """Return the streaming body of *key*."""
+        """
+        Returns:
+            The streaming body of *key*.
+        """
         try:
             response = self._client.get_object(
                 Bucket=self.bucket, Key=self.object_key(key)
@@ -459,7 +486,10 @@ class S3ArtifactStore:
         return body
 
     def exists(self, key: str) -> bool:
-        """Return True when *key* exists in the bucket."""
+        """
+        Returns:
+            True when *key* exists in the bucket.
+        """
         try:
             self.stat(key)
         except ArtifactStoreError:
@@ -490,7 +520,10 @@ class S3ArtifactStore:
                 )
 
     def stat(self, key: str) -> ArtifactInfo:
-        """Return metadata for *key* via ``head_object``."""
+        """
+        Returns:
+            Metadata for *key* via ``head_object``.
+        """
         clean = normalize_key(key)
         try:
             head = self._client.head_object(Bucket=self.bucket, Key=self.object_key(clean))
@@ -504,7 +537,10 @@ class S3ArtifactStore:
         )
 
     def url(self, key: str, *, expires_in: int = 3600) -> Optional[str]:
-        """Return a pre-signed GET URL, or None when unsupported."""
+        """
+        Returns:
+            A pre-signed GET URL, or None when unsupported.
+        """
         generate = getattr(self._client, "generate_presigned_url", None)
         if generate is None:
             return None
@@ -711,11 +747,13 @@ def get_task_artifact_store(
 
 
 def artifact_location(store: StorageBackend, key: str) -> str:
-    """Return a consumer-facing location string for *key*.
+    """
+    Returns:
+        A consumer-facing location string for *key*.
 
-    Local stores report the on-disk path (unchanged from v0.6.1);
-    remote stores report a pre-signed URL when they can produce one,
-    falling back to the bare key.
+        Local stores report the on-disk path (unchanged from v0.6.1);
+        remote stores report a pre-signed URL when they can produce one,
+        falling back to the bare key.
     """
     if isinstance(store, LocalArtifactStore):
         return str(store.local_path(key))

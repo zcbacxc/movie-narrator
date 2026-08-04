@@ -1,14 +1,14 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""AppLogger — 纯文件日志层，不负责 UI，不接触控制台。
+"""Pure file logging layer — no UI, no console output.
 
-改进点 (v0.5.4+):
-- RotatingFileHandler 防止单文件过大 (10MB, 5 backups)
-- JSON 格式日志选项 (json_format=True)
-- error() 默认记录堆栈 (exc_info=True)
-- run_id 前缀关联多次运行
-- 可配置日志级别
+Improvements (v0.5.4+):
+- RotatingFileHandler prevents oversized files (10MB, 5 backups)
+- JSON format logging option (json_format=True)
+- error() logs stack trace by default (exc_info=True)
+- run_id prefix correlates multiple runs
+- Configurable log level
 """
 
 import json
@@ -37,6 +37,11 @@ class _JsonFormatter(logging.Formatter):
     """
 
     def format(self, record: logging.LogRecord) -> str:
+        """Format a log record.
+
+        Returns:
+            Formatted log string.
+        """
         log_entry = {
             "ts": datetime.fromtimestamp(record.created).strftime(
                 "%Y-%m-%d %H:%M:%S.%f"
@@ -64,6 +69,11 @@ class _TextFormatter(logging.Formatter):
         self._run_id = run_id
 
     def format(self, record: logging.LogRecord) -> str:
+        """Format a log record.
+
+        Returns:
+            Formatted log string.
+        """
         base = super().format(record)
         if self._run_id:
             return f"[{self._run_id}] {base}"
@@ -115,12 +125,19 @@ class AppLogger:
         self._logger.removeHandler(handler)
 
     def debug(self, msg: str) -> None:
+        """Emit a debug message."""
         self._logger.debug(msg)
 
     def info(self, msg: str) -> None:
+        """Emit an informational message."""
         self._logger.info(msg)
 
     def warning(self, msg: str) -> None:
+        """Warning.
+
+        Args:
+            msg: Parameter description.
+        """
         self._logger.warning(msg)
 
     def error(self, msg: str, exc_info: bool = True) -> None:

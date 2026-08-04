@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+"""Core data models and type definitions."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -14,7 +16,7 @@ from .utils.console import Console, SilentConsole
 from .utils.cost_tracker import CostTracker
 from .utils.log import AppLogger
 
-StepStatus = Literal["disabled", "skipped", "success", "failed"]
+StepStatus = Literal["disabled", "skipped", "success", "failed", "partial"]
 
 
 class MetadataDict(TypedDict, total=False):
@@ -27,16 +29,47 @@ class MetadataDict(TypedDict, total=False):
     voice: str
     video_format: str
     keep_cache: bool
+    format: str
+    aspect_ratio: str
+    video_arg: str
+    video_sizes: dict
     # Step toggles
     research_enabled: bool
     workflow_steps: dict
     strict: bool
+    qa_enabled: bool
+    # Research
+    research_provider: str
     # BGM
     bgm_request: str
     no_bgm: bool
-    # Scene matching
+    bgm_gain_db: float
+    bgm_duck_db: float
+    bgm_normalize: bool
+    bgm_loudnorm: bool
+    bgm_metadata_path: str
+    bgm_ambient_path: str
+    bgm_ambient_gain_db: float
+    audio_target_dbfs: float
+    # Scene detection
     scene_threshold: float
+    scene_frame_skip: int
+    scene_merge_min_duration: float
+    # Scene matching
     match_min_score: float
+    match_topk: int
+    match_topk_reuse_penalty: float
+    match_speed_clamp_min: float
+    match_speed_clamp_max: float
+    match_drop_scene_min_duration: float
+    match_skip_intro_sec: float
+    match_drop_dark_luma: float
+    match_source_window: list
+    match_timeline_mode: str
+    match_act_weights: list
+    match_diversity_window: int
+    match_max_scene_reuse: int
+    match_transcript_cached: bool
     no_clips: bool
     export_clips: bool
     # Subtitles
@@ -67,6 +100,131 @@ class MetadataDict(TypedDict, total=False):
     voice_used: str
     # Warnings
     warnings: list
+    # Research / Movie card
+    movie_card: MovieCard
+    movie_card_source: str
+    tmdb_corrections: list
+    # Script step
+    set_pieces: list
+    beats_meta: list
+    script_truncated: dict
+    script_qa: dict
+    script_judge: dict
+    script_phase: str
+    script_target_count: int
+    script_beat_count: int
+    script_segment_count: int
+    # Script prompt tuning
+    prompt_target_sentences: int
+    prompt_max_chars_per_sentence: int
+    prompt_target_segment_duration: float
+    prompt_hook_seconds: int
+    hook_templates: list
+    target_platform: str
+    narrator_perspective: str
+    focus_character: str
+    # Align step
+    align_degraded: bool
+    align_backend_used: str
+    align_backend_reason: str
+    align_backend_attempted: list
+    align_backend: str
+    align_fallback: bool
+    align_word_segments: int
+    align_words_assigned: int
+    align_word_tightened: int
+    alignment_qa: dict
+    align_segments: int
+    align_backward_skipped: int
+    # WhisperX / alignment backend config
+    whisperx_model: str
+    whisperx_language: str
+    whisperx_device: str
+    embedding_model_name: str
+    # Vision / captioning
+    vision_captioner: str
+    # TTS step
+    duration_metrics: dict
+    audio_quality: dict
+    tts_style_prompt: str
+    tts_audio_format: str
+    tts_audio_bitrate: str
+    tts_max_concurrent: int
+    tts_pause_ms: int
+    # Match step
+    wp6_intro_dropped: int
+    wp6_dark_dropped: int
+    wp6_window_dropped: int
+    match_captions_fake: bool
+    match_quality: dict
+    match_summary: dict
+    # BGM step
+    bgm_selection: dict
+    bgm_transitions: list
+    bgm_error: str
+    ambient_track: dict
+    # Subtitle / Translate
+    subtitle_qa: dict
+    untranslated_indices: list
+    untranslated_count: int
+    translation_glossary: dict
+    # Render step
+    encoder_info: dict
+    footage_coverage: dict
+    render_encoder: str
+    render_video_codec: str
+    render_audio_codec: str
+    render_preset: str
+    render_crf: int
+    render_fps: int
+    render_threads: int
+    render_faststart: bool
+    render_fit_mode: str
+    render_bg_color: str
+    render_template: dict
+    render_output_name: str
+    render_cover_export: bool
+    render_require_footage: bool
+    render_min_footage_coverage: float
+    footage_coverage_ratio: float
+    total_segments: int
+    render_ffmpeg_timeout: int
+    render_preview_mode: str
+    render_preview_sec: float
+    render_title_card_sec: int
+    render_transition: str
+    render_transition_duration: float
+    render_text_animation: str
+    render_text_animation_duration: float
+    render_font_size: int
+    render_subtitle_position: str
+    render_subtitle_max_width_ratio: float
+    render_subtitle_bottom_margin_ratio: float
+    render_vertical_safe_area: str
+    # QA step
+    qa_report: dict
+    video_qa: dict
+    quality_dashboard: dict
+    qa_gate: dict
+    qa_max_silence_db: float
+    qa_min_duration_ratio: float
+    qa_max_duration_ratio: float
+    qa_baseline_path: str
+    # Runner / CLI / infra
+    narration_preset: str
+    narration_preset_tags: dict
+    render_profile: str
+    config_path: str
+    run_id: str
+    version: str
+    environment: dict
+    created_at: str
+    duration: float
+    scene_detection_degraded: bool
+    pause_at: str
+    distributed_render: bool
+    # Internal: degraded step tracking (list of step names)
+    _degraded_steps: list
 
 
 # For static analysis (IDE, mypy, pyright): metadata is typed via MetadataDict.
@@ -82,6 +240,8 @@ else:
 
 
 class StepResult(Enum):
+    """Enumeration of pipeline step result states."""
+
     SUCCESS = "success"
     SKIPPED = "skipped"
     WARNING = "warning"
@@ -89,6 +249,8 @@ class StepResult(Enum):
 
 @dataclass
 class StepState:
+    """Mutable state of the current pipeline step."""
+
     result: StepResult = StepResult.SUCCESS
     message: str | None = None
     # Records whether the failure that produced this state was a
@@ -117,6 +279,8 @@ class Services:
 
 
 class ScriptSegment(BaseModel):
+    """A single segment of the narration script."""
+
     text: str
 
 
@@ -133,6 +297,8 @@ class WordSegment(BaseModel):
 
 
 class TimedSegment(BaseModel):
+    """A script segment with timing information from alignment."""
+
     text: str
     start: float
     end: float
@@ -145,6 +311,8 @@ class TimedSegment(BaseModel):
 
 
 class PipelineStatus(BaseModel):
+    """Overall pipeline execution status."""
+
     research: StepStatus = "disabled"
     align: StepStatus = "disabled"
     scene: StepStatus = "disabled"
@@ -160,6 +328,8 @@ class PipelineStatus(BaseModel):
 
 
 class Assets(BaseModel):
+    """Asset paths and availability information."""
+
     intro: Optional[str] = None
     bgm: Optional[str] = None
     watermark: Optional[str] = None
@@ -180,6 +350,8 @@ class SubtitlePaths(BaseModel):
 
 
 class ResearchInfo(BaseModel):
+    """Movie research information gathered from external sources."""
+
     title: str = ""
     year: Optional[int] = None
     summary: str = ""
@@ -211,6 +383,8 @@ class MovieCard(BaseModel):
 
 
 class Scene(BaseModel):
+    """A detected scene in the source video."""
+
     index: int
     start: float
     end: float
@@ -219,6 +393,8 @@ class Scene(BaseModel):
 
 
 class MatchedClip(BaseModel):
+    """A script segment matched to a video scene."""
+
     segment_index: int
     text: str
     narr_start: float
@@ -237,6 +413,8 @@ class MatchedClip(BaseModel):
 
 
 class Context(BaseModel):
+    """Pipeline execution context — carries state between steps."""
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     movie_name: str

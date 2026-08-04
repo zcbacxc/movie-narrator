@@ -103,8 +103,9 @@ def _check_tts(ctx: Context) -> None:
 def run_preflight(ctx: Context) -> None:
     """Validate LLM and TTS availability before running the pipeline.
 
-    Raises ``PreflightError`` if a required service is not usable.
-    Called by ``run_pipeline`` before the step loop begins.
+    Raises:
+        PreflightError: If a required service is not usable.
+            Called by ``run_pipeline`` before the step loop begins.
     """
     console = ctx.services.console
     console.step("preflight")

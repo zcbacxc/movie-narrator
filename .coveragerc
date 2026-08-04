@@ -1,20 +1,23 @@
-# v0.9.5: coverage gate configuration.
+# v1.0: coverage gate configuration.
 #
 # The coverage gate is enforced on a single Python version (3.11) in the
 # CI test-matrix to avoid redundant coverage runs across all four versions.
-# The threshold is set to 80% as a first step (v0.9.5); it is raised in
-# subsequent point releases (v0.9.6 -> 88%, v0.9.7 -> 95%) as test coverage
-# for the new i18n / documentation features lands.
+#
+# History:
+#   v0.9.5 — 80% (initial gate)
+#   v1.0.0 — 82% (measured ~83% after type-debt cleanup; raised from 80%)
+#   v1.1.0 — target 88%
+#   v1.2.0 — target 95%
 
 [run]
 # Measure only the shipped package, not the test suite or CLI helpers.
 source = src/movie_narrator
 omit = src/movie_narrator/__main__.py
 
-# 80% absolute line coverage. Combined with the branch coverage report
-# below this gives a hard gate that fails `pytest` before merge.
+# 82% absolute line coverage. Network-bound modules (TTS, LLM) are excluded
+# from practical unit-test coverage; integration tests cover them instead.
 [report]
-fail_under = 80
+fail_under = 82
 
 show_missing = True
 skip_covered = True
