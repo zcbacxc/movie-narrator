@@ -172,9 +172,13 @@ class TestSubmitBatch:
         )
         assert batch.batch_id
         assert len(batch.task_ids) == 2
+        # The batch may already be terminal when the mock pipeline runs fast
+        # (e.g. on CI); only a *completed* state is asserted after the wait
+        # loop below, so the initial state check must accept any state.
         assert batch.status in (
             BatchStatus.PENDING,
             BatchStatus.RUNNING,
+            BatchStatus.COMPLETED,
         )
 
         deadline = time.time() + 10
