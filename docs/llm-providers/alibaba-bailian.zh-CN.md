@@ -1,3 +1,6 @@
+[![English](https://img.shields.io/badge/English-Alibaba_Bailian-blue)](alibaba-bailian.md)
+[![简体中文](https://img.shields.io/badge/简体中文-阿里云百炼-green)](alibaba-bailian.zh-CN.md)
+
 # 阿里云百炼（通义千问）— 新用户每个模型 100 万 Tokens
 
 > **注**: 本指南为中文版本。英文版请参考 [Alibaba Cloud Bailian](alibaba-bailian.md)。

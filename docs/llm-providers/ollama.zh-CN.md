@@ -1,3 +1,6 @@
+[![English](https://img.shields.io/badge/English-Ollama-blue)](ollama.md)
+[![简体中文](https://img.shields.io/badge/简体中文-Ollama-green)](ollama.zh-CN.md)
+
 # Ollama — 本地部署（免费、离线）
 
 > **注**: 本指南为中文版本。英文版请参考 [Ollama](ollama.md)。

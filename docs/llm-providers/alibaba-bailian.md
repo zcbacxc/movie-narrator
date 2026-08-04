@@ -1,3 +1,6 @@
+[![English](https://img.shields.io/badge/English-Alibaba_Bailian-blue)](alibaba-bailian.md)
+[![简体中文](https://img.shields.io/badge/简体中文-阿里云百炼-green)](alibaba-bailian.zh-CN.md)
+
 # Alibaba Cloud Bailian — Tongyi Qianwen Series (1M Tokens Free Per Model)
 
 > **Note**: This is the English version. For the Chinese version, see [阿里云百炼](alibaba-bailian.zh-CN.md).

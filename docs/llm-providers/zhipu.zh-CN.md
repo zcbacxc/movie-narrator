@@ -1,3 +1,6 @@
+[![English](https://img.shields.io/badge/English-Zhipu-blue)](zhipu.md)
+[![简体中文](https://img.shields.io/badge/简体中文-智谱AI-green)](zhipu.zh-CN.md)
+
 # 智谱 AI（GLM）— GLM-4-Flash 永久免费 + 新用户 2000 万 Tokens
 
 > **注**: 本指南为中文版本。英文版请参考 [Zhipu AI](zhipu.md)。

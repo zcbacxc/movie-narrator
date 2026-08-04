@@ -1,3 +1,6 @@
+[![English](https://img.shields.io/badge/English-Ollama-blue)](ollama.md)
+[![简体中文](https://img.shields.io/badge/简体中文-Ollama-green)](ollama.zh-CN.md)
+
 # Ollama — Local LLM Deployment (Completely Free)
 
 > **Note**: This is the English version. For the Chinese version, see [Ollama](ollama.zh-CN.md).

@@ -1,3 +1,6 @@
+[![English](https://img.shields.io/badge/English-SiliconFlow-blue)](siliconflow.md)
+[![简体中文](https://img.shields.io/badge/简体中文-硅基流动-green)](siliconflow.zh-CN.md)
+
 # SiliconFlow — Multi-Model Aggregator with Signup Credits
 
 > **Note**: This is the English version. For the Chinese version, see [硅基流动](siliconflow.zh-CN.md).

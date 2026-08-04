@@ -1,3 +1,6 @@
+[![English](https://img.shields.io/badge/English-Xiaomi_MiMo-blue)](xiaomi-mimo.md)
+[![简体中文](https://img.shields.io/badge/简体中文-小米MiMo-green)](xiaomi-mimo.zh-CN.md)
+
 # Xiaomi MiMo — All-in-One LLM + TTS (Limited-Time Free)
 
 > **Note**: This is the English version. For the Chinese version, see [小米 MiMo](xiaomi-mimo.zh-CN.md).

@@ -1,3 +1,6 @@
+[![English](https://img.shields.io/badge/English-SiliconFlow-blue)](siliconflow.md)
+[![简体中文](https://img.shields.io/badge/简体中文-硅基流动-green)](siliconflow.zh-CN.md)
+
 # 硅基流动（SiliconFlow）— 多模型聚合，新用户赠送额度
 
 > **注**: 本指南为中文版本。英文版请参考 [SiliconFlow](siliconflow.md)。

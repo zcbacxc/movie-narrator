@@ -24,6 +24,7 @@ nav:
   - Roadmap: ROADMAP.md
   - Contributing: CONTRIBUTING.md
   - Deployment: DEPLOYMENT.md
+  - Observability: OBSERVABILITY.md
   - Packaging: PACKAGING.md
   - LLM Providers: LLM_PROVIDERS.md
   - AI Guide: AI_GUIDE.md

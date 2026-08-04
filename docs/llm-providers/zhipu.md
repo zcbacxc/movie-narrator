@@ -1,3 +1,6 @@
+[![English](https://img.shields.io/badge/English-Zhipu-blue)](zhipu.md)
+[![简体中文](https://img.shields.io/badge/简体中文-智谱AI-green)](zhipu.zh-CN.md)
+
 # Zhipu AI (GLM) — GLM-4-Flash Free Forever + 20M Tokens for New Users
 
 > **Note**: This is the English version. For the Chinese version, see [智谱 AI](zhipu.zh-CN.md).
