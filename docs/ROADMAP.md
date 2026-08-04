@@ -25,16 +25,6 @@
 
 > **Planning principle**: Alternate user-visible improvements with infrastructure work. v1.0 target users: local CLI creators + optional single-tenant service deployment.
 
-### v0.6.x Planning Revision
-
-The original v0.6.2–v0.6.4 plan (distributed rendering, API gateway & auth, cloud storage) has been re-evaluated:
-
-- **Distributed rendering** — demoted to a conditional feature in v0.9.x (trigger: single-machine render > 10 minutes with multiple nodes available)
-- **API key auth + S3 storage** — merged into v0.8.0 service deployment basics
-- **JWT / multi-tenant isolation / token bucket rate limiting** — deferred to post-v1.0, pending community demand
-
----
-
 ### v1.0.0 — Stable Release
 
 > **Goal**: API stability guarantee, production-ready, feature-complete for target use cases.
