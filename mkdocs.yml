@@ -19,18 +19,18 @@ nav:
   - Quickstart: QUICKSTART.md
   - Tutorial: TUTORIAL.md
   - Best Practices: BEST_PRACTICES.md
+  - Roadmap: ROADMAP.md
+  - Migration Guide: MIGRATION.md
+  - LLM Providers: LLM_PROVIDERS.md
+  - AI Guide: AI_GUIDE.md
   - Plugin Development: PLUGIN_DEVELOPMENT.md
   - Architecture: ARCHITECTURE.md
   - Architecture Decision Records: ADR.md
   - Metadata Schema: METADATA_SCHEMA.md
-  - Roadmap: ROADMAP.md
-  - Migration Guide: MIGRATION.md
   - Contributing: CONTRIBUTING.md
   - Deployment: DEPLOYMENT.md
   - Observability: OBSERVABILITY.md
   - Packaging: PACKAGING.md
-  - LLM Providers: LLM_PROVIDERS.md
-  - AI Guide: AI_GUIDE.md
   - SDK Reference:
       - Contract: sdk/contract.md
       - Models: sdk/models.md

@@ -32,7 +32,18 @@ Each ADR should be grounded in the project's actual code and history. Do not inv
 
 movie-narrator is structured as a set of packages — the core `movie_narrator` engine, a `web` package, and several plugins. Early on, these packages imported each other's internal modules directly, which made the dependency graph tangled, made it impossible to evolve the engine without breaking plugins, and made cross-package version mismatches hard to diagnose.
 
-**Decision**
+**Decision Drivers**
+
+- Packages imported each other's internal modules directly, tangling the dependency graph.
+- The engine could not evolve without breaking plugins, and cross-package version mismatches were hard to diagnose.
+- Cross-package compatibility needed to be machine-checkable at load time.
+
+**Considered Options**
+
+- A centralized service registry for all packages (rejected: it hid the real coupling and did not solve the versioning problem).
+- Allowing direct internal imports but documenting the boundaries (rejected: documentation is not enforced, and the graph stays tangled).
+
+**Decision Outcome**
 
 We established a single stable contract surface: the `web` package and every plugin may depend only on `movie_narrator.contract`. Internal modules are not allowed to be imported across package boundaries. Compatibility across packages is governed by a semantic versioned `CONTRACT_VERSION` constant, currently `(0, 9, 5)`. Any breaking change to the contract must bump the contract version in a way that obeys semantic versioning rules, so consumers can detect compatibility at load time.
 
@@ -41,10 +52,11 @@ We established a single stable contract surface: the `web` package and every plu
 - Positive: the graph is now acyclic and testable; plugins are decoupled from internal implementation details; compatibility is machine-checkable via `CONTRACT_VERSION`.
 - Negative: the contract layer must be kept stable and becomes a bottleneck for change; any new shared capability must be added to the contract first, which adds a small amount of ceremony.
 
-**Alternatives**
+**References**
 
-- A centralized service registry for all packages (rejected: it hid the real coupling and did not solve the versioning problem).
-- Allowing direct internal imports but documenting the boundaries (rejected: documentation is not enforced, and the graph stays tangled).
+- `CHANGELOG.md`
+- `docs/ARCHITECTURE.md`
+- `src/movie_narrator/contract.py`
 
 ---
 
@@ -57,7 +69,18 @@ We established a single stable contract surface: the `web` package and every plu
 
 Providers for TTS, vision, LLM, and research used to be created through a classic factory pattern. The factory had to know about every provider, so adding a new provider meant modifying the factory and often the core dispatch logic. A legacy factory fallback also existed, which made behavior inconsistent and hard to reason about.
 
-**Decision**
+**Decision Drivers**
+
+- The factory had to know about every provider, so adding a provider meant modifying the factory and dispatch logic.
+- A legacy factory fallback caused inconsistent and hard-to-reason behavior.
+- Dispatch needed to be uniform, explicit, and type-safe.
+
+**Considered Options**
+
+- A centralized provider factory (rejected: it must be modified for every new provider).
+- Keeping the legacy factory fallback alongside the registry (rejected: two dispatch paths caused inconsistent behavior).
+
+**Decision Outcome**
 
 Starting from v0.5.1, provider dispatch uses a registry only. Providers register themselves through decorators — `@register_tts`, `@register_vision`, `@register_llm`, `@register_research` — and the engine looks them up by name at runtime. The legacy factory fallback has been removed. If a factory (or any code path) returns an instance that is not a consistent ABC instance, a `TypeError` is raised rather than silently proceeding.
 
@@ -66,10 +89,11 @@ Starting from v0.5.1, provider dispatch uses a registry only. Providers register
 - Positive: adding a provider is a pure additive change (register + decorate); dispatch is uniform and explicit; type safety is enforced by the `TypeError` check.
 - Negative: registration is implicit, so a provider that is not imported is not available; a small amount of indirection is introduced between declaring and using a provider.
 
-**Alternatives**
+**References**
 
-- A centralized provider factory (rejected: it must be modified for every new provider).
-- Keeping the legacy factory fallback alongside the registry (rejected: two dispatch paths caused inconsistent behavior).
+- `CHANGELOG.md`
+- `docs/PLUGIN_DEVELOPMENT.md`
+- `src/movie_narrator/providers/registry.py`
 
 ---
 
@@ -82,7 +106,18 @@ Starting from v0.5.1, provider dispatch uses a registry only. Providers register
 
 The movie-narrator pipeline is a 16-step processing chain. Some steps have soft dependencies (optional libraries, optional upstream data) that may not be present in every environment. Failing hard on any missing piece made the whole pipeline brittle and prevented partial results from being produced.
 
-**Decision**
+**Decision Drivers**
+
+- Some steps have soft dependencies that may not be present in every environment.
+- Failing hard on missing pieces made the pipeline brittle and prevented partial results.
+- Operators needed a way to force a hard failure when correctness mattered.
+
+**Considered Options**
+
+- Fail hard on every step (rejected: too brittle, and it prevented partial results).
+- Always skip soft steps with no strict override (rejected: operators could not force a failure when correctness mattered).
+
+**Decision Outcome**
 
 Soft steps — `research`, `align`, `scene`, `match`, `bgm`, `translate`, `qa_gate`, and `export_clips` — degrade gracefully: when an optional dependency is missing or upstream data is unavailable, the step is skipped softly and the pipeline continues with the next step. A `--strict` flag converts this behavior into a hard abort so that a strict run fails loudly instead of producing partial output. Any hard step (a step whose output is required for everything downstream) fails by terminating the pipeline immediately.
 
@@ -91,10 +126,11 @@ Soft steps — `research`, `align`, `scene`, `match`, `bgm`, `translate`, `qa_ga
 - Positive: the pipeline is resilient and can still produce useful output when bits are missing; operators can opt into strict behavior deliberately.
 - Negative: soft failures can be silent, so users may not notice a skipped step unless they inspect the logs; the strict/soft distinction must be documented for each step.
 
-**Alternatives**
+**References**
 
-- Fail hard on every step (rejected: too brittle, and it prevented partial results).
-- Always skip soft steps with no strict override (rejected: operators could not force a failure when correctness mattered).
+- `CHANGELOG.md`
+- `docs/ARCHITECTURE.md`
+- `src/movie_narrator/pipeline/runner.py`
 
 ---
 
@@ -107,7 +143,19 @@ Soft steps — `research`, `align`, `scene`, `match`, `bgm`, `translate`, `qa_ga
 
 The pipeline calls external services — LLM, TTS, TMDB, and VLM — which are subject to transient failures, throttling, and brief outages. Naive retries could hammer a failing service, and a total lack of retries would fail runs on the first hiccup.
 
-**Decision**
+**Decision Drivers**
+
+- External services (LLM, TTS, TMDB, and VLM) are subject to transient failures, throttling, and brief outages.
+- Naive retries could hammer a failing service, while no retries would fail runs on the first hiccup.
+- Retries needed to spread over time to avoid thundering-herding the upstream service.
+
+**Considered Options**
+
+- Unlimited fixed-interval retries (rejected: risk of hammering a failing service).
+- No retry at all (rejected: transient failures would fail otherwise-successful runs).
+- Circuit breaker without backoff (rejected: recovery would still be harsh on the upstream).
+
+**Decision Outcome**
 
 We added a circuit breaker in `reliability/circuit_breaker` with a `CLOSED → OPEN → HALF_OPEN` state machine. The `@circuit_guard` decorator protects calls to LLM, TTS, TMDB, and VLM. When the circuit is open, calls fail fast instead of retrying. Retry behavior is governed by a `RetryPolicy` that implements exponential backoff with jitter, so retries spread out over time and do not thundering-herd the upstream service.
 
@@ -116,11 +164,11 @@ We added a circuit breaker in `reliability/circuit_breaker` with a `CLOSED → O
 - Positive: external dependency failures are contained, fail fast when the service is down, and recover automatically; retries are backoff-aware and avoid overload.
 - Negative: circuit state adds observability requirements; tuning thresholds and retry budgets are environment-sensitive and need per-service calibration.
 
-**Alternatives**
+**References**
 
-- Unlimited fixed-interval retries (rejected: risk of hammering a failing service).
-- No retry at all (rejected: transient failures would fail otherwise-successful runs).
-- Circuit breaker without backoff (rejected: recovery would still be harsh on the upstream).
+- `CHANGELOG.md`
+- `src/movie_narrator/reliability/circuit_breaker.py`
+- `src/movie_narrator/reliability/retry.py`
 
 ---
 
@@ -133,7 +181,18 @@ We added a circuit breaker in `reliability/circuit_breaker` with a `CLOSED → O
 
 Rendering a narration video is a long-running job. If the process crashed or the machine restarted mid-run, all work was lost and the task had to restart from step one, wasting significant time and cost.
 
-**Decision**
+**Decision Drivers**
+
+- Rendering is a long-running job; a crash mid-run lost all work.
+- Restarting from step one wasted significant time and cost.
+- Failed or cancelled runs needed to be inspectable and re-runnable.
+
+**Considered Options**
+
+- Restart long tasks from the beginning (rejected: wasteful for long-running jobs).
+- Persisting checkpoints for every task forever (rejected: storage bloat without a retention policy).
+
+**Decision Outcome**
 
 We introduced task checkpoints in `cloud/checkpoint`. After each pipeline step, a `TaskCheckpoint` is persisted. On a crash, a task resumes from the next step after its last persisted checkpoint rather than the beginning. When a task reaches `COMPLETED`, its checkpoint is deleted; when it ends in `FAILED` or `CANCELLED`, the checkpoint is retained so that the run can be inspected and re-run.
 
@@ -142,10 +201,11 @@ We introduced task checkpoints in `cloud/checkpoint`. After each pipeline step, 
 - Positive: long runs are resilient to crashes; partial progress is preserved and resumption is cheap; failed/cancelled runs can be inspected.
 - Negative: checkpoint persistence adds I/O and storage overhead; stale checkpoints for failed runs must be managed to avoid accumulation.
 
-**Alternatives**
+**References**
 
-- Restart long tasks from the beginning (rejected: wasteful for long-running jobs).
-- Persisting checkpoints for every task forever (rejected: storage bloat without a retention policy).
+- `CHANGELOG.md`
+- `src/movie_narrator/cloud/checkpoint.py`
+- `docs/sdk/cloud.md`
 
 ---
 
@@ -158,7 +218,18 @@ We introduced task checkpoints in `cloud/checkpoint`. After each pipeline step, 
 
 Users wanted to submit many narration jobs at once and have them run on a schedule, rather than triggering each job manually. The scheduler needed to parse cron-like expressions without pulling in a heavy external dependency.
 
-**Decision**
+**Decision Drivers**
+
+- Users wanted to submit many jobs at once and have them run on a schedule.
+- Cron-like expressions needed to be parsed without pulling in a heavy external dependency.
+- The scheduler should stay lightweight and portable.
+
+**Considered Options**
+
+- Using an external scheduler library (rejected: added a heavy dependency for a small need).
+- Full-featured cron support (rejected: over-engineering for the current scheduling needs).
+
+**Decision Outcome**
 
 We added `BatchRequest` supporting 1–50 jobs per batch. Scheduling is handled by `cloud/scheduler`, which includes a dependency-free 5-field cron parser (minute, hour, day-of-month, month, day-of-week). A `JobScheduler` runs in a background thread and dispatches jobs according to the parsed schedule.
 
@@ -167,10 +238,11 @@ We added `BatchRequest` supporting 1–50 jobs per batch. Scheduling is handled 
 - Positive: batch submission and cron-like scheduling are supported with no external scheduler dependency; the scheduler is lightweight and portable.
 - Negative: the 5-field cron parser is simpler than full cron (no seconds or special syntax), so very complex schedules are not supported; batch limits must be enforced and communicated.
 
-**Alternatives**
+**References**
 
-- Using an external scheduler library (rejected: added a heavy dependency for a small need).
-- Full-featured cron support (rejected: over-engineering for the current scheduling needs).
+- `CHANGELOG.md`
+- `src/movie_narrator/cloud/scheduler.py`
+- `src/movie_narrator/cloud/models.py`
 
 ---
 
@@ -183,7 +255,19 @@ We added `BatchRequest` supporting 1–50 jobs per batch. Scheduling is handled 
 
 Tasks that repeatedly failed could block the queue or be silently dropped, making failures hard to track. Separately, some jobs produced very long render times, and we wanted to consider offloading rendering to more nodes — but only when it was actually worth it.
 
-**Decision**
+**Decision Drivers**
+
+- Repeatedly failing tasks could block the queue or be silently dropped, making failures hard to track.
+- Some jobs produced very long render times, warranting offloading to more nodes.
+- Distributed rendering should be used only when it pays off, with a safe fallback.
+
+**Considered Options**
+
+- Silently dropping failed tasks (rejected: failures became invisible and unrecoverable).
+- Always using distributed rendering (rejected: overhead not worth it for short jobs).
+- Never distributing (rejected: single-node renders could take too long).
+
+**Decision Outcome**
 
 We introduced a dead-letter queue (DLQ). Tasks that fail unrecoverably move to a terminal `DEAD` state and can be `replay`ed later. Distributed rendering is a conditional feature: it is triggered only when a single-node render exceeds 10 minutes and there are multiple nodes available; if distributed rendering fails, the job falls back to local rendering.
 
@@ -192,11 +276,11 @@ We introduced a dead-letter queue (DLQ). Tasks that fail unrecoverably move to a
 - Positive: failed tasks are explicitly visible and recoverable via replay; rendering can scale out when it pays off, with safe fallback to local.
 - Negative: the DLQ and replay need operational tooling; the conditional distributed trigger adds complexity and a fallback path that must be tested.
 
-**Alternatives**
+**References**
 
-- Silently dropping failed tasks (rejected: failures became invisible and unrecoverable).
-- Always using distributed rendering (rejected: overhead not worth it for short jobs).
-- Never distributing (rejected: single-node renders could take too long).
+- `CHANGELOG.md`
+- `src/movie_narrator/cloud/dlq.py`
+- `src/movie_narrator/cloud/distributed.py`
 
 ---
 
@@ -209,7 +293,18 @@ We introduced a dead-letter queue (DLQ). Tasks that fail unrecoverably move to a
 
 Configuration was mixed between infrastructure settings and pipeline behavior settings, and precedence between sources was unclear. This caused confusion about which value is actually in effect and made local vs. production setups inconsistent.
 
-**Decision**
+**Decision Drivers**
+
+- Configuration mixed infrastructure and pipeline behavior settings, with unclear precedence.
+- Confusion existed about which value is actually in effect.
+- Local vs. production setups were inconsistent.
+
+**Considered Options**
+
+- A single configuration file for everything (rejected: mixed infrastructure and behavior, and secrets risk).
+- A YAML-only model with no CLI override (rejected: operators could not override behavior per-run).
+
+**Decision Outcome**
 
 We split configuration into two clear sources. `.env` holds infrastructure settings and uses the `MN_` prefix. `job.yaml` holds pipeline behavior settings. Precedence is: `CLI` arguments > `job.yaml` > inline defaults. This gives a predictable, layered model where the most specific source wins.
 
@@ -218,10 +313,11 @@ We split configuration into two clear sources. `.env` holds infrastructure setti
 - Positive: infrastructure and behavior are cleanly separated; precedence is explicit and predictable; secrets and env-specific values stay out of job files.
 - Negative: users must know which setting lives in which file; the two-file split adds a small onboarding cost.
 
-**Alternatives**
+**References**
 
-- A single configuration file for everything (rejected: mixed infrastructure and behavior, and secrets risk).
-- A YAML-only model with no CLI override (rejected: operators could not override behavior per-run).
+- `CHANGELOG.md`
+- `src/movie_narrator/config.py`
+- `docs/PACKAGING.md`
 
 ---
 
@@ -234,7 +330,19 @@ We split configuration into two clear sources. `.env` holds infrastructure setti
 
 The task submission API accepted arbitrary payloads. Malformed or malicious input could reach the pipeline and cause unexpected behavior; there was no size cap, and the CI pipeline had no security scanning or test-coverage gate.
 
-**Decision**
+**Decision Drivers**
+
+- The task submission API accepted arbitrary payloads with no size cap.
+- Malformed or malicious input could reach the pipeline and cause unexpected behavior.
+- The CI pipeline lacked security scanning and a test-coverage gate.
+
+**Considered Options**
+
+- Accepting any payload and sanitizing deep in the pipeline (rejected: failed late and unpredictably).
+- No size limit (rejected: risk of memory/resource exhaustion).
+- No security scanning (rejected: known vulnerabilities would go unnoticed).
+
+**Decision Outcome**
 
 `TaskRequest` now validates every field. Malicious or unparseable payloads are rejected with HTTP `400`. Payloads larger than `1MiB` are rejected with HTTP `413`. On the CI side, security scanning was added using `Bandit` and `pip-audit`, and a test-coverage gate of `80%` was enforced.
 
@@ -243,11 +351,11 @@ The task submission API accepted arbitrary payloads. Malformed or malicious inpu
 - Positive: the API rejects malformed and oversized input early; security posture is far stronger and CI catches known vulnerabilities and coverage regressions.
 - Negative: strict validation can reject legitimate edge cases that were previously tolerated; the coverage gate and security scans add CI time.
 
-**Alternatives**
+**References**
 
-- Accepting any payload and sanitizing deep in the pipeline (rejected: failed late and unpredictably).
-- No size limit (rejected: risk of memory/resource exhaustion).
-- No security scanning (rejected: known vulnerabilities would go unnoticed).
+- `CHANGELOG.md`
+- `src/movie_narrator/utils/sanitize.py`
+- `src/movie_narrator/cloud/models.py`
 
 ---
 
@@ -260,7 +368,18 @@ The task submission API accepted arbitrary payloads. Malformed or malicious inpu
 
 The engine generated narration scripts without language awareness, and the TTS voice selection was not tied to the target language. This produced inconsistent language and voice choices for localized output.
 
-**Decision**
+**Decision Drivers**
+
+- Script generation lacked language awareness.
+- TTS voice selection was not tied to the target language.
+- Voice selection needed to be deterministic and language-aware.
+
+**Considered Options**
+
+- A single global default voice regardless of language (rejected: produced mismatched language/voice).
+- No voice mapping, relying on the provider's default (rejected: nondeterministic and not localized).
+
+**Decision Outcome**
 
 We added language-aware script generation and matching, with the default language set to `zh`. TTS voice selection is handled through `voice_map` and `resolve_voice`, with a priority order: explicit `voice` > per-language override > default mapping > `default_voice`. This makes voice selection deterministic and language-aware.
 
@@ -269,10 +388,11 @@ We added language-aware script generation and matching, with the default languag
 - Positive: output is consistently localized; voice selection is predictable and can be overridden explicitly; the default language is fixed to `zh`.
 - Negative: voice mapping must be maintained as languages are added; the resolution priority must be documented so users understand precedence.
 
-**Alternatives**
+**References**
 
-- A single global default voice regardless of language (rejected: produced mismatched language/voice).
-- No voice mapping, relying on the provider's default (rejected: nondeterministic and not localized).
+- `CHANGELOG.md`
+- `src/movie_narrator/tts/voice_map.py`
+- `src/movie_narrator/pipeline/script.py`
 
 ---
 

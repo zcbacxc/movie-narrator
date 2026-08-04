@@ -44,16 +44,11 @@ description = "My custom movie-narrator plugin."
 requires-python = ">=3.10"
 dependencies = ["movie-narrator>=0.6.0"]
 
-[project.entry-points."movie_narrator.plugins"]
-my-plugin = "my_plugin:MyPlugin"
-
 [tool.setuptools.packages.find]
 where = ["."]
 ```
 
-`[project.entry-points]` 部分至关重要 — 它为自动发现注册你的
-插件。键 (`my-plugin`) 是 `mn plugin list` 显示的插件名称，
-值 (`my_plugin:MyPlugin`) 是指向你插件类的导入路径。权威入口点格式见[插件开发指南](PLUGIN_DEVELOPMENT.zh-CN.md#entry-points)。
+`[project.entry-points]` 部分为自动发现注册你的插件。权威的 TOML 片段 — 包括 `[project.entry-points."movie_narrator.plugins"]` 块 — 定义在[插件开发指南](PLUGIN_DEVELOPMENT.zh-CN.md#entry-points)，此处链接过去而非重复。
 
 ### `my_plugin/__init__.py`
 

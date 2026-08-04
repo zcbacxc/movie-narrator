@@ -44,18 +44,15 @@ description = "My custom movie-narrator plugin."
 requires-python = ">=3.10"
 dependencies = ["movie-narrator>=0.6.0"]
 
-[project.entry-points."movie_narrator.plugins"]
-my-plugin = "my_plugin:MyPlugin"
-
 [tool.setuptools.packages.find]
 where = ["."]
 ```
 
-The `[project.entry-points]` section is critical — it registers your
-plugin for auto-discovery. The key (`my-plugin`) is the plugin name
-shown by `mn plugin list`, and the value (`my_plugin:MyPlugin`) is the
-import path to your plugin class. See [Plugin Development](PLUGIN_DEVELOPMENT.md#entry-points)
-for the authoritative entry-point reference.
+The `[project.entry-points]` section registers your plugin for
+auto-discovery. The authoritative TOML snippet — including the
+`[project.entry-points."movie_narrator.plugins"]` block — is defined
+in [Plugin Development](PLUGIN_DEVELOPMENT.md#entry-points); link there
+rather than duplicating it here.
 
 ### `my_plugin/__init__.py`
 

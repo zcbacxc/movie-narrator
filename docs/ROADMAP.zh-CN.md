@@ -7,17 +7,19 @@
 
 ## 已完成
 
-| 版本 | 主题 | 摘要 |
-|------|------|------|
-| v0.1.x | 核心流水线 | CLI / LLM 解说稿 / Edge-TTS / SRT 字幕 / MoviePy 渲染 / TTS 缓存 / CI |
-| v0.2.x | 场景与媒体 | 研究 agent / WhisperX 对齐 / 场景检测 / 片段匹配 / BGM / 优雅降级 |
-| v0.3.x | 平台与工作流 | YAML job 配置 / 多语言字幕 / Gradio WebUI（后被取代） |
-| v0.4.x | TTS 抽象与基础设施 | TTS provider 抽象 / 配置体系重做 / FastAPI + React WebUI / 渲染质量 / 匹配智能 / 效果组合 / 契约层 |
-| v0.5.x | 生态 | Plugin API / SDK 冻结 / 插件发现 / VLM 视觉 Provider / 叙事预设 / 场景过滤 / WebUI 拆分 / QA 仪表盘。`CONTRACT_VERSION` → `(0, 5, 1)` |
-| v0.6.x | 任务队列与远程推理 | 异步 job / 持久化 / 取消 / 进度 / 重试 / REST API 服务器 / Worker 守护进程 / 产物管理 / 远程代理。`CONTRACT_VERSION` → `(0, 6, 1)` |
-| v0.7.x | 出片体验 | GPU 编码 / 成本统计 / 预览模式 / 场景转场 / 文字动画 / 多音轨混音 / 安全加固。`CONTRACT_VERSION` → `(0, 7, 2)` |
-| v0.8.x | 服务化基础 | API Key 鉴权 / video_format 重命名 / 渲染模板 / 异常收窄 / 代码检查工具链 / 队列死锁修复。`CONTRACT_VERSION` → `(0, 8, 0)` |
-| v0.9.x | 可靠、批量与文档 | 熔断器 / 检查点 / 优雅关闭 / 重试策略 / 批量任务 / cron / 死信队列 / 分布式渲染 / 输入净化 / SAST / 覆盖率门 / 集成测试 / i18n / 语音映射 / 教程 / ADR / 迁移指南。`CONTRACT_VERSION` → `(0, 9, 5)` |
+| 版本 | 关键主题 |
+|------|----------|
+| v0.1.x | 核心流水线 / CLI / LLM 解说稿 / Edge-TTS / SRT 字幕 / MoviePy 渲染 / TTS 缓存 / CI |
+| v0.2.x | 场景与媒体 / 研究 agent / WhisperX 对齐 / 场景检测 / 片段匹配 / BGM / 优雅降级 |
+| v0.3.x | 平台与工作流 / YAML job 配置 / 多语言字幕 / Gradio WebUI（后被取代） |
+| v0.4.x | TTS 抽象与基础设施 / TTS provider 抽象 / 配置体系重做 / FastAPI + React WebUI / 渲染质量 / 匹配智能 / 效果组合 / 契约层 |
+| v0.5.x | 生态 / Plugin API / SDK 冻结 / 插件发现 / VLM 视觉 Provider / 叙事预设 / 场景过滤 / WebUI 拆分 / QA 仪表盘 |
+| v0.6.x | 任务队列与远程推理 / 异步 job / 持久化 / 取消 / 进度 / 重试 / REST API 服务器 / Worker 守护进程 / 产物管理 / 远程代理 |
+| v0.7.x | 出片体验 / GPU 编码 / 成本统计 / 预览模式 / 场景转场 / 文字动画 / 多音轨混音 / 安全加固 |
+| v0.8.x | 服务化基础 / API Key 鉴权 / video_format 重命名 / 渲染模板 / 异常收窄 / 代码检查工具链 / 队列死锁修复 |
+| v0.9.x | 可靠 / 批量 / 文档 / 熔断器 / 检查点 / 优雅关闭 / 重试策略 / 批量任务 / cron / 死信队列 / 分布式渲染 / 输入净化 / SAST / 覆盖率门 / 集成测试 / i18n / 语音映射 / 教程 / ADR / 迁移指南 |
+
+`CONTRACT_VERSION`（当前）：`(0, 9, 5)`
 
 ---
 

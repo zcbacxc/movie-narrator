@@ -23,8 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Full i18n pipeline (bilingual)** — the pipeline is now language-aware. `generate_script` records `narration_lang` / `script_lang` from `lang` (default `"zh"`), and the two-phase script prompts inject a language instruction so narration is generated in the target language (`zh` or `en`). `select_script_prompt(lang)` selects the language-appropriate script template. The translate step records the full i18n chain (`narration_lang`, `script_lang`, `translate_source_lang`, `translate_target_lang`). Matching is language-aware: when translated texts are aligned with the timed segments, the match step uses the translated (target-language) text via `_resolve_match_texts`, recording `match_lang` and `match_text_source` (`"translated"` or `"narration"`). New metadata keys added to `MetadataDict`.
 - **Localized TTS voices (voice mapping)** — new `movie_narrator.tts.voice_map` module with `DEFAULT_VOICE_MAP` (language → provider → default voice id, provider-aware: `edge` / `openai` / `mimo`) and `resolve_voice(lang, provider, explicit_voice, settings)`. Voice resolution priority: explicit per-job `voice` > per-language config override (`voice_zh` / `voice_en`, env `MN_VOICE_ZH` / `MN_VOICE_EN`) > `DEFAULT_VOICE_MAP[lang][provider]` > `settings.default_voice`. `generate_voice` now resolves the narration voice from `lang` via this mapping, so each language gets a sensible default speaker while explicit overrides stay intact. Language tags are normalized to ISO 639-1 (e.g. `zh-CN` → `zh`).
 - New public exports on `movie_narrator.contract`: `DEFAULT_VOICE_MAP`, `SUPPORTED_PROVIDERS`, `resolve_voice`. `CONTRACT_VERSION` bumped to `(0, 9, 5)` (MINOR: new exports, backward compatible).
-- `tests/test_v096_i18n_pipeline.py` — 8 test cases covering language-aware script generation, `select_script_prompt`, the translate i18n chain, and language-aware matching.
-- `tests/test_v096_voice_map.py` — 14 test cases covering per-language default mapping, explicit-voice override, provider awareness, per-language config override, fallback to `default_voice`, and language-tag normalization.
+- **Tests** (`tests/test_v096_i18n_pipeline.py`, `tests/test_v096_voice_map.py`): +22 tests covering the i18n pipeline and localized voice mapping.
 
 ## [0.9.5] - 2026-08-04
 
@@ -57,7 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Conditional distributed rendering** — new `movie_narrator.cloud.distributed` module with a `NodeRegistry` (parses `MN_DISTRIBUTED_NODES`, health-probes `/ready`), a `DistributedRenderPlanner` (dispatch only when enabled + a healthy node exists + estimated render ≥ `MN_DISTRIBUTED_MIN_RENDER_SECONDS`) and `render_task_dispatcher` (submits the render phase as a task to a remote node and downloads the artifacts back). The worker hooks the render step as a soft, opt-in leg: any distribution failure falls back to the local render path, so the feature can never turn a would-be-successful task into a failed one.
 - **DEAD tasks now count toward the error metric** — `_record_task_outcome` records `record_error("dead_letter")` for `TaskStatus.DEAD` so DLQ'd tasks are visible in Prometheus error-rate metrics instead of silently vanishing.
 - New public exports on `movie_narrator.contract`: `DeadLetterRecord`, `DeadLetterStore`, `replay_dead_letter`, `NodeRegistry`, `DistributedRenderPlanner`, `DistributedRenderError`, `render_task_dispatcher`.
-- `tests/test_v094_dlq_distributed.py` — 29 test cases covering DLQ write/read/replay, DEAD-state semantics, the /deadletters routes, distributed-rendering planning/fallback and the DEAD error-metric wiring.
+- **Tests** (`tests/test_v094_dlq_distributed.py`): +29 tests covering DLQ semantics and distributed rendering.
 
 ## [0.9.3] - 2026-08-03
 
@@ -84,7 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Circuit breaker** — new `movie_narrator.reliability.circuit_breaker` module with a thread-safe `CircuitBreaker` (CLOSED → OPEN → HALF_OPEN → CLOSED state machine), a `CircuitBreakerRegistry` keyed by service name and a `CircuitOpenError` (marked retryable). A `@circuit_guard("service")` decorator / context-manager guards external API calls for LLM (`utils/llm.py`), TTS (`tts/base.py`), TMDB (`providers/tmdb.py`) and VLM (`vision/vlm.py`); when a circuit is open the guarded call raises without hitting the network. Breaker thresholds are configurable via `MN_CIRCUIT_FAILURE_THRESHOLD`, `MN_CIRCUIT_RECOVERY_TIMEOUT` and `MN_CIRCUIT_HALF_OPEN_MAX_CALLS`.
 - **Retry policy framework** — new `movie_narrator.reliability.retry` module with a configurable `RetryPolicy` (max attempts, exponential backoff with jitter, retryable-exception set / `should_retry` callable), `with_retry` / `with_async_retry` decorators and an idempotent `compute_delay` helper. Retryability by default follows `ProviderError.retryable` / `is_network_error()`.
 - New public exports on `movie_narrator.contract`: `CircuitState`, `CircuitBreaker`, `CircuitBreakerRegistry`, `CircuitOpenError`, `RetryPolicy`, `with_retry`, `with_async_retry`.
-- `tests/test_v091_reliability.py` — 37 test cases covering state-machine transitions, recovery probing, concurrent access, `CircuitOpenError` propagation and the retry-policy decorators.
+- **Tests** (`tests/test_v091_reliability.py`): +37 tests covering circuit breakers and retry policies.
 
 ## [0.8.4] - 2026-08-03
 
@@ -123,7 +122,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **OpenAPI 3.1.0 specification** — new `movie_narrator.cloud.openapi` module builds the document from the pydantic task models, served at `GET /openapi.json` and dumpable with the new `mn api-spec` command (`--output/-o`, `--indent`). No new dependency: the document is a plain dict serialised with `json`. The v0.8.1 `/metrics` endpoint is documented alongside the task routes.
 - `TaskAPIServer.is_shutting_down` — `True` once `stop()` has been called, so probes can report a draining server.
 - New public exports on `movie_narrator.contract`: `build_openapi_spec`, `build_health_payload`, `build_readiness_payload`.
-- `tests/test_v082_health.py` and `tests/test_v082_openapi.py` — 94 test cases covering probe semantics, the unchanged shallow `/health` payload, spec structure and `$ref` resolvability.
+- **Tests** (`tests/test_v082_health.py`, `tests/test_v082_openapi.py`): +94 tests covering health probes and OpenAPI spec.
 
 ### Changed
 
@@ -159,9 +158,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **GAP-4**: `render_template` system — preset-based styling with `title_card_text`, `end_card_text`, `watermark_text`, `disclaimer_text`, `slogan_text`, and `aspect_safe_area`. All three presets (douyin-fast, mainstream-dry, bilibili-long) now provide render templates with platform-specific safe areas. Movie name placeholder `{movie}` is automatically substituted.
 - `render_template` field added to `metadata.json` output via `build_metadata_json()`.
 - `render_template` added to preset `params()` whitelist and `Preset` protocol.
-- `tests/test_v080_render_template.py` — 33 test cases covering preset templates, placeholder substitution, metadata export, and render integration.
-- `tests/test_v080_api_auth.py` — 9 test cases for API key authentication middleware.
-- `tests/test_v080_real_scenedetect.py` — end-to-end PySceneDetect backend test (skipped when `[media]` extra absent).
+- **Tests** (`tests/test_v080_render_template.py`, `tests/test_v080_api_auth.py`, `tests/test_v080_real_scenedetect.py`): +42 tests covering render templates, API auth, and real scenedetect integration.
 
 ### Changed
 

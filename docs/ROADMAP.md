@@ -7,17 +7,19 @@
 
 ## Completed
 
-| Version | Theme | Summary |
-|---------|-------|---------|
-| v0.1.x | Core Pipeline | CLI / LLM script / Edge-TTS / SRT / MoviePy rendering / TTS cache / CI |
-| v0.2.x | Scene & Media | research agent / WhisperX alignment / scene detection / clip matching / BGM / graceful degradation |
-| v0.3.x | Platform & Workflow | YAML job config / multi-language subtitles / Gradio WebUI (superseded) |
-| v0.4.x | TTS Abstraction & Infrastructure | TTS provider abstraction / config overhaul / FastAPI + React WebUI / render quality / match intelligence / effect portfolio / contract layer |
-| v0.5.x | Ecosystem | Plugin API / SDK freeze / plugin discovery / VLM vision / narrative presets / scene filtering / WebUI split / QA dashboard. `CONTRACT_VERSION` → `(0, 5, 1)` |
-| v0.6.x | Task Queue & Remote Inference | async jobs / persistence / cancel / progress / retry / REST API server / worker daemon / artifact mgmt / remote proxies. `CONTRACT_VERSION` → `(0, 6, 1)` |
-| v0.7.x | Output Experience | GPU encoding / cost tracking / preview mode / scene transitions / text animation / multi-track audio / security hardening. `CONTRACT_VERSION` → `(0, 7, 2)` |
-| v0.8.x | Service Deployment Basics | API key auth / video_format rename / render templates / exception narrowing / lint toolchain / queue deadlock fix. `CONTRACT_VERSION` → `(0, 8, 0)` |
-| v0.9.x | Reliability, Batch & Docs | circuit breaker / checkpoints / graceful shutdown / retry policy / batch jobs / cron / DLQ / distributed rendering / sanitization / SAST / coverage gate / integration tests / i18n / voice map / tutorial / ADR / migration guide. `CONTRACT_VERSION` → `(0, 9, 5)` |
+| Version | Key Themes |
+|---------|-------------|
+| v0.1.x | Core Pipeline / CLI / LLM script / Edge-TTS / SRT / MoviePy rendering / TTS cache / CI |
+| v0.2.x | Scene & Media / research agent / WhisperX alignment / scene detection / clip matching / BGM / graceful degradation |
+| v0.3.x | Platform & Workflow / YAML job config / multi-language subtitles / Gradio WebUI (superseded) |
+| v0.4.x | TTS Abstraction & Infrastructure / TTS provider abstraction / config overhaul / FastAPI + React WebUI / render quality / match intelligence / effect portfolio / contract layer |
+| v0.5.x | Ecosystem / Plugin API / SDK freeze / plugin discovery / VLM vision / narrative presets / scene filtering / WebUI split / QA dashboard |
+| v0.6.x | Task Queue & Remote Inference / async jobs / persistence / cancel / progress / retry / REST API server / worker daemon / artifact mgmt / remote proxies |
+| v0.7.x | Output Experience / GPU encoding / cost tracking / preview mode / scene transitions / text animation / multi-track audio / security hardening |
+| v0.8.x | Service Deployment Basics / API key auth / video_format rename / render templates / exception narrowing / lint toolchain / queue deadlock fix |
+| v0.9.x | Reliability / Batch / Docs / circuit breaker / checkpoints / graceful shutdown / retry policy / batch jobs / cron / DLQ / distributed rendering / sanitization / SAST / coverage gate / integration tests / i18n / voice map / tutorial / ADR / migration guide |
+
+`CONTRACT_VERSION` (current): `(0, 9, 5)`
 
 ---
 
