@@ -137,9 +137,7 @@ def get_preset(name: str) -> PresetParam:
     reg = _get_registry()
     if name not in reg:
         available = ", ".join(sorted(reg))
-        raise KeyError(
-            f"Unknown narration preset '{name}'. Available: {available}"
-        )
+        raise KeyError(f"Unknown narration preset '{name}'. Available: {available}")
     return reg[name]
 
 

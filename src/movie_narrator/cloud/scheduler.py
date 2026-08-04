@@ -152,9 +152,7 @@ def _parse_cron_field(expr: str, lo: int, hi: int, name: str) -> CronField:
         if segment.startswith("*/"):
             step_str = segment[2:]
             if not step_str.isdigit() or int(step_str) <= 0:
-                raise ScheduleError(
-                    f"invalid step {step_str!r} in cron field {name!r}"
-                )
+                raise ScheduleError(f"invalid step {step_str!r} in cron field {name!r}")
             values.update(range(lo, hi + 1, int(step_str)))
             continue
         if "-" in segment:
@@ -163,32 +161,22 @@ def _parse_cron_field(expr: str, lo: int, hi: int, name: str) -> CronField:
             if "/" in segment:
                 range_part, step_str = segment.split("/", 1)
                 if not step_str.isdigit() or int(step_str) <= 0:
-                    raise ScheduleError(
-                        f"invalid step {step_str!r} in cron field {name!r}"
-                    )
+                    raise ScheduleError(f"invalid step {step_str!r} in cron field {name!r}")
                 step = int(step_str)
             if "-" not in range_part:
-                raise ScheduleError(
-                    f"invalid range {segment!r} in cron field {name!r}"
-                )
+                raise ScheduleError(f"invalid range {segment!r} in cron field {name!r}")
             start_s, end_s = range_part.split("-", 1)
             if not start_s.isdigit() or not end_s.isdigit():
-                raise ScheduleError(
-                    f"invalid range {segment!r} in cron field {name!r}"
-                )
+                raise ScheduleError(f"invalid range {segment!r} in cron field {name!r}")
             start, end = int(start_s), int(end_s)
             if start > end:
-                raise ScheduleError(
-                    f"range {segment!r} is reversed in cron field {name!r}"
-                )
+                raise ScheduleError(f"range {segment!r} is reversed in cron field {name!r}")
             _check_bounds(start, lo, hi, name)
             _check_bounds(end, lo, hi, name)
             values.update(range(start, end + 1, step))
             continue
         if not segment.isdigit():
-            raise ScheduleError(
-                f"invalid token {segment!r} in cron field {name!r}"
-            )
+            raise ScheduleError(f"invalid token {segment!r} in cron field {name!r}")
         value = int(segment)
         _check_bounds(value, lo, hi, name)
         values.add(value)
@@ -200,9 +188,7 @@ def _parse_cron_field(expr: str, lo: int, hi: int, name: str) -> CronField:
 def _check_bounds(value: int, lo: int, hi: int, name: str) -> None:
     """Validate a numeric cron field value against its bounds."""
     if value < lo or value > hi:
-        raise ScheduleError(
-            f"value {value} out of range {lo}-{hi} in cron field {name!r}"
-        )
+        raise ScheduleError(f"value {value} out of range {lo}-{hi} in cron field {name!r}")
 
 
 class CronExpression:
@@ -249,9 +235,7 @@ class CronExpression:
                 parts[2], *_FIELD_BOUNDS["day-of-month"], "day-of-month"
             ),
             month=_parse_cron_field(parts[3], *_FIELD_BOUNDS["month"], "month"),
-            day_of_week=_parse_cron_field(
-                parts[4], *_FIELD_BOUNDS["day-of-week"], "day-of-week"
-            ),
+            day_of_week=_parse_cron_field(parts[4], *_FIELD_BOUNDS["day-of-week"], "day-of-week"),
         )
 
     def _day_matches(self, date: date_type) -> bool:
@@ -299,14 +283,16 @@ class CronExpression:
             for hour in hours:
                 for minute in minutes:
                     candidate = datetime(
-                        date.year, date.month, date.day, hour, minute,
+                        date.year,
+                        date.month,
+                        date.day,
+                        hour,
+                        minute,
                         tzinfo=dt.tzinfo,
                     )
                     if candidate > dt:
                         return candidate
-        raise ScheduleError(
-            f"no next run time for cron expression within {_MAX_SCAN_DAYS} days"
-        )
+        raise ScheduleError(f"no next run time for cron expression within {_MAX_SCAN_DAYS} days")
 
 
 # ── JobScheduler ───────────────────────────────────────────
@@ -389,9 +375,7 @@ class JobScheduler:
             cron=cron,
             task_request=task_request,
             enabled=enabled,
-            next_run_at=expression.next_after(
-                now or datetime.now(timezone.utc)
-            ).isoformat(),
+            next_run_at=expression.next_after(now or datetime.now(timezone.utc)).isoformat(),
         )
         self._store.save(schedule)
         return schedule
@@ -432,9 +416,7 @@ class JobScheduler:
             daemon=True,
         )
         self._thread.start()
-        logger.info(
-            "Job scheduler started (poll interval %.1fs)", self._poll_interval
-        )
+        logger.info("Job scheduler started (poll interval %.1fs)", self._poll_interval)
 
     def stop(self) -> None:
         """Stop the scheduler loop and join the thread."""
@@ -486,9 +468,7 @@ class JobScheduler:
         except Exception as e:  # noqa: BLE001 — a failed trigger must not stop the loop
             status = "failed"
             error = str(e)
-            logger.warning(
-                "Schedule %s: job submission failed: %s", schedule.schedule_id, e
-            )
+            logger.warning("Schedule %s: job submission failed: %s", schedule.schedule_id, e)
 
         try:
             expression = CronExpression.parse(schedule.cron)
@@ -498,7 +478,8 @@ class JobScheduler:
             # it rather than erroring every cycle.
             logger.error(
                 "Schedule %s: invalid cron %r — disabling",
-                schedule.schedule_id, schedule.cron,
+                schedule.schedule_id,
+                schedule.cron,
             )
             schedule.enabled = False
         self._store.save(schedule)

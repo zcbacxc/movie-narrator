@@ -50,12 +50,14 @@ def generate_qa_report_dict(
     all_issues: list[dict] = []
     for dim in dashboard_dict.get("dimensions", []):
         if dim.get("issues_count", 0) > 0:
-            all_issues.append({
-                "dimension": dim["name"],
-                "label": dim["label"],
-                "issues_count": dim["issues_count"],
-                "score": dim["score"],
-            })
+            all_issues.append(
+                {
+                    "dimension": dim["name"],
+                    "label": dim["label"],
+                    "issues_count": dim["issues_count"],
+                    "score": dim["score"],
+                }
+            )
 
     # Collect recommendations from video_qa
     video_qa = metadata.get("video_qa", {})
@@ -176,7 +178,9 @@ def format_qa_report_text(report_dict: dict) -> str:
         lines.append(f"  Summary: {regression.get('summary', 'unknown')}")
         deltas = regression.get("deltas", [])
         if deltas:
-            lines.append(f"  {'Dimension':<20} {'Current':>8} {'Baseline':>10} {'Delta':>8} {'Direction':<12}")
+            lines.append(
+                f"  {'Dimension':<20} {'Current':>8} {'Baseline':>10} {'Delta':>8} {'Direction':<12}"
+            )
             lines.append(f"  {'-' * 20} {'-' * 8} {'-' * 10} {'-' * 8} {'-' * 12}")
             for d in deltas:
                 lines.append(

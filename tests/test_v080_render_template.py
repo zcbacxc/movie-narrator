@@ -25,14 +25,16 @@ from movie_narrator.presets.mainstream_dry import MainstreamDryPreset
 from movie_narrator.utils.metadata_export import build_metadata_json
 
 # ── 已识别的 render_template 顶层键 ────────────────────────
-_RECOGNISED_KEYS = frozenset({
-    "title_card_text",
-    "end_card_text",
-    "watermark_text",
-    "disclaimer_text",
-    "slogan_text",
-    "aspect_safe_area",
-})
+_RECOGNISED_KEYS = frozenset(
+    {
+        "title_card_text",
+        "end_card_text",
+        "watermark_text",
+        "disclaimer_text",
+        "slogan_text",
+        "aspect_safe_area",
+    }
+)
 
 _TEST_MOVIE = "飞驰人生"
 

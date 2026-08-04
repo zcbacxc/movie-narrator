@@ -16,10 +16,18 @@ from unittest.mock import patch
 import pytest
 
 from movie_narrator.models import (
-    Context, StepResult, SubtitlePaths, TimedSegment,
+    Context,
+    StepResult,
+    SubtitlePaths,
+    TimedSegment,
 )
 from movie_narrator.pipeline.translate import (
-    SUPPORTED_PROVIDERS, _call_llm_chunk, _chunk_texts, _is_blank, _translate_via_llm, translate_subtitles,
+    SUPPORTED_PROVIDERS,
+    _call_llm_chunk,
+    _chunk_texts,
+    _is_blank,
+    _translate_via_llm,
+    translate_subtitles,
 )
 from movie_narrator.pipeline.subtitle import generate_subtitle
 from movie_narrator.workflow.errors import JobConfigError
@@ -98,8 +106,10 @@ def test_translate_provider_records_metadata(tmp_path, monkeypatch):
     )
     # Patch the LLM call to raise so we exercise the failure path.
     from movie_narrator.pipeline import translate as t_mod
+
     monkeypatch.setattr(
-        t_mod, "_call_llm_chunk",
+        t_mod,
+        "_call_llm_chunk",
         lambda **kw: (_ for _ in ()).throw(RuntimeError("net down")),
     )
     translate_subtitles(ctx)
@@ -252,6 +262,7 @@ def test_subtitle_render_subtitle_path_resolves_per_mode(tmp_path):
     # re-run to re-resolve (subtitle_paths already populated; resolve helper
     # is pure, so calling again mutates only render_subtitle_path)
     from movie_narrator.pipeline.subtitle import _resolve_render_subtitle_path
+
     ctx.render_subtitle_path = _resolve_render_subtitle_path(ctx, ctx.subtitle_paths)
     assert ctx.render_subtitle_path == ctx.subtitle_paths.translated
 
@@ -298,6 +309,7 @@ def test_subtitle_skips_misaligned_translations(tmp_path):
 def _empty_settings():
     """Minimal Settings stand-in (we only test merge_job's surface area)."""
     from movie_narrator.config import Settings
+
     return Settings()
 
 

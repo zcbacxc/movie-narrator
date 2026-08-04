@@ -189,12 +189,33 @@ class CorrelationIdFilter(logging.Filter):
 
 #: Attributes present on every ``LogRecord``; anything else a caller
 #: passed via ``extra=`` is emitted as a top-level JSON field.
-_RESERVED_ATTRS = frozenset({
-    "args", "asctime", "created", "exc_info", "exc_text", "filename",
-    "funcName", "levelname", "levelno", "lineno", "message", "module",
-    "msecs", "msg", "name", "pathname", "process", "processName",
-    "relativeCreated", "stack_info", "taskName", "thread", "threadName",
-})
+_RESERVED_ATTRS = frozenset(
+    {
+        "args",
+        "asctime",
+        "created",
+        "exc_info",
+        "exc_text",
+        "filename",
+        "funcName",
+        "levelname",
+        "levelno",
+        "lineno",
+        "message",
+        "module",
+        "msecs",
+        "msg",
+        "name",
+        "pathname",
+        "process",
+        "processName",
+        "relativeCreated",
+        "stack_info",
+        "taskName",
+        "thread",
+        "threadName",
+    }
+)
 
 
 def _isoformat_utc(timestamp: float) -> str:
@@ -230,12 +251,14 @@ def _dumps(payload: Dict[str, Any]) -> str:
     try:
         return json.dumps(safe, ensure_ascii=False, default=repr)
     except (TypeError, ValueError):
-        return json.dumps({
-            "ts": payload.get("ts", ""),
-            "level": payload.get("level", "ERROR"),
-            "logger": payload.get("logger", ""),
-            "msg": "<unserializable log record>",
-        })
+        return json.dumps(
+            {
+                "ts": payload.get("ts", ""),
+                "level": payload.get("level", "ERROR"),
+                "logger": payload.get("logger", ""),
+                "msg": "<unserializable log record>",
+            }
+        )
 
 
 def _safe_message(record: logging.LogRecord) -> str:
@@ -414,9 +437,7 @@ def configure_logging(
         The managed handler, so callers can attach extra filters.
     """
     resolved_json = _resolve_json_mode(json_mode)
-    resolved_level = _resolve_level(
-        level if level is not None else os.environ.get(ENV_LOG_LEVEL)
-    )
+    resolved_level = _resolve_level(level if level is not None else os.environ.get(ENV_LOG_LEVEL))
 
     with _config_lock:
         root = logging.getLogger()

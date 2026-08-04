@@ -109,18 +109,14 @@ class TestSavePipelineState:
         """State JSON contains the completed_step field."""
         ctx = _make_ctx(tmp_path)
         _save_pipeline_state(ctx, "generate_script")
-        data = json.loads(
-            (tmp_path / "pipeline_state.json").read_text(encoding="utf-8")
-        )
+        data = json.loads((tmp_path / "pipeline_state.json").read_text(encoding="utf-8"))
         assert data["completed_step"] == "generate_script"
 
     def test_state_file_contains_context(self, tmp_path: Path):
         """State JSON contains a context field with movie_name."""
         ctx = _make_ctx(tmp_path)
         _save_pipeline_state(ctx, "match_clips")
-        data = json.loads(
-            (tmp_path / "pipeline_state.json").read_text(encoding="utf-8")
-        )
+        data = json.loads((tmp_path / "pipeline_state.json").read_text(encoding="utf-8"))
         assert "context" in data
         assert data["context"]["movie_name"] == "test-movie"
 
@@ -128,9 +124,7 @@ class TestSavePipelineState:
         """Services field is excluded from serialization (non-serializable)."""
         ctx = _make_ctx(tmp_path)
         _save_pipeline_state(ctx, "match_clips")
-        data = json.loads(
-            (tmp_path / "pipeline_state.json").read_text(encoding="utf-8")
-        )
+        data = json.loads((tmp_path / "pipeline_state.json").read_text(encoding="utf-8"))
         # services should not be in the serialized context
         assert "services" not in data["context"]
 
@@ -140,9 +134,7 @@ class TestSavePipelineState:
         ctx.metadata["pause_at"] = "render_video"
         ctx.metadata["custom_key"] = "custom_value"
         _save_pipeline_state(ctx, "match_clips")
-        data = json.loads(
-            (tmp_path / "pipeline_state.json").read_text(encoding="utf-8")
-        )
+        data = json.loads((tmp_path / "pipeline_state.json").read_text(encoding="utf-8"))
         assert data["context"]["metadata"]["pause_at"] == "render_video"
         assert data["context"]["metadata"]["custom_key"] == "custom_value"
 
@@ -206,10 +198,12 @@ class TestRunPipelineStartStep:
 
         # Patch each step to record execution and return ctx
         for step in original_steps:
+
             def make_wrapper(s):
                 def wrapper(c):
                     executed.append(s.__name__)
                     return c
+
                 wrapper.__name__ = s.__name__
                 return wrapper
 
@@ -219,12 +213,15 @@ class TestRunPipelineStartStep:
         patched_steps = []
         for step in original_steps:
             name = step.__name__
+
             def make_mock(n):
                 def mock_step(c):
                     executed.append(n)
                     return c
+
                 mock_step.__name__ = n
                 return mock_step
+
             patched_steps.append(make_mock(name))
 
         monkeypatch.setattr(runner_mod, "STEPS", patched_steps)
@@ -255,12 +252,15 @@ class TestRunPipelineStartStep:
         patched_steps = []
         for step in original_steps:
             name = step.__name__
+
             def make_mock(n):
                 def mock_step(c):
                     executed.append(n)
                     return c
+
                 mock_step.__name__ = n
                 return mock_step
+
             patched_steps.append(make_mock(name))
 
         monkeypatch.setattr(runner_mod, "STEPS", patched_steps)
@@ -287,11 +287,14 @@ class TestRunPipelinePauseAt:
         patched_steps = []
         for step in original_steps:
             name = step.__name__
+
             def make_mock(n):
                 def mock_step(c):
                     return c
+
                 mock_step.__name__ = n
                 return mock_step
+
             patched_steps.append(make_mock(name))
 
         monkeypatch.setattr(runner_mod, "STEPS", patched_steps)
@@ -313,11 +316,14 @@ class TestRunPipelinePauseAt:
         patched_steps = []
         for step in original_steps:
             name = step.__name__
+
             def make_mock(n):
                 def mock_step(c):
                     return c
+
                 mock_step.__name__ = n
                 return mock_step
+
             patched_steps.append(make_mock(name))
 
         monkeypatch.setattr(runner_mod, "STEPS", patched_steps)
@@ -341,11 +347,14 @@ class TestRunPipelinePauseAt:
         patched_steps = []
         for step in original_steps:
             name = step.__name__
+
             def make_mock(n):
                 def mock_step(c):
                     return c
+
                 mock_step.__name__ = n
                 return mock_step
+
             patched_steps.append(make_mock(name))
 
         monkeypatch.setattr(runner_mod, "STEPS", patched_steps)
@@ -366,11 +375,14 @@ class TestRunPipelinePauseAt:
         patched_steps = []
         for step in original_steps:
             name = step.__name__
+
             def make_mock(n):
                 def mock_step(c):
                     return c
+
                 mock_step.__name__ = n
                 return mock_step
+
             patched_steps.append(make_mock(name))
 
         monkeypatch.setattr(runner_mod, "STEPS", patched_steps)

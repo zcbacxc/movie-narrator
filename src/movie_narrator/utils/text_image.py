@@ -76,7 +76,7 @@ def _balance_lines(lines: list[str], max_lines: int) -> list[str]:
     pos = 0
     for i in range(n):
         take = per_line + (1 if i < remainder else 0)
-        balanced.append(all_chars[pos:pos + take])
+        balanced.append(all_chars[pos : pos + take])
         pos += take
 
     return balanced
@@ -115,7 +115,9 @@ def create_text_image(
 
     if position == "bottom":
         return _render_bottom(
-            text, size, fontsize,
+            text,
+            size,
+            fontsize,
             max_width_ratio=max_width_ratio,
             bottom_margin_ratio=bottom_margin_ratio,
             max_lines=max_lines,
@@ -146,8 +148,12 @@ def create_text_image(
     for line, (w, h) in zip(lines, line_metrics):
         x = (size[0] - w) // 2
         draw.text(
-            (x, y), line, fill=(255, 255, 255, 255), font=font,
-            stroke_width=2, stroke_fill=(0, 0, 0, 255),
+            (x, y),
+            line,
+            fill=(255, 255, 255, 255),
+            font=font,
+            stroke_width=2,
+            stroke_fill=(0, 0, 0, 255),
         )
         y += h + line_spacing
     return np.array(img)
@@ -229,9 +235,9 @@ def _render_bottom(
 
     # Compute bounding box enclosing all line metrics for the backdrop bar.
     widest = max(m[0] for m in line_metrics)
-    bar_left = (width - widest) // 2 - 16   # 16 px horizontal padding
+    bar_left = (width - widest) // 2 - 16  # 16 px horizontal padding
     bar_right = bar_left + widest + 32
-    bar_top = max(0, block_top - 12)        # 12 px vertical padding above first line
+    bar_top = max(0, block_top - 12)  # 12 px vertical padding above first line
     bar_bottom = height - bottom_margin + 12
     # Clamp bar inside frame, then draw semi-transparent black backdrop.
     bar_left = max(0, bar_left)
@@ -247,8 +253,12 @@ def _render_bottom(
     for line, (w, _h) in zip(wrapped, line_metrics):
         x = (width - w) // 2
         draw.text(
-            (x, y), line, fill=(255, 255, 255, 255), font=font,
-            stroke_width=4, stroke_fill=(0, 0, 0, 255),
+            (x, y),
+            line,
+            fill=(255, 255, 255, 255),
+            font=font,
+            stroke_width=4,
+            stroke_fill=(0, 0, 0, 255),
         )
         # advance by font height + spacing (use bbox ascent reliably)
         bbox = draw.textbbox((0, 0), line, font=font)

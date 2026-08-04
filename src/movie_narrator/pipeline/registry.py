@@ -106,8 +106,7 @@ class StepRegistry:
         """
         if name in self._entries:
             raise ValueError(
-                f"Step '{name}' is already registered. "
-                f"Use a different name or unregister first."
+                f"Step '{name}' is already registered. Use a different name or unregister first."
             )
 
         is_builtin = after is None and before is None

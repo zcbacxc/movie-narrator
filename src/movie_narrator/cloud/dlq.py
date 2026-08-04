@@ -87,9 +87,7 @@ class DeadLetterStore:
     """
 
     def __init__(self, storage_dir: Optional[Path] = None) -> None:
-        self.storage_dir = (
-            Path(storage_dir) if storage_dir else DEFAULT_DEADLETTER_DIR
-        )
+        self.storage_dir = Path(storage_dir) if storage_dir else DEFAULT_DEADLETTER_DIR
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
 
@@ -114,13 +112,9 @@ class DeadLetterStore:
         if not path.exists():
             return None
         try:
-            return DeadLetterRecord.model_validate_json(
-                path.read_text(encoding="utf-8")
-            )
+            return DeadLetterRecord.model_validate_json(path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError, ValueError) as e:
-            logger.warning(
-                "Failed to load dead-letter record %s: %s", task_id, e
-            )
+            logger.warning("Failed to load dead-letter record %s: %s", task_id, e)
             return None
 
     def list(self) -> List[DeadLetterRecord]:

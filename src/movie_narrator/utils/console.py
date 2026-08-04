@@ -453,8 +453,7 @@ def build_console(
     existing = [
         h
         for h in logger._logger.handlers
-        if isinstance(h, logging.FileHandler)
-        and Path(h.baseFilename).name == "latest.log"
+        if isinstance(h, logging.FileHandler) and Path(h.baseFilename).name == "latest.log"
     ]
     for h in existing:
         logger._logger.removeHandler(h)

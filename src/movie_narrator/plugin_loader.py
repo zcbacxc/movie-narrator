@@ -107,9 +107,7 @@ def discover_plugins(*, group: str = ENTRY_POINT_GROUP) -> List[PluginLoadResult
         except Exception as exc:  # noqa: BLE001
             msg = f"Failed to load plugin '{ep.name}': {exc}"
             warnings.warn(msg, stacklevel=2)
-            results.append(
-                PluginLoadResult(name=ep.name, success=False, error=str(exc))
-            )
+            results.append(PluginLoadResult(name=ep.name, success=False, error=str(exc)))
 
     return results
 

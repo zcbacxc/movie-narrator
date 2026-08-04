@@ -169,9 +169,7 @@ class CheckpointStore:
                 data = json.loads(path.read_text(encoding="utf-8"))
                 return TaskCheckpoint(**data)
             except (json.JSONDecodeError, ValueError, OSError) as exc:
-                logger.warning(
-                    "Failed to load checkpoint for task %s: %s", task_id, exc
-                )
+                logger.warning("Failed to load checkpoint for task %s: %s", task_id, exc)
                 return None
 
     def delete(self, task_id: str) -> bool:

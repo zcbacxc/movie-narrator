@@ -84,7 +84,11 @@ def test_match_clips_embedding_disabled_keeps_heuristic(tmp_path, monkeypatch):
     monkeypatch.setattr(
         match_module,
         "probe",
-        lambda name: (False, "pip install movie-narrator[ml]") if name == "sentence_transformers" else (True, ""),
+        lambda name: (
+            (False, "pip install movie-narrator[ml]")
+            if name == "sentence_transformers"
+            else (True, "")
+        ),
     )
     match_clips(ctx)
     assert ctx.status.match == "success"
@@ -113,9 +117,7 @@ def test_match_summary_full_schema_when_embedding_path_runs(tmp_path, monkeypatc
         {"start": 0.0, "end": 3.5, "text": "alpha scene zero"},
         {"start": 4.0, "end": 9.0, "text": "beta scene one"},
     ]
-    monkeypatch.setattr(
-        match_module, "_transcribe_video_audio", lambda *a, **k: mock_transcript
-    )
+    monkeypatch.setattr(match_module, "_transcribe_video_audio", lambda *a, **k: mock_transcript)
 
     class FakeST:
         def __init__(self, *a, **kw):
@@ -139,14 +141,32 @@ def test_match_summary_full_schema_when_embedding_path_runs(tmp_path, monkeypatc
 
     # All required fields present
     required_fields = [
-        "version", "status", "segments", "scenes_in", "scenes_after_merge",
-        "scenes_after_drop", "merge_min_duration", "drop_min_duration",
-        "min_score", "speed_clamp", "source_counts", "heuristic_ratio",
-        "embedding_ratio", "score", "raw_score", "speed_factor",
-        "low_score_fallback_count", "captioning", "embedding_model",
-        "degraded_reason", "diversity",
+        "version",
+        "status",
+        "segments",
+        "scenes_in",
+        "scenes_after_merge",
+        "scenes_after_drop",
+        "merge_min_duration",
+        "drop_min_duration",
+        "min_score",
+        "speed_clamp",
+        "source_counts",
+        "heuristic_ratio",
+        "embedding_ratio",
+        "score",
+        "raw_score",
+        "speed_factor",
+        "low_score_fallback_count",
+        "captioning",
+        "embedding_model",
+        "degraded_reason",
+        "diversity",
         # back-compat
-        "total", "embedding", "heuristic", "captions_fake",
+        "total",
+        "embedding",
+        "heuristic",
+        "captions_fake",
     ]
     for field in required_fields:
         assert field in summary, f"match_summary: missing field '{field}' in match_summary"
@@ -179,7 +199,9 @@ def test_match_summary_degraded_reason_all_heuristic(tmp_path, monkeypatch):
     ]
     # sentence_transformers NOT available → all heuristic
     monkeypatch.setattr(
-        match_module, "probe", lambda name: (False, "") if name == "sentence_transformers" else (False, ""),
+        match_module,
+        "probe",
+        lambda name: (False, "") if name == "sentence_transformers" else (False, ""),
     )
 
     match_clips(ctx)
@@ -209,9 +231,7 @@ def test_match_summary_low_score_fallback_count(tmp_path, monkeypatch):
         {"start": 0.0, "end": 3.5, "text": "alpha scene zero"},
         {"start": 4.0, "end": 9.0, "text": "beta scene one"},
     ]
-    monkeypatch.setattr(
-        match_module, "_transcribe_video_audio", lambda *a, **k: mock_transcript
-    )
+    monkeypatch.setattr(match_module, "_transcribe_video_audio", lambda *a, **k: mock_transcript)
 
     # Embeddings: alpha matches scene 0 strongly, gamma is orthogonal to both.
     # NOTE: _embed_texts L2-normalizes vectors, so we must use vectors that
@@ -306,9 +326,9 @@ def test_build_scene_captions_mixed_real_and_fake():
     from movie_narrator.pipeline.match import _build_scene_captions
 
     scenes = [
-        Scene(index=0, start=0.0, end=5.0),   # has speech
+        Scene(index=0, start=0.0, end=5.0),  # has speech
         Scene(index=1, start=5.0, end=10.0),  # no speech (gap)
-        Scene(index=2, start=10.0, end=15.0), # has speech
+        Scene(index=2, start=10.0, end=15.0),  # has speech
     ]
     transcript = [
         {"start": 0.0, "end": 4.0, "text": "speech in scene 0"},
@@ -318,7 +338,7 @@ def test_build_scene_captions_mixed_real_and_fake():
     result = _build_scene_captions(scenes, transcript)
     assert len(result) == 3
     assert result[0][1] is False  # scene 0 has speech
-    assert result[1][1] is True   # scene 1 no speech → fake
+    assert result[1][1] is True  # scene 1 no speech → fake
     assert result[2][1] is False  # scene 2 has speech
 
 
@@ -347,9 +367,7 @@ def test_match_summary_keys_compatible_with_old_metadata_export(tmp_path, monkey
         {"start": 0.0, "end": 3.5, "text": "alpha scene zero"},
         {"start": 4.0, "end": 9.0, "text": "beta scene one"},
     ]
-    monkeypatch.setattr(
-        match_module, "_transcribe_video_audio", lambda *a, **k: mock_transcript
-    )
+    monkeypatch.setattr(match_module, "_transcribe_video_audio", lambda *a, **k: mock_transcript)
 
     class FakeST:
         def __init__(self, *a, **kw):
@@ -397,7 +415,9 @@ def test_match_summary_legacy_fields_when_all_heuristic(tmp_path, monkeypatch):
 
     # sentence_transformers NOT available → all heuristic
     monkeypatch.setattr(
-        match_module, "probe", lambda name: (False, ""),
+        match_module,
+        "probe",
+        lambda name: (False, ""),
     )
 
     match_clips(ctx)
@@ -483,7 +503,9 @@ def test_match_captions_real_when_transcript_available(tmp_path, monkeypatch):
 
     # Both available
     monkeypatch.setattr(
-        match_module, "probe", lambda name: (True, ""),
+        match_module,
+        "probe",
+        lambda name: (True, ""),
     )
 
     # Real transcript covering both scenes
@@ -491,9 +513,7 @@ def test_match_captions_real_when_transcript_available(tmp_path, monkeypatch):
         {"start": 0.0, "end": 3.5, "text": "alpha scene zero"},
         {"start": 4.0, "end": 9.0, "text": "beta scene one"},
     ]
-    monkeypatch.setattr(
-        match_module, "_transcribe_video_audio", lambda *a, **k: mock_transcript
-    )
+    monkeypatch.setattr(match_module, "_transcribe_video_audio", lambda *a, **k: mock_transcript)
 
     class FakeST:
         def __init__(self, *a, **kw):
@@ -547,8 +567,8 @@ def test_match_drops_tiny_scenes(tmp_path):
             TimedSegment(text="B", start=2.5, end=5.0),
         ],
         scenes=[
-            Scene(index=0, start=0.0, end=0.2),   # tiny (< 0.4s)
-            Scene(index=1, start=0.2, end=8.0),   # long
+            Scene(index=0, start=0.0, end=0.2),  # tiny (< 0.4s)
+            Scene(index=1, start=0.2, end=8.0),  # long
         ],
     )
     ctx.status.scene = "success"
@@ -586,8 +606,8 @@ def test_match_default_merge_merges_short_scenes(tmp_path):
         source_video_path=str(tmp_path / "video.mp4"),
         timed_segments=[TimedSegment(text="A", start=0.0, end=5.0)],
         scenes=[
-            Scene(index=0, start=0.0, end=1.0),   # short (< 2.0 default)
-            Scene(index=1, start=1.0, end=8.0),   # long
+            Scene(index=0, start=0.0, end=1.0),  # short (< 2.0 default)
+            Scene(index=1, start=1.0, end=8.0),  # long
         ],
     )
     ctx.status.scene = "success"
@@ -680,8 +700,11 @@ def test_match_clips_cache_write_and_hit(tmp_path, monkeypatch):
         call_count[0] += 1
         # Simulate cache write (real function does this)
         from movie_narrator.pipeline.match import _cache_key
-        cache_name = _cache_key(video_path, kw.get("model_name", "medium"), kw.get("language", "zh"))
-        (output_dir / cache_name).write_text('[]', encoding="utf-8")
+
+        cache_name = _cache_key(
+            video_path, kw.get("model_name", "medium"), kw.get("language", "zh")
+        )
+        (output_dir / cache_name).write_text("[]", encoding="utf-8")
         return [{"start": 0.0, "end": 5.0, "text": "hello"}]
 
     monkeypatch.setattr(match_module, "_transcribe_video_audio", fake_transcribe)
@@ -725,6 +748,7 @@ def test_match_clips_cache_corrupt_recovers(tmp_path, monkeypatch):
 
     # Write corrupt cache file
     from movie_narrator.pipeline.match import _cache_key
+
     cache_name = _cache_key(str(tmp_path / "video.mp4"), "medium", "zh")
     (tmp_path / cache_name).write_text("NOT VALID JSON {{{", encoding="utf-8")
 
@@ -959,9 +983,7 @@ def test_match_clips_embedding_reranks_when_available(tmp_path, monkeypatch):
         {"start": 0.0, "end": 3.5, "text": "alpha scene zero"},
         {"start": 4.0, "end": 9.0, "text": "beta scene one"},
     ]
-    monkeypatch.setattr(
-        match_module, "_transcribe_video_audio", lambda *a, **k: mock_transcript
-    )
+    monkeypatch.setattr(match_module, "_transcribe_video_audio", lambda *a, **k: mock_transcript)
 
     class FakeST:
         def __init__(self, *a, **kw):
@@ -1041,6 +1063,7 @@ def test_transcribe_video_audio_faster_whisper_fallback(tmp_path, monkeypatch):
 
     # Make WhisperX import raise to simulate Windows CPU k2-fsa failure
     import builtins
+
     real_import = builtins.__import__
 
     def fail_whisperx(name, *args, **kwargs):
@@ -1061,9 +1084,7 @@ def test_transcribe_video_audio_faster_whisper_fallback(tmp_path, monkeypatch):
     fake_seg2.end = 10.0
     fake_seg2.text = " 场景二对话 "
     fake_model = MagicMock()
-    fake_model.transcribe = MagicMock(
-        return_value=([fake_seg1, fake_seg2], MagicMock())
-    )
+    fake_model.transcribe = MagicMock(return_value=([fake_seg1, fake_seg2], MagicMock()))
     fake_fw.WhisperModel = MagicMock(return_value=fake_model)
     monkeypatch.setitem(sys.modules, "faster_whisper", fake_fw)
 
@@ -1089,6 +1110,7 @@ def test_transcribe_video_audio_both_backends_fail_returns_none(tmp_path, monkey
 
     # Make WhisperX import fail
     import builtins
+
     real_import = builtins.__import__
 
     def fail_whisperx(name, *args, **kwargs):
@@ -1137,6 +1159,7 @@ def test_transcribe_video_audio_cache_hit_skips_transcription(tmp_path, monkeypa
     # Read cache directly (simulating what _transcribe_video_audio does)
     cache_path = tmp_path / cache_key
     import json
+
     result = json.loads(cache_path.read_text(encoding="utf-8"))
 
     assert result == cached_segments
@@ -1151,14 +1174,41 @@ def test_apply_diversity_no_swaps_needed():
     from movie_narrator.models import MatchedClip
 
     clips = [
-        MatchedClip(segment_index=0, text="a", narr_start=0, narr_end=2,
-                    src_start=0, src_end=2, score=1.0, scene_index=0, source="heuristic"),
-        MatchedClip(segment_index=1, text="b", narr_start=2, narr_end=4,
-                    src_start=2, src_end=4, score=1.0, scene_index=1, source="heuristic"),
-        MatchedClip(segment_index=2, text="c", narr_start=4, narr_end=6,
-                    src_start=4, src_end=6, score=1.0, scene_index=2, source="heuristic"),
+        MatchedClip(
+            segment_index=0,
+            text="a",
+            narr_start=0,
+            narr_end=2,
+            src_start=0,
+            src_end=2,
+            score=1.0,
+            scene_index=0,
+            source="heuristic",
+        ),
+        MatchedClip(
+            segment_index=1,
+            text="b",
+            narr_start=2,
+            narr_end=4,
+            src_start=2,
+            src_end=4,
+            score=1.0,
+            scene_index=1,
+            source="heuristic",
+        ),
+        MatchedClip(
+            segment_index=2,
+            text="c",
+            narr_start=4,
+            narr_end=6,
+            src_start=4,
+            src_end=6,
+            score=1.0,
+            scene_index=2,
+            source="heuristic",
+        ),
     ]
-    scenes = [SimpleNamespace(index=i, start=i*2, end=i*2+2) for i in range(5)]
+    scenes = [SimpleNamespace(index=i, start=i * 2, end=i * 2 + 2) for i in range(5)]
     swaps, swaps_log = _apply_diversity(clips, scenes, window=3, max_reuse=2)
     assert swaps == 0
     assert swaps_log == []
@@ -1173,14 +1223,41 @@ def test_apply_diversity_swaps_consecutive_reuse():
     from movie_narrator.models import MatchedClip
 
     clips = [
-        MatchedClip(segment_index=0, text="a", narr_start=0, narr_end=2,
-                    src_start=0, src_end=2, score=1.0, scene_index=1, source="embedding"),
-        MatchedClip(segment_index=1, text="b", narr_start=2, narr_end=4,
-                    src_start=2, src_end=4, score=1.0, scene_index=1, source="embedding"),
-        MatchedClip(segment_index=2, text="c", narr_start=4, narr_end=6,
-                    src_start=4, src_end=6, score=1.0, scene_index=1, source="embedding"),
+        MatchedClip(
+            segment_index=0,
+            text="a",
+            narr_start=0,
+            narr_end=2,
+            src_start=0,
+            src_end=2,
+            score=1.0,
+            scene_index=1,
+            source="embedding",
+        ),
+        MatchedClip(
+            segment_index=1,
+            text="b",
+            narr_start=2,
+            narr_end=4,
+            src_start=2,
+            src_end=4,
+            score=1.0,
+            scene_index=1,
+            source="embedding",
+        ),
+        MatchedClip(
+            segment_index=2,
+            text="c",
+            narr_start=4,
+            narr_end=6,
+            src_start=4,
+            src_end=6,
+            score=1.0,
+            scene_index=1,
+            source="embedding",
+        ),
     ]
-    scenes = [SimpleNamespace(index=i, start=i*2, end=i*2+2) for i in range(5)]
+    scenes = [SimpleNamespace(index=i, start=i * 2, end=i * 2 + 2) for i in range(5)]
     swaps, swaps_log = _apply_diversity(clips, scenes, window=3, max_reuse=2)
     assert swaps == 1
     assert len(swaps_log) == 1
@@ -1197,15 +1274,42 @@ def test_apply_diversity_no_swap_when_all_scenes_used():
     from movie_narrator.models import MatchedClip
 
     clips = [
-        MatchedClip(segment_index=0, text="a", narr_start=0, narr_end=2,
-                    src_start=0, src_end=2, score=1.0, scene_index=0, source="heuristic"),
-        MatchedClip(segment_index=1, text="b", narr_start=2, narr_end=4,
-                    src_start=2, src_end=4, score=1.0, scene_index=1, source="heuristic"),
-        MatchedClip(segment_index=2, text="c", narr_start=4, narr_end=6,
-                    src_start=4, src_end=6, score=1.0, scene_index=0, source="heuristic"),
+        MatchedClip(
+            segment_index=0,
+            text="a",
+            narr_start=0,
+            narr_end=2,
+            src_start=0,
+            src_end=2,
+            score=1.0,
+            scene_index=0,
+            source="heuristic",
+        ),
+        MatchedClip(
+            segment_index=1,
+            text="b",
+            narr_start=2,
+            narr_end=4,
+            src_start=2,
+            src_end=4,
+            score=1.0,
+            scene_index=1,
+            source="heuristic",
+        ),
+        MatchedClip(
+            segment_index=2,
+            text="c",
+            narr_start=4,
+            narr_end=6,
+            src_start=4,
+            src_end=6,
+            score=1.0,
+            scene_index=0,
+            source="heuristic",
+        ),
     ]
     # Only 2 scenes available — both used in window, can't swap
-    scenes = [SimpleNamespace(index=i, start=i*2, end=i*2+2) for i in range(2)]
+    scenes = [SimpleNamespace(index=i, start=i * 2, end=i * 2 + 2) for i in range(2)]
     swaps, swaps_log = _apply_diversity(clips, scenes, window=3, max_reuse=1)
     # Scene 0 appears 2 times in window of 3, max_reuse=1, but no unused scene available
     assert swaps == 0
@@ -1265,9 +1369,7 @@ def _setup_ep3_ctx(tmp_path, monkeypatch, topk=None, reuse_penalty=None):
         {"start": 0.0, "end": 3.5, "text": "scene zero speech"},
         {"start": 4.0, "end": 9.0, "text": "scene one speech"},
     ]
-    monkeypatch.setattr(
-        match_module, "_transcribe_video_audio", lambda *a, **k: mock_transcript
-    )
+    monkeypatch.setattr(match_module, "_transcribe_video_audio", lambda *a, **k: mock_transcript)
 
     fake_mod = ModuleType("sentence_transformers")
     fake_mod.SentenceTransformer = _EP3FakeST
@@ -1356,12 +1458,14 @@ def test_ep3_cosine_topk_returns_sorted_descending():
     from movie_narrator.pipeline.match import _cosine_topk
 
     target = np.array([1.0, 0.0, 0.0])
-    candidates = np.array([
-        [0.5, 0.866, 0.0],   # cosine = 0.5
-        [1.0, 0.0, 0.0],     # cosine = 1.0
-        [0.0, 1.0, 0.0],     # cosine = 0.0
-        [0.8, 0.6, 0.0],     # cosine = 0.8
-    ])
+    candidates = np.array(
+        [
+            [0.5, 0.866, 0.0],  # cosine = 0.5
+            [1.0, 0.0, 0.0],  # cosine = 1.0
+            [0.0, 1.0, 0.0],  # cosine = 0.0
+            [0.8, 0.6, 0.0],  # cosine = 0.8
+        ]
+    )
     result = _cosine_topk(target, candidates, k=3)
     assert len(result) == 3
     # Sorted descending: 1.0, 0.8, 0.5
@@ -1375,10 +1479,12 @@ def test_ep3_cosine_topk_k_exceeds_candidates():
     from movie_narrator.pipeline.match import _cosine_topk
 
     target = np.array([1.0, 0.0])
-    candidates = np.array([
-        [0.6, 0.8],   # cosine = 0.6
-        [1.0, 0.0],   # cosine = 1.0
-    ])
+    candidates = np.array(
+        [
+            [0.6, 0.8],  # cosine = 0.6
+            [1.0, 0.0],  # cosine = 1.0
+        ]
+    )
     result = _cosine_topk(target, candidates, k=10)
     assert len(result) == 2  # capped at available candidates
     assert result[0] == (1, 1.0)
@@ -1402,15 +1508,19 @@ def test_ep3_greedy_topk_assign_unit():
     # 3 scenes, 2 narration segments
     # narration_0 = [1,0,0], narration_1 = [1,0,0]  (both match scene_0 best)
     # scene_0 = [1,0,0], scene_1 = [0.96,0.28,0], scene_2 = [0,1,0]
-    narration_vecs = np.array([
-        [1.0, 0.0, 0.0],
-        [1.0, 0.0, 0.0],
-    ])
-    scene_vecs = np.array([
-        [1.0, 0.0, 0.0],
-        [0.96, 0.28, 0.0],
-        [0.0, 1.0, 0.0],
-    ])
+    narration_vecs = np.array(
+        [
+            [1.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+        ]
+    )
+    scene_vecs = np.array(
+        [
+            [1.0, 0.0, 0.0],
+            [0.96, 0.28, 0.0],
+            [0.0, 1.0, 0.0],
+        ]
+    )
     scenes = [SimpleNamespace(index=i, start=i * 2, end=i * 2 + 2) for i in range(3)]
 
     results = _greedy_topk_assign(

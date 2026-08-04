@@ -31,9 +31,7 @@ def _export_robust(seg: AudioSegment, out: Path) -> str:
         seg.export(out, format="mp3")
         return str(out)
     except Exception:
-        logger.debug(
-            "MP3 export failed for %s, falling back to WAV", out, exc_info=True
-        )
+        logger.debug("MP3 export failed for %s, falling back to WAV", out, exc_info=True)
         wav_out = out.with_suffix(".wav")
         seg.export(wav_out, format="wav")
         return str(wav_out)
@@ -154,9 +152,7 @@ def _score_bgm_candidate(sample: dict, emotion_profile: dict[str, float]) -> flo
 
     # Energy alignment: compute the narration's weighted average energy
     # and compare it to the BGM's energy field. Closer = better.
-    narration_energy = sum(
-        _EMOTION_ENERGY.get(e, 0.5) * f for e, f in emotion_profile.items()
-    )
+    narration_energy = sum(_EMOTION_ENERGY.get(e, 0.5) * f for e, f in emotion_profile.items())
     bgm_energy = sample.get("energy")
     if isinstance(bgm_energy, (int, float)) and 0.0 <= bgm_energy <= 1.0:
         energy_diff = abs(narration_energy - float(bgm_energy))
@@ -202,9 +198,7 @@ def select_bgm_by_emotion(ctx: Context) -> Optional[str]:
         metadata_path = Path(metadata_path_str)
     else:
         # Default to the packaged template alongside this package.
-        metadata_path = (
-            Path(__file__).resolve().parent.parent / "assets" / "bgm_metadata.yaml"
-        )
+        metadata_path = Path(__file__).resolve().parent.parent / "assets" / "bgm_metadata.yaml"
     if not metadata_path.is_file():
         return None
 
@@ -293,12 +287,14 @@ def _detect_emotion_zones(
     for i in range(1, len(timed_segments)):
         emo = segment_emotions[i] if i < len(segment_emotions) else None
         if emo != current_emotion:
-            zones.append({
-                "start": round(current_start, 3),
-                "end": round(timed_segments[i].start, 3),
-                "emotion": current_emotion,
-                "segment_range": [current_indices[0], current_indices[-1]],
-            })
+            zones.append(
+                {
+                    "start": round(current_start, 3),
+                    "end": round(timed_segments[i].start, 3),
+                    "emotion": current_emotion,
+                    "segment_range": [current_indices[0], current_indices[-1]],
+                }
+            )
             current_emotion = emo
             current_start = timed_segments[i].start
             current_indices = [i]
@@ -306,12 +302,14 @@ def _detect_emotion_zones(
             current_indices.append(i)
 
     # Final zone
-    zones.append({
-        "start": round(current_start, 3),
-        "end": round(timed_segments[-1].end, 3),
-        "emotion": current_emotion,
-        "segment_range": [current_indices[0], current_indices[-1]],
-    })
+    zones.append(
+        {
+            "start": round(current_start, 3),
+            "end": round(timed_segments[-1].end, 3),
+            "emotion": current_emotion,
+            "segment_range": [current_indices[0], current_indices[-1]],
+        }
+    )
     return zones
 
 
@@ -367,14 +365,8 @@ def _apply_emotion_transitions(
             )
             if transition_samples > 0:
                 prev_emotion = zones[i - 1].get("emotion")
-                prev_gain_db = (
-                    _EMOTION_BGM_GAIN.get(prev_emotion, 0.0)
-                    if prev_emotion else 0.0
-                )
-                prev_factor = (
-                    float(db_to_float(prev_gain_db))
-                    if prev_gain_db != 0.0 else 1.0
-                )
+                prev_gain_db = _EMOTION_BGM_GAIN.get(prev_emotion, 0.0) if prev_emotion else 0.0
+                prev_factor = float(db_to_float(prev_gain_db)) if prev_gain_db != 0.0 else 1.0
 
                 ramp_start = max(0, start_sample - transition_samples)
                 ramp_len = start_sample - ramp_start
@@ -382,12 +374,14 @@ def _apply_emotion_transitions(
                     ramp = np.linspace(prev_factor, gain_factor, ramp_len)
                     envelope[ramp_start:start_sample] = ramp
 
-                transitions.append({
-                    "position_s": zone["start"],
-                    "from_emotion": prev_emotion,
-                    "to_emotion": emotion,
-                    "transition_ms": transition_ms,
-                })
+                transitions.append(
+                    {
+                        "position_s": zone["start"],
+                        "from_emotion": prev_emotion,
+                        "to_emotion": emotion,
+                        "transition_ms": transition_ms,
+                    }
+                )
 
     # Apply envelope to BGM samples
     raw = np.array(bgm.get_array_of_samples(), dtype=np.float64)
@@ -497,9 +491,7 @@ def mix_bgm(ctx: Context) -> Context:
         # v0.5.9: BGM dynamic transition — adjust BGM gain per emotion zone
         # with smooth ramps at zone boundaries to avoid abrupt mood changes.
         beats_meta = ctx.metadata.get("beats_meta") or []
-        segment_emotions = map_segment_emotions(
-            len(ctx.timed_segments), beats_meta
-        )
+        segment_emotions = map_segment_emotions(len(ctx.timed_segments), beats_meta)
         zones = _detect_emotion_zones(ctx.timed_segments, segment_emotions)
         if zones and len(zones) > 1:
             bgm_raw, transitions = _apply_emotion_transitions(bgm_raw, zones)
@@ -507,8 +499,10 @@ def mix_bgm(ctx: Context) -> Context:
                 ctx.metadata["bgm_transitions"] = transitions
 
         mixed = duck_bgm(
-            narration, bgm_raw,
-            bgm_gain_db=gain_db, duck_db=duck_db,
+            narration,
+            bgm_raw,
+            bgm_gain_db=gain_db,
+            duck_db=duck_db,
         )
         do_norm = ctx.metadata.get("bgm_normalize", True)
         if do_norm:
@@ -527,15 +521,14 @@ def mix_bgm(ctx: Context) -> Context:
             ambient_gain = ctx.metadata.get("bgm_ambient_gain_db", -12.0)
             ambient_duck = ctx.metadata.get("bgm_duck_db", -10.0)
             mixed, ambient_info = _mix_ambient_track(
-                mixed, ambient_path,
+                mixed,
+                ambient_path,
                 ambient_gain_db=ambient_gain,
                 duck_db=ambient_duck,
                 timed_segments=ctx.timed_segments,
             )
             if "error" in ambient_info:
-                ctx.services.console.inline_warn(
-                    f"Ambient track skipped: {ambient_info['error']}"
-                )
+                ctx.services.console.inline_warn(f"Ambient track skipped: {ambient_info['error']}")
             else:
                 ctx.metadata["ambient_track"] = ambient_info
                 ctx.services.console.debug(

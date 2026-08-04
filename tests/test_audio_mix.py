@@ -12,7 +12,7 @@ def _tone(ms: int = 500, freq: int = 440, gain_db: float = 0.0) -> AudioSegment:
     """Generate a sine-wave tone AudioSegment."""
     sample_rate = 44100
     n = int(sample_rate * ms / 1000.0)
-    amp = int((2 ** 15 - 1) * (10 ** (gain_db / 20.0)))
+    amp = int((2**15 - 1) * (10 ** (gain_db / 20.0)))
     data = bytearray()
     for i in range(n):
         val = int(amp * math.sin(2.0 * math.pi * freq * i / sample_rate))

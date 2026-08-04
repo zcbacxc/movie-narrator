@@ -63,9 +63,7 @@ def test_content_type_latest():
 
 def test_counter_render():
     reg = MetricsRegistry()
-    reg.counter("my_counter", "A counter", ("code",)).inc(
-        2, labels={"code": "200"}
-    )
+    reg.counter("my_counter", "A counter", ("code",)).inc(2, labels={"code": "200"})
     out = reg.render()
     assert "# HELP my_counter A counter" in out
     assert "# TYPE my_counter counter" in out
@@ -120,7 +118,7 @@ def test_render_prometheus_text_all_families():
     ):
         assert f"# TYPE {name} " in text
     # Build info carries the version label.
-    assert 'mn_build_info{version=' in text
+    assert "mn_build_info{version=" in text
 
 
 def test_record_task_submitted_and_terminal():
@@ -169,9 +167,7 @@ def test_record_error_defaults_unknown():
 def test_record_http_request_uses_path_template():
     metrics.record_http_request("GET", "/tasks/{id}", 200)
     metrics.record_http_request("GET", "/tasks/{id}", 200)
-    c = get_registry().counter(
-        HTTP_REQUESTS_TOTAL, label_names=("method", "path", "code")
-    )
+    c = get_registry().counter(HTTP_REQUESTS_TOTAL, label_names=("method", "path", "code"))
     assert c.value({"method": "GET", "path": "/tasks/{id}", "code": "200"}) == 2
 
 
@@ -203,13 +199,8 @@ def test_route_template_folds_task_paths():
 
     assert _route_template("/tasks/abc123") == "/tasks/{id}"
     assert _route_template("/tasks/abc123/result") == "/tasks/{id}/result"
-    assert (
-        _route_template("/tasks/abc123/artifacts") == "/tasks/{id}/artifacts"
-    )
-    assert (
-        _route_template("/tasks/abc123/download/video.mp4")
-        == "/tasks/{id}/download/{filename}"
-    )
+    assert _route_template("/tasks/abc123/artifacts") == "/tasks/{id}/artifacts"
+    assert _route_template("/tasks/abc123/download/video.mp4") == "/tasks/{id}/download/{filename}"
 
 
 def test_metrics_public_env(monkeypatch):

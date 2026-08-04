@@ -82,9 +82,7 @@ def test_truncation_nested_array_with_cut_inner_element():
 
 def test_truncation_with_escaped_quotes_in_earlier_strings():
     """Earlier elements may contain escaped quotes; they must not confuse the scan."""
-    raw = (
-        r'{"translations": ["he said \"hi\"", "fully closed", "truncated mid'
-    )
+    raw = r'{"translations": ["he said \"hi\"", "fully closed", "truncated mid'
     out = extract_json(raw)
     assert out == {"translations": [r'he said "hi"', "fully closed"]}
 
@@ -141,7 +139,7 @@ def test_is_balanced_braces_handles_strings():
     assert _is_balanced_braces('{"a": [1, 2]}') is True
     assert _is_balanced_braces('{"a": "}in string{}"}') is True
     assert _is_balanced_braces('{"a": [1, 2]') is False
-    assert _is_balanced_braces('{{}}') is True
+    assert _is_balanced_braces("{{}}") is True
     # Half-open string at the end → not balanced
     assert _is_balanced_braces('{"a": "unterminated') is False
 

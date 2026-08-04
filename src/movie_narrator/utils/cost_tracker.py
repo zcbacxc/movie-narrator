@@ -22,7 +22,7 @@ from typing import Any, Dict
 # built-in TTS providers. They are NOT precise billing values and are
 # always flagged as ``estimated`` in the summary so downstream readers
 # do not mistake them for authoritative numbers.
-_LLM_PROMPT_COST_PER_1K = 0.002   # USD per 1K prompt tokens
+_LLM_PROMPT_COST_PER_1K = 0.002  # USD per 1K prompt tokens
 _LLM_COMPLETION_COST_PER_1K = 0.006  # USD per 1K completion tokens
 
 # TTS cost per 1K characters. ``edge`` and ``mimo`` are free.
@@ -37,7 +37,7 @@ _TTS_COST_PER_1K_CHARS: Dict[str, float] = {
 class LLMCallRecord:
     """Single LLM API call record."""
 
-    step: str          # "script" | "research" | "translate"
+    step: str  # "script" | "research" | "translate"
     model: str
     prompt_tokens: int = 0
     completion_tokens: int = 0
@@ -48,7 +48,7 @@ class LLMCallRecord:
 class TTSCallRecord:
     """Single TTS call record."""
 
-    provider: str      # "edge" | "openai" | "mimo"
+    provider: str  # "edge" | "openai" | "mimo"
     model: str = ""
     characters: int = 0
     segments: int = 1
@@ -124,8 +124,7 @@ class CostTracker:
         for rec in calls:
             bucket = by_step.setdefault(
                 rec.step,
-                {"calls": 0, "prompt_tokens": 0,
-                 "completion_tokens": 0, "total_tokens": 0},
+                {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
             )
             bucket["calls"] += 1
             bucket["prompt_tokens"] += rec.prompt_tokens
@@ -141,8 +140,7 @@ class CostTracker:
         for rec in calls:
             bucket = by_provider.setdefault(
                 rec.provider,
-                {"calls": 0, "segments": 0, "characters": 0,
-                 "cached_segments": 0},
+                {"calls": 0, "segments": 0, "characters": 0, "cached_segments": 0},
             )
             bucket["calls"] += 1
             bucket["segments"] += rec.segments

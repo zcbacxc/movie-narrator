@@ -67,14 +67,15 @@ def _mock_settings(**overrides):
 
 def _beats_json(n: int) -> str:
     """Build a valid Phase 1 response with n beats."""
-    beats = [f"剧情关键点{i+1}" for i in range(n)]
-    return '{"beats": ' + str(beats).replace("'", '"') + '}'
+    beats = [f"剧情关键点{i + 1}" for i in range(n)]
+    return '{"beats": ' + str(beats).replace("'", '"') + "}"
 
 
 def _segments_json(texts: list) -> str:
     """Build a valid Phase 2 response with segments."""
     segs = [{"text": t} for t in texts]
     import json
+
     return json.dumps({"segments": segs}, ensure_ascii=False)
 
 
@@ -147,8 +148,9 @@ def test_trim_segments_trims_to_exact_target():
 
 def test_trim_preserves_first_three_hooks():
     """First 3 segments (hooks) must be preserved during trim."""
-    segs = [ScriptSegment(text=f"hook{i}") for i in range(3)] + \
-           [ScriptSegment(text=f"body{i}") for i in range(7)]
+    segs = [ScriptSegment(text=f"hook{i}") for i in range(3)] + [
+        ScriptSegment(text=f"body{i}") for i in range(7)
+    ]
     result = _trim_segments(segs, 5)
     assert len(result) == 5
     # First 3 must be the hooks
@@ -214,8 +216,12 @@ def test_phase1_includes_research_context(tmp_path):
     """Research summary should appear in Phase 1 prompt."""
     ctx = _make_ctx(tmp_path)
     ctx.research = ResearchInfo(
-        title="测试电影", year="2024", summary="一部关于勇气的电影",
-        genres=["动作"], cast=["演员A"], keywords=["勇气"],
+        title="测试电影",
+        year="2024",
+        summary="一部关于勇气的电影",
+        genres=["动作"],
+        cast=["演员A"],
+        keywords=["勇气"],
     )
     beats_resp = _mock_llm_response(_beats_json(3))
     mock_cm = _mock_llm_cm(response=beats_resp)
@@ -348,11 +354,13 @@ def test_generate_script_hard_fails_on_all_retries(tmp_path, monkeypatch):
     ctx = _make_ctx(tmp_path)
     ctx.metadata["prompt_target_sentences"] = 3
 
-    mock_cm = _mock_llm_cm(side_effect=[
-        ConnectionError("unreachable"),  # attempt 1 Phase 1
-        ConnectionError("unreachable"),  # attempt 2 Phase 1
-        ConnectionError("unreachable"),  # attempt 3 Phase 1
-    ])
+    mock_cm = _mock_llm_cm(
+        side_effect=[
+            ConnectionError("unreachable"),  # attempt 1 Phase 1
+            ConnectionError("unreachable"),  # attempt 2 Phase 1
+            ConnectionError("unreachable"),  # attempt 3 Phase 1
+        ]
+    )
 
     with patch("movie_narrator.pipeline.script.is_ci", return_value=False):
         with patch("movie_narrator.pipeline.script.get_settings", return_value=_mock_settings()):
@@ -368,11 +376,13 @@ def test_generate_script_retry_succeeds(tmp_path):
 
     beats_resp = _mock_llm_response(_beats_json(3))
     seg_resp = _mock_llm_response(_segments_json(["s1", "s2", "s3"]))
-    mock_cm = _mock_llm_cm(side_effect=[
-        ConnectionError("timeout"),  # attempt 1 Phase 1 fails
-        beats_resp,                   # attempt 2 Phase 1
-        seg_resp,                     # attempt 2 Phase 2
-    ])
+    mock_cm = _mock_llm_cm(
+        side_effect=[
+            ConnectionError("timeout"),  # attempt 1 Phase 1 fails
+            beats_resp,  # attempt 2 Phase 1
+            seg_resp,  # attempt 2 Phase 2
+        ]
+    )
 
     with patch("movie_narrator.pipeline.script.get_settings", return_value=_mock_settings()):
         with patch("movie_narrator.pipeline.script.get_llm_client", return_value=mock_cm):
@@ -441,8 +451,12 @@ def test_generate_script_research_in_phase1(tmp_path):
     ctx = _make_ctx(tmp_path)
     ctx.metadata["prompt_target_sentences"] = 3
     ctx.research = ResearchInfo(
-        title="测试电影", year="2024", summary="一部关于勇气的电影",
-        genres=["动作"], cast=["演员A"], keywords=["勇气"],
+        title="测试电影",
+        year="2024",
+        summary="一部关于勇气的电影",
+        genres=["动作"],
+        cast=["演员A"],
+        keywords=["勇气"],
     )
 
     beats_resp = _mock_llm_response(_beats_json(3))
@@ -477,12 +491,14 @@ def test_generate_script_phase1_ok_phase2_fail_then_retry(tmp_path):
     seg_resp = _mock_llm_response(_segments_json(["s1", "s2", "s3"]))
     # Attempt 1: Phase 1 OK, Phase 2 fails
     # Attempt 2: Phase 1 OK, Phase 2 OK
-    mock_cm = _mock_llm_cm(side_effect=[
-        beats_resp,               # attempt 1 Phase 1
-        ConnectionError("phase2 fail"),  # attempt 1 Phase 2
-        beats_resp,               # attempt 2 Phase 1
-        seg_resp,                 # attempt 2 Phase 2
-    ])
+    mock_cm = _mock_llm_cm(
+        side_effect=[
+            beats_resp,  # attempt 1 Phase 1
+            ConnectionError("phase2 fail"),  # attempt 1 Phase 2
+            beats_resp,  # attempt 2 Phase 1
+            seg_resp,  # attempt 2 Phase 2
+        ]
+    )
 
     with patch("movie_narrator.pipeline.script.get_settings", return_value=_mock_settings()):
         with patch("movie_narrator.pipeline.script.get_llm_client", return_value=mock_cm):
@@ -503,11 +519,16 @@ def test_generate_script_phase1_ok_phase2_fail_all_retries(tmp_path, monkeypatch
 
     beats_resp = _mock_llm_response(_beats_json(3))
     # 3 attempts: each Phase 1 OK, Phase 2 fails
-    mock_cm = _mock_llm_cm(side_effect=[
-        beats_resp, ConnectionError("p2 fail"),
-        beats_resp, ConnectionError("p2 fail"),
-        beats_resp, ConnectionError("p2 fail"),
-    ])
+    mock_cm = _mock_llm_cm(
+        side_effect=[
+            beats_resp,
+            ConnectionError("p2 fail"),
+            beats_resp,
+            ConnectionError("p2 fail"),
+            beats_resp,
+            ConnectionError("p2 fail"),
+        ]
+    )
 
     with patch("movie_narrator.pipeline.script.is_ci", return_value=False):
         with patch("movie_narrator.pipeline.script.get_settings", return_value=_mock_settings()):
@@ -524,6 +545,7 @@ def test_phase1_filters_none_beats(tmp_path):
     ctx = _make_ctx(tmp_path)
     # LLM returns [None, "point1", "point2"] — None should be dropped
     import json
+
     bad_resp = _mock_llm_response(json.dumps({"beats": [None, "point1", "point2"]}))
     mock_cm = _mock_llm_cm(response=bad_resp)
     mock_llm = mock_cm.__enter__.return_value
@@ -537,6 +559,7 @@ def test_phase1_filters_string_none_beats(tmp_path):
     """The string "None" should also be filtered (case-insensitive)."""
     ctx = _make_ctx(tmp_path)
     import json
+
     bad_resp = _mock_llm_response(json.dumps({"beats": ["none", "point1", "point2"]}))
     mock_cm = _mock_llm_cm(response=bad_resp)
     mock_llm = mock_cm.__enter__.return_value
@@ -550,6 +573,7 @@ def test_phase1_accepts_integer_beats(tmp_path):
     """Integer beats should be converted to strings (not dropped)."""
     ctx = _make_ctx(tmp_path)
     import json
+
     resp = _mock_llm_response(json.dumps({"beats": [1, 2, 3]}))
     mock_cm = _mock_llm_cm(response=resp)
     mock_llm = mock_cm.__enter__.return_value
@@ -567,9 +591,7 @@ def test_phase2_filters_empty_text_segments(tmp_path):
     ctx = _make_ctx(tmp_path)
     beats = ["b1", "b2", "b3"]
     # Mix of valid, empty string, whitespace-only, and None text
-    seg_resp = _mock_llm_response(
-        _segments_json(["valid", "", "   "])
-    )
+    seg_resp = _mock_llm_response(_segments_json(["valid", "", "   "]))
     mock_cm = _mock_llm_cm(response=seg_resp)
     mock_llm = mock_cm.__enter__.return_value
 
@@ -627,8 +649,7 @@ def test_preset_sentence_count_enforced(preset_name, expected_count, tmp_path):
     preset = get_preset(preset_name)
     target = preset.param_dict.get("prompt_target_sentences")
     assert target == expected_count, (
-        f"{preset_name} preset has prompt_target_sentences={target}, "
-        f"expected {expected_count}"
+        f"{preset_name} preset has prompt_target_sentences={target}, expected {expected_count}"
     )
 
     # Build context with preset params applied
@@ -772,18 +793,18 @@ def test_script_target_count_in_metadata(tmp_path):
 _DYNAMIC_CASES = [
     # (preset_name, duration, expected_count)
     # 60s baseline — matches preset's prompt_target_sentences
-    ("douyin-fast", 60, 18),      # 60 / 3.3 = 18.2 → 18
-    ("mainstream-dry", 60, 12),   # 60 / 5.0 = 12.0 → 12
-    ("bilibili-long", 60, 8),     # 60 / 7.5 = 8.0 → 8
+    ("douyin-fast", 60, 18),  # 60 / 3.3 = 18.2 → 18
+    ("mainstream-dry", 60, 12),  # 60 / 5.0 = 12.0 → 12
+    ("bilibili-long", 60, 8),  # 60 / 7.5 = 8.0 → 8
     # 120s — double the sentences, same per-sentence length
-    ("douyin-fast", 120, 36),     # 120 / 3.3 = 36.4 → 36
+    ("douyin-fast", 120, 36),  # 120 / 3.3 = 36.4 → 36
     ("mainstream-dry", 120, 24),  # 120 / 5.0 = 24.0 → 24
-    ("bilibili-long", 120, 16),   # 120 / 7.5 = 16.0 → 16
+    ("bilibili-long", 120, 16),  # 120 / 7.5 = 16.0 → 16
     # 90s — 1.5x sentences
-    ("bilibili-long", 90, 12),    # 90 / 7.5 = 12.0 → 12
+    ("bilibili-long", 90, 12),  # 90 / 7.5 = 12.0 → 12
     # 30s — half sentences
-    ("douyin-fast", 30, 9),       # 30 / 3.3 = 9.1 → 9
-    ("bilibili-long", 30, 4),     # 30 / 7.5 = 4.0 → 4
+    ("douyin-fast", 30, 9),  # 30 / 3.3 = 9.1 → 9
+    ("bilibili-long", 30, 4),  # 30 / 7.5 = 4.0 → 4
 ]
 
 
@@ -843,8 +864,7 @@ def test_dynamic_count_60s_matches_preset_baseline(tmp_path):
         seg_dur = preset.param_dict.get("prompt_target_segment_duration")
         dynamic_count = round(60 / seg_dur)
         assert dynamic_count == base_count, (
-            f"{name}: 60s dynamic count {dynamic_count} != "
-            f"preset baseline {base_count}"
+            f"{name}: 60s dynamic count {dynamic_count} != preset baseline {base_count}"
         )
 
 
@@ -854,12 +874,14 @@ def test_dynamic_count_60s_matches_preset_baseline(tmp_path):
 def test_truncate_to_max_chars_no_truncation_needed():
     """Text within limit is unchanged."""
     from movie_narrator.pipeline.script import _truncate_to_max_chars
+
     assert _truncate_to_max_chars("短句", 10) == "短句"
 
 
 def test_truncate_to_max_chars_hard_cut():
     """Text exceeding limit with no punctuation is hard-cut."""
     from movie_narrator.pipeline.script import _truncate_to_max_chars
+
     result = _truncate_to_max_chars("abcdefghij", 5)
     assert result == "abcde"
 
@@ -867,6 +889,7 @@ def test_truncate_to_max_chars_hard_cut():
 def test_truncate_to_max_chars_cut_at_punctuation():
     """Text exceeding limit is cut at last punctuation before limit."""
     from movie_narrator.pipeline.script import _truncate_to_max_chars
+
     # "这是一句，很长的中文测试句子" with max_chars=8
     # Comma at position 4, within the first 8 chars
     text = "这是一句，很长的中文测试句子"
@@ -878,5 +901,6 @@ def test_truncate_to_max_chars_cut_at_punctuation():
 def test_truncate_to_max_chars_empty_after_truncation():
     """Edge case: punctuation-only text truncates to empty."""
     from movie_narrator.pipeline.script import _truncate_to_max_chars
+
     # Single punctuation char within limit
     assert _truncate_to_max_chars("，", 1) == "，"

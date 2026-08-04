@@ -57,7 +57,9 @@ def test_mn_scenes_exits_nonzero_when_dep_missing(tmp_path, monkeypatch):
     _make_missing_probe(monkeypatch, "scenedetect")
     fake_video = tmp_path / "v.mp4"
     fake_video.write_bytes(b"00")
-    result = runner.invoke(app, ["scenes", "--video", str(fake_video), "--output", str(tmp_path / "out")])
+    result = runner.invoke(
+        app, ["scenes", "--video", str(fake_video), "--output", str(tmp_path / "out")]
+    )
     assert result.exit_code != 0
     assert "[media]" in result.output or "media" in result.output.lower()
 
@@ -66,7 +68,9 @@ def test_mn_align_exits_nonzero_when_dep_missing(tmp_path, monkeypatch):
     _make_missing_probe(monkeypatch, "whisperx")
     fake_audio = tmp_path / "a.wav"
     fake_audio.write_bytes(b"00")
-    result = runner.invoke(app, ["align", "--audio", str(fake_audio), "--output", str(tmp_path / "out")])
+    result = runner.invoke(
+        app, ["align", "--audio", str(fake_audio), "--output", str(tmp_path / "out")]
+    )
     assert result.exit_code != 0
     assert "[ml]" in result.output or "ml" in result.output.lower()
 
@@ -74,12 +78,13 @@ def test_mn_align_exits_nonzero_when_dep_missing(tmp_path, monkeypatch):
 def test_mn_clips_exits_nonzero_when_dep_missing(tmp_path, monkeypatch):
     # export_clips.py uses probe("scenedetect"); patch there.
     import movie_narrator.pipeline.export_clips as export_module
+
     monkeypatch.setattr(
         export_module,
         "probe",
         lambda name: (
             False,
-            'pip install "movie-narrator[media]"' if name == "scenedetect" else (True, "")
+            'pip install "movie-narrator[media]"' if name == "scenedetect" else (True, ""),
         ),
     )
     fake_video = tmp_path / "v.mp4"
@@ -88,7 +93,15 @@ def test_mn_clips_exits_nonzero_when_dep_missing(tmp_path, monkeypatch):
     scenes_json.write_text(json.dumps([{"index": 0, "start": 0.0, "end": 1.0}]), encoding="utf-8")
     result = runner.invoke(
         app,
-        ["clips", "--video", str(fake_video), "--scenes", str(scenes_json), "--output", str(tmp_path / "out")],
+        [
+            "clips",
+            "--video",
+            str(fake_video),
+            "--scenes",
+            str(scenes_json),
+            "--output",
+            str(tmp_path / "out"),
+        ],
     )
     assert result.exit_code != 0
     assert "[media]" in result.output or "media" in result.output.lower()
@@ -101,7 +114,9 @@ def test_mn_scenes_zero_scenes_no_dep_exit_zero(tmp_path, monkeypatch):
     fake_video.write_bytes(b"00")
     # Don't override probe; use the real one (probe("scenedetect") may be
     # available in this env, but ensure we don't crash even when zero scenes).
-    result = runner.invoke(app, ["scenes", "--video", str(fake_video), "--output", str(tmp_path / "out")])
+    result = runner.invoke(
+        app, ["scenes", "--video", str(fake_video), "--output", str(tmp_path / "out")]
+    )
     # Either 0 (probably missing media here) or 1 (degraded path) — both fine.
     # The point is: don't crash with Traceback.
     assert result.exception is None or "Traceback" not in (result.output or "")

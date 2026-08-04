@@ -67,13 +67,20 @@ def export_clips(ctx: Context) -> Context:
             # so MoviePy adds unnecessary overhead.  Direct subprocess gives
             # precise control over codec params, timeout, and error handling.
             cmd = [
-                ffmpeg, "-y",
-                "-ss", str(scene.start),
-                "-to", str(scene.end),
-                "-i", ctx.source_video_path,
-                "-c:v", video_codec,
-                "-c:a", audio_codec,
-                "-movflags", "+faststart",
+                ffmpeg,
+                "-y",
+                "-ss",
+                str(scene.start),
+                "-to",
+                str(scene.end),
+                "-i",
+                ctx.source_video_path,
+                "-c:v",
+                video_codec,
+                "-c:a",
+                audio_codec,
+                "-movflags",
+                "+faststart",
                 str(clip_path),
             ]
             result = subprocess.run(

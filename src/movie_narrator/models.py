@@ -25,6 +25,7 @@ class MetadataDict(TypedDict, total=False):
     All keys are optional (total=False).  Provides IDE autocompletion and
     static-analysis catch for typos — zero runtime overhead.
     """
+
     # Pipeline I/O
     voice: str
     video_format: str
@@ -344,6 +345,7 @@ class SubtitlePaths(BaseModel):
       (or degraded-with-originals — same on-disk content, but the field
       is still set so render_subtitle_path resolution can pick the track).
     """
+
     original: str
     translated: Optional[str] = None
     bilingual: Optional[str] = None
@@ -373,6 +375,7 @@ class MovieCard(BaseModel):
     read it is unaffected. When the research step is skipped or fails,
     the card is simply absent from ``ctx.metadata["movie_card"]``.
     """
+
     title: str
     year: Optional[str] = None
     genres: List[str] = Field(default_factory=list)
@@ -403,7 +406,9 @@ class MatchedClip(BaseModel):
     src_end: float
     score: float
     scene_index: Optional[int] = None
-    source: Literal["scene", "heuristic", "embedding", "embedding_topk", "embedding_top1", "fallback"] = "fallback"
+    source: Literal[
+        "scene", "heuristic", "embedding", "embedding_topk", "embedding_top1", "fallback"
+    ] = "fallback"
     # v0.5.11: per-dimension quality scores for composite scoring.
     # None for heuristic clips where no embedding/rhythm data exists.
     embedding_score: Optional[float] = None

@@ -89,7 +89,9 @@ class TestScoreBgmCandidate:
         profile = {"intense": 0.7, "calm": 0.3}
         sample_intense = {"mood": "intense"}
         sample_calm = {"mood": "calm"}
-        assert _score_bgm_candidate(sample_intense, profile) > _score_bgm_candidate(sample_calm, profile)
+        assert _score_bgm_candidate(sample_intense, profile) > _score_bgm_candidate(
+            sample_calm, profile
+        )
 
     def test_mood_not_in_profile_returns_zero(self):
         profile = {"calm": 1.0}
@@ -102,6 +104,7 @@ class TestSelectBgmByEmotion:
         """Build a mock ctx with BGM metadata file."""
         metadata_path = Path(tmpdir) / "bgm_metadata.yaml"
         import yaml
+
         metadata_path.write_text(
             yaml.dump({"bgm_samples": samples}),
             encoding="utf-8",

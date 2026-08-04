@@ -100,9 +100,7 @@ class NodeRegistry:
                 nodes = settings.distributed_nodes or ""
             if health_timeout is None:
                 health_timeout = settings.distributed_node_health_timeout
-        self._nodes: List[str] = [
-            url.strip() for url in nodes.split(",") if url.strip()
-        ]
+        self._nodes: List[str] = [url.strip() for url in nodes.split(",") if url.strip()]
         self._health_timeout = float(health_timeout)
         self._healthy: List[str] = []
         self._probed = False
@@ -143,9 +141,7 @@ class NodeRegistry:
         Returns:
             The currently healthy node base URLs.
         """
-        self._healthy = [
-            url for url in self._nodes if self._probe(url)
-        ]
+        self._healthy = [url for url in self._nodes if self._probe(url)]
         self._probed = True
         return list(self._healthy)
 
@@ -205,9 +201,7 @@ class DistributedRenderPlanner:
         self.enabled: bool = bool(enabled)
         self.min_render_seconds: float = float(min_render_seconds)
         self._injected_nodes = available_nodes is not None
-        self._nodes: List[str] = (
-            list(available_nodes) if available_nodes is not None else []
-        )
+        self._nodes: List[str] = list(available_nodes) if available_nodes is not None else []
         self._registry = node_registry
 
     # ── Public API ──────────────────────────────────────────
@@ -335,20 +329,14 @@ def render_task_dispatcher(
     try:
         task_id = queue.submit(render_only)
     except RemoteQueueError as e:
-        raise DistributedRenderError(
-            f"submit render subtask to {node} failed: {e}"
-        ) from e
+        raise DistributedRenderError(f"submit render subtask to {node} failed: {e}") from e
 
     try:
         result = queue.wait(task_id, timeout=timeout, poll_interval=poll_interval)
     except RemoteQueueError as e:
-        raise DistributedRenderError(
-            f"wait for render subtask {task_id} failed: {e}"
-        ) from e
+        raise DistributedRenderError(f"wait for render subtask {task_id} failed: {e}") from e
     if result is None or not result.succeeded:
-        raise DistributedRenderError(
-            f"render subtask {task_id} did not succeed"
-        )
+        raise DistributedRenderError(f"render subtask {task_id} did not succeed")
 
     dest = download_dir or "."
     if result.video_path:
@@ -363,9 +351,7 @@ def render_task_dispatcher(
                 api_key=api_key,
             )
         except RemoteQueueError as e:
-            raise DistributedRenderError(
-                f"download artifact from {node} failed: {e}"
-            ) from e
+            raise DistributedRenderError(f"download artifact from {node} failed: {e}") from e
         result.video_path = str(local_path)
     if result.audio_path:
         filename = Path(result.audio_path).name
@@ -379,8 +365,6 @@ def render_task_dispatcher(
                 api_key=api_key,
             )
         except RemoteQueueError as e:
-            raise DistributedRenderError(
-                f"download audio from {node} failed: {e}"
-            ) from e
+            raise DistributedRenderError(f"download audio from {node} failed: {e}") from e
         result.audio_path = str(local_path)
     return result

@@ -65,8 +65,7 @@ class VLMCaptioner(VisionCaptioner):
         self._api_key = api_key or os.environ.get("MN_VLM_API_KEY", "")
         self._model = model or os.environ.get("MN_VLM_MODEL", "gpt-4o")
         self._base_url = (
-            base_url
-            or os.environ.get("MN_VLM_BASE_URL", "https://api.openai.com/v1")
+            base_url or os.environ.get("MN_VLM_BASE_URL", "https://api.openai.com/v1")
         ).rstrip("/")
         self._timeout = timeout or int(os.environ.get("MN_VLM_TIMEOUT", "30"))
         self._language = language or os.environ.get("MN_VLM_LANGUAGE", "en")
@@ -138,18 +137,22 @@ class VLMCaptioner(VisionCaptioner):
 
         # Extract frame using ffmpeg
         cmd = [
-            "ffmpeg", "-y",
-            "-ss", f"{mid_time:.2f}",
-            "-i", video_path,
-            "-frames:v", "1",
-            "-q:v", "2",  # JPEG quality (2 = high quality)
-            "-vf", "scale=512:-1",  # Resize to 512px wide for API efficiency
+            "ffmpeg",
+            "-y",
+            "-ss",
+            f"{mid_time:.2f}",
+            "-i",
+            video_path,
+            "-frames:v",
+            "1",
+            "-q:v",
+            "2",  # JPEG quality (2 = high quality)
+            "-vf",
+            "scale=512:-1",  # Resize to 512px wide for API efficiency
             frame_path,
         ]
 
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=30
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
         if result.returncode != 0 or not Path(frame_path).exists():
             raise RuntimeError(
                 f"ffmpeg frame extraction failed for scene {scene.index}: "
@@ -244,10 +247,7 @@ class VLMCaptioner(VisionCaptioner):
                     result = json.loads(resp.read().decode("utf-8"))
 
                 content = (
-                    result.get("choices", [{}])[0]
-                    .get("message", {})
-                    .get("content", "")
-                    .strip()
+                    result.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
                 )
                 if content:
                     return content
@@ -256,7 +256,7 @@ class VLMCaptioner(VisionCaptioner):
             except urllib.error.HTTPError as e:
                 last_error = f"HTTP {e.code}: {e.reason}"
                 if e.code == 429:  # Rate limit — wait and retry
-                    time.sleep(2 ** attempt)
+                    time.sleep(2**attempt)
                 elif e.code >= 500:  # Server error — retry
                     time.sleep(1)
                 else:  # Client error — don't retry

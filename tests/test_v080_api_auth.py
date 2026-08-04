@@ -140,12 +140,8 @@ class TestApiAuthMiddleware:
 
     def test_correct_key_returns_200(self, secure_server):
         """api_key set: correct X-API-Key allows access to protected endpoints."""
-        assert _request_code(
-            f"{secure_server.base_url}/info", api_key="secret-key-123"
-        ) == 200
-        assert _request_code(
-            f"{secure_server.base_url}/tasks", api_key="secret-key-123"
-        ) == 200
+        assert _request_code(f"{secure_server.base_url}/info", api_key="secret-key-123") == 200
+        assert _request_code(f"{secure_server.base_url}/tasks", api_key="secret-key-123") == 200
 
     def test_correct_key_post_task(self, secure_server):
         """api_key set: correct key allows POST /tasks (201 created)."""
@@ -174,9 +170,7 @@ class TestApiAuthMiddleware:
         # No key at all
         assert _request_code(f"{secure_server.base_url}/health") == 200
         # Even a wrong key is fine for /health (exempt from auth)
-        assert _request_code(
-            f"{secure_server.base_url}/health", api_key="wrong"
-        ) == 200
+        assert _request_code(f"{secure_server.base_url}/health", api_key="wrong") == 200
 
     def test_unauthorized_body(self, secure_server):
         """401 response body is exactly {"error": "unauthorized"}."""
@@ -189,8 +183,10 @@ class TestApiAuthMiddleware:
     def test_api_key_stored_on_server(self, tmp_path):
         """TaskAPIServer stores api_key on the instance."""
         server = TaskAPIServer(
-            host="127.0.0.1", port=0,
-            storage_dir=tmp_path / "tasks", max_workers=1,
+            host="127.0.0.1",
+            port=0,
+            storage_dir=tmp_path / "tasks",
+            max_workers=1,
             api_key="stored-key",
         )
         assert server.api_key == "stored-key"
@@ -216,8 +212,10 @@ class TestDaemonGuard:
         """run_daemon refuses a non-loopback host without api_key (SystemExit)."""
         with pytest.raises(SystemExit) as exc_info:
             run_daemon(
-                host="0.0.0.0", port=0,
-                storage_dir=tmp_path, blocking=False,
+                host="0.0.0.0",
+                port=0,
+                storage_dir=tmp_path,
+                blocking=False,
             )
         assert exc_info.value.code == 1
 
@@ -225,15 +223,19 @@ class TestDaemonGuard:
         """run_daemon refuses an external host without api_key."""
         with pytest.raises(SystemExit):
             run_daemon(
-                host="10.0.0.5", port=0,
-                storage_dir=tmp_path, blocking=False,
+                host="10.0.0.5",
+                port=0,
+                storage_dir=tmp_path,
+                blocking=False,
             )
 
     def test_guard_allows_loopback_without_key(self, tmp_path):
         """run_daemon allows loopback host without api_key (backwards compatible)."""
         server = run_daemon(
-            host="127.0.0.1", port=0,
-            storage_dir=tmp_path, blocking=False,
+            host="127.0.0.1",
+            port=0,
+            storage_dir=tmp_path,
+            blocking=False,
         )
         assert server is not None
         assert server.api_key is None
@@ -247,8 +249,10 @@ class TestDaemonGuard:
             lambda self, blocking=False: None,
         )
         server = run_daemon(
-            host="0.0.0.0", port=0,
-            storage_dir=tmp_path, blocking=False,
+            host="0.0.0.0",
+            port=0,
+            storage_dir=tmp_path,
+            blocking=False,
             allow_insecure=True,
         )
         assert server is not None
@@ -262,8 +266,10 @@ class TestDaemonGuard:
             lambda self, blocking=False: None,
         )
         server = run_daemon(
-            host="0.0.0.0", port=0,
-            storage_dir=tmp_path, blocking=False,
+            host="0.0.0.0",
+            port=0,
+            storage_dir=tmp_path,
+            blocking=False,
             api_key="my-key",
         )
         assert server is not None
@@ -299,8 +305,7 @@ class TestSettingsApiKey:
         """MN_API_KEY is documented in .env.example."""
         from movie_narrator.config import _EXAMPLE_ENV
 
-        content = _EXAMPLE_ENV.read_text(encoding="utf-8") \
-            if _EXAMPLE_ENV.is_file() else ""
+        content = _EXAMPLE_ENV.read_text(encoding="utf-8") if _EXAMPLE_ENV.is_file() else ""
         # Either the file documents it, or the fallback template omits it;
         # the example file is the source of truth, so assert it's there.
         assert "MN_API_KEY" in content

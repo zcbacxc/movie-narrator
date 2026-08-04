@@ -239,22 +239,10 @@ def aggregate_match_quality(
     """
     summary = MatchQualitySummary(total_clips=len(matched_clips))
 
-    composites = [
-        mc.composite_score for mc in matched_clips
-        if mc.composite_score is not None
-    ]
-    embeddings = [
-        mc.embedding_score for mc in matched_clips
-        if mc.embedding_score is not None
-    ]
-    rhythms = [
-        mc.rhythm_score for mc in matched_clips
-        if mc.rhythm_score is not None
-    ]
-    diversities = [
-        mc.diversity_score for mc in matched_clips
-        if mc.diversity_score is not None
-    ]
+    composites = [mc.composite_score for mc in matched_clips if mc.composite_score is not None]
+    embeddings = [mc.embedding_score for mc in matched_clips if mc.embedding_score is not None]
+    rhythms = [mc.rhythm_score for mc in matched_clips if mc.rhythm_score is not None]
+    diversities = [mc.diversity_score for mc in matched_clips if mc.diversity_score is not None]
 
     summary.clips_with_composite = len(composites)
 

@@ -20,7 +20,10 @@ import json
 from unittest.mock import MagicMock, patch
 
 from movie_narrator.models import (
-    Context, Scene, Services, TimedSegment,
+    Context,
+    Scene,
+    Services,
+    TimedSegment,
 )
 from movie_narrator.pipeline.script import generate_script
 from movie_narrator.pipeline.translate import translate_subtitles
@@ -75,8 +78,8 @@ def _mock_settings(**overrides):
 
 
 def _beats_json(n: int) -> str:
-    beats = [f"剧情关键点{i+1}" for i in range(n)]
-    return '{"beats": ' + str(beats).replace("'", '"') + '}'
+    beats = [f"剧情关键点{i + 1}" for i in range(n)]
+    return '{"beats": ' + str(beats).replace("'", '"') + "}"
 
 
 def _segments_json(texts: list) -> str:
@@ -125,7 +128,9 @@ def test_script_lang_defaults_to_zh(tmp_path):
             result = generate_script(ctx)
 
     mock_llm = mock_cm.__enter__.return_value
-    phase1_prompt = mock_llm.client.chat.completions.create.call_args_list[0].kwargs["messages"][0]["content"]
+    phase1_prompt = mock_llm.client.chat.completions.create.call_args_list[0].kwargs["messages"][0][
+        "content"
+    ]
     assert "Write ALL narration text" not in phase1_prompt
     assert result.metadata["narration_lang"] == "zh"
     assert result.metadata["script_lang"] == "zh"
@@ -136,8 +141,11 @@ def test_script_lang_defaults_to_zh(tmp_path):
 
 def test_select_script_prompt_is_language_aware():
     from movie_narrator.utils.prompts import (
-        SCRIPT_PROMPT, SCRIPT_PROMPT_ZH, select_script_prompt,
+        SCRIPT_PROMPT,
+        SCRIPT_PROMPT_ZH,
+        select_script_prompt,
     )
+
     assert select_script_prompt("zh") == SCRIPT_PROMPT_ZH
     assert select_script_prompt("en") == SCRIPT_PROMPT
     assert select_script_prompt("") == SCRIPT_PROMPT  # backward-compatible
@@ -158,6 +166,7 @@ def test_translate_records_i18n_metadata(tmp_path, monkeypatch):
     ctx.metadata.update(subtitle_lang="en", lang="zh")
 
     from movie_narrator.pipeline import translate as t_mod
+
     monkeypatch.setattr(t_mod, "_call_llm_chunk", lambda **kw: ["hello", "world"])
 
     translate_subtitles(ctx)

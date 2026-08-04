@@ -18,7 +18,7 @@ Typical usage::
     reverse proxy), pass ``host="0.0.0.0"`` explicitly.  Binding to
     loopback by default prevents unintended public exposure of the
     unauthenticated API server.
-    """
+"""
 
 from __future__ import annotations
 
@@ -39,12 +39,14 @@ logger = logging.getLogger(__name__)
 # without authentication. Binding to anything else exposes the API to
 # the network and requires an ``api_key`` (or an explicit opt-in via
 # ``allow_insecure=True``).
-_LOOPBACK_HOSTS = frozenset({
-    "127.0.0.1",
-    "localhost",
-    "::1",
-    "0:0:0:0:0:0:0:1",  # expanded ::1
-})
+_LOOPBACK_HOSTS = frozenset(
+    {
+        "127.0.0.1",
+        "localhost",
+        "::1",
+        "0:0:0:0:0:0:0:1",  # expanded ::1
+    }
+)
 
 #: Fallback drain budget when ``MN_GRACEFUL_SHUTDOWN_TIMEOUT`` is unset
 #: or unreadable (v0.9.2).
@@ -216,7 +218,7 @@ def run_daemon(
         drain_timeout = graceful_shutdown_timeout()
 
         def _shutdown(signum, frame):
-            sig_name = signal.Signals(signum).name if hasattr(signal, 'Signals') else str(signum)
+            sig_name = signal.Signals(signum).name if hasattr(signal, "Signals") else str(signum)
             logger.info("Received %s, shutting down...", sig_name)
             drain_inflight(server, queue, drain_timeout)
             # Hard exit: the daemon's worker threads are non-daemon, so a
@@ -230,7 +232,9 @@ def run_daemon(
 
         logger.info(
             "Worker daemon starting on %s:%d (max_workers=%d)",
-            host, port, max_workers,
+            host,
+            port,
+            max_workers,
         )
         logger.info(
             "Storage: %s",
@@ -243,7 +247,8 @@ def run_daemon(
         server.start(blocking=False)
         logger.info(
             "Worker daemon started on %s:%d (non-blocking)",
-            host, port,
+            host,
+            port,
         )
 
     return server

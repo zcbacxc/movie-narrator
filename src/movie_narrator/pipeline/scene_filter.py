@@ -86,12 +86,17 @@ def _extract_mid_frame(
         result = subprocess.run(
             [
                 ffmpeg_bin,
-                "-y",           # overwrite
-                "-ss", str(timestamp),  # seek to timestamp
-                "-i", video_path,
-                "-frames:v", "1",      # extract exactly 1 frame
-                "-q:v", "2",            # high quality JPEG
-                "-f", "image2",
+                "-y",  # overwrite
+                "-ss",
+                str(timestamp),  # seek to timestamp
+                "-i",
+                video_path,
+                "-frames:v",
+                "1",  # extract exactly 1 frame
+                "-q:v",
+                "2",  # high quality JPEG
+                "-f",
+                "image2",
                 str(output_path),
             ],
             capture_output=True,
@@ -111,6 +116,7 @@ def _compute_mean_luma(image_path: Path) -> Optional[float]:
     """
     try:
         from PIL import Image
+
         img = Image.open(image_path).convert("L")
         # Small images: use histogram; for larger ones, downscale first
         if img.width > 64:
@@ -185,7 +191,9 @@ def filter_dark_scenes(
             dropped += 1
             logger.debug(
                 "  dark drop: scene %d (luma=%.1f < %.1f)",
-                scene.index, luma, luma_threshold,
+                scene.index,
+                luma,
+                luma_threshold,
             )
         else:
             kept.append(scene)
@@ -241,11 +249,13 @@ def apply_source_window(
         # Clip scene to window bounds
         new_start = max(scene.start, win_start)
         new_end = min(scene.end, win_end)
-        kept.append(Scene(
-            index=0,  # re-indexed below
-            start=new_start,
-            end=new_end,
-        ))
+        kept.append(
+            Scene(
+                index=0,  # re-indexed below
+                start=new_start,
+                end=new_end,
+            )
+        )
 
     if not kept:
         return scenes, 0

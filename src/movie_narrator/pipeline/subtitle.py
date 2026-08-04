@@ -41,9 +41,7 @@ def _lang_tag_for_filename(lang: str) -> str:
     return lang.strip().lower()
 
 
-def _resolve_render_subtitle_path(
-    ctx: Context, paths: SubtitlePaths
-) -> str | None:
+def _resolve_render_subtitle_path(ctx: Context, paths: SubtitlePaths) -> str | None:
     """Pick the render-overlay subtitle path per `subtitle_mode` (spec §7.2 step 4).
 
     `mode == "original"` always picks the original. For `translated` /
@@ -94,9 +92,8 @@ def generate_subtitle(ctx: Context) -> Context:
     ctx.subtitle_path = str(original_path)
 
     # 2. Translated + bilingual — only when both sides are aligned.
-    has_translations = (
-        bool(ctx.translated_texts)
-        and len(ctx.translated_texts) == len(ctx.timed_segments)
+    has_translations = bool(ctx.translated_texts) and len(ctx.translated_texts) == len(
+        ctx.timed_segments
     )
     if has_translations:
         target_lang = ctx.metadata.get("subtitle_lang") or "translated"
@@ -106,15 +103,11 @@ def generate_subtitle(ctx: Context) -> Context:
 
         translated_cues: list[tuple[int, str, str, str]] = [
             (i, _format_time(seg.start), _format_time(seg.end), tr)
-            for i, (seg, tr) in enumerate(
-                zip(ctx.timed_segments, ctx.translated_texts), 1
-            )
+            for i, (seg, tr) in enumerate(zip(ctx.timed_segments, ctx.translated_texts), 1)
         ]
         bilingual_cues: list[tuple[int, str, str, str]] = [
             (i, _format_time(seg.start), _format_time(seg.end), f"{seg.text}\n{tr}")
-            for i, (seg, tr) in enumerate(
-                zip(ctx.timed_segments, ctx.translated_texts), 1
-            )
+            for i, (seg, tr) in enumerate(zip(ctx.timed_segments, ctx.translated_texts), 1)
         ]
         _write_srt(translated_path, translated_cues)
         _write_srt(bilingual_path, bilingual_cues)
@@ -156,11 +149,13 @@ def generate_subtitle(ctx: Context) -> Context:
                 is_vertical=is_vertical,
             )
             if not fits:
-                display_issues.append({
-                    "index": i,
-                    "estimated_lines": est_lines,
-                    "max_lines": max_lines,
-                })
+                display_issues.append(
+                    {
+                        "index": i,
+                        "estimated_lines": est_lines,
+                        "max_lines": max_lines,
+                    }
+                )
 
         if display_issues:
             ctx.metadata["subtitle_qa"]["display_fit_issues"] = display_issues
@@ -178,8 +173,7 @@ def generate_subtitle(ctx: Context) -> Context:
         overlap_count = qa_original.get("overlap_count", 0)
         if total_issues or overlap_count:
             console.inline_warn(
-                f"Subtitle QA: {total_issues} cue issue(s), "
-                f"{overlap_count} overlap(s) detected."
+                f"Subtitle QA: {total_issues} cue issue(s), {overlap_count} overlap(s) detected."
             )
 
     return ctx

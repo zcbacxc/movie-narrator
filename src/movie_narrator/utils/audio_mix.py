@@ -147,7 +147,7 @@ def duck_bgm(
 
     # Apply gain to raw samples
     raw = np.array(bgm_base.get_array_of_samples(), dtype=np.float64)
-    raw *= per_sample[:len(raw)]
+    raw *= per_sample[: len(raw)]
     raw = np.clip(raw, np.iinfo(np.int16).min, np.iinfo(np.int16).max)
     raw = raw.astype(np.int16)
 

@@ -76,7 +76,8 @@ def test_bool_sentinel_keep_cache_false_does_not_override_yaml_true():
 def test_bool_sentinel_cli_true_wins():
     job = JobConfig(movie="M", keep_cache=False, no_clips=False)
     r = merge_job(
-        _cli(keep_cache=True, no_clips=True, config_path="job.yaml"), job,
+        _cli(keep_cache=True, no_clips=True, config_path="job.yaml"),
+        job,
         Settings(),
     )
     assert r.keep_cache is True

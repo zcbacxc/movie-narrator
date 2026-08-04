@@ -309,9 +309,7 @@ class LocalTaskQueue:
         """
         # v0.9.2: a shutting-down queue must not accept new work.
         if self._shutting_down:
-            raise QueueShutdownError(
-                "TaskQueue has been shut down — not accepting new tasks"
-            )
+            raise QueueShutdownError("TaskQueue has been shut down — not accepting new tasks")
         if not self._started or not self._executor:
             raise RuntimeError("TaskQueue is not started. Call start() first.")
 
@@ -384,6 +382,7 @@ class LocalTaskQueue:
         # Task is pending but not yet running — mark as cancelled
         task.status = TaskStatus.CANCELLED
         from datetime import datetime, timezone
+
         task.completed_at = datetime.now(timezone.utc).isoformat()
         self._storage.save(task)
         # Task transitioned from active to terminal — update counter
@@ -508,7 +507,9 @@ class LocalTaskQueue:
             except Exception as e:  # noqa: BLE001 — one bad request must not abort the batch
                 logger.warning(
                     "Batch %s: member %d could not be submitted: %s",
-                    batch.batch_id, idx, e,
+                    batch.batch_id,
+                    idx,
+                    e,
                 )
                 submission_failures.append({"index": idx, "error": str(e)})
 
@@ -517,9 +518,7 @@ class LocalTaskQueue:
             meta = dict(request.metadata or {})
             meta["submission_failures"] = submission_failures
             batch.metadata = meta
-            batch.status = (
-                BatchStatus.FAILED if not submitted else BatchStatus.PARTIAL_FAILED
-            )
+            batch.status = BatchStatus.FAILED if not submitted else BatchStatus.PARTIAL_FAILED
         self._batch_storage.save(batch)
         return self._refresh_batch(batch)
 
@@ -598,6 +597,7 @@ class LocalTaskQueue:
             batch.status = BatchStatus.FAILED
             if batch.completed_at is None:
                 from datetime import datetime, timezone
+
                 batch.completed_at = datetime.now(timezone.utc).isoformat()
         elif total > 0 and missing > 0:
             # Some members never became tasks: the batch can never be fully
@@ -606,6 +606,7 @@ class LocalTaskQueue:
             batch.status = BatchStatus.PARTIAL_FAILED
             if active == 0 and batch.completed_at is None:
                 from datetime import datetime, timezone
+
                 batch.completed_at = datetime.now(timezone.utc).isoformat()
         elif total > 0 and terminal_or_missing == total:
             if completed == total:
@@ -616,6 +617,7 @@ class LocalTaskQueue:
                 batch.status = BatchStatus.PARTIAL_FAILED
             if batch.completed_at is None:
                 from datetime import datetime, timezone
+
                 batch.completed_at = datetime.now(timezone.utc).isoformat()
         elif active > 0:
             batch.status = BatchStatus.RUNNING
@@ -693,6 +695,7 @@ class LocalTaskQueue:
                     task.status = TaskStatus.FAILED
                     task.last_error = f"Worker thread error: {e}"
                     from datetime import datetime, timezone
+
                     task.completed_at = datetime.now(timezone.utc).isoformat()
                     self._storage.save(task)
             except (OSError, ValueError):
@@ -772,9 +775,7 @@ class LocalTaskQueue:
             observe_task_duration(duration)
             if task.status == TaskStatus.FAILED:
                 error_type = (
-                    task.result.error_type
-                    if task.result and task.result.error_type
-                    else "unknown"
+                    task.result.error_type if task.result and task.result.error_type else "unknown"
                 )
                 record_error(error_type)
             elif task.status == TaskStatus.DEAD:

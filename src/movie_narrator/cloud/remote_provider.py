@@ -124,13 +124,9 @@ def download_artifact(
                         break
                     f.write(chunk)
     except urllib.error.HTTPError as e:
-        raise RemoteQueueError(
-            f"Download failed: HTTP {e.code} {e.reason}"
-        ) from e
+        raise RemoteQueueError(f"Download failed: HTTP {e.code} {e.reason}") from e
     except urllib.error.URLError as e:
-        raise RemoteQueueError(
-            f"Download failed: {e.reason}"
-        ) from e
+        raise RemoteQueueError(f"Download failed: {e.reason}") from e
 
     logger.info("Downloaded %s -> %s (%d bytes)", filename, out_path, out_path.stat().st_size)
     return out_path
@@ -149,9 +145,7 @@ def download_all_artifacts(
     Returns:
         A list of paths to downloaded files.
     """
-    artifacts = list_artifacts(
-        base_url, task_id, timeout=timeout, api_key=api_key
-    )
+    artifacts = list_artifacts(base_url, task_id, timeout=timeout, api_key=api_key)
     downloaded: List[Path] = []
     for artifact in artifacts:
         filename = artifact.get("filename", "")
@@ -159,8 +153,12 @@ def download_all_artifacts(
             continue
         try:
             path = download_artifact(
-                base_url, task_id, filename,
-                dest_dir=dest_dir, timeout=timeout, api_key=api_key,
+                base_url,
+                task_id,
+                filename,
+                dest_dir=dest_dir,
+                timeout=timeout,
+                api_key=api_key,
             )
             downloaded.append(path)
         except Exception as e:
@@ -205,6 +203,7 @@ def register_remote_llm(base_url: str, api_key: Optional[str] = None) -> None:
                 yield LLMClient(client=client, model="remote")
             finally:
                 http_client.close()
+
         return _cm()
 
     logger.info("Registered remote LLM provider: %s", base_url)
@@ -239,10 +238,13 @@ def register_remote_tts(base_url: str, api_key: Optional[str] = None) -> None:
         ) -> None:
             """(async) Synthesize speech from text."""
             import asyncio
-            payload = json.dumps({
-                "text": text,
-                "voice": voice,
-            }).encode("utf-8")
+
+            payload = json.dumps(
+                {
+                    "text": text,
+                    "voice": voice,
+                }
+            ).encode("utf-8")
             headers = {"Content-Type": "application/json"}
             if self._key:
                 headers["X-API-Key"] = self._key

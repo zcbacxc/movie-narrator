@@ -48,10 +48,15 @@ def test_bottom_layout_has_semi_transparent_backdrop_bar():
     width) to avoid false failures while still proving the backdrop bar
     exists and spans a wide horizontal stretch.
     """
-    arr = create_text_image("long bottom subtitle text for backdrop", (1280, 720),
-                            fontsize=40, position="bottom",
-                            max_width_ratio=0.9, bottom_margin_ratio=0.06,
-                            max_lines=2)
+    arr = create_text_image(
+        "long bottom subtitle text for backdrop",
+        (1280, 720),
+        fontsize=40,
+        position="bottom",
+        max_width_ratio=0.9,
+        bottom_margin_ratio=0.06,
+        max_lines=2,
+    )
     alpha = arr[..., 3]
     rgb = arr[..., :3]
     # Stroke/text + backdrop all produce dark pixels behind/around text:
@@ -60,10 +65,10 @@ def test_bottom_layout_has_semi_transparent_backdrop_bar():
     # Backdrop bar lives in the bottom ~12% of the canvas.
     band_rows = np.where((dark_mask.sum(axis=1) > 200))[0]
     assert band_rows.size > 0
-    assert band_rows.max() > h * 0.78   # below 78% of canvas height
+    assert band_rows.max() > h * 0.78  # below 78% of canvas height
     # Backdrop spans a wide horizontal stretch (>= 50% of canvas width).
     # 50% (not 60%) because Linux font metrics render text narrower than Windows.
-    band_cols = np.where(dark_mask[band_rows.min():band_rows.max()+1].sum(axis=0) > 5)[0]
+    band_cols = np.where(dark_mask[band_rows.min() : band_rows.max() + 1].sum(axis=0) > 5)[0]
     assert band_cols.max() - band_cols.min() > w * 0.5
 
 
@@ -71,8 +76,9 @@ def test_bottom_layout_full_canvas_outside_textband_is_transparent():
     """Outside the bottom subtitle band, alpha must be 0 — so source
     footage shown above the subtitle remains untouched when ImageClip is
     composited via ``with_position((center, bottom))``."""
-    arr = create_text_image("subtitle", (1280, 720), fontsize=40, position="bottom",
-                            bottom_margin_ratio=0.06)
+    arr = create_text_image(
+        "subtitle", (1280, 720), fontsize=40, position="bottom", bottom_margin_ratio=0.06
+    )
     alpha = arr[..., 3]
     # Pick a row at the middle of the canvas — should be fully transparent.
     mid_row = 360
@@ -95,8 +101,12 @@ def test_bottom_wraps_long_text():
     """Long text is wrapped and capped at max_lines."""
     long_text = " ".join(["word"] * 50)
     arr = create_text_image(
-        long_text, (640, 360), fontsize=30, position="bottom",
-        max_width_ratio=0.9, max_lines=2,
+        long_text,
+        (640, 360),
+        fontsize=30,
+        position="bottom",
+        max_width_ratio=0.9,
+        max_lines=2,
     )
     assert arr.shape == (360, 640, 4)
 
@@ -105,7 +115,11 @@ def test_bottom_ellipsis_on_overflow():
     """When text exceeds max_lines, the last kept line is truncated with ellipsis."""
     long_text = "line one is very long\nline two is also long\nline three"
     arr = create_text_image(
-        long_text, (800, 400), fontsize=30, position="bottom", max_lines=1,
+        long_text,
+        (800, 400),
+        fontsize=30,
+        position="bottom",
+        max_lines=1,
     )
     assert arr.shape == (400, 800, 4)
 

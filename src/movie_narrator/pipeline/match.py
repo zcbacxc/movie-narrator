@@ -14,7 +14,9 @@ from typing import Any, List, Optional, Tuple, cast
 from ..models import Context, MatchedClip, Scene, StepResult
 from ..utils.optional_deps import probe
 
-_EMBEDDING_MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"  # default, overridden by ctx.metadata
+_EMBEDDING_MODEL_NAME = (
+    "paraphrase-multilingual-MiniLM-L12-v2"  # default, overridden by ctx.metadata
+)
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +103,7 @@ def _transcribe_video_audio(
     # Fallback: faster-whisper (works on Windows CPU where k2-fsa missing)
     try:
         from ._align_backend import transcribe_with_faster_whisper
+
         segments = transcribe_with_faster_whisper(
             audio_path=video_path,
             device=device,
@@ -140,10 +143,7 @@ def _build_scene_captions(
         (eliminates fragile startswith("scene ") heuristic).
     """
     if not transcript:
-        return [
-            (_build_scene_label(s.index, s.start, s.end), True)
-            for s in scenes
-        ]
+        return [(_build_scene_label(s.index, s.start, s.end), True) for s in scenes]
 
     labels: List[Tuple[str, bool]] = []
     for scene in scenes:
@@ -160,9 +160,7 @@ def _build_scene_captions(
             labels.append((caption, False))
         else:
             # No speech in this scene — use placeholder
-            labels.append(
-                (_build_scene_label(scene.index, scene.start, scene.end), True)
-            )
+            labels.append((_build_scene_label(scene.index, scene.start, scene.end), True))
 
     return labels
 
@@ -238,9 +236,7 @@ def _cosine_top1(target_vec, candidate_matrix) -> int:
     return int(sims.argmax())
 
 
-def _cosine_topk(
-    target_vec, candidate_matrix, k: int = 5
-) -> list[tuple[int, float]]:
+def _cosine_topk(target_vec, candidate_matrix, k: int = 5) -> list[tuple[int, float]]:
     """
     Returns:
         Top-K candidates as ``(local_index, score)`` sorted by score descending.
@@ -311,9 +307,7 @@ def _greedy_topk_assign(
         # Determine candidate pool
         if use_weighted_acts and act_assignments and act_scenes and act_weights:
             act_idx = act_assignments[i]
-            cand_indices = _get_act_candidate_indices(
-                act_idx, len(act_weights), act_scenes
-            )
+            cand_indices = _get_act_candidate_indices(act_idx, len(act_weights), act_scenes)
             cand_indices = [idx for idx in cand_indices if idx < n_scenes]
             if not cand_indices:
                 cand_indices = list(range(n_scenes))
@@ -553,11 +547,13 @@ def _apply_diversity(
         matched_clips[i].src_start = clamped_start
         matched_clips[i].src_end = clamped_end
         swaps += 1
-        swaps_log.append({
-            "segment_index": matched_clips[i].segment_index,
-            "old_scene": old_scene,
-            "new_scene": best_scene.index,
-        })
+        swaps_log.append(
+            {
+                "segment_index": matched_clips[i].segment_index,
+                "old_scene": old_scene,
+                "new_scene": best_scene.index,
+            }
+        )
 
     return swaps, swaps_log
 
@@ -825,7 +821,9 @@ def _match_clips_impl(
     match_texts = _resolve_match_texts(ctx)
     if ctx.translated_texts and len(ctx.translated_texts) == len(ctx.timed_segments):
         ctx.metadata["match_text_source"] = "translated"
-        ctx.metadata["match_lang"] = ctx.metadata.get("subtitle_lang", ctx.metadata.get("lang", "zh"))
+        ctx.metadata["match_lang"] = ctx.metadata.get(
+            "subtitle_lang", ctx.metadata.get("lang", "zh")
+        )
     else:
         ctx.metadata["match_text_source"] = "narration"
         ctx.metadata["match_lang"] = ctx.metadata.get("lang", "zh")
@@ -873,9 +871,7 @@ def _match_clips_impl(
 
     dark_luma = ctx.metadata.get("match_drop_dark_luma", 0.0)
     if dark_luma > 0:
-        scenes, dark_dropped = filter_dark_scenes(
-            scenes, ctx.source_video_path, dark_luma
-        )
+        scenes, dark_dropped = filter_dark_scenes(scenes, ctx.source_video_path, dark_luma)
         if dark_dropped:
             ctx.services.console.debug(
                 f"  dark drop: removed {dark_dropped} scenes "
@@ -911,18 +907,14 @@ def _match_clips_impl(
     timeline_mode = ctx.metadata.get("match_timeline_mode", "uniform")
     act_weights = ctx.metadata.get("match_act_weights", list(_DEFAULT_ACT_WEIGHTS))
     use_weighted_acts = (
-        timeline_mode == "weighted_acts"
-        and len(scenes) >= 8
-        and len(ctx.timed_segments) >= 4
+        timeline_mode == "weighted_acts" and len(scenes) >= 8 and len(ctx.timed_segments) >= 4
     )
     # Top-K rerank params
     topk = ctx.metadata.get("match_topk", 5)
     reuse_penalty = ctx.metadata.get("match_topk_reuse_penalty", 0.15)
     if use_weighted_acts:
         act_scenes = _partition_scenes_by_act(scenes, n_acts=len(act_weights))
-        act_assignments = _assign_segments_to_acts(
-            len(ctx.timed_segments), act_weights
-        )
+        act_assignments = _assign_segments_to_acts(len(ctx.timed_segments), act_weights)
         ctx.services.console.debug(
             f"  weighted_acts: {len(act_weights)} acts, "
             f"segments per act: {[act_assignments.count(a) for a in range(len(act_weights))]}"
@@ -946,14 +938,11 @@ def _match_clips_impl(
     # uniform narration-position mapping for improving D2 (scene-dialogue
     # relevance). Priority: beat anchor > weighted acts > uniform.
     beats_meta = ctx.metadata.get("beats_meta", [])
-    use_beat_anchor = (
-        len(beats_meta) == len(ctx.timed_segments)
-        and any(bm.get("approx_ratio") is not None for bm in beats_meta)
+    use_beat_anchor = len(beats_meta) == len(ctx.timed_segments) and any(
+        bm.get("approx_ratio") is not None for bm in beats_meta
     )
     if use_beat_anchor:
-        n_with_ratio = sum(
-            1 for bm in beats_meta if bm.get("approx_ratio") is not None
-        )
+        n_with_ratio = sum(1 for bm in beats_meta if bm.get("approx_ratio") is not None)
         ctx.services.console.debug(
             f"  beat anchor: {n_with_ratio}/{len(beats_meta)} "
             f"segments have approx_ratio — using beat-based time anchoring"
@@ -1100,14 +1089,11 @@ def _match_clips_impl(
             if vision_provider != "none":
                 try:
                     from ..vision import get_vision_captioner
+
                     captioner = get_vision_captioner(vision_provider)
-                    vision_labels = captioner.caption_scenes(
-                        scenes, ctx.source_video_path
-                    )
+                    vision_labels = captioner.caption_scenes(scenes, ctx.source_video_path)
                     is_stub = vision_provider == "stub"
-                    scene_captions = [
-                        (label, is_stub) for label in vision_labels
-                    ]
+                    scene_captions = [(label, is_stub) for label in vision_labels]
                     ctx.services.console.debug(
                         f"  vision captioner ({vision_provider}): "
                         f"{len(scene_captions)} captions, "
@@ -1115,8 +1101,7 @@ def _match_clips_impl(
                     )
                 except Exception as ve:
                     ctx.services.console.debug(
-                        f"  vision captioner failed ({ve}); "
-                        f"using audio-transcript captions"
+                        f"  vision captioner failed ({ve}); using audio-transcript captions"
                     )
                     logger.debug("vision captioner failed", exc_info=True)
 
@@ -1142,8 +1127,10 @@ def _match_clips_impl(
                     f"Install WhisperX with: pip install 'movie-narrator[ml]'"
                 )
                 ctx.metadata["match_captions_fake"] = True
-                final = cast(List[Tuple[dict[str, Any], float, Optional[Scene], str]],
-                         [(h, 1.0, None, "heuristic") for h in heuristic])
+                final = cast(
+                    List[Tuple[dict[str, Any], float, Optional[Scene], str]],
+                    [(h, 1.0, None, "heuristic") for h in heuristic],
+                )
             else:
                 ctx.metadata["match_captions_fake"] = False
                 emb_model = ctx.metadata.get("embedding_model_name", _EMBEDDING_MODEL_NAME)
@@ -1181,11 +1168,15 @@ def _match_clips_impl(
                 f"embedding re-rank unavailable ({e}); using heuristic"
             )
             logger.debug("embedding re-rank failed", exc_info=True)
-            final = cast(List[Tuple[dict[str, Any], float, Optional[Scene], str]],
-                         [(h, 1.0, None, "heuristic") for h in heuristic])
+            final = cast(
+                List[Tuple[dict[str, Any], float, Optional[Scene], str]],
+                [(h, 1.0, None, "heuristic") for h in heuristic],
+            )
     else:
-        final = cast(List[Tuple[dict[str, Any], float, Optional[Scene], str]],
-                     [(h, 1.0, None, "heuristic") for h in heuristic])
+        final = cast(
+            List[Tuple[dict[str, Any], float, Optional[Scene], str]],
+            [(h, 1.0, None, "heuristic") for h in heuristic],
+        )
 
     # --- Build matched clips with speed clamp -------------------------------
     matched_clips = []
@@ -1242,7 +1233,8 @@ def _match_clips_impl(
     # more than match_max_scene_reuse times within match_diversity_window
     # segments, swap later occurrences to the nearest unused scene.
     diversity_swaps, diversity_swaps_log = _apply_diversity(
-        matched_clips, scenes,
+        matched_clips,
+        scenes,
         window=ctx.metadata.get("match_diversity_window", 3),
         max_reuse=ctx.metadata.get("match_max_scene_reuse", 2),
     )
@@ -1299,14 +1291,12 @@ def _match_clips_impl(
         if speed_factors:
             ctx.services.console.debug(
                 f"  speed factors: min={min(speed_factors):.2f}x max={max(speed_factors):.2f}x "
-                f"avg={sum(speed_factors)/len(speed_factors):.2f}x (clamp={clamp_min}~{clamp_max}x)"
+                f"avg={sum(speed_factors) / len(speed_factors):.2f}x (clamp={clamp_min}~{clamp_max}x)"
             )
 
     matches_path = output_dir / "matches.json"
     matches_path.write_text(
-        json.dumps(
-            [m.model_dump() for m in matched_clips], ensure_ascii=False, indent=2
-        ),
+        json.dumps([m.model_dump() for m in matched_clips], ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 
@@ -1316,8 +1306,7 @@ def _match_clips_impl(
     # Schema per CORE_ENGINE_TREATMENT_PLAN §5.2.3.
     # Sources can be "embedding_topk", "embedding_top1", or "heuristic"
     embedding_count = sum(
-        1 for mc in matched_clips
-        if mc.source in ("embedding", "embedding_topk", "embedding_top1")
+        1 for mc in matched_clips if mc.source in ("embedding", "embedding_topk", "embedding_top1")
     )
     heuristic_count = sum(1 for mc in matched_clips if mc.source == "heuristic")
     topk_count = sum(1 for mc in matched_clips if mc.source == "embedding_topk")
@@ -1327,7 +1316,8 @@ def _match_clips_impl(
     # score stats: only for source==embedding clips that were adopted
     # (i.e. did NOT fall back to heuristic due to low score)
     adopted_embedding_scores = [
-        mc.score for mc in matched_clips
+        mc.score
+        for mc in matched_clips
         if mc.source in ("embedding", "embedding_topk", "embedding_top1")
     ]
 
@@ -1397,19 +1387,26 @@ def _match_clips_impl(
         },
         "timeline": {
             "mode": (
-                "beat_anchor" if use_beat_anchor
-                else "weighted_acts" if use_weighted_acts
+                "beat_anchor"
+                if use_beat_anchor
+                else "weighted_acts"
+                if use_weighted_acts
                 else "uniform"
             ),
             "beat_anchor": use_beat_anchor,
             "beat_anchored_count": (
                 sum(1 for bm in beats_meta if bm.get("approx_ratio") is not None)
-                if use_beat_anchor else 0
+                if use_beat_anchor
+                else 0
             ),
             "act_weights": act_weights if use_weighted_acts else None,
             "segments_per_act": (
-                [cast(list[int], act_assignments).count(a) for a in range(len(cast(list[float], act_weights)))]
-                if use_weighted_acts else None
+                [
+                    cast(list[int], act_assignments).count(a)
+                    for a in range(len(cast(list[float], act_weights)))
+                ]
+                if use_weighted_acts
+                else None
             ),
         },
         "topk": {
@@ -1419,10 +1416,7 @@ def _match_clips_impl(
             "top1_count": top1_count,
         },
         "rhythm_scoring": {
-            "enabled": any(
-                bm.get("rhythm_zone") is not None
-                for bm in beats_meta
-            ),
+            "enabled": any(bm.get("rhythm_zone") is not None for bm in beats_meta),
             "zones": {
                 z: sum(1 for bm in beats_meta if bm.get("rhythm_zone") == z)
                 for z in _RHYTHM_ZONE_TIMELINE_CENTER

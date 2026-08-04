@@ -82,8 +82,8 @@ class TestComputeRhythmAdjustment:
         """Closer scenes get higher bonuses than farther ones."""
         scene_start = 0.0
         scene_span = 100.0
-        near = Scene(index=0, start=10.0, end=20.0)   # pos ≈ 0.15 (hook center)
-        far = Scene(index=1, start=50.0, end=60.0)    # pos ≈ 0.55 (far from hook)
+        near = Scene(index=0, start=10.0, end=20.0)  # pos ≈ 0.15 (hook center)
+        far = Scene(index=1, start=50.0, end=60.0)  # pos ≈ 0.55 (far from hook)
         near_adj = _compute_rhythm_adjustment("hook", near, scene_start, scene_span)
         far_adj = _compute_rhythm_adjustment("hook", far, scene_start, scene_span)
         assert near_adj > far_adj
@@ -118,8 +118,8 @@ class TestGreedyTopkAssignRhythm:
         scene_vecs = np.array([[1.0, 0.0], [1.0, 0.0]])
         narration_vecs = np.array([[1.0, 0.0]])
         scenes = [
-            Scene(index=0, start=0.0, end=10.0),    # pos=0.05 (early)
-            Scene(index=1, start=80.0, end=90.0),   # pos=0.85 (late)
+            Scene(index=0, start=0.0, end=10.0),  # pos=0.05 (early)
+            Scene(index=1, start=80.0, end=90.0),  # pos=0.85 (late)
         ]
         # "hook" prefers early scenes → scene 0 should win
         beats_meta = [{"rhythm_zone": "hook"}]
@@ -139,8 +139,8 @@ class TestGreedyTopkAssignRhythm:
         scene_vecs = np.array([[1.0, 0.0], [1.0, 0.0]])
         narration_vecs = np.array([[1.0, 0.0]])
         scenes = [
-            Scene(index=0, start=0.0, end=10.0),    # pos=0.05 (early)
-            Scene(index=1, start=80.0, end=90.0),   # pos=0.85 (late)
+            Scene(index=0, start=0.0, end=10.0),  # pos=0.05 (early)
+            Scene(index=1, start=80.0, end=90.0),  # pos=0.85 (late)
         ]
         beats_meta = [{"rhythm_zone": "settle"}]
         results = _greedy_topk_assign(
@@ -179,8 +179,8 @@ class TestGreedyTopkAssignRhythm:
         scene_vecs = np.array([[0.1, 0.0], [1.0, 0.0]])
         narration_vecs = np.array([[1.0, 0.0]])
         scenes = [
-            Scene(index=0, start=10.0, end=20.0),   # pos=0.15 (hook center)
-            Scene(index=1, start=80.0, end=90.0),   # pos=0.85 (far from hook)
+            Scene(index=0, start=10.0, end=20.0),  # pos=0.15 (hook center)
+            Scene(index=1, start=80.0, end=90.0),  # pos=0.85 (far from hook)
         ]
         beats_meta = [{"rhythm_zone": "hook"}]
         results = _greedy_topk_assign(
@@ -210,9 +210,7 @@ def _setup_embedding_mock(monkeypatch):
         {"start": 50.0, "end": 75.0, "text": "gamma scene two"},
         {"start": 75.0, "end": 100.0, "text": "delta scene three"},
     ]
-    monkeypatch.setattr(
-        match_module, "_transcribe_video_audio", lambda *a, **k: mock_transcript
-    )
+    monkeypatch.setattr(match_module, "_transcribe_video_audio", lambda *a, **k: mock_transcript)
 
     class FakeST:
         def __init__(self, *a, **kw):
@@ -347,8 +345,8 @@ def test_match_clips_rhythm_hook_prefers_early_scene(tmp_path, monkeypatch):
     (tmp_path / "video.mp4").write_bytes(b"00")
     ctx.status.scene = "success"
     ctx.scenes = [
-        Scene(index=0, start=0.0, end=25.0),     # early
-        Scene(index=1, start=75.0, end=100.0),   # late
+        Scene(index=0, start=0.0, end=25.0),  # early
+        Scene(index=1, start=75.0, end=100.0),  # late
     ]
     # Both segments use the same text → equal semantic similarity to both scenes
     # (since both scene captions contain "alpha")

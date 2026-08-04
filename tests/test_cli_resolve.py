@@ -10,7 +10,9 @@ runner = CliRunner()
 
 def test_resolve_json_shape(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    result = runner.invoke(app, ["resolve", "--movie", "Inception", "--library-dir", str(tmp_path), "--json"])
+    result = runner.invoke(
+        app, ["resolve", "--movie", "Inception", "--library-dir", str(tmp_path), "--json"]
+    )
     parsed = json.loads(result.output.strip())
     assert "matched" in parsed
     assert "path" in parsed
@@ -53,8 +55,15 @@ def test_resolve_output_dir_option_writes_to_user_dir(tmp_path, monkeypatch):
     custom_dir = tmp_path / "my-custom-output"
     result = runner.invoke(
         app,
-        ["resolve", "--movie", "Inception", "--library-dir", str(tmp_path),
-         "--output-dir", str(custom_dir)],
+        [
+            "resolve",
+            "--movie",
+            "Inception",
+            "--library-dir",
+            str(tmp_path),
+            "--output-dir",
+            str(custom_dir),
+        ],
     )
     assert result.exit_code == 0
     # Custom directory should exist (created by the command)
@@ -69,8 +78,7 @@ def test_resolve_output_dir_short_option(tmp_path, monkeypatch):
     custom_dir = tmp_path / "short-opt-out"
     result = runner.invoke(
         app,
-        ["resolve", "--movie", "Inception", "--library-dir", str(tmp_path),
-         "-o", str(custom_dir)],
+        ["resolve", "--movie", "Inception", "--library-dir", str(tmp_path), "-o", str(custom_dir)],
     )
     assert result.exit_code == 0
     assert custom_dir.exists()

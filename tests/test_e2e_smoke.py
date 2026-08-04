@@ -47,7 +47,9 @@ def _ffmpeg_has_mp3_encoder() -> bool:
     try:
         result = subprocess.run(
             [ffmpeg, "-hide_banner", "-encoders"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         return "libmp3lame" in result.stdout or " mp3 " in result.stdout
     except Exception:
@@ -247,14 +249,18 @@ def test_e2e_dynamic_count_with_preset(ci_env, output_dir):
 
     # Mock LLM to return exactly target beats + segments
     beats_resp = _mock_llm_response(_json.dumps({"beats": [f"beat{i}" for i in range(target)]}))
-    seg_resp = _mock_llm_response(_json.dumps({"segments": [{"text": f"旁白{i}"} for i in range(target)]}))
+    seg_resp = _mock_llm_response(
+        _json.dumps({"segments": [{"text": f"旁白{i}"} for i in range(target)]})
+    )
     mock_cm = _mock_llm_cm(side_effect=[beats_resp, seg_resp])
 
     with patch("movie_narrator.pipeline.script.get_settings", return_value=_mock_settings()):
         with patch("movie_narrator.pipeline.script.get_llm_client", return_value=mock_cm):
             # Patch research_plot's LLM too (it runs before generate_script)
             with patch("movie_narrator.pipeline.research.get_llm_client", return_value=mock_cm):
-                with patch("movie_narrator.pipeline.research.get_settings", return_value=_mock_settings()):
+                with patch(
+                    "movie_narrator.pipeline.research.get_settings", return_value=_mock_settings()
+                ):
                     result = run_pipeline(ctx)
 
     # script_target_count should be 8 (calculated from 60/7.5)

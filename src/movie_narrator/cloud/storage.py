@@ -204,11 +204,7 @@ class TaskStorage:
             self._ensure_loaded()
             if status is None:
                 return len(self._cache)
-            return sum(
-                1
-                for v in self._cache.values()
-                if v.get("status") == status.value
-            )
+            return sum(1 for v in self._cache.values() if v.get("status") == status.value)
 
     # ── Bulk operations ──────────────────────────────────────
 
@@ -227,9 +223,7 @@ class TaskStorage:
                 TaskStatus.DEAD.value,
             }
             to_remove = [
-                tid
-                for tid, data in self._cache.items()
-                if data.get("status") in terminal_values
+                tid for tid, data in self._cache.items() if data.get("status") in terminal_values
             ]
             for tid in to_remove:
                 del self._cache[tid]

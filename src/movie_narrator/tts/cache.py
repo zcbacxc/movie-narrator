@@ -21,13 +21,13 @@ PROVIDER_CACHE_VERSIONS: dict[str, int] = {
 class TTSCacheKey:
     """Cache key for TTS audio results."""
 
-    schema_version: int   # currently 3; bumps when key shape changes
-    provider: str         # "edge" | "openai" | "mimo"
+    schema_version: int  # currently 3; bumps when key shape changes
+    provider: str  # "edge" | "openai" | "mimo"
     provider_version: int  # per-backend encoding version
-    model: str            # "" for Edge, "tts-1" for OpenAI
+    model: str  # "" for Edge, "tts-1" for OpenAI
     voice: str
     text: str
-    style_prompt: str     # ST-08: MiMo style_prompt affects audio; must be in key
+    style_prompt: str  # ST-08: MiMo style_prompt affects audio; must be in key
 
 
 def cache_path_for(root: Path, key: TTSCacheKey) -> Path:

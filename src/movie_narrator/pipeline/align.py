@@ -153,9 +153,7 @@ def align_audio(ctx: Context) -> Context:
     ctx.metadata["align_backend_reason"] = backend_reason
 
     if backend == "none":
-        ctx.services.console.inline_warn(
-            f"Audio alignment unavailable: {backend_reason}"
-        )
+        ctx.services.console.inline_warn(f"Audio alignment unavailable: {backend_reason}")
         ctx.status.align = "disabled"
         ctx.step_state.result = StepResult.SKIPPED
         ctx.step_state.message = backend_reason
@@ -168,12 +166,8 @@ def align_audio(ctx: Context) -> Context:
             return _align_with_whisperx(ctx)
     except BackendUnavailable as e:
         # faster-whisper was selected but failed at runtime — try whisperx
-        ctx.services.console.inline_warn(
-            f"faster-whisper failed ({e}); trying whisperx"
-        )
-        ctx.metadata.setdefault("align_backend_attempted", []).append(
-            f"faster_whisper: {e}"
-        )
+        ctx.services.console.inline_warn(f"faster-whisper failed ({e}); trying whisperx")
+        ctx.metadata.setdefault("align_backend_attempted", []).append(f"faster_whisper: {e}")
         try:
             return _align_with_whisperx(ctx)
         except Exception as fallback_err:
@@ -196,16 +190,13 @@ def _align_with_whisperx(ctx: Context) -> Context:
         device = ctx.metadata.get("whisperx_device", "cpu")
         language = ctx.metadata.get("whisperx_language", "zh")
         audio = whisperx.load_audio(ctx.audio_path)
-        model = whisperx.load_model(
-            ctx.metadata.get("whisperx_model", "medium"), device=device
-        )
+        model = whisperx.load_model(ctx.metadata.get("whisperx_model", "medium"), device=device)
         result = model.transcribe(audio, language=language)
 
         if not result or "segments" not in result or not result["segments"]:
             # ── Empty ASR → skipped (not success) ──
             ctx.services.console.inline_warn(
-                "WhisperX returned no speech segments; "
-                "timestamps remain TTS-estimated"
+                "WhisperX returned no speech segments; timestamps remain TTS-estimated"
             )
             ctx.status.align = "skipped"
             ctx.step_state.result = StepResult.WARNING
@@ -219,12 +210,8 @@ def _align_with_whisperx(ctx: Context) -> Context:
         # v0.5.11: preserve word-level segments for sub-segment precision.
         word_segments_data: list[dict] = []
         try:
-            model_a, metadata = whisperx.load_align_model(
-                language_code=language, device=device
-            )
-            result = whisperx.align(
-                result["segments"], model_a, metadata, audio, device=device
-            )
+            model_a, metadata = whisperx.load_align_model(language_code=language, device=device)
+            result = whisperx.align(result["segments"], model_a, metadata, audio, device=device)
             # v0.5.11: Extract word-level segments from align result
             word_segments_data = extract_word_segments(result)
         except Exception as align_err:
@@ -259,8 +246,7 @@ def _align_with_whisperx(ctx: Context) -> Context:
 
         if not wx_segments:
             ctx.services.console.inline_warn(
-                "WhisperX alignment produced no usable segments; "
-                "timestamps remain TTS-estimated"
+                "WhisperX alignment produced no usable segments; timestamps remain TTS-estimated"
             )
             ctx.status.align = "skipped"
             ctx.step_state.result = StepResult.WARNING
@@ -279,12 +265,8 @@ def _align_with_whisperx(ctx: Context) -> Context:
         # Assign word-level timestamps to timed segments, then apply
         # word-level remapping for sub-segment precision.
         if word_segments_data:
-            assigned = assign_words_to_segments(
-                ctx.timed_segments, word_segments_data, wx_segments
-            )
-            tightened = word_level_remap(
-                ctx.timed_segments, word_segments_data
-            )
+            assigned = assign_words_to_segments(ctx.timed_segments, word_segments_data, wx_segments)
+            tightened = word_level_remap(ctx.timed_segments, word_segments_data)
             ctx.metadata["align_word_segments"] = len(word_segments_data)
             ctx.metadata["align_words_assigned"] = assigned
             ctx.metadata["align_word_tightened"] = tightened
@@ -328,8 +310,7 @@ def _align_with_faster_whisper(ctx: Context) -> Context:
 
     if not wx_segments:
         ctx.services.console.inline_warn(
-            "faster-whisper returned no speech segments; "
-            "timestamps remain TTS-estimated"
+            "faster-whisper returned no speech segments; timestamps remain TTS-estimated"
         )
         ctx.status.align = "skipped"
         ctx.step_state.result = StepResult.WARNING

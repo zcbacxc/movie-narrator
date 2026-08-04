@@ -23,9 +23,7 @@ class OpenAITTSProvider(BaseTTSProvider):
         api_key = settings.openai_tts_api_key or settings.llm_api_key
         base_url = settings.openai_tts_base_url or settings.llm_base_url
         if not api_key:
-            raise ConfigError(
-                "OpenAI TTS requires MN_OPENAI_TTS_API_KEY or MN_LLM_API_KEY set."
-            )
+            raise ConfigError("OpenAI TTS requires MN_OPENAI_TTS_API_KEY or MN_LLM_API_KEY set.")
         # Lazy import keeps startup lighter and allows future optional packaging.
         from openai import OpenAI
 

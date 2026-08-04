@@ -114,9 +114,7 @@ class ProgressConsole(BaseConsole):
             try:
                 self._on_step_complete(name)
             except Exception:  # noqa: BLE001 — checkpointing must not break the pipeline
-                logger.debug(
-                    "Checkpoint callback failed for step %s", name, exc_info=True
-                )
+                logger.debug("Checkpoint callback failed for step %s", name, exc_info=True)
 
     def step(self, name: str) -> None:
         """Record the start of a pipeline step."""
@@ -214,6 +212,7 @@ def _build_output_dir(request: TaskRequest) -> Path:
         return Path(request.output_dir)
     # Default: ./output/<movie_name>_<task_id>
     from ..utils.sanitize import sanitize_filename
+
     safe_name = sanitize_filename(request.movie_name) or "movie"
     return Path("output") / safe_name
 
@@ -250,6 +249,7 @@ def _restore_context(
     ctx = Context(**context_dump)
     ctx.services = services
     from ..utils.cost_tracker import CostTracker
+
     ctx.cost_tracker = CostTracker()
     return ctx
 
@@ -301,9 +301,7 @@ def _route_to_dead_letter(task: Task) -> None:
         _dlq_store().save(record)
         task.status = TaskStatus.DEAD
     except Exception as e:  # noqa: BLE001 — DLQ is best-effort
-        logger.debug(
-            "Failed to write dead-letter record for %s: %s", task.id, e
-        )
+        logger.debug("Failed to write dead-letter record for %s: %s", task.id, e)
 
 
 # ── Conditional distributed rendering (v0.9.4) ─────────────
@@ -363,7 +361,8 @@ def _maybe_dispatch_render(
     except DistributedRenderError as e:
         logger.debug(
             "Distributed render to %s failed, falling back to local: %s",
-            node, e,
+            node,
+            e,
         )
         return None
 
@@ -391,9 +390,7 @@ def _apply_distributed_result(
         ctx.subtitle_path = result.subtitle_path
     ctx.metadata.setdefault("distributed_render", True)
 
-    render_index = next(
-        i for i, step in enumerate(STEPS) if step.__name__ == _RENDER_STEP
-    )
+    render_index = next(i for i, step in enumerate(STEPS) if step.__name__ == _RENDER_STEP)
     console.set_step_index(render_index)
     console.step_ok(_RENDER_STEP, elapsed)
 
@@ -458,32 +455,34 @@ def _execute_task(
             resume.start_step if resume.start_step else "<done>",
         )
     else:
-        ctx = build_context(**common_build_kwargs(
-            movie=request.movie_name,
-            style=request.style,
-            duration=request.duration,
-            voice=request.voice,
-            video_format=request.video_format,
-            output_dir=output_dir,
-            keep_cache=request.keep_cache,
-            video=request.video,
-            library_dir=request.library_dir,
-            research=request.research,
-            bgm=request.bgm,
-            no_bgm=request.no_bgm,
-            no_clips=request.no_clips,
-            strict=request.strict,
-            workflow_steps=request.workflow_steps,
-            params=request.params,
-            config_path=request.config_path,
-            subtitle_lang=request.subtitle_lang,
-            subtitle_mode=request.subtitle_mode,
-            services=services,
-            narration_preset=request.narration_preset,
-            lang=request.lang,
-            log_level=log_level,
-            verbose=request.verbose,
-        ))
+        ctx = build_context(
+            **common_build_kwargs(
+                movie=request.movie_name,
+                style=request.style,
+                duration=request.duration,
+                voice=request.voice,
+                video_format=request.video_format,
+                output_dir=output_dir,
+                keep_cache=request.keep_cache,
+                video=request.video,
+                library_dir=request.library_dir,
+                research=request.research,
+                bgm=request.bgm,
+                no_bgm=request.no_bgm,
+                no_clips=request.no_clips,
+                strict=request.strict,
+                workflow_steps=request.workflow_steps,
+                params=request.params,
+                config_path=request.config_path,
+                subtitle_lang=request.subtitle_lang,
+                subtitle_mode=request.subtitle_mode,
+                services=services,
+                narration_preset=request.narration_preset,
+                lang=request.lang,
+                log_level=log_level,
+                verbose=request.verbose,
+            )
+        )
 
     # v0.9.2: checkpoint hook — snapshot the context after each completed
     # step. The closure reads the current ``ctx`` (steps mutate it in
@@ -492,12 +491,14 @@ def _execute_task(
     if checkpoint_store is not None:
 
         def _write_checkpoint(step_name: str) -> None:
-            checkpoint_store.save(TaskCheckpoint(
-                task_id=task.id,
-                completed_step=step_name,
-                context_dump=ctx.model_dump(mode="json", exclude={"services", "cost_tracker"}),
-                attempt=attempt,
-            ))
+            checkpoint_store.save(
+                TaskCheckpoint(
+                    task_id=task.id,
+                    completed_step=step_name,
+                    context_dump=ctx.model_dump(mode="json", exclude={"services", "cost_tracker"}),
+                    attempt=attempt,
+                )
+            )
             progress.latest_checkpoint_step = step_name
             progress.checkpoint_updated_at = datetime.now(timezone.utc).isoformat()
 
@@ -510,9 +511,7 @@ def _execute_task(
         start_time=start_time,
         on_step_complete=_write_checkpoint if checkpoint_store is not None else _noop_checkpoint,
         initial_step_index=(
-            _step_index_of(resume.start_step)
-            if resume is not None and resume.start_step
-            else 0
+            _step_index_of(resume.start_step) if resume is not None and resume.start_step else 0
         ),
     )
     services.console = progress_console
@@ -542,9 +541,7 @@ def _execute_task(
             _apply_distributed_result(
                 ctx, distributed_result, progress_console, distributed_elapsed
             )
-            ctx = run_pipeline(
-                ctx, controller=controller, start_step=_step_after_render()
-            )
+            ctx = run_pipeline(ctx, controller=controller, start_step=_step_after_render())
             task.result = _extract_result(ctx, output_dir)
             task.status = TaskStatus.COMPLETED
             task.completed_at = datetime.now(timezone.utc).isoformat()
@@ -632,9 +629,7 @@ def run_task(
             try:
                 resume = checkpoint_store.resolve_resume(task.id)
             except Exception:  # noqa: BLE001 — checkpointing must never block a run
-                logger.debug(
-                    "Failed to resolve checkpoint for task %s", task.id, exc_info=True
-                )
+                logger.debug("Failed to resolve checkpoint for task %s", task.id, exc_info=True)
             if resume is not None and not resume.done:
                 logger.info(
                     "Task %s: resuming from checkpoint (start at '%s')",
@@ -658,9 +653,7 @@ def run_task(
                 try:
                     checkpoint_store.delete(task.id)
                 except Exception:  # noqa: BLE001 — best-effort cleanup
-                    logger.debug(
-                        "Failed to delete checkpoint for task %s", task.id, exc_info=True
-                    )
+                    logger.debug("Failed to delete checkpoint for task %s", task.id, exc_info=True)
             if on_status_change:
                 on_status_change(task)
             return task
@@ -679,18 +672,26 @@ def run_task(
             # Check if the original exception had retryable attribute
             # We stored the error type; check common retryable patterns
             retryable_types = {
-                "ConnectionError", "TimeoutError", "ConnectError",
-                "ReadTimeout", "WriteTimeout", "PoolTimeout",
-                "HTTPStatusError", "RateLimitError",
+                "ConnectionError",
+                "TimeoutError",
+                "ConnectError",
+                "ReadTimeout",
+                "WriteTimeout",
+                "PoolTimeout",
+                "HTTPStatusError",
+                "RateLimitError",
             }
             is_retryable = error_type in retryable_types
 
         if attempt < max_retries and is_retryable:
             # Wait with exponential backoff
-            delay = task.request.retry_delay * (2 ** attempt)
+            delay = task.request.retry_delay * (2**attempt)
             logger.info(
                 "Task %s: retrying in %.1fs (attempt %d/%d)",
-                task.id, delay, attempt + 1, max_retries,
+                task.id,
+                delay,
+                attempt + 1,
+                max_retries,
             )
             # Interruptible sleep
             if controller._event.wait(timeout=delay):

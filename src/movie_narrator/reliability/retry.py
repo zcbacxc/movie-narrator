@@ -79,9 +79,7 @@ class RetryPolicy:
         """
         if self.should_retry is not None:
             return bool(self.should_retry(exc))
-        if self.retryable_exceptions is not None and not isinstance(
-            exc, self.retryable_exceptions
-        ):
+        if self.retryable_exceptions is not None and not isinstance(exc, self.retryable_exceptions):
             return False
         retryable_attr = getattr(exc, "retryable", False)
         return bool(retryable_attr) or is_network_error(exc)
@@ -162,6 +160,7 @@ def with_retry(policy: RetryPolicy) -> Callable[[Callable[..., _T]], Callable[..
 
     def decorator(fn: Callable[..., _T]) -> Callable[..., _T]:
         """Register a decorator function."""
+
         @wraps(fn)
         def wrapper(*args: Any, **kwargs: Any) -> _T:
             """Wrapper function for the decorator pattern."""
@@ -174,8 +173,7 @@ def with_retry(policy: RetryPolicy) -> Callable[[Callable[..., _T]], Callable[..
                         raise
                     delay = _sleep_delay(attempt + 1, policy)
                     logger.debug(
-                        "retry[%s]: attempt %d/%d failed with %s: %s; "
-                        "retrying in %.3fs",
+                        "retry[%s]: attempt %d/%d failed with %s: %s; retrying in %.3fs",
                         getattr(fn, "__name__", fn),
                         attempt + 1,
                         policy.max_attempts,
@@ -217,6 +215,7 @@ def with_async_retry(
 
     def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
         """Register a decorator function."""
+
         @wraps(fn)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             """(async) Wrapper function for the decorator pattern."""
@@ -229,8 +228,7 @@ def with_async_retry(
                         raise
                     delay = _sleep_delay(attempt + 1, policy)
                     logger.debug(
-                        "async_retry[%s]: attempt %d/%d failed with %s: %s; "
-                        "retrying in %.3fs",
+                        "async_retry[%s]: attempt %d/%d failed with %s: %s; retrying in %.3fs",
                         getattr(fn, "__name__", fn),
                         attempt + 1,
                         policy.max_attempts,

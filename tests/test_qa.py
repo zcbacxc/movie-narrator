@@ -29,8 +29,10 @@ def test_qa_runs_in_ci_when_explicitly_enabled(tmp_path):
     """qa_enabled=True forces QA even in CI."""
     ctx = _ctx(tmp_path, qa_enabled=True)
     report = QAReport(ok=True, issues=[], metrics={"duration": 10.0, "mean_volume": -14.0})
-    with patch("movie_narrator.pipeline.qa.is_ci", return_value=True), \
-         patch("movie_narrator.pipeline.qa.evaluate_deliverable", return_value=report):
+    with (
+        patch("movie_narrator.pipeline.qa.is_ci", return_value=True),
+        patch("movie_narrator.pipeline.qa.evaluate_deliverable", return_value=report),
+    ):
         validate_deliverable(ctx)
     assert ctx.metadata["qa_report"]["ok"] is True
 
@@ -48,8 +50,10 @@ def test_qa_runs_locally_by_default(tmp_path):
     """Outside CI with qa_enabled unset, QA runs."""
     ctx = _ctx(tmp_path)
     report = QAReport(ok=True, issues=[], metrics={"duration": 10.0, "mean_volume": -14.0})
-    with patch("movie_narrator.pipeline.qa.is_ci", return_value=False), \
-         patch("movie_narrator.pipeline.qa.evaluate_deliverable", return_value=report):
+    with (
+        patch("movie_narrator.pipeline.qa.is_ci", return_value=False),
+        patch("movie_narrator.pipeline.qa.evaluate_deliverable", return_value=report),
+    ):
         validate_deliverable(ctx)
     assert ctx.metadata["qa_report"]["ok"] is True
 
@@ -62,8 +66,10 @@ def test_qa_raises_on_failure(tmp_path):
         issues=[QAIssue("silent_audio", "mean volume -60dB too low")],
         metrics={"duration": 10.0, "mean_volume": -60.0},
     )
-    with patch("movie_narrator.pipeline.qa.is_ci", return_value=False), \
-         patch("movie_narrator.pipeline.qa.evaluate_deliverable", return_value=report):
+    with (
+        patch("movie_narrator.pipeline.qa.is_ci", return_value=False),
+        patch("movie_narrator.pipeline.qa.evaluate_deliverable", return_value=report),
+    ):
         with pytest.raises(RuntimeError, match="silent_audio"):
             validate_deliverable(ctx)
 
@@ -85,8 +91,10 @@ def test_qa_stores_report_in_metadata(tmp_path):
         issues=[QAIssue("too_short", "5s < 85% of 10s")],
         metrics={"duration": 5.0, "mean_volume": -14.0},
     )
-    with patch("movie_narrator.pipeline.qa.is_ci", return_value=False), \
-         patch("movie_narrator.pipeline.qa.evaluate_deliverable", return_value=report):
+    with (
+        patch("movie_narrator.pipeline.qa.is_ci", return_value=False),
+        patch("movie_narrator.pipeline.qa.evaluate_deliverable", return_value=report),
+    ):
         with pytest.raises(RuntimeError):
             validate_deliverable(ctx)
     stored = ctx.metadata["qa_report"]

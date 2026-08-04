@@ -80,6 +80,7 @@ class FakePlugin:
 
     def register(self, ctx: PluginContext) -> None:
         self.registered = True
+
         # Register a dummy step to verify registry integration
         def my_step(ctx):
             return ctx
@@ -298,15 +299,18 @@ class TestSDKExports:
 
     def test_discover_plugins_exported(self):
         from movie_narrator import discover_plugins
+
         assert callable(discover_plugins)
 
     def test_list_available_plugins_exported(self):
         from movie_narrator import list_available_plugins
+
         assert callable(list_available_plugins)
 
     def test_services_exported(self):
         from movie_narrator import Services as ExportedServices
         from movie_narrator.models import Services
+
         assert ExportedServices is Services
 
     def test_entry_point_group_constant(self):
@@ -314,6 +318,7 @@ class TestSDKExports:
 
     def test_discover_plugins_in_contract_all(self):
         from movie_narrator import contract
+
         assert "discover_plugins" in contract.__all__
         assert "list_available_plugins" in contract.__all__
         assert "Services" in contract.__all__

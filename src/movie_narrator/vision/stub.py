@@ -33,7 +33,4 @@ class StubVisionCaptioner(VisionCaptioner):
         video_path: Optional[str] = None,
     ) -> List[str]:
         """Generate captions for video scenes."""
-        return [
-            f"scene {s.index} from {s.start:.1f}s to {s.end:.1f}s"
-            for s in scenes
-        ]
+        return [f"scene {s.index} from {s.start:.1f}s to {s.end:.1f}s" for s in scenes]

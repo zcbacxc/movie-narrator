@@ -189,41 +189,50 @@ class TestGetPreviewDuration:
 class TestShouldSkipStepForPreview:
     """should_skip_step_for_preview only skips soft steps when preview is on."""
 
-    @pytest.mark.parametrize("step", [
-        "research_plot",
-        "translate_subtitles",
-        "run_qa_gate",
-        "export_clips",
-    ])
+    @pytest.mark.parametrize(
+        "step",
+        [
+            "research_plot",
+            "translate_subtitles",
+            "run_qa_gate",
+            "export_clips",
+        ],
+    )
     def test_soft_steps_skipped_in_preview(self, step):
         assert should_skip_step_for_preview(step, True) is True
 
-    @pytest.mark.parametrize("step", [
-        "resolve_video",
-        "prepare_assets",
-        "generate_script",
-        "export_script_md",
-        "generate_voice",
-        "align_audio",
-        "detect_scenes",
-        "match_clips",
-        "mix_bgm",
-        "generate_subtitle",
-        "render_video",
-        "validate_deliverable",
-    ])
+    @pytest.mark.parametrize(
+        "step",
+        [
+            "resolve_video",
+            "prepare_assets",
+            "generate_script",
+            "export_script_md",
+            "generate_voice",
+            "align_audio",
+            "detect_scenes",
+            "match_clips",
+            "mix_bgm",
+            "generate_subtitle",
+            "render_video",
+            "validate_deliverable",
+        ],
+    )
     def test_hard_steps_never_skipped(self, step):
         """Hard steps run even in preview mode."""
         assert should_skip_step_for_preview(step, True) is False
 
-    @pytest.mark.parametrize("step", [
-        "research_plot",
-        "translate_subtitles",
-        "run_qa_gate",
-        "export_clips",
-        "generate_script",
-        "render_video",
-    ])
+    @pytest.mark.parametrize(
+        "step",
+        [
+            "research_plot",
+            "translate_subtitles",
+            "run_qa_gate",
+            "export_clips",
+            "generate_script",
+            "render_video",
+        ],
+    )
     def test_nothing_skipped_when_preview_off(self, step):
         """Preview off = nothing skipped (backward compatible)."""
         assert should_skip_step_for_preview(step, False) is False

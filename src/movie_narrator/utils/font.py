@@ -12,10 +12,7 @@ from PIL import ImageFont
 def get_font(fontsize: int = 100) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     """Get the path to a usable font file."""
     project_font = (
-        Path(__file__).parent.parent.parent.parent
-        / "assets"
-        / "fonts"
-        / "NotoSansSC-Regular.otf"
+        Path(__file__).parent.parent.parent.parent / "assets" / "fonts" / "NotoSansSC-Regular.otf"
     )
     if project_font.exists():
         try:

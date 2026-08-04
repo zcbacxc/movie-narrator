@@ -47,8 +47,9 @@ def _check_llm(ctx: Context) -> None:
         console.debug("  preflight: CI mode — skipping LLM probe")
         return
 
-    console.debug(f"  preflight: probing LLM at {settings.llm_base_url} "
-                  f"(model={settings.llm_model})")
+    console.debug(
+        f"  preflight: probing LLM at {settings.llm_base_url} (model={settings.llm_model})"
+    )
     try:
         with get_llm_client() as llm:
             llm.client.chat.completions.create(
@@ -89,6 +90,7 @@ def _check_tts(ctx: Context) -> None:
     # cost / latency — the provider will surface network errors at step 6.
     try:
         from ..tts import get_tts_provider
+
         get_tts_provider(settings)
     except ConfigError as e:
         raise PreflightError(

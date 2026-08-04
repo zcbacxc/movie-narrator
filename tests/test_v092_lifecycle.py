@@ -145,10 +145,13 @@ class TestCheckpointStore:
 
     def test_resolve_resume_returns_next_step(self, tmp_path):
         store = CheckpointStore(tmp_path / "tasks")
-        store.save(TaskCheckpoint(
-            task_id="abc", completed_step="generate_script",
-            context_dump={"movie_name": "X"},
-        ))
+        store.save(
+            TaskCheckpoint(
+                task_id="abc",
+                completed_step="generate_script",
+                context_dump={"movie_name": "X"},
+            )
+        )
         plan = store.resolve_resume("abc")
         assert plan is not None
         assert plan.done is False
@@ -206,9 +209,7 @@ class TestWorkerCheckpointing:
             max_retries=0,
         )
         task = Task(request=req)
-        result = _execute_task(
-            task, CancelController(), checkpoint_store=store, attempt=2
-        )
+        result = _execute_task(task, CancelController(), checkpoint_store=store, attempt=2)
         assert result.status == TaskStatus.COMPLETED
 
         cp = store.load(task.id)
@@ -228,9 +229,7 @@ class TestWorkerCheckpointing:
             return ctx
 
         _patch_pipeline(monkeypatch, fake_pipeline)
-        req = TaskRequest(
-            movie_name="Meta", output_dir=str(tmp_path / "out"), max_retries=0
-        )
+        req = TaskRequest(movie_name="Meta", output_dir=str(tmp_path / "out"), max_retries=0)
         task = Task(request=req)
         result = _execute_task(task, CancelController(), checkpoint_store=store)
         assert result.status == TaskStatus.COMPLETED
@@ -257,12 +256,14 @@ class TestWorkerCheckpointing:
             max_retries=0,
         )
         task = Task(request=req)
-        store.save(TaskCheckpoint(
-            task_id=task.id,
-            completed_step="generate_script",
-            context_dump=_context_dump(tmp_path, "ResumeTest"),
-            attempt=0,
-        ))
+        store.save(
+            TaskCheckpoint(
+                task_id=task.id,
+                completed_step="generate_script",
+                context_dump=_context_dump(tmp_path, "ResumeTest"),
+                attempt=0,
+            )
+        )
 
         result = run_task(task, CancelController(), checkpoint_store=store)
         assert result.status == TaskStatus.COMPLETED
@@ -290,12 +291,14 @@ class TestWorkerCheckpointing:
         task = Task(request=req)
         dump = _context_dump(tmp_path, "DoneTest")
         dump["video_path"] = str(tmp_path / "out" / "final.mp4")
-        store.save(TaskCheckpoint(
-            task_id=task.id,
-            completed_step=STEPS[-1].__name__,
-            context_dump=dump,
-            attempt=0,
-        ))
+        store.save(
+            TaskCheckpoint(
+                task_id=task.id,
+                completed_step=STEPS[-1].__name__,
+                context_dump=dump,
+                attempt=0,
+            )
+        )
 
         result = run_task(task, CancelController(), checkpoint_store=store)
         assert result.status == TaskStatus.COMPLETED
@@ -307,9 +310,7 @@ class TestWorkerCheckpointing:
         monkeypatch.setenv("CI", "1")
         store = CheckpointStore(tmp_path / "tasks")
         _patch_pipeline(monkeypatch, _mock_pipeline)
-        req = TaskRequest(
-            movie_name="Delete", output_dir=str(tmp_path / "out"), max_retries=0
-        )
+        req = TaskRequest(movie_name="Delete", output_dir=str(tmp_path / "out"), max_retries=0)
         task = Task(request=req)
         result = run_task(task, CancelController(), checkpoint_store=store)
         assert result.status == TaskStatus.COMPLETED
@@ -326,9 +327,7 @@ class TestWorkerCheckpointing:
             return ctx
 
         _patch_pipeline(monkeypatch, fake_pipeline)
-        req = TaskRequest(
-            movie_name="Fresh", output_dir=str(tmp_path / "out"), max_retries=0
-        )
+        req = TaskRequest(movie_name="Fresh", output_dir=str(tmp_path / "out"), max_retries=0)
         task = Task(request=req)
         result = run_task(task, CancelController(), checkpoint_store=store)
         assert result.status == TaskStatus.COMPLETED
@@ -347,9 +346,9 @@ class TestQueueGracefulShutdown:
         monkeypatch.setenv("CI", "1")
         _patch_pipeline(monkeypatch, _cancel_aware_slow_pipeline(0.6))
         queue = LocalTaskQueue(storage_dir=tmp_path / "tasks", max_workers=1)
-        task_id = queue.submit(TaskRequest(
-            movie_name="Join", output_dir=str(tmp_path / "out"), max_retries=0
-        ))
+        task_id = queue.submit(
+            TaskRequest(movie_name="Join", output_dir=str(tmp_path / "out"), max_retries=0)
+        )
         start = time.monotonic()
         queue.shutdown(wait=True, timeout=10.0)
         elapsed = time.monotonic() - start
@@ -362,9 +361,9 @@ class TestQueueGracefulShutdown:
         monkeypatch.setenv("CI", "1")
         _patch_pipeline(monkeypatch, _cancel_aware_slow_pipeline(10.0))
         queue = LocalTaskQueue(storage_dir=tmp_path / "tasks", max_workers=1)
-        task_id = queue.submit(TaskRequest(
-            movie_name="Cancel", output_dir=str(tmp_path / "out"), max_retries=0
-        ))
+        task_id = queue.submit(
+            TaskRequest(movie_name="Cancel", output_dir=str(tmp_path / "out"), max_retries=0)
+        )
         start = time.monotonic()
         queue.shutdown(wait=True, timeout=0.5)
         assert time.monotonic() - start < 5.0  # returned despite long task
@@ -383,9 +382,9 @@ class TestQueueGracefulShutdown:
         monkeypatch.setenv("CI", "1")
         _patch_pipeline(monkeypatch, _cancel_aware_slow_pipeline(5.0))
         queue = LocalTaskQueue(storage_dir=tmp_path / "tasks", max_workers=1)
-        queue.submit(TaskRequest(
-            movie_name="Abandon", output_dir=str(tmp_path / "out"), max_retries=0
-        ))
+        queue.submit(
+            TaskRequest(movie_name="Abandon", output_dir=str(tmp_path / "out"), max_retries=0)
+        )
         time.sleep(0.2)  # let the worker start
         start = time.monotonic()
         queue.shutdown(wait=False)
@@ -403,12 +402,12 @@ class TestQueueGracefulShutdown:
         monkeypatch.setenv("CI", "1")
         _patch_pipeline(monkeypatch, _cancel_aware_slow_pipeline(0.3))
         queue = LocalTaskQueue(storage_dir=tmp_path / "tasks", max_workers=1)
-        first_id = queue.submit(TaskRequest(
-            movie_name="Occupier", output_dir=str(tmp_path / "out"), max_retries=0
-        ))
-        queued_id = queue.submit(TaskRequest(
-            movie_name="Queued", output_dir=str(tmp_path / "out2"), max_retries=0
-        ))
+        first_id = queue.submit(
+            TaskRequest(movie_name="Occupier", output_dir=str(tmp_path / "out"), max_retries=0)
+        )
+        queued_id = queue.submit(
+            TaskRequest(movie_name="Queued", output_dir=str(tmp_path / "out2"), max_retries=0)
+        )
         time.sleep(0.1)  # occupier running, the other still queued
 
         start = time.monotonic()
@@ -473,18 +472,18 @@ class TestApiGracefulShutdown:
         )
         server.start(blocking=False)
         try:
-            server.queue.submit(TaskRequest(
-                movie_name="Drain",
-                output_dir=str(tmp_path / "out"),
-                max_retries=0,
-            ))
+            server.queue.submit(
+                TaskRequest(
+                    movie_name="Drain",
+                    output_dir=str(tmp_path / "out"),
+                    max_retries=0,
+                )
+            )
             time.sleep(0.2)  # let the worker start
 
             # stop() drains from another thread; the HTTP loop stays up
             # during the drain so probes can report the draining state.
-            stop_thread = threading.Thread(
-                target=server.stop, kwargs={"drain_timeout": 5.0}
-            )
+            stop_thread = threading.Thread(target=server.stop, kwargs={"drain_timeout": 5.0})
             stop_thread.start()
             time.sleep(0.3)  # drain in progress
 
@@ -582,11 +581,13 @@ class TestQueueCheckpointWiring:
         _patch_pipeline(monkeypatch, fake_pipeline)
         queue = LocalTaskQueue(storage_dir=tmp_path / "tasks", max_workers=1)
         try:
-            task_id = queue.submit(TaskRequest(
-                movie_name="Wired",
-                output_dir=str(tmp_path / "out"),
-                max_retries=0,
-            ))
+            task_id = queue.submit(
+                TaskRequest(
+                    movie_name="Wired",
+                    output_dir=str(tmp_path / "out"),
+                    max_retries=0,
+                )
+            )
             # The checkpoint for the completed step must appear while the
             # worker is paused inside the pipeline.
             deadline = time.monotonic() + 5.0

@@ -68,6 +68,7 @@ def test_run_pipeline_accumulates_degraded_steps_for_internal_fallback(tmp_path)
     runner's outer except block never fired, so _degraded_steps stayed
     empty and the degradation was invisible in the runner's summary.
     """
+
     def _passthrough(ctx: Context) -> Context:
         return ctx
 
@@ -109,6 +110,7 @@ def test_run_pipeline_accumulates_degraded_steps_for_internal_fallback(tmp_path)
 def test_run_pipeline_does_not_duplicate_degraded_steps(tmp_path):
     """Soft-step degradation: if a soft step both raises AND sets status='failed', the runner
     should not add it to _degraded_steps twice (idempotent)."""
+
     def _passthrough(ctx: Context) -> Context:
         return ctx
 
@@ -147,6 +149,7 @@ def test_run_pipeline_does_not_duplicate_degraded_steps(tmp_path):
 def test_run_pipeline_no_degraded_when_step_succeeds(tmp_path):
     """Soft-step degradation: a step that returns normally with status='success' should NOT
     be added to _degraded_steps."""
+
     def _passthrough(ctx: Context) -> Context:
         return ctx
 

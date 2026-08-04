@@ -19,9 +19,9 @@ _USER_ENV = _USER_DIR / ".env"
 # Package-level .env.example — single source of truth for default config.
 # At runtime we resolve it relative to this file so it works in editable
 # installs, wheels, and source checkouts alike.
-_PACKAGE_DIR = Path(__file__).resolve().parent          # src/movie_narrator/
-_SRC_DIR = _PACKAGE_DIR.parent                            # src/
-_PROJECT_ROOT = _SRC_DIR.parent                           # movie-narrator/
+_PACKAGE_DIR = Path(__file__).resolve().parent  # src/movie_narrator/
+_SRC_DIR = _PACKAGE_DIR.parent  # src/
+_PROJECT_ROOT = _SRC_DIR.parent  # movie-narrator/
 _EXAMPLE_ENV = _PROJECT_ROOT / ".env.example"
 
 
@@ -115,6 +115,7 @@ class Settings(BaseSettings):
     call params only. All pipeline behavior (scene, match, render, etc.)
     is configured via job.yaml params — see ``examples/job.example.yaml`` for defaults.
     """
+
     # ── API server / Remote inference (v0.8.0) ──
     # X-API-Key for authenticating the remote inference API server
     # (``mn serve``). When None, the API server runs unauthenticated —

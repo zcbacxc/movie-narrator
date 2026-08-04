@@ -28,12 +28,19 @@ def test_probe_media_uses_ffprobe(tmp_path):
 
     def fake_run(cmd, **kw):
         if "ffprobe" in str(cmd[0]):
-            return type("P", (), {"returncode": 0, "stdout": json.dumps(_ffprobe_json(12.0)), "stderr": ""})()
+            return type(
+                "P", (), {"returncode": 0, "stdout": json.dumps(_ffprobe_json(12.0)), "stderr": ""}
+            )()
         # volumedetect call
         return type("P", (), {"returncode": 0, "stdout": "", "stderr": "mean_volume: -16.0 dB"})()
 
-    with patch("movie_narrator.utils.deliverable_qa.shutil.which", lambda x: "/usr/bin/" + x if x in ("ffprobe", "ffmpeg") else None), \
-         patch("movie_narrator.utils.deliverable_qa.subprocess.run", side_effect=fake_run):
+    with (
+        patch(
+            "movie_narrator.utils.deliverable_qa.shutil.which",
+            lambda x: "/usr/bin/" + x if x in ("ffprobe", "ffmpeg") else None,
+        ),
+        patch("movie_narrator.utils.deliverable_qa.subprocess.run", side_effect=fake_run),
+    ):
         result = probe_media(str(f))
 
     assert result["duration"] == 12.0
@@ -58,9 +65,11 @@ def test_probe_media_falls_back_to_ffmpeg(tmp_path):
     def fake_run(cmd, **kw):
         return type("P", (), {"returncode": 1, "stdout": "", "stderr": stderr})()
 
-    with patch("movie_narrator.utils.deliverable_qa.shutil.which", lambda x: None), \
-         patch("movie_narrator.utils.deliverable_qa.subprocess.run", side_effect=fake_run), \
-         patch("movie_narrator.utils.deliverable_qa._ffmpeg_bin", return_value="ffmpeg"):
+    with (
+        patch("movie_narrator.utils.deliverable_qa.shutil.which", lambda x: None),
+        patch("movie_narrator.utils.deliverable_qa.subprocess.run", side_effect=fake_run),
+        patch("movie_narrator.utils.deliverable_qa._ffmpeg_bin", return_value="ffmpeg"),
+    ):
         result = probe_media(str(f))
 
     assert result["duration"] == 15.0
@@ -80,10 +89,18 @@ def test_evaluate_missing_file():
 def test_evaluate_all_pass(tmp_path):
     f = tmp_path / "good.mp4"
     f.write_bytes(b"x" * 50000)
-    with patch("movie_narrator.utils.deliverable_qa.probe_media", return_value={
-        "duration": 10.0, "has_video": True, "has_audio": True,
-        "width": 1920, "height": 1080, "size_bytes": 50000, "mean_volume": -14.0,
-    }):
+    with patch(
+        "movie_narrator.utils.deliverable_qa.probe_media",
+        return_value={
+            "duration": 10.0,
+            "has_video": True,
+            "has_audio": True,
+            "width": 1920,
+            "height": 1080,
+            "size_bytes": 50000,
+            "mean_volume": -14.0,
+        },
+    ):
         report = evaluate_deliverable(str(f), expected_duration=10.0)
     assert report.ok is True
     assert report.issues == []
@@ -92,10 +109,18 @@ def test_evaluate_all_pass(tmp_path):
 def test_evaluate_too_short(tmp_path):
     f = tmp_path / "short.mp4"
     f.write_bytes(b"x" * 50000)
-    with patch("movie_narrator.utils.deliverable_qa.probe_media", return_value={
-        "duration": 5.0, "has_video": True, "has_audio": True,
-        "width": 1920, "height": 1080, "size_bytes": 50000, "mean_volume": -14.0,
-    }):
+    with patch(
+        "movie_narrator.utils.deliverable_qa.probe_media",
+        return_value={
+            "duration": 5.0,
+            "has_video": True,
+            "has_audio": True,
+            "width": 1920,
+            "height": 1080,
+            "size_bytes": 50000,
+            "mean_volume": -14.0,
+        },
+    ):
         report = evaluate_deliverable(str(f), expected_duration=10.0)
     assert report.ok is False
     assert any(i.code == "too_short" for i in report.issues)
@@ -104,10 +129,18 @@ def test_evaluate_too_short(tmp_path):
 def test_evaluate_too_long(tmp_path):
     f = tmp_path / "long.mp4"
     f.write_bytes(b"x" * 50000)
-    with patch("movie_narrator.utils.deliverable_qa.probe_media", return_value={
-        "duration": 20.0, "has_video": True, "has_audio": True,
-        "width": 1920, "height": 1080, "size_bytes": 50000, "mean_volume": -14.0,
-    }):
+    with patch(
+        "movie_narrator.utils.deliverable_qa.probe_media",
+        return_value={
+            "duration": 20.0,
+            "has_video": True,
+            "has_audio": True,
+            "width": 1920,
+            "height": 1080,
+            "size_bytes": 50000,
+            "mean_volume": -14.0,
+        },
+    ):
         report = evaluate_deliverable(str(f), expected_duration=10.0)
     assert report.ok is False
     assert any(i.code == "too_long" for i in report.issues)
@@ -116,10 +149,18 @@ def test_evaluate_too_long(tmp_path):
 def test_evaluate_silent_audio(tmp_path):
     f = tmp_path / "silent.mp4"
     f.write_bytes(b"x" * 50000)
-    with patch("movie_narrator.utils.deliverable_qa.probe_media", return_value={
-        "duration": 10.0, "has_video": True, "has_audio": True,
-        "width": 1920, "height": 1080, "size_bytes": 50000, "mean_volume": -60.0,
-    }):
+    with patch(
+        "movie_narrator.utils.deliverable_qa.probe_media",
+        return_value={
+            "duration": 10.0,
+            "has_video": True,
+            "has_audio": True,
+            "width": 1920,
+            "height": 1080,
+            "size_bytes": 50000,
+            "mean_volume": -60.0,
+        },
+    ):
         report = evaluate_deliverable(str(f), expected_duration=10.0, max_silence_db=-50.0)
     assert report.ok is False
     assert any(i.code == "silent_audio" for i in report.issues)
@@ -128,10 +169,18 @@ def test_evaluate_silent_audio(tmp_path):
 def test_evaluate_no_audio_stream(tmp_path):
     f = tmp_path / "noaudio.mp4"
     f.write_bytes(b"x" * 50000)
-    with patch("movie_narrator.utils.deliverable_qa.probe_media", return_value={
-        "duration": 10.0, "has_video": True, "has_audio": False,
-        "width": 1920, "height": 1080, "size_bytes": 50000, "mean_volume": None,
-    }):
+    with patch(
+        "movie_narrator.utils.deliverable_qa.probe_media",
+        return_value={
+            "duration": 10.0,
+            "has_video": True,
+            "has_audio": False,
+            "width": 1920,
+            "height": 1080,
+            "size_bytes": 50000,
+            "mean_volume": None,
+        },
+    ):
         report = evaluate_deliverable(str(f), expected_duration=10.0)
     assert report.ok is False
     assert any(i.code == "no_audio_stream" for i in report.issues)
@@ -140,10 +189,18 @@ def test_evaluate_no_audio_stream(tmp_path):
 def test_evaluate_tiny_file(tmp_path):
     f = tmp_path / "tiny.mp4"
     f.write_bytes(b"x" * 100)
-    with patch("movie_narrator.utils.deliverable_qa.probe_media", return_value={
-        "duration": 10.0, "has_video": True, "has_audio": True,
-        "width": 1920, "height": 1080, "size_bytes": 100, "mean_volume": -14.0,
-    }):
+    with patch(
+        "movie_narrator.utils.deliverable_qa.probe_media",
+        return_value={
+            "duration": 10.0,
+            "has_video": True,
+            "has_audio": True,
+            "width": 1920,
+            "height": 1080,
+            "size_bytes": 100,
+            "mean_volume": -14.0,
+        },
+    ):
         report = evaluate_deliverable(str(f), expected_duration=10.0, min_size_bytes=10000)
     assert report.ok is False
     assert any(i.code == "tiny_file" for i in report.issues)
@@ -160,11 +217,18 @@ def test_evaluate_volume_unknown_with_audio_streams(tmp_path):
     """
     f = tmp_path / "broken.mp4"
     f.write_bytes(b"x" * 50000)
-    with patch("movie_narrator.utils.deliverable_qa.probe_media", return_value={
-        "duration": 10.0, "has_video": True, "has_audio": True,
-        "width": 1920, "height": 1080, "size_bytes": 50000,
-        "mean_volume": None,  # volumedetect failed to parse
-    }):
+    with patch(
+        "movie_narrator.utils.deliverable_qa.probe_media",
+        return_value={
+            "duration": 10.0,
+            "has_video": True,
+            "has_audio": True,
+            "width": 1920,
+            "height": 1080,
+            "size_bytes": 50000,
+            "mean_volume": None,  # volumedetect failed to parse
+        },
+    ):
         report = evaluate_deliverable(str(f), expected_duration=10.0)
     # Should report volume_unknown (not silently pass)
     assert any(i.code == "volume_unknown" for i in report.issues)
@@ -175,10 +239,18 @@ def test_evaluate_volume_unknown_not_triggered_when_no_audio(tmp_path):
     """AQ-05: no audio stream → no volume_unknown issue (no_audio_stream covers it)."""
     f = tmp_path / "noaudio.mp4"
     f.write_bytes(b"x" * 50000)
-    with patch("movie_narrator.utils.deliverable_qa.probe_media", return_value={
-        "duration": 10.0, "has_video": True, "has_audio": False,
-        "width": 1920, "height": 1080, "size_bytes": 50000, "mean_volume": None,
-    }):
+    with patch(
+        "movie_narrator.utils.deliverable_qa.probe_media",
+        return_value={
+            "duration": 10.0,
+            "has_video": True,
+            "has_audio": False,
+            "width": 1920,
+            "height": 1080,
+            "size_bytes": 50000,
+            "mean_volume": None,
+        },
+    ):
         report = evaluate_deliverable(str(f), expected_duration=10.0)
     # Should report no_audio_stream, NOT volume_unknown
     assert any(i.code == "no_audio_stream" for i in report.issues)

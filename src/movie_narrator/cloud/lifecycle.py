@@ -279,7 +279,7 @@ def cleanup_artifacts(
     # The ``keep_last_n`` newest artifacts are exempt from every rule.
     kept_recent: Set[str] = set()
     if policy.keep_last_n > 0:
-        kept_recent = {info.key for info in artifacts[-policy.keep_last_n:]}
+        kept_recent = {info.key for info in artifacts[-policy.keep_last_n :]}
 
     def _exempt(info: ArtifactInfo) -> bool:
         if info.key in guarded:

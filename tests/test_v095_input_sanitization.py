@@ -127,10 +127,7 @@ class TestTaskRequestValidation:
             TaskRequest(movie_name="x", video_format="4:3")
 
     def test_subtitle_mode_bounded(self):
-        assert (
-            TaskRequest(movie_name="x", subtitle_mode="bilingual").subtitle_mode
-            == "bilingual"
-        )
+        assert TaskRequest(movie_name="x", subtitle_mode="bilingual").subtitle_mode == "bilingual"
         with pytest.raises(ValidationError):
             TaskRequest(movie_name="x", subtitle_mode="invalid")
 
@@ -169,9 +166,7 @@ class TestTaskRequestValidation:
     def test_batch_upper_bound(self):
         BatchRequest(requests=[TaskRequest(movie_name=f"m{i}") for i in range(50)])
         with pytest.raises(ValidationError):
-            BatchRequest(
-                requests=[TaskRequest(movie_name=f"m{i}") for i in range(51)]
-            )
+            BatchRequest(requests=[TaskRequest(movie_name=f"m{i}") for i in range(51)])
 
 
 # ════════════════════════════════════════════════════════════
@@ -185,61 +180,45 @@ class TestApiInputSanitization:
     def test_invalid_task_payload_returns_400(self, open_server):
         """POST /tasks with an invalid lang is rejected with 400."""
         data = json.dumps({"movie_name": "Bad", "lang": "xx"}).encode("utf-8")
-        assert _request_code(
-            f"{open_server.base_url}/tasks", method="POST", data=data
-        ) == 400
+        assert _request_code(f"{open_server.base_url}/tasks", method="POST", data=data) == 400
 
     def test_invalid_video_format_returns_400(self, open_server):
         data = json.dumps({"movie_name": "Bad", "video_format": "4:3"}).encode("utf-8")
-        assert _request_code(
-            f"{open_server.base_url}/tasks", method="POST", data=data
-        ) == 400
+        assert _request_code(f"{open_server.base_url}/tasks", method="POST", data=data) == 400
 
     def test_empty_movie_name_returns_400(self, open_server):
         data = json.dumps({"movie_name": "   "}).encode("utf-8")
-        assert _request_code(
-            f"{open_server.base_url}/tasks", method="POST", data=data
-        ) == 400
+        assert _request_code(f"{open_server.base_url}/tasks", method="POST", data=data) == 400
 
     def test_valid_task_returns_201(self, open_server):
         data = json.dumps({"movie_name": "Good", "max_retries": 0}).encode("utf-8")
-        assert _request_code(
-            f"{open_server.base_url}/tasks", method="POST", data=data
-        ) == 201
+        assert _request_code(f"{open_server.base_url}/tasks", method="POST", data=data) == 201
 
     def test_oversized_body_returns_413(self, open_server):
         """POST /tasks body larger than _MAX_BODY_BYTES → 413 (not 400)."""
         big = json.dumps({"movie_name": "Big", "params": {"pad": "x" * (2 * 1024 * 1024)}})
         assert len(big.encode("utf-8")) > 1024 * 1024
-        assert _request_code(
-            f"{open_server.base_url}/tasks", method="POST", data=big.encode("utf-8")
-        ) == 413
+        assert (
+            _request_code(f"{open_server.base_url}/tasks", method="POST", data=big.encode("utf-8"))
+            == 413
+        )
 
     def test_oversized_batch_body_returns_413(self, open_server):
         big = json.dumps(
-            {
-                "requests": [
-                    {"movie_name": "m", "params": {"pad": "x" * (2 * 1024 * 1024)}}
-                ]
-            }
+            {"requests": [{"movie_name": "m", "params": {"pad": "x" * (2 * 1024 * 1024)}}]}
         )
-        assert _request_code(
-            f"{open_server.base_url}/tasks/batch", method="POST", data=big.encode("utf-8")
-        ) == 413
+        assert (
+            _request_code(
+                f"{open_server.base_url}/tasks/batch", method="POST", data=big.encode("utf-8")
+            )
+            == 413
+        )
 
     def test_invalid_limit_returns_400(self, open_server):
-        assert _request_code(
-            f"{open_server.base_url}/tasks?limit=abc"
-        ) == 400
-        assert _request_code(
-            f"{open_server.base_url}/tasks?limit=-5"
-        ) == 400
+        assert _request_code(f"{open_server.base_url}/tasks?limit=abc") == 400
+        assert _request_code(f"{open_server.base_url}/tasks?limit=-5") == 400
 
     def test_limit_clamped(self, open_server):
         """A large limit is clamped to _MAX_LIST_LIMIT instead of erroring."""
-        assert _request_code(
-            f"{open_server.base_url}/tasks?limit=99999"
-        ) == 200
-        assert _request_code(
-            f"{open_server.base_url}/batches?limit=99999"
-        ) == 200
+        assert _request_code(f"{open_server.base_url}/tasks?limit=99999") == 200
+        assert _request_code(f"{open_server.base_url}/batches?limit=99999") == 200

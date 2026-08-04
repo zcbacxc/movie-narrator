@@ -339,14 +339,16 @@ class TestProbeVideoEncoding:
         video_file.write_bytes(b"\x00" * 10)
 
         mock_data = {
-            "streams": [{
-                "codec_type": "video",
-                "codec_name": "h264",
-                "width": 1920,
-                "height": 1080,
-                "r_frame_rate": "30000/1001",
-                "pix_fmt": "yuv420p",
-            }],
+            "streams": [
+                {
+                    "codec_type": "video",
+                    "codec_name": "h264",
+                    "width": 1920,
+                    "height": 1080,
+                    "r_frame_rate": "30000/1001",
+                    "pix_fmt": "yuv420p",
+                }
+            ],
             "format": {},
         }
 
@@ -361,14 +363,16 @@ class TestProbeVideoEncoding:
         video_file.write_bytes(b"\x00" * 10)
 
         mock_data = {
-            "streams": [{
-                "codec_type": "video",
-                "codec_name": "h264",
-                "width": 1920,
-                "height": 1080,
-                "r_frame_rate": "30/1",
-                "pix_fmt": "yuv420p",
-            }],
+            "streams": [
+                {
+                    "codec_type": "video",
+                    "codec_name": "h264",
+                    "width": 1920,
+                    "height": 1080,
+                    "r_frame_rate": "30/1",
+                    "pix_fmt": "yuv420p",
+                }
+            ],
             "format": {"bit_rate": "4000000"},
         }
 
@@ -394,14 +398,16 @@ class TestProbeVideoEncoding:
         video_file.write_bytes(b"\x00" * 10)
 
         mock_data = {
-            "streams": [{
-                "codec_type": "video",
-                "codec_name": "h264",
-                "width": 1920,
-                "height": 1080,
-                "r_frame_rate": "invalid",
-                "pix_fmt": "yuv420p",
-            }],
+            "streams": [
+                {
+                    "codec_type": "video",
+                    "codec_name": "h264",
+                    "width": 1920,
+                    "height": 1080,
+                    "r_frame_rate": "invalid",
+                    "pix_fmt": "yuv420p",
+                }
+            ],
             "format": {},
         }
 
@@ -416,14 +422,16 @@ class TestProbeVideoEncoding:
         video_file.write_bytes(b"\x00" * 10)
 
         mock_data = {
-            "streams": [{
-                "codec_type": "video",
-                "codec_name": "h264",
-                "width": 1920,
-                "height": 1080,
-                "r_frame_rate": "30/0",
-                "pix_fmt": "yuv420p",
-            }],
+            "streams": [
+                {
+                    "codec_type": "video",
+                    "codec_name": "h264",
+                    "width": 1920,
+                    "height": 1080,
+                    "r_frame_rate": "30/0",
+                    "pix_fmt": "yuv420p",
+                }
+            ],
             "format": {},
         }
 
@@ -446,20 +454,23 @@ class TestEvaluateVideoQuality:
         video_file.write_bytes(b"\x00" * 10)
 
         mock_data = {
-            "streams": [{
-                "codec_type": "video",
-                "codec_name": "h264",
-                "width": 1920,
-                "height": 1080,
-                "r_frame_rate": "30/1",
-                "pix_fmt": "yuv420p",
-                "bit_rate": "5000000",
-            }, {
-                "codec_type": "audio",
-                "codec_name": "aac",
-                "channels": 2,
-                "sample_rate": "48000",
-            }],
+            "streams": [
+                {
+                    "codec_type": "video",
+                    "codec_name": "h264",
+                    "width": 1920,
+                    "height": 1080,
+                    "r_frame_rate": "30/1",
+                    "pix_fmt": "yuv420p",
+                    "bit_rate": "5000000",
+                },
+                {
+                    "codec_type": "audio",
+                    "codec_name": "aac",
+                    "channels": 2,
+                    "sample_rate": "48000",
+                },
+            ],
             "format": {},
         }
 
@@ -474,15 +485,17 @@ class TestEvaluateVideoQuality:
         video_file.write_bytes(b"\x00" * 10)
 
         mock_data = {
-            "streams": [{
-                "codec_type": "video",
-                "codec_name": "h264",
-                "width": 1280,
-                "height": 720,
-                "r_frame_rate": "30/1",
-                "pix_fmt": "yuv420p",
-                "bit_rate": "1500000",
-            }],
+            "streams": [
+                {
+                    "codec_type": "video",
+                    "codec_name": "h264",
+                    "width": 1280,
+                    "height": 720,
+                    "r_frame_rate": "30/1",
+                    "pix_fmt": "yuv420p",
+                    "bit_rate": "1500000",
+                }
+            ],
             "format": {},
         }
 
@@ -603,7 +616,9 @@ class TestDimensionExtractors:
     def test_extract_script_score_many_issues(self):
         meta = {"script_qa": {"total_issues": 15}}
         score, _, _ = _extract_script_score(meta)
-        assert score == 0.0  # max(0, 1.0 - 15*0.1) = 0.0... wait: 1.0 - 1.5 = -0.5, max(0, -0.5) = 0.0
+        assert (
+            score == 0.0
+        )  # max(0, 1.0 - 15*0.1) = 0.0... wait: 1.0 - 1.5 = -0.5, max(0, -0.5) = 0.0
 
     def test_extract_audio_score(self):
         meta = {
@@ -701,7 +716,13 @@ class TestDimensionExtractors:
         assert score == 0.6  # 1.0 - 2 * 0.2
 
     def test_extract_video_encoding_score_ok(self):
-        meta = {"video_qa": {"ok": True, "issues": [], "metrics": {"codec": "h264", "width": 1920, "height": 1080}}}
+        meta = {
+            "video_qa": {
+                "ok": True,
+                "issues": [],
+                "metrics": {"codec": "h264", "width": 1920, "height": 1080},
+            }
+        }
         result = _extract_video_encoding_score(meta)
         assert result is not None
         score, _, details = result
@@ -1183,64 +1204,84 @@ class TestRunQaGate:
         assert ctx.step_state.result == StepResult.WARNING
 
     def test_audio_qa_clipping(self, tmp_path):
-        ctx = _make_ctx(tmp_path, audio_quality={
-            "segments": [
-                {"clipping_ratio": 0.005},  # ok
-                {"clipping_ratio": 0.02},   # critical
-            ],
-        })
+        ctx = _make_ctx(
+            tmp_path,
+            audio_quality={
+                "segments": [
+                    {"clipping_ratio": 0.005},  # ok
+                    {"clipping_ratio": 0.02},  # critical
+                ],
+            },
+        )
         with patch("movie_narrator.pipeline.qa_gate.is_ci", return_value=False):
             run_qa_gate(ctx)
         assert ctx.metadata["qa_gate"]["passed"] is False
         assert any("Audio QA" in i for i in ctx.metadata["qa_gate"]["issues"])
 
     def test_audio_qa_ok(self, tmp_path):
-        ctx = _make_ctx(tmp_path, audio_quality={
-            "segments": [{"clipping_ratio": 0.001}],
-        })
+        ctx = _make_ctx(
+            tmp_path,
+            audio_quality={
+                "segments": [{"clipping_ratio": 0.001}],
+            },
+        )
         with patch("movie_narrator.pipeline.qa_gate.is_ci", return_value=False):
             run_qa_gate(ctx)
         assert ctx.metadata["qa_gate"]["passed"] is True
 
     def test_subtitle_qa_too_many_issues(self, tmp_path):
-        ctx = _make_ctx(tmp_path, subtitle_qa={
-            "original": {"total_cues": 10, "issues_count": 6},  # 60% > 50%
-        })
+        ctx = _make_ctx(
+            tmp_path,
+            subtitle_qa={
+                "original": {"total_cues": 10, "issues_count": 6},  # 60% > 50%
+            },
+        )
         with patch("movie_narrator.pipeline.qa_gate.is_ci", return_value=False):
             run_qa_gate(ctx)
         assert ctx.metadata["qa_gate"]["passed"] is False
         assert any("Subtitle QA" in i for i in ctx.metadata["qa_gate"]["issues"])
 
     def test_subtitle_qa_ok(self, tmp_path):
-        ctx = _make_ctx(tmp_path, subtitle_qa={
-            "original": {"total_cues": 10, "issues_count": 3},  # 30% < 50%
-        })
+        ctx = _make_ctx(
+            tmp_path,
+            subtitle_qa={
+                "original": {"total_cues": 10, "issues_count": 3},  # 30% < 50%
+            },
+        )
         with patch("movie_narrator.pipeline.qa_gate.is_ci", return_value=False):
             run_qa_gate(ctx)
         assert ctx.metadata["qa_gate"]["passed"] is True
 
     def test_alignment_qa_low_confidence(self, tmp_path):
-        ctx = _make_ctx(tmp_path, alignment_qa={
-            "total_segments": 10,
-            "low_confidence_count": 6,  # 60% > 50%
-        })
+        ctx = _make_ctx(
+            tmp_path,
+            alignment_qa={
+                "total_segments": 10,
+                "low_confidence_count": 6,  # 60% > 50%
+            },
+        )
         with patch("movie_narrator.pipeline.qa_gate.is_ci", return_value=False):
             run_qa_gate(ctx)
         assert ctx.metadata["qa_gate"]["passed"] is False
         assert any("Alignment QA" in i for i in ctx.metadata["qa_gate"]["issues"])
 
     def test_alignment_qa_ok(self, tmp_path):
-        ctx = _make_ctx(tmp_path, alignment_qa={
-            "total_segments": 10,
-            "low_confidence_count": 3,  # 30% < 50%
-        })
+        ctx = _make_ctx(
+            tmp_path,
+            alignment_qa={
+                "total_segments": 10,
+                "low_confidence_count": 3,  # 30% < 50%
+            },
+        )
         with patch("movie_narrator.pipeline.qa_gate.is_ci", return_value=False):
             run_qa_gate(ctx)
         assert ctx.metadata["qa_gate"]["passed"] is True
 
     def test_translation_too_many_untranslated(self, tmp_path):
         ctx = _make_ctx(tmp_path)
-        ctx.timed_segments = [TimedSegment(text=f"seg{i}", start=float(i), end=float(i + 1)) for i in range(10)]
+        ctx.timed_segments = [
+            TimedSegment(text=f"seg{i}", start=float(i), end=float(i + 1)) for i in range(10)
+        ]
         ctx.metadata["untranslated_indices"] = [1, 2, 3, 4]  # 40% > 30%
         with patch("movie_narrator.pipeline.qa_gate.is_ci", return_value=False):
             run_qa_gate(ctx)
@@ -1249,7 +1290,9 @@ class TestRunQaGate:
 
     def test_translation_ok(self, tmp_path):
         ctx = _make_ctx(tmp_path)
-        ctx.timed_segments = [TimedSegment(text=f"seg{i}", start=float(i), end=float(i + 1)) for i in range(10)]
+        ctx.timed_segments = [
+            TimedSegment(text=f"seg{i}", start=float(i), end=float(i + 1)) for i in range(10)
+        ]
         ctx.metadata["untranslated_indices"] = [1, 2]  # 20% < 30%
         with patch("movie_narrator.pipeline.qa_gate.is_ci", return_value=False):
             run_qa_gate(ctx)

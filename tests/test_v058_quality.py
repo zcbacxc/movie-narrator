@@ -172,6 +172,7 @@ class TestJudgeFiveDimensions:
     def test_judge_script_ci_mode_returns_five_dimensions(self):
         """CI mode should return default pass score with all 5 dimensions."""
         from movie_narrator.pipeline.script import judge_script
+
         with patch("movie_narrator.pipeline.script.is_ci", return_value=True):
             scores = judge_script([], "test", None)
         assert "anti_ai_compliance" in scores

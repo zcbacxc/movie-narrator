@@ -41,18 +41,13 @@ def build_metadata_json(ctx: Context) -> Dict[str, Any]:
             "tts_provider": ctx.metadata.get("tts_provider"),
         },
         "segments_count": len(ctx.timed_segments),
-        "segments": [
-            {"text": s.text, "start": s.start, "end": s.end}
-            for s in ctx.timed_segments
-        ],
+        "segments": [{"text": s.text, "start": s.start, "end": s.end} for s in ctx.timed_segments],
         # Multi-language subtitle (v0.3).
         "content_language": content_language,
         "subtitle_mode": ctx.metadata.get("subtitle_mode", "original"),
         "translate_provider": ctx.metadata.get("translate_provider"),
         "subtitle_paths": (
-            ctx.subtitle_paths.model_dump()
-            if ctx.subtitle_paths is not None
-            else None
+            ctx.subtitle_paths.model_dump() if ctx.subtitle_paths is not None else None
         ),
         "render_subtitle_path": ctx.render_subtitle_path,
         "warnings": ctx.metadata.get("warnings", []),
@@ -83,7 +78,7 @@ def build_metadata_json(ctx: Context) -> Dict[str, Any]:
     }
 
     # v0.7.0: cost tracking summary
-    if hasattr(ctx, 'cost_tracker') and ctx.cost_tracker is not None:
+    if hasattr(ctx, "cost_tracker") and ctx.cost_tracker is not None:
         meta["cost"] = ctx.cost_tracker.summary()
 
     return meta

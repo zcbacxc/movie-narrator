@@ -79,20 +79,17 @@ def _format_degradation_hints(ctx: Context) -> list[str]:
             )
         elif degraded == "all_heuristic":
             hints.append(
-                "match: all segments fell back to heuristic — "
-                "check embedding model availability"
+                "match: all segments fell back to heuristic — check embedding model availability"
             )
         elif degraded:
             hints.append(f"match degraded: {degraded}")
 
     degraded_steps = ctx.metadata.get("_degraded_steps", [])
     if degraded_steps:
-        hints.append(
-            f"degraded steps: {', '.join(degraded_steps)} — "
-            f"see metadata.json for details"
-        )
+        hints.append(f"degraded steps: {', '.join(degraded_steps)} — see metadata.json for details")
 
     return hints
+
 
 app = typer.Typer(
     help="Movie Narrator — 从一个提示词生成解说短视频 / Generate narrated movie recap videos from a single prompt.",
@@ -142,6 +139,7 @@ class InteractiveCLIController:
             return StepAction.SKIP
         return StepAction.ABORT
 
+
 from .utils.sanitize import sanitize_filename as _sanitize_filename  # noqa: E402
 
 
@@ -149,53 +147,94 @@ from .utils.sanitize import sanitize_filename as _sanitize_filename  # noqa: E40
 def create(
     movie: Optional[str] = typer.Option(None, "--movie", "-m", help="电影名称 / Movie name"),
     style: str = typer.Option("热血搞笑", "--style", "-s", help="解说风格 / Narration style"),
-    duration: int = typer.Option(60, "--duration", "-d", help="目标时长(秒) / Target duration (seconds)"),
-    voice: Optional[str] = typer.Option(None, "--voice", "-v", help="TTS 语音 / TTS voice (Edge TTS)"),
-    video_format: str = typer.Option("16:9", "--video-format", "--format", "-f", help="视频格式 16:9 或 9:16 / Video format: 16:9 or 9:16"),
-    keep_cache: bool = typer.Option(False, "--keep-cache", help="保留 TTS 缓存 / Keep TTS cache files"),
-    video: Optional[str] = typer.Option(None, "--video", help="源视频文件路径 / Source movie file path"),
-    library_dir: Optional[str] = typer.Option(None, "--library-dir", help="影视库目录 / Movie library directory"),
-    research: Optional[bool] = typer.Option(None, "--research/--no-research", help="启用剧��研究 / Enable plot research"),
+    duration: int = typer.Option(
+        60, "--duration", "-d", help="目标时长(秒) / Target duration (seconds)"
+    ),
+    voice: Optional[str] = typer.Option(
+        None, "--voice", "-v", help="TTS 语音 / TTS voice (Edge TTS)"
+    ),
+    video_format: str = typer.Option(
+        "16:9",
+        "--video-format",
+        "--format",
+        "-f",
+        help="视频格式 16:9 或 9:16 / Video format: 16:9 or 9:16",
+    ),
+    keep_cache: bool = typer.Option(
+        False, "--keep-cache", help="保留 TTS 缓存 / Keep TTS cache files"
+    ),
+    video: Optional[str] = typer.Option(
+        None, "--video", help="源视频文件路径 / Source movie file path"
+    ),
+    library_dir: Optional[str] = typer.Option(
+        None, "--library-dir", help="影视库目录 / Movie library directory"
+    ),
+    research: Optional[bool] = typer.Option(
+        None, "--research/--no-research", help="启用剧��研究 / Enable plot research"
+    ),
     bgm: Optional[str] = typer.Option(None, "--bgm", help="背景音乐文件 / Background music file"),
-    no_bgm: bool = typer.Option(False, "--no-bgm", help="禁用 BGM / Disable BGM even if default set"),
+    no_bgm: bool = typer.Option(
+        False, "--no-bgm", help="禁用 BGM / Disable BGM even if default set"
+    ),
     no_clips: bool = typer.Option(False, "--no-clips", help="跳过片段导出 / Skip clips/export"),
-    strict: bool = typer.Option(False, "--strict", help="软步骤失败即中止 / Abort on soft step failure"),
-    retry: bool = typer.Option(False, "--retry", help="硬步骤失败时交互重试 / Enable interactive retry on hard step failure"),
-    config: Optional[str] = typer.Option(None, "--config", help="job YAML ��置路径 / Path to job YAML config"),
+    strict: bool = typer.Option(
+        False, "--strict", help="软步骤失败即中止 / Abort on soft step failure"
+    ),
+    retry: bool = typer.Option(
+        False,
+        "--retry",
+        help="硬步骤失败时交互重试 / Enable interactive retry on hard step failure",
+    ),
+    config: Optional[str] = typer.Option(
+        None, "--config", help="job YAML ��置路径 / Path to job YAML config"
+    ),
     # Multi-language subtitle (v0.3).
     subtitle_lang: Optional[str] = typer.Option(
-        None, "--subtitle-lang", help="目标语言标签(如 en, ja, zh-TW) / Target language tag; empty = off",
+        None,
+        "--subtitle-lang",
+        help="目标语言标签(如 en, ja, zh-TW) / Target language tag; empty = off",
     ),
     subtitle_mode: Optional[str] = typer.Option(
-        None, "--subtitle-mode", help="字幕模式 original|translated|bilingual / Overlay mode",
+        None,
+        "--subtitle-mode",
+        help="字幕模式 original|translated|bilingual / Overlay mode",
     ),
     narration_preset: Optional[str] = typer.Option(
-        None, "--narration-preset", "-p",
+        None,
+        "--narration-preset",
+        "-p",
         help="解说风格预设 douyin-fast | mainstream-dry | bilibili-long / Narration style preset",
     ),
     narrator_perspective: Optional[str] = typer.Option(
-        None, "--narrator-perspective",
+        None,
+        "--narrator-perspective",
         help="解说视角 omniscient | character | detective / Narrator perspective mode",
     ),
     focus_character: Optional[str] = typer.Option(
-        None, "--focus-character",
+        None,
+        "--focus-character",
         help="聚焦角色名(��合 character 视角) / Focus character name (used with 'character' perspective)",
     ),
     output_dir: Optional[str] = typer.Option(
-        None, "--output-dir", "-o",
+        None,
+        "--output-dir",
+        "-o",
         help="输出目录(默认 output/<电影名>) / Output directory (default: output/<movie>)",
     ),
     pause_at: Optional[str] = typer.Option(
-        None, "--pause-at",
+        None,
+        "--pause-at",
         help="在指定步骤后暂停(人在环) / Pause after this step name "
-             "(e.g. match_clips, generate_script). Resume with: mn resume --state <path>",
+        "(e.g. match_clips, generate_script). Resume with: mn resume --state <path>",
     ),
     log_level: str = typer.Option(
-        "DEBUG", "--log-level",
+        "DEBUG",
+        "--log-level",
         help="日志级别 DEBUG|INFO|WARNING|ERROR / Log level (default: DEBUG)",
     ),
     verbose: bool = typer.Option(
-        False, "--verbose",
+        False,
+        "--verbose",
         help="在控制台显示 DEBUG 日志 / Show debug logs in console",
     ),
 ):
@@ -288,36 +327,40 @@ def create(
 
     # --output-dir / -o: user-specified output directory.
     # Default: output/<sanitized-movie-name>
-    out_dir = Path(output_dir) if output_dir else Path("output") / _sanitize_filename(resolved.movie)
+    out_dir = (
+        Path(output_dir) if output_dir else Path("output") / _sanitize_filename(resolved.movie)
+    )
     out_dir.mkdir(parents=True, exist_ok=True)
 
     _resolved_level = resolve_log_level(log_level)
 
-    ctx = build_context(**common_build_kwargs(
-        movie=resolved.movie,
-        style=resolved.style,
-        duration=resolved.duration,
-        voice=resolved.voice,
-        video_format=resolved.video_format,
-        output_dir=out_dir,
-        keep_cache=resolved.keep_cache,
-        video=resolved.video,
-        library_dir=resolved.library_dir,
-        research=resolved.research,
-        bgm=resolved.bgm,
-        no_bgm=resolved.no_bgm,
-        no_clips=resolved.no_clips,
-        strict=resolved.strict,
-        workflow_steps=resolved.workflow_steps or None,
-        params=resolved.params or None,
-        config_path=resolved.config_path,
-        subtitle_lang=resolved.subtitle_lang,
-        subtitle_mode=resolved.subtitle_mode,
-        narration_preset=resolved.narration_preset or narration_preset,
-        lang=resolved.lang,
-        log_level=_resolved_level,
-        verbose=verbose,
-    ))
+    ctx = build_context(
+        **common_build_kwargs(
+            movie=resolved.movie,
+            style=resolved.style,
+            duration=resolved.duration,
+            voice=resolved.voice,
+            video_format=resolved.video_format,
+            output_dir=out_dir,
+            keep_cache=resolved.keep_cache,
+            video=resolved.video,
+            library_dir=resolved.library_dir,
+            research=resolved.research,
+            bgm=resolved.bgm,
+            no_bgm=resolved.no_bgm,
+            no_clips=resolved.no_clips,
+            strict=resolved.strict,
+            workflow_steps=resolved.workflow_steps or None,
+            params=resolved.params or None,
+            config_path=resolved.config_path,
+            subtitle_lang=resolved.subtitle_lang,
+            subtitle_mode=resolved.subtitle_mode,
+            narration_preset=resolved.narration_preset or narration_preset,
+            lang=resolved.lang,
+            log_level=_resolved_level,
+            verbose=verbose,
+        )
+    )
     controller = InteractiveCLIController() if retry else None
 
     # Store pause-at request in context metadata
@@ -329,14 +372,16 @@ def create(
     except Exception as e:  # noqa: BLE001 — CLI top-level error barrier
         # PipelinePaused — state saved, inform user how to resume
         from .pipeline.errors import PipelinePaused
+
         if isinstance(e, PipelinePaused):
             typer.echo(
                 f"\n⏸ Pipeline paused after '{e.completed_step}'. "
-                f"Resume with: mn resume --state \"{Path(ctx.output_dir) / 'pipeline_state.json'}\""
+                f'Resume with: mn resume --state "{Path(ctx.output_dir) / "pipeline_state.json"}"'
             )
             raise typer.Exit(code=0)
         # PreflightError gets a targeted remediation hint.
         from .pipeline.preflight import PreflightError
+
         if isinstance(e, PreflightError):
             typer.echo(str(e), err=True)
             raise typer.Exit(code=1)
@@ -362,26 +407,46 @@ def create(
 def race(
     movie: Optional[str] = typer.Option(None, "--movie", "-m", help="电影名称 / Movie name"),
     style: str = typer.Option("热血搞笑", "--style", "-s", help="解说风格 / Narration style"),
-    duration: int = typer.Option(60, "--duration", "-d", help="目标时长(秒) / Target duration (seconds)"),
-    voice: Optional[str] = typer.Option(None, "--voice", "-v", help="TTS 语音 / TTS voice (Edge TTS)"),
-    video_format: str = typer.Option("16:9", "--video-format", "--format", "-f", help="视频格式 16:9 或 9:16 / Video format"),
-    video: Optional[str] = typer.Option(None, "--video", help="源视频文件路径 / Source movie file path"),
-    library_dir: Optional[str] = typer.Option(None, "--library-dir", help="影视库目录 / Movie library directory"),
-    research: Optional[bool] = typer.Option(None, "--research/--no-research", help="启用剧��研究 / Enable plot research"),
+    duration: int = typer.Option(
+        60, "--duration", "-d", help="目标时长(秒) / Target duration (seconds)"
+    ),
+    voice: Optional[str] = typer.Option(
+        None, "--voice", "-v", help="TTS 语音 / TTS voice (Edge TTS)"
+    ),
+    video_format: str = typer.Option(
+        "16:9", "--video-format", "--format", "-f", help="视频格式 16:9 或 9:16 / Video format"
+    ),
+    video: Optional[str] = typer.Option(
+        None, "--video", help="源视频文件路径 / Source movie file path"
+    ),
+    library_dir: Optional[str] = typer.Option(
+        None, "--library-dir", help="影视库目录 / Movie library directory"
+    ),
+    research: Optional[bool] = typer.Option(
+        None, "--research/--no-research", help="启用剧��研究 / Enable plot research"
+    ),
     bgm: Optional[str] = typer.Option(None, "--bgm", help="背景音乐文件 / Background music file"),
     no_bgm: bool = typer.Option(False, "--no-bgm", help="禁用 BGM / Disable BGM"),
-    config: Optional[str] = typer.Option(None, "--config", help="job YAML ��置路径 / Path to job YAML config"),
-    candidates: int = typer.Option(3, "--candidates", "-n", help="候选数量(1-6) / Number of candidates (1-6)"),
+    config: Optional[str] = typer.Option(
+        None, "--config", help="job YAML ��置路径 / Path to job YAML config"
+    ),
+    candidates: int = typer.Option(
+        3, "--candidates", "-n", help="候选数量(1-6) / Number of candidates (1-6)"
+    ),
     presets: Optional[str] = typer.Option(
-        None, "--presets",
+        None,
+        "--presets",
         help="自定义预设列表(逗号分隔) / Custom presets (comma-separated, e.g. douyin-fast,mainstream-dry)",
     ),
     auto_pick: bool = typer.Option(
-        False, "--auto-pick",
+        False,
+        "--auto-pick",
         help="自动选优并复制到输出根目录 / Auto-pick best and copy to output root",
     ),
     output_dir: Optional[str] = typer.Option(
-        None, "--output-dir", "-o",
+        None,
+        "--output-dir",
+        "-o",
         help="输出目录(默认 output/<电影名>_race) / Output directory",
     ),
 ):
@@ -472,40 +537,55 @@ def race(
 @app.command()
 def imitate(
     reference: str = typer.Option(
-        ..., "--reference", "-r",
+        ...,
+        "--reference",
+        "-r",
         help="参考视频路径 / Reference video path (viral narration to imitate)",
     ),
     movie: Optional[str] = typer.Option(None, "--movie", "-m", help="电影名称 / Movie name"),
     style: str = typer.Option("热血搞笑", "--style", "-s", help="解说风格 / Narration style"),
-    duration: int = typer.Option(60, "--duration", "-d", help="目标时长(秒) / Target duration (seconds)"),
+    duration: int = typer.Option(
+        60, "--duration", "-d", help="目标时长(秒) / Target duration (seconds)"
+    ),
     voice: Optional[str] = typer.Option(None, "--voice", "-v", help="TTS 语音 / TTS voice"),
-    video_format: str = typer.Option("16:9", "--video-format", "--format", "-f", help="视频格式 / Video format"),
+    video_format: str = typer.Option(
+        "16:9", "--video-format", "--format", "-f", help="视频格式 / Video format"
+    ),
     keep_cache: bool = typer.Option(False, "--keep-cache", help="保留 TTS 缓存 / Keep TTS cache"),
-    video: Optional[str] = typer.Option(None, "--video", help="源视频文件路径 / Source movie file path"),
+    video: Optional[str] = typer.Option(
+        None, "--video", help="源视频文件路径 / Source movie file path"
+    ),
     library_dir: Optional[str] = typer.Option(None, "--library-dir", help="影视库目录"),
     research: Optional[bool] = typer.Option(None, "--research/--no-research", help="启用剧��研究"),
     bgm: Optional[str] = typer.Option(None, "--bgm", help="背景音乐文件 / Background music file"),
     no_bgm: bool = typer.Option(False, "--no-bgm", help="禁用 BGM / Disable BGM"),
     no_clips: bool = typer.Option(False, "--no-clips", help="跳过片段导出 / Skip clips"),
-    strict: bool = typer.Option(False, "--strict", help="软步骤失败即中止 / Abort on soft step failure"),
+    strict: bool = typer.Option(
+        False, "--strict", help="软步骤失败即中止 / Abort on soft step failure"
+    ),
     retry: bool = typer.Option(False, "--retry", help="硬步骤失败时交互重试"),
     config: Optional[str] = typer.Option(None, "--config", help="job YAML ��置路径"),
     subtitle_lang: Optional[str] = typer.Option(None, "--subtitle-lang", help="目标语言标签"),
     subtitle_mode: Optional[str] = typer.Option(None, "--subtitle-mode", help="字幕模式"),
     output_dir: Optional[str] = typer.Option(
-        None, "--output-dir", "-o",
+        None,
+        "--output-dir",
+        "-o",
         help="输出目录(默认 output/<电影名>_imitate) / Output directory",
     ),
     analyze_only: bool = typer.Option(
-        False, "--analyze-only",
+        False,
+        "--analyze-only",
         help="只分析参考片不生成 / Only analyze reference, don't generate",
     ),
     log_level: str = typer.Option(
-        "DEBUG", "--log-level",
+        "DEBUG",
+        "--log-level",
         help="日志级别 DEBUG|INFO|WARNING|ERROR / Log level (default: DEBUG)",
     ),
     verbose: bool = typer.Option(
-        False, "--verbose",
+        False,
+        "--verbose",
         help="在控制台显示 DEBUG 日志 / Show debug logs in console",
     ),
 ):
@@ -575,30 +655,32 @@ def imitate(
     _resolved_level = resolve_log_level(log_level)
 
     assert movie is not None
-    ctx = build_context(**common_build_kwargs(
-        movie=movie,
-        style=style,
-        duration=duration,
-        voice=voice,
-        video_format=video_format,
-        output_dir=out_dir,
-        keep_cache=keep_cache,
-        video=video,
-        library_dir=library_dir,
-        research=research,
-        bgm=bgm,
-        no_bgm=no_bgm,
-        no_clips=no_clips,
-        strict=strict,
-        params=params,
-        config_path=config,
-        subtitle_lang=subtitle_lang,
-        subtitle_mode=subtitle_mode,
-        narration_preset=preset_name,
-        lang="zh",  # imitate command defaults to Chinese
-        log_level=_resolved_level,
-        verbose=verbose,
-    ))
+    ctx = build_context(
+        **common_build_kwargs(
+            movie=movie,
+            style=style,
+            duration=duration,
+            voice=voice,
+            video_format=video_format,
+            output_dir=out_dir,
+            keep_cache=keep_cache,
+            video=video,
+            library_dir=library_dir,
+            research=research,
+            bgm=bgm,
+            no_bgm=no_bgm,
+            no_clips=no_clips,
+            strict=strict,
+            params=params,
+            config_path=config,
+            subtitle_lang=subtitle_lang,
+            subtitle_mode=subtitle_mode,
+            narration_preset=preset_name,
+            lang="zh",  # imitate command defaults to Chinese
+            log_level=_resolved_level,
+            verbose=verbose,
+        )
+    )
 
     controller = InteractiveCLIController() if retry else None
 
@@ -608,7 +690,7 @@ def imitate(
         if isinstance(e, PipelinePaused):
             typer.echo(
                 f"\n⏸ Pipeline paused after '{e.completed_step}'. "
-                f"Resume with: mn resume --state \"{Path(ctx.output_dir) / 'pipeline_state.json'}\""
+                f'Resume with: mn resume --state "{Path(ctx.output_dir) / "pipeline_state.json"}"'
             )
             raise typer.Exit(code=0)
         if isinstance(e, PreflightError):
@@ -629,14 +711,22 @@ def imitate(
 
 @app.command()
 def resume(
-    state: str = typer.Option(..., "--state", help="pipeline_state.json 路径 / Path to pipeline state file"),
-    retry: bool = typer.Option(False, "--retry", help="硬步骤失败时交互重试 / Enable interactive retry on hard step failure"),
+    state: str = typer.Option(
+        ..., "--state", help="pipeline_state.json 路径 / Path to pipeline state file"
+    ),
+    retry: bool = typer.Option(
+        False,
+        "--retry",
+        help="硬步骤失败时交互重试 / Enable interactive retry on hard step failure",
+    ),
     log_level: str = typer.Option(
-        "DEBUG", "--log-level",
+        "DEBUG",
+        "--log-level",
         help="日志级别 DEBUG|INFO|WARNING|ERROR / Log level (default: DEBUG)",
     ),
     verbose: bool = typer.Option(
-        False, "--verbose",
+        False,
+        "--verbose",
         help="在控制台显示 DEBUG 日志 / Show debug logs in console",
     ),
 ):
@@ -663,6 +753,7 @@ def resume(
 
     # Re-inject a real console (serialized state has SilentConsole)
     from .models import Services
+
     console: Console = build_console(
         Path(ctx.output_dir),
         log_level=_resolved_level,
@@ -676,10 +767,7 @@ def resume(
     # Determine the step to start from (the step AFTER the completed one)
     start_step = _next_step_after(completed_step)
     if start_step is None:
-        typer.echo(
-            f"Pipeline already completed (last step: {completed_step}). "
-            f"Nothing to resume."
-        )
+        typer.echo(f"Pipeline already completed (last step: {completed_step}). Nothing to resume.")
         raise typer.Exit(code=0)
 
     console = ctx.services.console
@@ -692,7 +780,7 @@ def resume(
         if isinstance(e, PipelinePaused):
             typer.echo(
                 f"\n⏸ Pipeline paused after '{e.completed_step}'. "
-                f"Resume with: mn resume --state \"{Path(ctx.output_dir) / 'pipeline_state.json'}\""
+                f'Resume with: mn resume --state "{Path(ctx.output_dir) / "pipeline_state.json"}"'
             )
             raise typer.Exit(code=0)
         if isinstance(e, PreflightError):
@@ -712,10 +800,14 @@ def resume(
 @app.command()
 def resolve(
     movie: str = typer.Option(..., "--movie", "-m", help="电影名称 / Movie name to resolve"),
-    library_dir: Optional[str] = typer.Option(None, "--library-dir", help="影视库目录 / Movie library directory"),
+    library_dir: Optional[str] = typer.Option(
+        None, "--library-dir", help="影视库目录 / Movie library directory"
+    ),
     json_output: bool = typer.Option(False, "--json", help="JSON 格式输出 / Output result as JSON"),
     output_dir: Optional[str] = typer.Option(
-        None, "--output-dir", "-o",
+        None,
+        "--output-dir",
+        "-o",
         help="输出目录(默认 output/<电影名>) / Output directory (default: output/<movie>)",
     ),
 ):
@@ -743,7 +835,9 @@ def resolve(
 def research(
     movie: str = typer.Option(..., "--movie", "-m", help="电影名称 / Movie name to research"),
     output_dir: Optional[str] = typer.Option(
-        None, "--output-dir", "-o",
+        None,
+        "--output-dir",
+        "-o",
         help="输出目录(默认 output/<电影名>) / Output directory (default: output/<movie>)",
     ),
 ):
@@ -768,12 +862,15 @@ def research(
 @app.command()
 def scenes(
     video: str = typer.Option(..., "--video", help="视频文件路径 / Video file path"),
-    threshold: float = typer.Option(27.0, "--threshold", help="场景检测阈值 / Scene detection threshold"),
+    threshold: float = typer.Option(
+        27.0, "--threshold", help="场景检测阈值 / Scene detection threshold"
+    ),
     output: Optional[str] = typer.Option(None, "--output", help="输出目录 / Output directory"),
 ):
     """Detect scenes in a video file."""
     from movie_narrator.pipeline.scenes import detect_scenes
     from movie_narrator.models import Context
+
     out = Path(output) if output else Path("output") / "scenes_debug"
     out.mkdir(parents=True, exist_ok=True)
     ctx = Context(movie_name="debug", output_dir=str(out), source_video_path=video)
@@ -796,12 +893,15 @@ def scenes(
 @app.command()
 def align(
     audio: str = typer.Option(..., "--audio", help="音频文件路径 / Audio file path"),
-    script: Optional[str] = typer.Option(None, "--script", help="脚本文本文件(每行一句) / Script text file"),
+    script: Optional[str] = typer.Option(
+        None, "--script", help="脚本文本文件(每行一句) / Script text file"
+    ),
     output: Optional[str] = typer.Option(None, "--output", help="输出目录 / Output directory"),
 ):
     """Align audio with script using WhisperX."""
     from movie_narrator.pipeline.align import align_audio
     from movie_narrator.models import Context, TimedSegment
+
     out = Path(output) if output else Path("output") / "align_debug"
     out.mkdir(parents=True, exist_ok=True)
     segments = []
@@ -837,6 +937,7 @@ def clips(
     from movie_narrator.pipeline.export_clips import export_clips
     from movie_narrator.models import Context, Scene
     import json
+
     out = Path(output) if output else Path("output") / "clips_debug"
     out.mkdir(parents=True, exist_ok=True)
     data = json.loads(Path(scenes_path).read_text(encoding="utf-8"))
@@ -861,9 +962,7 @@ def clips(
 
 @app.command()
 def plugin(
-    action: str = typer.Argument(
-        ..., help="list | discover | registries | version"
-    ),
+    action: str = typer.Argument(..., help="list | discover | registries | version"),
 ):
     """Plugin system commands — list, discover, inspect registries.
 
@@ -877,6 +976,7 @@ def plugin(
     """
     if action == "list":
         from .plugin_loader import list_available_plugins
+
         plugins = list_available_plugins()
         if not plugins:
             typer.echo("No plugins found via entry_points.")
@@ -890,6 +990,7 @@ def plugin(
 
     elif action == "discover":
         from .plugin_loader import discover_plugins
+
         results = discover_plugins()
         if not results:
             typer.echo("No plugins found to discover.")
@@ -911,8 +1012,10 @@ def plugin(
 
         from .pipeline.registry import step_registry
         from .providers import (
-            tts_registry, vision_registry,
-            llm_registry, research_registry,
+            tts_registry,
+            vision_registry,
+            llm_registry,
+            research_registry,
         )
 
         typer.echo("=== Step Registry ===")
@@ -948,6 +1051,7 @@ def plugin(
 
     elif action == "version":
         from .contract import CONTRACT_VERSION
+
         typer.echo(f"CONTRACT_VERSION = {CONTRACT_VERSION}")
         typer.echo(f"  semver: {'.'.join(str(v) for v in CONTRACT_VERSION)}")
 
@@ -1023,8 +1127,10 @@ def _get_queue(remote: Optional[str] = None):
             given URL. Otherwise, returns a LocalTaskQueue.
     """
     from .cloud import LocalTaskQueue
+
     if remote:
         from .cloud import RemoteTaskQueue
+
         return RemoteTaskQueue(remote)
     return LocalTaskQueue(auto_start=False)
 
@@ -1035,25 +1141,40 @@ def submit(
     style: str = typer.Option("热血搞笑", "--style", "-s", help="解说风格 / Narration style"),
     duration: int = typer.Option(60, "--duration", "-d", help="目标时长(秒) / Target duration"),
     voice: Optional[str] = typer.Option(None, "--voice", "-v", help="TTS 语音 / TTS voice"),
-    video_format: str = typer.Option("16:9", "--video-format", "--format", "-f", help="视频格式 / Video format"),
+    video_format: str = typer.Option(
+        "16:9", "--video-format", "--format", "-f", help="视频格式 / Video format"
+    ),
     video: Optional[str] = typer.Option(None, "--video", help="源视频路径 / Source video path"),
-    library_dir: Optional[str] = typer.Option(None, "--library-dir", help="影视库目录 / Movie library"),
-    research: Optional[bool] = typer.Option(None, "--research/--no-research", help="启用研究 / Enable research"),
+    library_dir: Optional[str] = typer.Option(
+        None, "--library-dir", help="影视库目录 / Movie library"
+    ),
+    research: Optional[bool] = typer.Option(
+        None, "--research/--no-research", help="启用研究 / Enable research"
+    ),
     bgm: Optional[str] = typer.Option(None, "--bgm", help="背景音乐 / Background music"),
     no_bgm: bool = typer.Option(False, "--no-bgm", help="禁用BGM / Disable BGM"),
     no_clips: bool = typer.Option(False, "--no-clips", help="跳过片段导出 / Skip clips"),
     strict: bool = typer.Option(False, "--strict", help="严格模式 / Strict mode"),
-    subtitle_lang: Optional[str] = typer.Option(None, "--subtitle-lang", help="字幕语言 / Subtitle language"),
-    subtitle_mode: Optional[str] = typer.Option(None, "--subtitle-mode", help="字幕模式 / Subtitle mode"),
-    narration_preset: Optional[str] = typer.Option(None, "--narration-preset", "-p", help="解说预设 / Narration preset"),
+    subtitle_lang: Optional[str] = typer.Option(
+        None, "--subtitle-lang", help="字幕语言 / Subtitle language"
+    ),
+    subtitle_mode: Optional[str] = typer.Option(
+        None, "--subtitle-mode", help="字幕模式 / Subtitle mode"
+    ),
+    narration_preset: Optional[str] = typer.Option(
+        None, "--narration-preset", "-p", help="解说预设 / Narration preset"
+    ),
     lang: str = typer.Option("zh", "--lang", help="解说语言 / Narration language"),
-    output_dir: Optional[str] = typer.Option(None, "--output-dir", "-o", help="输出目录 / Output directory"),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", "-o", help="输出目录 / Output directory"
+    ),
     max_retries: int = typer.Option(3, "--max-retries", help="最大重试次数 / Max retries"),
     wait: bool = typer.Option(False, "--wait", help="提交后等��完成 / Wait for completion"),
-    timeout: Optional[float] = typer.Option(None, "--timeout", help="等����时(秒) / Wait timeout (seconds)"),
+    timeout: Optional[float] = typer.Option(
+        None, "--timeout", help="等����时(秒) / Wait timeout (seconds)"
+    ),
     remote: Optional[str] = typer.Option(
-        None, "--remote", "-r",
-        help="远程服务器URL / Remote server URL (e.g. http://worker:8765)"
+        None, "--remote", "-r", help="远程服务器URL / Remote server URL (e.g. http://worker:8765)"
     ),
 ):
     """Submit an async narration task.
@@ -1116,8 +1237,7 @@ def submit(
 def status(
     task_id: str = typer.Argument(..., help="任务ID / Task ID"),
     remote: Optional[str] = typer.Option(
-        None, "--remote", "-r",
-        help="远程服务器URL / Remote server URL"
+        None, "--remote", "-r", help="远程服务器URL / Remote server URL"
     ),
 ):
     """Show task status.
@@ -1146,8 +1266,7 @@ def status(
 
     if task.progress:
         p = task.progress
-        typer.echo(f"  Progress: {p.current_step_index}/{p.total_steps} "
-                    f"({p.percentage:.0f}%)")
+        typer.echo(f"  Progress: {p.current_step_index}/{p.total_steps} ({p.percentage:.0f}%)")
         if p.current_step:
             typer.echo(f"  Current step: {p.current_step}")
         if p.elapsed_seconds > 0:
@@ -1177,13 +1296,14 @@ def status(
 @app.command()
 def tasks(
     status_filter: Optional[str] = typer.Option(
-        None, "--status", "-s",
-        help="过滤状态 pending|running|completed|failed|cancelled / Filter by status"
+        None,
+        "--status",
+        "-s",
+        help="过滤状态 pending|running|completed|failed|cancelled / Filter by status",
     ),
     limit: int = typer.Option(20, "--limit", "-n", help="显示数量 / Number of tasks to show"),
     remote: Optional[str] = typer.Option(
-        None, "--remote", "-r",
-        help="远程服务器URL / Remote server URL"
+        None, "--remote", "-r", help="远程服务器URL / Remote server URL"
     ),
 ):
     """List tasks.
@@ -1233,8 +1353,7 @@ def tasks(
 def cancel(
     task_id: str = typer.Argument(..., help="任务ID / Task ID"),
     remote: Optional[str] = typer.Option(
-        None, "--remote", "-r",
-        help="远程服务器URL / Remote server URL"
+        None, "--remote", "-r", help="远程服务器URL / Remote server URL"
     ),
 ):
     """Cancel a running task.
@@ -1250,8 +1369,7 @@ def cancel(
         typer.echo(f"Task {task_id}: cancellation requested.")
     else:
         typer.echo(
-            f"Task {task_id}: could not cancel "
-            f"(not found or already in terminal state).",
+            f"Task {task_id}: could not cancel (not found or already in terminal state).",
             err=True,
         )
         raise typer.Exit(1)
@@ -1261,16 +1379,13 @@ def cancel(
 def wait(
     task_id: str = typer.Argument(..., help="任务ID / Task ID"),
     timeout: Optional[float] = typer.Option(
-        None, "--timeout", "-t",
-        help="等����时(秒) / Timeout in seconds (default: infinite)"
+        None, "--timeout", "-t", help="等����时(秒) / Timeout in seconds (default: infinite)"
     ),
     poll_interval: float = typer.Option(
-        1.0, "--poll-interval",
-        help="轮询间隔(秒) / Poll interval in seconds"
+        1.0, "--poll-interval", help="轮询间隔(秒) / Poll interval in seconds"
     ),
     remote: Optional[str] = typer.Option(
-        None, "--remote", "-r",
-        help="远程服务器URL / Remote server URL"
+        None, "--remote", "-r", help="远程服务器URL / Remote server URL"
     ),
 ):
     """Wait for task completion.
@@ -1283,7 +1398,9 @@ def wait(
     queue = _get_queue(remote=remote)
     result = queue.wait(task_id, timeout=timeout, poll_interval=poll_interval)
     if result is None:
-        typer.echo(f"Task {task_id}: did not complete (timeout, cancelled, or not found).", err=True)
+        typer.echo(
+            f"Task {task_id}: did not complete (timeout, cancelled, or not found).", err=True
+        )
         raise typer.Exit(1)
     if result.succeeded:
         typer.echo(f"✓ Task {task_id} completed: {result.video_path}")
@@ -1295,8 +1412,7 @@ def wait(
 @app.command()
 def cleanup(
     all_tasks: bool = typer.Option(
-        False, "--all",
-        help="��除所有任务(��括运行中) / Clear all tasks including active ones"
+        False, "--all", help="��除所有任务(��括运行中) / Clear all tasks including active ones"
     ),
 ):
     """Clean up terminal tasks.
@@ -1322,27 +1438,31 @@ def serve(
     port: int = typer.Option(8765, "--port", help="监听端口 / Listen port"),
     max_workers: int = typer.Option(2, "--max-workers", help="最大并发任务 / Max concurrent tasks"),
     storage_dir: Optional[str] = typer.Option(
-        None, "--storage-dir",
-        help="任务存储目录 / Task storage directory"
+        None, "--storage-dir", help="任务存储目录 / Task storage directory"
     ),
     public: bool = typer.Option(
-        False, "--public",
-        help="监听所有网络接口(默认��本机) / Listen on all interfaces (default: localhost only)"
+        False,
+        "--public",
+        help="监听所有网络接口(默认��本机) / Listen on all interfaces (default: localhost only)",
     ),
     api_key: Optional[str] = typer.Option(
-        None, "--api-key",
+        None,
+        "--api-key",
         help="API key for X-API-Key authentication. Reads MN_API_KEY env var by default.",
     ),
     insecure: bool = typer.Option(
-        False, "--insecure",
+        False,
+        "--insecure",
         help="Allow starting on public interface without API key (not recommended).",
     ),
     log_format: Optional[str] = typer.Option(
-        None, "--log-format",
+        None,
+        "--log-format",
         help="日志格式 / Log format: text|json (default: MN_LOG_FORMAT, else text).",
     ),
     log_level: Optional[str] = typer.Option(
-        None, "--log-level",
+        None,
+        "--log-level",
         help="日志级别 / Log level: DEBUG|INFO|WARNING|ERROR (default: MN_LOG_LEVEL, else INFO).",
     ),
 ):
@@ -1427,12 +1547,10 @@ def download(
     task_id: str = typer.Argument(..., help="任务ID / Task ID"),
     remote: str = typer.Option(..., "--remote", "-r", help="远程服务器URL / Remote server URL"),
     filename: Optional[str] = typer.Option(
-        None, "--filename", "-f",
-        help="指定文件名(不指定则下载��部) / Specific file (default: all)"
+        None, "--filename", "-f", help="指定文件名(不指定则下载��部) / Specific file (default: all)"
     ),
     dest_dir: Optional[str] = typer.Option(
-        None, "--dest-dir", "-o",
-        help="保存目录 / Destination directory"
+        None, "--dest-dir", "-o", help="保存目录 / Destination directory"
     ),
 ):
     """Download artifacts from a remote server.
@@ -1461,12 +1579,13 @@ def download(
 @app.command("api-spec")
 def api_spec(
     output: Optional[str] = typer.Option(
-        None, "--output", "-o",
-        help="输出文件路径(默认输出到 stdout) / Output file path (default: stdout)"
+        None,
+        "--output",
+        "-o",
+        help="输出文件路径(默认输出到 stdout) / Output file path (default: stdout)",
     ),
     indent: int = typer.Option(
-        2, "--indent",
-        help="JSON 缩进空格数(0 表示紧凑输出) / JSON indent width (0 = compact)"
+        2, "--indent", help="JSON 缩进空格数(0 表示紧凑输出) / JSON indent width (0 = compact)"
     ),
 ):
     """Dump the REST API OpenAPI 3.1 spec.
@@ -1522,7 +1641,9 @@ def _artifacts_open_store(backend: Optional[str], root: Optional[str]):
 
 @artifacts_app.command("list")
 def artifacts_list(
-    prefix: str = typer.Option("", "--prefix", help="仅列出该前缀下的产物 / Only list keys under this prefix"),
+    prefix: str = typer.Option(
+        "", "--prefix", help="仅列出该前缀下的产物 / Only list keys under this prefix"
+    ),
     backend: Optional[str] = typer.Option(
         None, "--backend", help="local 或 s3(默认读 MN_STORAGE_BACKEND) / Backend override"
     ),
@@ -1555,18 +1676,26 @@ def artifacts_list(
 @artifacts_app.command("cleanup")
 def artifacts_cleanup(
     ttl: Optional[int] = typer.Option(
-        None, "--ttl", help="过期秒数,0=永久保留(默认读 MN_ARTIFACT_TTL) / TTL in seconds, 0 = keep forever"
+        None,
+        "--ttl",
+        help="过期秒数,0=永久保留(默认读 MN_ARTIFACT_TTL) / TTL in seconds, 0 = keep forever",
     ),
     max_bytes: Optional[int] = typer.Option(
-        None, "--max-bytes", help="总容量上限字节数,0=不限(默认读 MN_ARTIFACT_MAX_BYTES) / Total size cap in bytes"
+        None,
+        "--max-bytes",
+        help="总容量上限字节数,0=不限(默认读 MN_ARTIFACT_MAX_BYTES) / Total size cap in bytes",
     ),
     keep_last: Optional[int] = typer.Option(
-        None, "--keep-last", help="始终保留最新 N 个产物(默认读 MN_ARTIFACT_KEEP_LAST) / Always keep the N newest"
+        None,
+        "--keep-last",
+        help="始终保留最新 N 个产物(默认读 MN_ARTIFACT_KEEP_LAST) / Always keep the N newest",
     ),
     dry_run: bool = typer.Option(
         False, "--dry-run", help="仅预览不删除 / Preview without deleting"
     ),
-    prefix: str = typer.Option("", "--prefix", help="仅清理该前缀下的产物 / Restrict cleanup to this prefix"),
+    prefix: str = typer.Option(
+        "", "--prefix", help="仅清理该前缀下的产物 / Restrict cleanup to this prefix"
+    ),
     backend: Optional[str] = typer.Option(
         None, "--backend", help="local 或 s3(默认读 MN_STORAGE_BACKEND) / Backend override"
     ),
@@ -1606,9 +1735,7 @@ def artifacts_cleanup(
         typer.echo(f"  {line}")
 
     if not policy.enabled:
-        typer.echo(
-            "No retention rule active (--ttl / --max-bytes are both 0) — nothing to do."
-        )
+        typer.echo("No retention rule active (--ttl / --max-bytes are both 0) — nothing to do.")
         return
 
     report = cleanup_artifacts(store, policy, prefix=prefix)

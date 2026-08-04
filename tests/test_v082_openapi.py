@@ -180,11 +180,7 @@ class TestSpecPaths:
                 for segment in path.split("/")
                 if segment.startswith("{") and segment.endswith("}")
             )
-            declared = {
-                p["name"]
-                for p in op.get("parameters", [])
-                if p.get("in") == "path"
-            }
+            declared = {p["name"] for p in op.get("parameters", []) if p.get("in") == "path"}
             assert declared == expected, f"{method.upper()} {path}"
             for param in op.get("parameters", []):
                 if param.get("in") == "path":
@@ -192,10 +188,7 @@ class TestSpecPaths:
 
     def test_task_list_query_parameters(self, spec):
         """GET /tasks documents ?status= and ?limit=."""
-        params = {
-            p["name"]: p
-            for p in spec["paths"]["/tasks"]["get"]["parameters"]
-        }
+        params = {p["name"]: p for p in spec["paths"]["/tasks"]["get"]["parameters"]}
         assert set(params) == {"status", "limit"}
         assert params["status"]["in"] == "query"
         assert params["status"]["required"] is False
@@ -203,10 +196,7 @@ class TestSpecPaths:
 
     def test_health_deep_query_parameter(self, spec):
         """GET /health documents the ?deep= opt-in flag."""
-        params = {
-            p["name"]: p
-            for p in spec["paths"]["/health"]["get"]["parameters"]
-        }
+        params = {p["name"]: p for p in spec["paths"]["/health"]["get"]["parameters"]}
         assert "deep" in params
         assert params["deep"]["in"] == "query"
         assert params["deep"]["required"] is False
@@ -220,11 +210,7 @@ class TestSpecPaths:
 
     def test_response_codes_cover_the_contract(self, spec):
         """The documented status codes match what the handler can return."""
-        codes = {
-            code
-            for _, _, op in _operations(spec)
-            for code in op["responses"]
-        }
+        codes = {code for _, _, op in _operations(spec) for code in op["responses"]}
         assert {"200", "201", "400", "401", "403", "404", "503"} <= codes
 
     def test_probe_endpoints_document_503(self, spec):
@@ -279,18 +265,14 @@ class TestSpecComponents:
     def test_every_schema_is_referenced_or_top_level(self, spec):
         """No orphan component schema (dead weight in generated clients)."""
         schemas = spec["components"]["schemas"]
-        referenced = {
-            value.rsplit("/", 1)[-1] for key, value in _walk(spec) if key == "$ref"
-        }
+        referenced = {value.rsplit("/", 1)[-1] for key, value in _walk(spec) if key == "$ref"}
         assert set(schemas) == referenced
 
     def test_task_request_matches_model(self, spec):
         """The TaskRequest component tracks the pydantic model fields."""
         from movie_narrator.cloud.models import TaskRequest
 
-        model_schema = TaskRequest.model_json_schema(
-            ref_template="#/components/schemas/{model}"
-        )
+        model_schema = TaskRequest.model_json_schema(ref_template="#/components/schemas/{model}")
         model_schema.pop("$defs", None)
         assert spec["components"]["schemas"]["TaskRequest"] == model_schema
 
@@ -351,9 +333,7 @@ class TestOpenApiEndpoint:
 
     def test_served_without_api_key(self, server):
         """The spec route is exempt from authentication."""
-        with urllib.request.urlopen(
-            f"{server.base_url}/openapi.json", timeout=5
-        ) as resp:
+        with urllib.request.urlopen(f"{server.base_url}/openapi.json", timeout=5) as resp:
             assert resp.getcode() == 200
             assert resp.headers.get("Content-Type", "").startswith("application/json")
             body = json.loads(resp.read())
@@ -362,9 +342,7 @@ class TestOpenApiEndpoint:
 
     def test_server_url_reflects_host_header(self, server):
         """The served document advertises the host the client used."""
-        with urllib.request.urlopen(
-            f"{server.base_url}/openapi.json", timeout=5
-        ) as resp:
+        with urllib.request.urlopen(f"{server.base_url}/openapi.json", timeout=5) as resp:
             body = json.loads(resp.read())
         assert body["servers"][0]["url"] == server.base_url
 

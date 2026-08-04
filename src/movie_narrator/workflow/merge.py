@@ -53,8 +53,10 @@ def merge_job(
         """Pick a value with a default fallback."""
         if has_job and yaml_val is not None and cli_val == typer_default:
             return yaml_val
-        return cli_val if cli_val is not None else (
-            yaml_val if yaml_val is not None else typer_default
+        return (
+            cli_val
+            if cli_val is not None
+            else (yaml_val if yaml_val is not None else typer_default)
         )
 
     movie = pick_optional(cli.get("movie"), yaml_get("movie"), "")
@@ -99,44 +101,82 @@ def merge_job(
     if job is not None and job.params is not None:
         for key in (
             # Scene detection
-            "scene_threshold", "scene_frame_skip",
+            "scene_threshold",
+            "scene_frame_skip",
             # Match
-            "match_min_score", "match_speed_clamp_min", "match_speed_clamp_max",
-            "scene_merge_min_duration", "match_drop_scene_min_duration",
-            "match_diversity_window", "match_max_scene_reuse",
-            "match_timeline_mode", "match_act_weights",
-            "match_topk", "match_topk_reuse_penalty",
+            "match_min_score",
+            "match_speed_clamp_min",
+            "match_speed_clamp_max",
+            "scene_merge_min_duration",
+            "match_drop_scene_min_duration",
+            "match_diversity_window",
+            "match_max_scene_reuse",
+            "match_timeline_mode",
+            "match_act_weights",
+            "match_topk",
+            "match_topk_reuse_penalty",
             "embedding_model_name",
             # BGM
-            "bgm_gain_db", "bgm_duck_db", "bgm_normalize", "audio_target_dbfs",
+            "bgm_gain_db",
+            "bgm_duck_db",
+            "bgm_normalize",
+            "audio_target_dbfs",
             # TTS pacing
-            "tts_pause_ms", "tts_max_concurrent", "tts_audio_format", "tts_audio_bitrate",
+            "tts_pause_ms",
+            "tts_max_concurrent",
+            "tts_audio_format",
+            "tts_audio_bitrate",
             # Translate
-            "translate_source_lang", "translate_provider", "translate_retries",
-            "translate_chunk_chars", "translate_chunk_size",
+            "translate_source_lang",
+            "translate_provider",
+            "translate_retries",
+            "translate_chunk_chars",
+            "translate_chunk_size",
             # Research
             "research_provider",
             # WhisperX
-            "whisperx_device", "whisperx_model", "whisperx_language",
+            "whisperx_device",
+            "whisperx_model",
+            "whisperx_language",
             "align_backend",
             # Render
-            "render_fps", "render_video_codec", "render_audio_codec", "render_threads",
-            "render_bg_color", "render_font_size", "render_output_name", "render_ffmpeg_timeout",
-            "render_fit_mode", "render_crf", "render_preset", "render_faststart",
-            "render_subtitle_position", "render_subtitle_max_width_ratio",
+            "render_fps",
+            "render_video_codec",
+            "render_audio_codec",
+            "render_threads",
+            "render_bg_color",
+            "render_font_size",
+            "render_output_name",
+            "render_ffmpeg_timeout",
+            "render_fit_mode",
+            "render_crf",
+            "render_preset",
+            "render_faststart",
+            "render_subtitle_position",
+            "render_subtitle_max_width_ratio",
             "render_subtitle_bottom_margin_ratio",
-            "render_require_footage", "render_min_footage_coverage",
-            "render_profile", "render_title_card_sec",
-            "render_cover_export", "render_vertical_safe_area",
+            "render_require_footage",
+            "render_min_footage_coverage",
+            "render_profile",
+            "render_title_card_sec",
+            "render_cover_export",
+            "render_vertical_safe_area",
             "bgm_loudnorm",
             # QA
-            "qa_enabled", "qa_max_silence_db", "qa_min_duration_ratio", "qa_max_duration_ratio",
+            "qa_enabled",
+            "qa_max_silence_db",
+            "qa_min_duration_ratio",
+            "qa_max_duration_ratio",
             # Prompt shaping (preset-driven, but also YAML-configurable)
-            "prompt_target_sentences", "prompt_target_segment_duration",
-            "prompt_max_chars_per_sentence", "prompt_hook_seconds",
-            "hook_templates", "set_pieces",
+            "prompt_target_sentences",
+            "prompt_target_segment_duration",
+            "prompt_max_chars_per_sentence",
+            "prompt_hook_seconds",
+            "hook_templates",
+            "set_pieces",
             # Async
-            "async_timeout", "async_max_workers",
+            "async_timeout",
+            "async_max_workers",
             # Video sizes
             "video_sizes",
             # Render template styling
@@ -150,9 +190,9 @@ def merge_job(
     subtitle_lang = pick_optional(cli.get("subtitle_lang"), yaml_get("subtitle_lang"), None)
     if subtitle_lang is not None:
         subtitle_lang = str(subtitle_lang).strip() or None
-    subtitle_mode = pick_optional(
-        cli.get("subtitle_mode"), yaml_get("subtitle_mode"), None
-    ) or "original"
+    subtitle_mode = (
+        pick_optional(cli.get("subtitle_mode"), yaml_get("subtitle_mode"), None) or "original"
+    )
     if subtitle_mode not in VALID_SUBTITLE_MODES:
         raise JobConfigError(
             f"subtitle_mode must be one of {sorted(VALID_SUBTITLE_MODES)}, got {subtitle_mode!r}"

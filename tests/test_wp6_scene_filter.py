@@ -104,7 +104,9 @@ class TestFilterDarkScenes:
         """When PIL is not available, skip filtering."""
         scenes = _scenes()
         with (
-            patch("movie_narrator.pipeline.scene_filter.shutil.which", return_value="/usr/bin/ffmpeg"),
+            patch(
+                "movie_narrator.pipeline.scene_filter.shutil.which", return_value="/usr/bin/ffmpeg"
+            ),
             patch.dict(sys.modules, {"PIL": None, "PIL.Image": None}),
         ):
             result, dropped = filter_dark_scenes(scenes, "video.mp4", 20.0)
@@ -142,10 +144,10 @@ class TestFilterDarkScenes:
                 return [self._luma] * (64 * 64)
 
         luma_map = {
-            5.0: 5.0,    # scene 0 mid → dark
+            5.0: 5.0,  # scene 0 mid → dark
             15.0: 50.0,  # scene 1 mid → bright
             25.0: 80.0,  # scene 2 mid → bright
-            35.0: 3.0,   # scene 3 mid → dark
+            35.0: 3.0,  # scene 3 mid → dark
             45.0: 60.0,  # scene 4 mid → bright
             55.0: 70.0,  # scene 5 mid → bright
             65.0: 40.0,  # scene 6 mid → bright
@@ -164,12 +166,18 @@ class TestFilterDarkScenes:
         fake_pil.Image.__name__ = "Image"
 
         with (
-            patch("movie_narrator.pipeline.scene_filter.shutil.which", return_value="/usr/bin/ffmpeg"),
-            patch("movie_narrator.pipeline.scene_filter._extract_mid_frame", side_effect=fake_extract),
+            patch(
+                "movie_narrator.pipeline.scene_filter.shutil.which", return_value="/usr/bin/ffmpeg"
+            ),
+            patch(
+                "movie_narrator.pipeline.scene_filter._extract_mid_frame", side_effect=fake_extract
+            ),
             patch.dict(sys.modules, {"PIL": fake_pil, "PIL.Image": fake_pil.Image}),
         ):
             result, dropped = filter_dark_scenes(
-                scenes, str(video_path), 20.0,
+                scenes,
+                str(video_path),
+                20.0,
                 cache_dir=tmp_path / "cache",
             )
 
@@ -185,11 +193,15 @@ class TestFilterDarkScenes:
         video_path.write_bytes(b"fake_video")
 
         with (
-            patch("movie_narrator.pipeline.scene_filter.shutil.which", return_value="/usr/bin/ffmpeg"),
+            patch(
+                "movie_narrator.pipeline.scene_filter.shutil.which", return_value="/usr/bin/ffmpeg"
+            ),
             patch("movie_narrator.pipeline.scene_filter._extract_mid_frame", return_value=False),
         ):
             result, dropped = filter_dark_scenes(
-                scenes, str(video_path), 20.0,
+                scenes,
+                str(video_path),
+                20.0,
                 cache_dir=tmp_path / "cache",
             )
 
@@ -203,12 +215,16 @@ class TestFilterDarkScenes:
         video_path.write_bytes(b"fake_video")
 
         with (
-            patch("movie_narrator.pipeline.scene_filter.shutil.which", return_value="/usr/bin/ffmpeg"),
+            patch(
+                "movie_narrator.pipeline.scene_filter.shutil.which", return_value="/usr/bin/ffmpeg"
+            ),
             patch("movie_narrator.pipeline.scene_filter._extract_mid_frame", return_value=True),
             patch("movie_narrator.pipeline.scene_filter._compute_mean_luma", return_value=5.0),
         ):
             result, dropped = filter_dark_scenes(
-                scenes, str(video_path), 20.0,
+                scenes,
+                str(video_path),
+                20.0,
                 cache_dir=tmp_path / "cache",
             )
 
@@ -331,6 +347,7 @@ class TestMatchWP6Integration:
         # Mock embedding to unavailable so we test heuristic path
         with patch("movie_narrator.pipeline.match.probe", return_value=(False, "no st")):
             from movie_narrator.pipeline.match import match_clips
+
             match_clips(ctx)
 
         assert ctx.status.match == "success"
@@ -346,6 +363,7 @@ class TestMatchWP6Integration:
 
         with patch("movie_narrator.pipeline.match.probe", return_value=(False, "no st")):
             from movie_narrator.pipeline.match import match_clips
+
             match_clips(ctx)
 
         assert ctx.status.match == "success"
@@ -353,7 +371,7 @@ class TestMatchWP6Integration:
         # All matched clips should be within 12-68s range (window of 0-80 span)
         for mc in ctx.matched_clips:
             assert mc.src_start >= 10.0  # first kept scene starts at 10 (clipped to 12)
-            assert mc.src_end <= 70.0    # last kept scene ends at 70 (clipped to 68)
+            assert mc.src_end <= 70.0  # last kept scene ends at 70 (clipped to 68)
 
     def test_no_wp6_params_no_change(self, tmp_path):
         """Without scene filter params, behavior is unchanged."""
@@ -362,6 +380,7 @@ class TestMatchWP6Integration:
 
         with patch("movie_narrator.pipeline.match.probe", return_value=(False, "no st")):
             from movie_narrator.pipeline.match import match_clips
+
             match_clips(ctx)
 
         assert ctx.status.match == "success"

@@ -15,7 +15,14 @@ from ..utils.environment import collect_environment
 from .align import align_audio
 from .assets import prepare_assets
 from .bgm import mix_bgm
-from .errors import PipelineCancelled, PipelinePaused, PipelineStrictError, RunController, StepAction, check_cancelled
+from .errors import (
+    PipelineCancelled,
+    PipelinePaused,
+    PipelineStrictError,
+    RunController,
+    StepAction,
+    check_cancelled,
+)
 from .export_clips import export_clips
 from .match import match_clips
 from .preflight import PreflightError, run_preflight
@@ -48,36 +55,69 @@ PARAM_WHITELIST: frozenset[str] = frozenset(JobParams.model_fields.keys())
 
 _BUILTIN_STEP_META = {
     # name: (func, soft, status_field, consequence)
-    "resolve_video":       (resolve_video,       False, None, ""),
-    "prepare_assets":      (prepare_assets,      False, None, ""),
-    "research_plot":       (research_plot,       True,  "research",
-        "research unavailable — script will use generic plot description"),
-    "generate_script":     (generate_script,     False, None, ""),
-    "export_script_md":    (export_script_md,    False, None, ""),
-    "generate_voice":      (generate_voice,      False, None, ""),
-    "align_audio":         (align_audio,         True,  "align",
-        "audio alignment skipped — subtitle timestamps may drift from actual speech"),
-    "detect_scenes":       (detect_scenes,       True,  "scene",
-        "scene detection skipped — clips will use fixed-duration segments"),
-    "match_clips":         (match_clips,         True,  "match",
-        "clip matching skipped — segments mapped to sequential clips without embedding search"),
-    "mix_bgm":             (mix_bgm,             True,  "bgm",
-        "BGM mixing failed — final video will have narration audio only, no background music"),
-    "translate_subtitles": (translate_subtitles, True,  "translate",
-        "translation failed — only original-language subtitles will be available"),
-    "generate_subtitle":   (generate_subtitle,   False, None, ""),
-    "run_qa_gate":         (run_qa_gate,         True,  "qa_gate",
-        "QA gate skipped — intermediate product validation not performed"),
-    "render_video":        (render_video,        False, None, ""),
-    "validate_deliverable":(validate_deliverable,False, None, ""),
-    "export_clips":        (export_clips,        True,  "export",
-        "clip export skipped — no standalone clip files will be produced"),
+    "resolve_video": (resolve_video, False, None, ""),
+    "prepare_assets": (prepare_assets, False, None, ""),
+    "research_plot": (
+        research_plot,
+        True,
+        "research",
+        "research unavailable — script will use generic plot description",
+    ),
+    "generate_script": (generate_script, False, None, ""),
+    "export_script_md": (export_script_md, False, None, ""),
+    "generate_voice": (generate_voice, False, None, ""),
+    "align_audio": (
+        align_audio,
+        True,
+        "align",
+        "audio alignment skipped — subtitle timestamps may drift from actual speech",
+    ),
+    "detect_scenes": (
+        detect_scenes,
+        True,
+        "scene",
+        "scene detection skipped — clips will use fixed-duration segments",
+    ),
+    "match_clips": (
+        match_clips,
+        True,
+        "match",
+        "clip matching skipped — segments mapped to sequential clips without embedding search",
+    ),
+    "mix_bgm": (
+        mix_bgm,
+        True,
+        "bgm",
+        "BGM mixing failed — final video will have narration audio only, no background music",
+    ),
+    "translate_subtitles": (
+        translate_subtitles,
+        True,
+        "translate",
+        "translation failed — only original-language subtitles will be available",
+    ),
+    "generate_subtitle": (generate_subtitle, False, None, ""),
+    "run_qa_gate": (
+        run_qa_gate,
+        True,
+        "qa_gate",
+        "QA gate skipped — intermediate product validation not performed",
+    ),
+    "render_video": (render_video, False, None, ""),
+    "validate_deliverable": (validate_deliverable, False, None, ""),
+    "export_clips": (
+        export_clips,
+        True,
+        "export",
+        "clip export skipped — no standalone clip files will be produced",
+    ),
 }
 
 for _name, (_func, _soft, _field, _consequence) in _BUILTIN_STEP_META.items():
     if not step_registry.contains(_name):
         step_registry.register(
-            _name, _func,
+            _name,
+            _func,
             soft=_soft,
             status_field=_field,
             consequence=_consequence,
@@ -96,8 +136,7 @@ STATUS_FIELD_FOR_STEP: Dict[str, str] = {
 }
 
 SOFT_STEP_CONSEQUENCES: Dict[str, str] = {
-    name: step_registry.consequence_for(name)
-    for name in SOFT_STATUS_STEPS
+    name: step_registry.consequence_for(name) for name in SOFT_STATUS_STEPS
 }
 
 # Safety: every soft step must have a status field mapping.
@@ -282,34 +321,38 @@ def build_context(
         services=services,
     )
     from ..utils.cost_tracker import CostTracker
+
     ctx.cost_tracker = CostTracker()
     ctx.metadata.update(
-        cast(MetadataDict, {
-            "voice": voice,
-            "video_format": video_format,
-            "keep_cache": keep_cache,
-            "video_arg": video,
-            "research_enabled": research_enabled,
-            "export_clips": (False if no_clips else True),
-            "strict": strict,
-            "bgm_request": bgm_request,
-            "version": __version__,
-            "environment": collect_environment(),
-            # Multi-language subtitle. Empty lang → feature off.
-            "subtitle_lang": (subtitle_lang or None),
-            "subtitle_mode": (subtitle_mode or "original"),
-            "translate_provider": (params or {}).get("translate_provider", "llm"),
-            "translate_retries": (params or {}).get("translate_retries", 3),
-            "research_provider": (params or {}).get("research_provider", "llm"),
-            # Single source of truth for narration language.
-            "lang": lang,
-            # v0.7.2: preview mode — render only the first N seconds for quick
-            # iteration.  OFF by default (backward compatible).  These keys are
-            # also propagated via PARAM_WHITELIST below when explicitly set;
-            # setting defaults here keeps them visible in metadata.json.
-            "render_preview_mode": (params or {}).get("render_preview_mode", False),
-            "render_preview_sec": (params or {}).get("render_preview_sec", 10.0),
-        })
+        cast(
+            MetadataDict,
+            {
+                "voice": voice,
+                "video_format": video_format,
+                "keep_cache": keep_cache,
+                "video_arg": video,
+                "research_enabled": research_enabled,
+                "export_clips": (False if no_clips else True),
+                "strict": strict,
+                "bgm_request": bgm_request,
+                "version": __version__,
+                "environment": collect_environment(),
+                # Multi-language subtitle. Empty lang → feature off.
+                "subtitle_lang": (subtitle_lang or None),
+                "subtitle_mode": (subtitle_mode or "original"),
+                "translate_provider": (params or {}).get("translate_provider", "llm"),
+                "translate_retries": (params or {}).get("translate_retries", 3),
+                "research_provider": (params or {}).get("research_provider", "llm"),
+                # Single source of truth for narration language.
+                "lang": lang,
+                # v0.7.2: preview mode — render only the first N seconds for quick
+                # iteration.  OFF by default (backward compatible).  These keys are
+                # also propagated via PARAM_WHITELIST below when explicitly set;
+                # setting defaults here keeps them visible in metadata.json.
+                "render_preview_mode": (params or {}).get("render_preview_mode", False),
+                "render_preview_sec": (params or {}).get("render_preview_sec", 10.0),
+            },
+        )
     )
 
     # Narration-language consistency check — warn if subtitle target language
@@ -331,6 +374,7 @@ def build_context(
     effective_params: Dict[str, Any] = {}
     if narration_preset:
         from ..presets import get_preset
+
         preset = get_preset(narration_preset)
         effective_params.update(preset.param_dict)
         ctx.metadata["narration_preset"] = narration_preset
@@ -347,7 +391,9 @@ def build_context(
     # When render_profile=draft, override render params for speed.
     # User-supplied params (via job.yaml or preset) always take precedence
     # over draft defaults — draft only fills gaps.
-    render_profile = (params or {}).get("render_profile") or (effective_params.get("render_profile"))
+    render_profile = (params or {}).get("render_profile") or (
+        effective_params.get("render_profile")
+    )
     if render_profile == "draft":
         _DRAFT_RENDER_DEFAULTS = {
             "render_crf": 28,
@@ -380,6 +426,7 @@ def _save_pipeline_state(ctx: Context, completed_step: str) -> Path:
         The path to the saved state file.
     """
     import json
+
     state = {
         "completed_step": completed_step,
         "context": ctx.model_dump(mode="json", exclude={"services"}),
@@ -401,6 +448,7 @@ def _load_pipeline_state(state_path: Path) -> tuple[Context, str]:
         callers should assign a real console if interactive output is needed.
     """
     import json
+
     data = json.loads(state_path.read_text(encoding="utf-8"))
     completed_step = data["completed_step"]
     ctx = Context(**data["context"])
@@ -497,6 +545,7 @@ def run_pipeline(
         # a faithful representation of the final output.
         if ctx.metadata.get("render_preview_mode"):
             from ..utils.preview import should_skip_step_for_preview
+
             if should_skip_step_for_preview(name, True):
                 ctx.step_state = StepState(
                     result=StepResult.SKIPPED, message="skipped in preview mode"
@@ -537,7 +586,8 @@ def run_pipeline(
                     if consequence:
                         msg = f"{msg} — {consequence}"
                     ctx.step_state = StepState(
-                        result=StepResult.WARNING, message=msg,
+                        result=StepResult.WARNING,
+                        message=msg,
                         step_retryable=is_retryable,
                     )
                     console.step_warn(name, ctx.step_state.message or "")
@@ -557,7 +607,8 @@ def run_pipeline(
                 elif action is StepAction.SKIP:
                     console.step_warn(name, f"skipped after {attempt} attempt(s): {e}")
                     ctx.step_state = StepState(
-                        result=StepResult.WARNING, message=f"skipped: {e}",
+                        result=StepResult.WARNING,
+                        message=f"skipped: {e}",
                         step_retryable=is_retryable,
                     )
                     break  # exit retry loop, continue to next step
@@ -601,7 +652,7 @@ def run_pipeline(
             console.inline_warn(
                 f"Pipeline paused after '{name}'. "
                 f"State saved to {state_path.name}. "
-                f"Resume with: mn resume --state \"{state_path}\""
+                f'Resume with: mn resume --state "{state_path}"'
             )
             raise PipelinePaused(name)
 
@@ -716,11 +767,7 @@ def _handle_step_error(
       the existing behavior.
     """
     is_retryable = bool(getattr(error, "retryable", False))
-    handler = (
-        getattr(controller, "on_step_error", None)
-        if controller is not None
-        else None
-    )
+    handler = getattr(controller, "on_step_error", None) if controller is not None else None
     retry_enabled = handler is not None
 
     if is_retryable and not retry_enabled:

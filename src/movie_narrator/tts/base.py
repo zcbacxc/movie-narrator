@@ -87,5 +87,4 @@ class BaseTTSProvider(TTSProvider):
         audio.export(output_path, format="mp3")
 
     @abstractmethod
-    async def _real_synthesize(self, text: str, voice: str, output_path: Path) -> None:
-        ...
+    async def _real_synthesize(self, text: str, voice: str, output_path: Path) -> None: ...

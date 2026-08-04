@@ -60,6 +60,7 @@ def _import_fade_effect():
     """
     try:
         from moviepy.video.fx import FadeIn
+
         return FadeIn
     except Exception:  # noqa: BLE001 — broad on purpose, see docstring
         logger.debug("Failed to import FadeIn effect", exc_info=True)
@@ -149,8 +150,7 @@ def apply_text_animation(
             return clip
 
         if animation_type in ("slide_up", "slide_left"):
-            slid = _apply_slide_entrance(clip, animation_type, anim_dur,
-                                         clip_duration, FadeIn)
+            slid = _apply_slide_entrance(clip, animation_type, anim_dur, clip_duration, FadeIn)
             if slid is not None:
                 return slid
             # Fallback: fade.

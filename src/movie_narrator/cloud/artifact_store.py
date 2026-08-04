@@ -475,9 +475,7 @@ class S3ArtifactStore:
             The streaming body of *key*.
         """
         try:
-            response = self._client.get_object(
-                Bucket=self.bucket, Key=self.object_key(key)
-            )
+            response = self._client.get_object(Bucket=self.bucket, Key=self.object_key(key))
         except UnsafeKeyError:
             raise
         except Exception as exc:  # noqa: BLE001
@@ -587,7 +585,7 @@ class S3ArtifactStore:
             return raw_key.lstrip("/")
         marker = self.prefix + "/"
         if raw_key.startswith(marker):
-            return raw_key[len(marker):]
+            return raw_key[len(marker) :]
         if raw_key == self.prefix:
             return ""
         return raw_key.lstrip("/")
@@ -612,9 +610,7 @@ def _translate_s3_error(exc: Exception, key: str) -> ArtifactStoreError:
     if isinstance(response, dict):
         error = response.get("Error", {})
         code = str(error.get("Code", "")) if isinstance(error, dict) else ""
-        status = str(
-            response.get("ResponseMetadata", {}).get("HTTPStatusCode", "")
-        )
+        status = str(response.get("ResponseMetadata", {}).get("HTTPStatusCode", ""))
         if code in _S3_MISSING_MARKERS or status == "404":
             return ArtifactNotFoundError(f"Artifact not found: {key!r}")
 
@@ -679,8 +675,10 @@ def get_artifact_store(
     name = (backend or environ.get("MN_STORAGE_BACKEND") or "local").strip().lower()
 
     if name == "local":
-        base = Path(root) if root is not None else Path(
-            environ.get("MN_STORAGE_ROOT") or DEFAULT_LOCAL_ROOT
+        base = (
+            Path(root)
+            if root is not None
+            else Path(environ.get("MN_STORAGE_ROOT") or DEFAULT_LOCAL_ROOT)
         )
         if sub_prefix:
             base = base / normalize_key(sub_prefix)
@@ -689,9 +687,7 @@ def get_artifact_store(
     if name == "s3":
         bucket = environ.get("MN_S3_BUCKET", "")
         if not bucket:
-            raise ArtifactStoreError(
-                "MN_STORAGE_BACKEND=s3 requires MN_S3_BUCKET to be set."
-            )
+            raise ArtifactStoreError("MN_STORAGE_BACKEND=s3 requires MN_S3_BUCKET to be set.")
         prefix = join_prefix(environ.get("MN_S3_PREFIX", ""), sub_prefix)
         return S3ArtifactStore(
             bucket=bucket,
