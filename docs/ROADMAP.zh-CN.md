@@ -36,7 +36,7 @@
 
 ---
 
-### v0.8.0 — 服务化基础（部分交付）
+### v0.8.0 — 服务化基础（已在 v0.8.0–v0.8.4 交付）
 
 > **目标**：能部署成一个靠谱的单租户服务，不过度设计。
 
@@ -52,8 +52,8 @@
 
 - [x] Dockerfile — 多阶段构建（builder + runtime），支持 GPU（v0.8.4）
 - [x] docker-compose.yml — 本地集群（API + N workers + 存储）（v0.8.4）
-- [ ] 存储后端抽象 — `StorageBackend` 协议（local / S3）
-- [ ] 产物生命周期 — 基于 TTL 的清理
+- [x] 存储后端抽象 — `StorageBackend` 协议（local / S3）
+- [x] 产物生命周期 — 基于 TTL 的清理
 - [x] 结构化日志 — JSON 格式，带关联 ID（v0.8.1）
 - [x] Prometheus 指标 — `/metrics` 端点（任务数、队列深度、渲染时长、错误率）（v0.8.1）
 - [x] 健康/就绪探针 — `/ready` 端点 + 带依赖连通性的深度健康检查（`/health` 已在 v0.6.1 实现）（v0.8.2）
