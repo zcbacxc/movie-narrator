@@ -79,7 +79,9 @@ class RunController(Protocol):
     checks fire.
     """
 
-    def is_cancelled(self) -> bool: ...
+    def is_cancelled(self) -> bool:
+        """Return ``True`` if a cancellation was requested."""
+        ...
 
 
 def check_cancelled(controller: Optional[RunController]) -> None:

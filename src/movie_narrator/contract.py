@@ -154,19 +154,29 @@ class PipelineResult(Protocol):
     """
 
     @property
-    def video_path(self) -> Optional[str]: ...
+    def video_path(self) -> Optional[str]:
+        """Absolute path of the rendered video file, or ``None`` if not produced."""
+        ...
 
     @property
-    def audio_path(self) -> Optional[str]: ...
+    def audio_path(self) -> Optional[str]:
+        """Absolute path of the composed audio track, or ``None`` if not produced."""
+        ...
 
     @property
-    def clips_dir(self) -> Optional[str]: ...
+    def clips_dir(self) -> Optional[str]:
+        """Directory holding the extracted/match clips, or ``None`` if not produced."""
+        ...
 
     @property
-    def output_dir(self) -> str: ...
+    def output_dir(self) -> str:
+        """Directory where all pipeline artifacts are written."""
+        ...
 
     @property
-    def subtitle_paths(self) -> Optional[SubtitlePaths]: ...
+    def subtitle_paths(self) -> Optional[SubtitlePaths]:
+        """Generated subtitle artifacts, or ``None`` if none were produced."""
+        ...
 
 
 # ── Plugin extension points ────────────────────────────────
@@ -224,7 +234,13 @@ class Plugin(Protocol):
 
     name: str
 
-    def register(self, ctx: PluginContext) -> None: ...
+    def register(self, ctx: PluginContext) -> None:
+        """Register this plugin's components with the provided registries.
+
+        Args:
+            ctx: The plugin context exposing the global registries.
+        """
+        ...
 
 
 def load_plugin(plugin: Plugin) -> None:

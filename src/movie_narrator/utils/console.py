@@ -3,11 +3,11 @@
 
 """Console — output abstraction: UI rendering + log dispatch.
 
-改进点 (v0.5.4+):
-- build_console 支持 log_level / verbose / json_format / run_id 参数
-- PlainConsole.debug 在 verbose 模式下也输出到控制台
-- 新增 step_timing 上下文管理器，用于子步骤性能计时
-- Services.logger 自动接入 AppLogger
+Improvements (v0.5.4+):
+- ``build_console`` supports ``log_level`` / ``verbose`` / ``json_format`` / ``run_id``.
+- ``PlainConsole.debug`` also writes to the console in verbose mode.
+- Adds the ``step_timing`` context manager for sub-step performance timing.
+- ``Services.logger`` auto-wires into ``AppLogger``.
 """
 
 from __future__ import annotations
@@ -49,19 +49,110 @@ def _fmt_time(seconds: float) -> str:
 class Console(Protocol):
     """Output abstraction — console rendering + log dispatch."""
 
-    def step(self, name: str) -> None: ...
-    def step_ok(self, name: str, elapsed: float) -> None: ...
-    def step_skip(self, name: str, reason: str) -> None: ...
-    def step_warn(self, name: str, reason: str) -> None: ...
-    def step_err(self, name: str, exc: Exception, elapsed: float) -> None: ...
-    def warn(self, msg: str) -> None: ...
-    def info(self, msg: str) -> None: ...
-    def debug(self, msg: str) -> None: ...
-    def inline_warn(self, msg: str) -> None: ...
-    def final(self, msg: str) -> None: ...
-    def done(self, elapsed: float) -> None: ...
-    def cancelled(self, msg: str) -> None: ...
-    def progress(self, *args, **kwargs): ...
+    def step(self, name: str) -> None:
+        """Mark the start of a pipeline step.
+
+        Args:
+            name: The step's display name.
+        """
+        ...
+
+    def step_ok(self, name: str, elapsed: float) -> None:
+        """Report a step that completed successfully.
+
+        Args:
+            name: The step's display name.
+            elapsed: Seconds the step took.
+        """
+        ...
+
+    def step_skip(self, name: str, reason: str) -> None:
+        """Report a step that was skipped.
+
+        Args:
+            name: The step's display name.
+            reason: Why the step was skipped.
+        """
+        ...
+
+    def step_warn(self, name: str, reason: str) -> None:
+        """Report a step that completed with a warning.
+
+        Args:
+            name: The step's display name.
+            reason: The warning message.
+        """
+        ...
+
+    def step_err(self, name: str, exc: Exception, elapsed: float) -> None:
+        """Report a step that failed.
+
+        Args:
+            name: The step's display name.
+            exc: The exception that was raised.
+            elapsed: Seconds the step took before failing.
+        """
+        ...
+
+    def warn(self, msg: str) -> None:
+        """Emit a warning message.
+
+        Args:
+            msg: The warning text.
+        """
+        ...
+
+    def info(self, msg: str) -> None:
+        """Emit an informational message.
+
+        Args:
+            msg: The message text.
+        """
+        ...
+
+    def debug(self, msg: str) -> None:
+        """Emit a debug message (silenced unless verbose).
+
+        Args:
+            msg: The debug text.
+        """
+        ...
+
+    def inline_warn(self, msg: str) -> None:
+        """Emit a warning that overrides the current line.
+
+        Args:
+            msg: The warning text.
+        """
+        ...
+
+    def final(self, msg: str) -> None:
+        """Emit the final summary message.
+
+        Args:
+            msg: The summary text.
+        """
+        ...
+
+    def done(self, elapsed: float) -> None:
+        """Report overall success.
+
+        Args:
+            elapsed: Total seconds for the run.
+        """
+        ...
+
+    def cancelled(self, msg: str) -> None:
+        """Report that the run was cancelled.
+
+        Args:
+            msg: The cancellation reason.
+        """
+        ...
+
+    def progress(self, *args, **kwargs):
+        """Return a progress indicator (e.g. a tqdm-like context manager)."""
+        ...
 
 
 # ── BaseConsole ─────────────────────────────────────────────

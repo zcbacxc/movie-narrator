@@ -75,14 +75,16 @@ jobs:
       - name: Run unit tests
         run: pytest tests/ -m "not integration" -v --timeout=300
 
-      # v0.9.5: coverage gate — enforced on the 3.11 matrix leg only to avoid
+      # v1.0: coverage gate — enforced on the 3.11 matrix leg only to avoid
       # redundant coverage collection across all four versions. The threshold
-      # (80%) is read from .coveragerc; raise it in later point releases.
+      # (82%) is read from .coveragerc; keep the CLI flag in sync with it
+      # (pytest-cov CLI flags override the config file). Raise it in later
+      # point releases (v1.1 -> 88%, v1.2 -> 95%).
       # Integration tests are excluded here (they run in the dedicated
       # `integration` job) so the unit suite is measured consistently.
       - name: Coverage gate (3.11)
         if: matrix.python-version == '3.11'
-        run: pytest tests/ -m "not integration" -q --timeout=300 --cov=movie_narrator --cov-report=term --cov-fail-under=80
+        run: pytest tests/ -m "not integration" -q --timeout=300 --cov=movie_narrator --cov-report=term --cov-fail-under=82
 
       - name: Verify CLI entry points
         run: |
