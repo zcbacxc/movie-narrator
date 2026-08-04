@@ -11,7 +11,7 @@ Ollama 是一个本地大模型运行框架，支持在 Windows / macOS / Linux 
 
 适合有 GPU（≥8GB 显存）或较强 CPU 的用户。Movie Narrator 默认使用 Ollama 作为 LLM 后端。
 
-## 安装步骤
+## 注册流程
 
 ### 1. 下载安装
 

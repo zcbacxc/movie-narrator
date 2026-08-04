@@ -15,7 +15,7 @@ An Architecture Decision Record (ADR) is a short, self-contained note that captu
 
 1. Pick the next available number (ADR-011, ADR-012, ...).
 2. Open a copy of the standard template and fill in the five sections.
-3. Add a `###` subsection in the "Decision Records" list below.
+3. Add a `## ADR-NNN` section below.
 4. Append a row to the "Decision Index" table.
 5. Review the record with the team before merging.
 
@@ -23,9 +23,7 @@ Each ADR should be grounded in the project's actual code and history. Do not inv
 
 ---
 
-## Decision Records
-
-### ADR-001: Contract Layer Isolation
+## ADR-001: Contract Layer Isolation
 
 - **Status:** Accepted
 - **Version:** Introduced since early packaging; still in force as of v0.9.6
@@ -50,7 +48,7 @@ We established a single stable contract surface: the `web` package and every plu
 
 ---
 
-### ADR-002: Provider Registry over Factory
+## ADR-002: Provider Registry over Factory
 
 - **Status:** Accepted
 - **Version:** Adopted in v0.5.1+
@@ -75,7 +73,7 @@ Starting from v0.5.1, provider dispatch uses a registry only. Providers register
 
 ---
 
-### ADR-003: Soft-Step Graceful Degradation
+## ADR-003: Soft-Step Graceful Degradation
 
 - **Status:** Accepted
 - **Version:** In force across the 16-step pipeline
@@ -100,7 +98,7 @@ Soft steps — `research`, `align`, `scene`, `match`, `bgm`, `translate`, `qa_ga
 
 ---
 
-### ADR-004: Circuit Breaker and Retry Strategy
+## ADR-004: Circuit Breaker and Retry Strategy
 
 - **Status:** Accepted
 - **Version:** Introduced in v0.9.1
@@ -126,7 +124,7 @@ We added a circuit breaker in `reliability/circuit_breaker` with a `CLOSED → O
 
 ---
 
-### ADR-005: Task Checkpoints and Resume from Breakpoint
+## ADR-005: Task Checkpoints and Resume from Breakpoint
 
 - **Status:** Accepted
 - **Version:** Introduced in v0.9.2
@@ -151,7 +149,7 @@ We introduced task checkpoints in `cloud/checkpoint`. After each pipeline step, 
 
 ---
 
-### ADR-006: Batching and Scheduling
+## ADR-006: Batching and Scheduling
 
 - **Status:** Accepted
 - **Version:** Introduced in v0.9.3
@@ -176,7 +174,7 @@ We added `BatchRequest` supporting 1–50 jobs per batch. Scheduling is handled 
 
 ---
 
-### ADR-007: DLQ and Distributed Rendering
+## ADR-007: DLQ and Distributed Rendering
 
 - **Status:** Accepted
 - **Version:** Introduced in v0.9.4
@@ -202,7 +200,7 @@ We introduced a dead-letter queue (DLQ). Tasks that fail unrecoverably move to a
 
 ---
 
-### ADR-008: Configuration Boundary
+## ADR-008: Configuration Boundary
 
 - **Status:** Accepted
 - **Version:** In force across the pipeline
@@ -227,7 +225,7 @@ We split configuration into two clear sources. `.env` holds infrastructure setti
 
 ---
 
-### ADR-009: Input Sanitization and Security
+## ADR-009: Input Sanitization and Security
 
 - **Status:** Accepted
 - **Version:** Introduced in v0.9.5
@@ -253,7 +251,7 @@ The task submission API accepted arbitrary payloads. Malformed or malicious inpu
 
 ---
 
-### ADR-010: i18n and Localized Voice
+## ADR-010: i18n and Localized Voice
 
 - **Status:** Accepted
 - **Version:** Introduced in v0.9.6

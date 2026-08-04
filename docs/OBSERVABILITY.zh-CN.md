@@ -117,3 +117,53 @@ text = metrics.render_prometheus_text()
 ```python
 from movie_narrator.utils.logging_config import configure_logging, JsonFormatter
 ```
+
+## 4. 分布式追踪
+
+追踪基于关联 ID（correlation ID）实现——**不集成 OpenTelemetry**（刻意为之：零新增依赖）。`X-Correlation-ID` 头将以下内容在跨服务间串联起来：
+
+- API 请求日志，
+- `/tasks/{id}` 日志，
+- 工作线程日志，
+- 以及响应头中的回显。
+
+要端到端追踪一个工作单元，按同一关联 ID 检索所有日志即可：
+
+```bash
+mn serve --log-format json | jq -c 'select(.correlation_id == "3f2a9c1b")'
+```
+
+由于 ID 会从提交的任务传播到其工作线程，一个 `correlation_id` 字符串就足以还原某个任务的全部旅程——请求、排队、流水线各步骤以及最终渲染。
+
+## 5. 仪表盘
+
+引擎不捆绑任何仪表盘。`/metrics` 端点输出标准 Prometheus 文本格式，任何能消费 Prometheus 的仪表盘工具（如 Grafana）都可以直接接入：
+
+```yaml
+# prometheus.yml — 按 §2.3 抓取，然后配置 Grafana 数据源：
+# URL http://prometheus:9090  →  导入 §2.2 中的指标族
+```
+
+推荐的首屏面板：`mn_queue_depth`（积压）、`mn_active_tasks`（并发）、`mn_task_duration_seconds` 直方图（p95 延迟）、`mn_errors_total{type!="http_401"}`（真实失败）。§2.2 中每个指标族的说明都写明了它衡量什么、有哪些可用标签。
+
+## 6. 告警
+
+告警同样交由外部技术栈处理——引擎代码从不主动触发告警。在 Prometheus 中基于同样的指标族定义告警规则：
+
+```yaml
+groups:
+  - name: movie-narrator
+    rules:
+      - alert: MNTasksStuck
+        expr: mn_queue_depth > 0 and mn_active_tasks == 0
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "Queued tasks are not being processed" }
+      - alert: MNHighErrorRate
+        expr: rate(mn_errors_total[5m]) > 0.1
+        for: 10m
+        labels: { severity: critical }
+        annotations: { summary: "Error rate above 0.1/s over 5m" }
+```
+
+以上规则**仅为示例**——请根据你的部署调整阈值（集群规模与扩容指引参见 `DEPLOYMENT.md`）。

@@ -29,7 +29,7 @@ v0.9.x 为 v1.0 的稳定性奠定基础，并新增了大量可靠性与运维�
 
 ## Breaking Changes
 
-### 1. `format` → `video_format` 重命名（v0.8.0+）
+### 从 v0.8.0 升级 — `format` → `video_format` 重命名
 
 **变更内容：**
 
@@ -61,7 +61,7 @@ mn create -m "Inception" --format 9:16
 mn create -m "Inception" --video-format 9:16
 ```
 
-### 2. `mn serve` 默认绑定变更（v0.7.3+）
+### 从 v0.7.3 升级 — `mn serve` 默认绑定变更
 
 **变更内容：**
 

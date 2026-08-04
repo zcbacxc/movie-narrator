@@ -133,3 +133,66 @@ text = metrics.render_prometheus_text()
 ```python
 from movie_narrator.utils.logging_config import configure_logging, JsonFormatter
 ```
+
+## 4. Distributed tracing
+
+Tracing is correlation-ID based — there is **no OpenTelemetry
+integration** (by design: zero new dependencies). The `X-Correlation-ID`
+header ties together, across services:
+
+- the API request log,
+- the `/tasks/{id}` log,
+- the worker thread log,
+- and the response header echo.
+
+To follow one unit of work end-to-end, grep all logs by the same
+correlation ID:
+
+```bash
+mn serve --log-format json | jq -c 'select(.correlation_id == "3f2a9c1b")'
+```
+
+Because the ID propagates from the submitted task into its worker
+thread, a single `correlation_id` string is enough to reconstruct the
+full journey of one job — request, queueing, pipeline steps, and final
+render.
+
+## 5. Dashboards
+
+No dashboard is bundled with the engine. The `/metrics` endpoint emits
+standard Prometheus text format, so any dashboard tool that consumes
+Prometheus (e.g. Grafana) can be pointed at it:
+
+```yaml
+# prometheus.yml — scrape as in §2.3, then configure Grafana data source:
+# URL http://prometheus:9090  →  import the metric families from §2.2
+```
+
+Recommended first panels: `mn_queue_depth` (backlog), `mn_active_tasks`
+(concurrency), `mn_task_duration_seconds` histogram (p95 latency), and
+`mn_errors_total{type!="http_401"}` (real failures). Each family's
+docstring in §2.2 says what it measures and which labels are available.
+
+## 6. Alerting
+
+Alerting is also left to the external stack — engine code never fires
+alerts. Define Prometheus alert rules over the same metric families:
+
+```yaml
+groups:
+  - name: movie-narrator
+    rules:
+      - alert: MNTasksStuck
+        expr: mn_queue_depth > 0 and mn_active_tasks == 0
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "Queued tasks are not being processed" }
+      - alert: MNHighErrorRate
+        expr: rate(mn_errors_total[5m]) > 0.1
+        for: 10m
+        labels: { severity: critical }
+        annotations: { summary: "Error rate above 0.1/s over 5m" }
+```
+
+These rules are **examples** — tune the thresholds to your deployment
+(refer to `DEPLOYMENT.md` for cluster sizing and scaling guidance).

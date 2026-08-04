@@ -29,7 +29,7 @@ v0.9.x lay the groundwork for v1.0 stability and added many reliability and oper
 
 ## Breaking Changes
 
-### 1. `format` → `video_format` Renaming (v0.8.0+)
+### Upgrading from v0.8.0 — `format` → `video_format` Renaming
 
 **What changed:**
 
@@ -61,7 +61,7 @@ mn create -m "Inception" --format 9:16
 mn create -m "Inception" --video-format 9:16
 ```
 
-### 2. `mn serve` Default Binding Changed (v0.7.3+)
+### Upgrading from v0.7.3 — `mn serve` Default Binding Changed
 
 **What changed:**
 

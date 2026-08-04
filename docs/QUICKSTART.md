@@ -16,7 +16,7 @@ Verify installation:
 
 ```bash
 mn version
-# movie-narrator 0.9.4 (contract 0.9.4)
+# movie-narrator 0.9.7 (contract 0.9.5)
 ```
 
 ## Step 1: Create the plugin package
