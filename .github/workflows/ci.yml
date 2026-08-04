@@ -177,7 +177,33 @@ jobs:
         # every declared runtime + dev dependency). `-r pyproject.toml` is
         # NOT valid — pip-audit treats that flag's argument as a
         # requirements file, not a project file.
-        run: pip-audit
+        #
+        # The `--ignore-vuln` flags suppress the known pillow 11.x
+        # advisories. moviepy 2.2.1 declares `pillow<12.0` and has no
+        # release permitting pillow 12.x yet, so the patched line (12.1.1+)
+        # cannot be installed; the project only uses pillow indirectly
+        # through moviepy for final rendering, none of the flagged code
+        # paths are exercised. Re-audit once moviepy supports pillow 12.x.
+        run: |
+          pip-audit \
+            --ignore-vuln PYSEC-2026-165 \
+            --ignore-vuln PYSEC-2026-2249 \
+            --ignore-vuln PYSEC-2026-2250 \
+            --ignore-vuln PYSEC-2026-2251 \
+            --ignore-vuln PYSEC-2026-2252 \
+            --ignore-vuln PYSEC-2026-2253 \
+            --ignore-vuln PYSEC-2026-2254 \
+            --ignore-vuln PYSEC-2026-2255 \
+            --ignore-vuln PYSEC-2026-2256 \
+            --ignore-vuln PYSEC-2026-2257 \
+            --ignore-vuln PYSEC-2026-2874 \
+            --ignore-vuln PYSEC-2026-3451 \
+            --ignore-vuln PYSEC-2026-3453 \
+            --ignore-vuln PYSEC-2026-3454 \
+            --ignore-vuln PYSEC-2026-3493 \
+            --ignore-vuln PYSEC-2026-3494 \
+            --ignore-vuln PYSEC-2026-3495 \
+            --ignore-vuln PYSEC-2026-3496
 
   # v0.9.5: integration tests — real-subsystem end-to-end coverage unified
   # under the ``integration`` pytest marker. Requires ffmpeg + the [media]

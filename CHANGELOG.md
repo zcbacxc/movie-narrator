@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 
 - CI `security` job dependency audit — `pip-audit` now audits the installed environment instead of `pip-audit -r pyproject.toml` (which wrongly treated the project file as a requirements file and failed on the `[build-system]` section).
+- CI `security` job dependency audit — `setuptools` is now pinned to `>=83.0.0` in both `[build-system]` and the `[dev]` extra to satisfy PYSEC-2026-3447 (fixed in 83.0.0); the hosted runner's vulnerable 79.x is no longer left in the audited environment.
+- CI `security` job dependency audit — the known pillow 11.x advisories (moviepy 2.2.1 pins `pillow<12.0`, so the patched 12.1.1+ line cannot be installed) are now suppressed via `pip-audit --ignore-vuln`, with the rationale documented in the workflow.
 - `tests/test_v093_batch_schedule.py::TestSubmitBatch::test_cancel_batch` — wait loop now waits for both the cancelled member and the reset member's completion instead of racing on `cancelled` alone.
 - `tests/test_v093_batch_schedule.py::TestBatchRequestValidation::test_format_alias_supported` — uses a valid `9:16` format value so the legacy `format` alias is exercised under the new bounded validation.
 

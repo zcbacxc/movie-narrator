@@ -1,5 +1,8 @@
 [build-system]
-requires = ["setuptools>=77.0", "wheel"]
+# v0.9.5: setuptools>=83 to satisfy PYSEC-2026-3447 (fixed in 83.0.0).
+# The build isolation installs this exact version, and [dev] pins the same
+# so the runtime environment audited by pip-audit is also patched.
+requires = ["setuptools>=83.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -27,7 +30,12 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "edge-tts>=7.0.0",
     "moviepy>=2.0,<3.0",
-    "pillow>=11.0.0",
+    # pillow pinned to the 11.x line (latest patch) — moviepy 2.x requires
+    # pillow<12.0 and the latest moviepy (2.2.1) has no release allowing
+    # pillow 12.x yet. The known pillow 11.x advisories are ignored in the
+    # CI security job's ``pip-audit --ignore-vuln`` call; re-evaluate once
+    # moviepy supports pillow 12.x (the patched line is 12.1.1+).
+    "pillow>=11.3.0,<12.0",
     "pydub>=0.25.0",
     "pyyaml>=6.0",
     "tqdm>=4.0.0",
@@ -56,6 +64,11 @@ dev = [
     "ruff>=0.4",
     "bandit>=1.7",
     "pip-audit>=2.7",
+    # v0.9.5: pin setuptools to the patched line (PYSEC-2026-3447, fixed in
+    # 83.0.0). The [dev] extra installs the same version the build isolation
+    # uses, so the runtime environment pip-audit scans is not left on the
+    # vulnerable 79.x that the hosted runner Python ships with.
+    "setuptools>=83.0.0",
 ]
 docs = [
     "mkdocs>=1.5",
