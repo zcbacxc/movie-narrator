@@ -14,10 +14,9 @@
 | v0.3.x | Platform & Workflow | YAML job config, multi-language subtitles, Gradio WebUI (superseded) |
 | v0.4.x | TTS Abstraction & Infrastructure | TTS provider abstraction, config overhaul, FastAPI + React WebUI, render quality, manual QA passed, match intelligence, effect portfolio, contract layer |
 | v0.5.x | Ecosystem | Plugin API / SDK freeze / plugin discovery (entry_points) / VLM vision provider / narrative presets (3 styles) / scene filtering / WebUI split / narrative & audio quality / subtitle QA / holistic QA dashboard. `CONTRACT_VERSION` → `(0, 5, 1)` |
-| v0.6.0 | Task Queue | Async job system, task persistence, cancellation, progress tracking, retry, CLI commands. `CONTRACT_VERSION` → `(0, 6, 0)` |
-| v0.6.1 | Remote Inference | REST API server, remote task queue, worker daemon, artifact management, remote provider proxies, CLI commands. `CONTRACT_VERSION` → `(0, 6, 1)` |
+| v0.6.x | Task Queue & Remote Inference | Async job system, task persistence, cancellation, progress tracking, retry; REST API server, remote task queue, worker daemon, artifact management, remote provider proxies. `CONTRACT_VERSION` → `(0, 6, 1)` |
 | v0.7.x | Output Experience | GPU encoding, cost tracking, preview mode, scene transitions, text animation, multi-track audio, security hardening. `CONTRACT_VERSION` → `(0, 7, 2)` |
-| v0.8.0 | Service Deployment Basics | API key authentication (X-API-Key middleware), format→video_format rename, render template system (preset styling with safe areas), exception narrowing (45 broad catches → specific types), ruff/mypy lint toolchain + pytest-timeout, queue deadlock fix. `CONTRACT_VERSION` → `(0, 8, 0)` |
+| v0.8.x | Service Deployment Basics | API key authentication (X-API-Key middleware), format→video_format rename, render template system (preset styling with safe areas), exception narrowing (45 broad catches → specific types), ruff/mypy lint toolchain + pytest-timeout, queue deadlock fix. `CONTRACT_VERSION` → `(0, 8, 0)` |
 | v0.9.x | Reliability & Batch | Circuit breaker + retry policy framework (v0.9.1), task checkpointing + graceful shutdown (v0.9.2), batch job submission + cron scheduled jobs (v0.9.3), dead-letter queue + conditional distributed rendering (v0.9.4), input sanitization + security scanning + integration tests + coverage gate (v0.9.5), i18n pipeline + localized TTS voices + Web UI localization (v0.9.6). `CONTRACT_VERSION` → `(0, 9, 5)` |
 
 ---
@@ -30,13 +29,13 @@
 
 The original v0.6.2–v0.6.4 plan (distributed rendering, API gateway & auth, cloud storage) has been re-evaluated:
 
-- **Distributed rendering** — demoted to a conditional feature in v0.9.0 (trigger: single-machine render > 10 minutes with multiple nodes available)
+- **Distributed rendering** — demoted to a conditional feature in v0.9.x (trigger: single-machine render > 10 minutes with multiple nodes available)
 - **API key auth + S3 storage** — merged into v0.8.0 service deployment basics
 - **JWT / multi-tenant isolation / token bucket rate limiting** — deferred to post-v1.0, pending community demand
 
 ---
 
-### v0.8.0 — Service Deployment Basics (delivered across v0.8.0–v0.8.4)
+### v0.8.x — Service Deployment Basics (delivered across v0.8.0–v0.8.4)
 
 > **Goal**: Deployable as a reliable single-tenant service, without over-engineering.
 
@@ -59,7 +58,7 @@ The original v0.6.2–v0.6.4 plan (distributed rendering, API gateway & auth, cl
 - [x] Health/readiness probes — `/ready` endpoint + deep health check with dependency connectivity (`/health` already exists in v0.6.1) (v0.8.2)
 - [x] OpenAPI spec — auto-generated API documentation (v0.8.2)
 
-### v0.9.0 — Reliability & Batch (delivered across v0.9.1–v0.9.4)
+### v0.9.x — Reliability & Batch (delivered across v0.9.1–v0.9.4)
 
 > **Goal**: Long-running tasks don't lose progress; batch video production has scheduling.
 

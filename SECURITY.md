@@ -1,3 +1,6 @@
+[![English](https://img.shields.io/badge/English-Security-blue)](SECURITY.md)
+[![简体中文](https://img.shields.io/badge/简体中文-安全策略-green)](SECURITY.zh-CN.md)
+
 # Security Policy
 
 ## Supported Versions

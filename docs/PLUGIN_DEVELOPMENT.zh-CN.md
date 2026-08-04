@@ -266,6 +266,17 @@ my-plugin = "my_package:MyPlugin"
 
 ## 兼容性策略 (Compatibility Strategy)
 
+### 版本检查 (Version checking)
+
+插件应在导入时调用 `check_version()` 以强制要求最低契约版本，并在不达标时快速失败并给出清晰的错误信息：
+
+```python
+from movie_narrator import check_version
+
+# 若已安装核心引擎的 CONTRACT_VERSION 低于所需元组则抛出 ImportError
+check_version((0, 8, 0))
+```
+
 ### 稳定的内容 (v0.6.1)
 
 - `Plugin` 协议 (`name` + `register(ctx)`)
