@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 zcbacxc
+﻿# SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """Configurable retry policy framework (v0.9.1).
@@ -118,7 +118,7 @@ def _sleep_delay(attempt: int, policy: RetryPolicy) -> float:
     base = compute_delay(attempt, policy)
     if policy.jitter <= 0 or base <= 0:
         return base
-    factor = 1.0 + random.uniform(-policy.jitter, policy.jitter)
+    factor = 1.0 + random.uniform(-policy.jitter, policy.jitter)  # nosec B311  # jitter for backoff, not security
     return max(0.0, base * factor)
 
 

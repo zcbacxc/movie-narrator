@@ -1,10 +1,13 @@
 [build-system]
-requires = ["setuptools>=77.0", "wheel"]
+# v0.9.5: setuptools>=83 to satisfy PYSEC-2026-3447 (fixed in 83.0.0).
+# The build isolation installs this exact version, and [dev] pins the same
+# so the runtime environment audited by pip-audit is also patched.
+requires = ["setuptools>=83.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "movie-narrator"
-version = "0.9.4"
+version = "0.9.5"
 description = "Generate narrated movie recap videos from a single prompt."
 readme = "README.md"
 license = "AGPL-3.0-or-later"
@@ -27,7 +30,12 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "edge-tts>=7.0.0",
     "moviepy>=2.0,<3.0",
-    "pillow>=11.0.0",
+    # pillow pinned to the 11.x line (latest patch) — moviepy 2.x requires
+    # pillow<12.0 and the latest moviepy (2.2.1) has no release allowing
+    # pillow 12.x yet. The known pillow 11.x advisories are ignored in the
+    # CI security job's ``pip-audit --ignore-vuln`` call; re-evaluate once
+    # moviepy supports pillow 12.x (the patched line is 12.1.1+).
+    "pillow>=11.3.0,<12.0",
     "pydub>=0.25.0",
     "pyyaml>=6.0",
     "tqdm>=4.0.0",
@@ -48,7 +56,20 @@ full = [
     'sentence-transformers>=3.0; python_version < "3.14"',
 ]
 s3 = ["boto3>=1.34"]
-dev = ["pytest>=8.0", "pytest-timeout>=2.0", "mypy>=1.10", "ruff>=0.4"]
+dev = [
+    "pytest>=8.0",
+    "pytest-timeout>=2.0",
+    "pytest-cov>=4.1",
+    "mypy>=1.10",
+    "ruff>=0.4",
+    "bandit>=1.7",
+    "pip-audit>=2.7",
+    # v0.9.5: pin setuptools to the patched line (PYSEC-2026-3447, fixed in
+    # 83.0.0). The [dev] extra installs the same version the build isolation
+    # uses, so the runtime environment pip-audit scans is not left on the
+    # vulnerable 79.x that the hosted runner Python ships with.
+    "setuptools>=83.0.0",
+]
 docs = [
     "mkdocs>=1.5",
     "mkdocstrings[python]>=0.24",
@@ -69,6 +90,12 @@ include = ["movie_narrator*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    # v0.9.5: integration tests exercise real subsystems end-to-end (full
+    # pipeline via ffmpeg, real scenedetect, real render). They are heavier
+    # than unit tests and skipped when the media/ffmpeg runtime is absent.
+    "integration: end-to-end tests over real subsystems (ffmpeg, scenedetect, render)",
+]
 
 [tool.mypy]
 python_version = "3.10"
@@ -89,3 +116,10 @@ ignore = ["E501", "BLE001"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["BLE001"]
+
+[tool.bandit]
+# v0.9.5: SAST over the shipped package only. Tests and build config are
+# excluded — they intentionally exercise risky patterns (e.g. subprocess
+# in tests) that bandit would otherwise flag.
+exclude_dirs = ["tests", "examples", "docs"]
+skips = ["B101", "B404", "B603"]

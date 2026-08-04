@@ -11,6 +11,9 @@ dist/
 build/
 .eggs/
 .pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
 
 # Environment
 .env

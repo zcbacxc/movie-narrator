@@ -109,7 +109,7 @@ def detect_gpu_encoder() -> Optional[str]:
         return None
 
     try:
-        proc = subprocess.run(
+        proc = subprocess.run(  # nosec B607  # ffmpeg is a system binary we rely on PATH resolving
             ["ffmpeg", "-hide_banner", "-encoders"],
             capture_output=True,
             text=True,

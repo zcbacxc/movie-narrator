@@ -57,6 +57,8 @@ def _ffmpeg_has_mp3_encoder() -> bool:
 _HAS_MP3 = _ffmpeg_has_mp3_encoder()
 _SKIP_REASON = "ffmpeg lacks mp3 encoder (libmp3lame) — run in CI with full ffmpeg"
 
+pytestmark = pytest.mark.integration
+
 
 # ── Fixtures ───────────────────────────────────────────────
 

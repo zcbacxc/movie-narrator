@@ -8,6 +8,9 @@ from movie_narrator.models import Context, MatchedClip, TimedSegment
 from movie_narrator.pipeline.render import render_video
 
 
+pytestmark = pytest.mark.integration
+
+
 SAMPLE_RATE = 44100
 _AUDIO_SECONDS = 6.0
 _N_CHANNELS = 2

@@ -73,7 +73,16 @@ jobs:
 
       - run: pip install -e ".[dev]"
       - name: Run unit tests
-        run: pytest tests/ -v --timeout=300
+        run: pytest tests/ -m "not integration" -v --timeout=300
+
+      # v0.9.5: coverage gate — enforced on the 3.11 matrix leg only to avoid
+      # redundant coverage collection across all four versions. The threshold
+      # (80%) is read from .coveragerc; raise it in later point releases.
+      # Integration tests are excluded here (they run in the dedicated
+      # `integration` job) so the unit suite is measured consistently.
+      - name: Coverage gate (3.11)
+        if: matrix.python-version == '3.11'
+        run: pytest tests/ -m "not integration" -q --timeout=300 --cov=movie_narrator --cov-report=term --cov-fail-under=80
 
       - name: Verify CLI entry points
         run: |
@@ -108,16 +117,16 @@ jobs:
   # Matrix jobs generate "test-matrix (3.10)" etc. which don't match.
   # This job depends on all matrix jobs + lint and is a no-op gate.
   test:
-    needs: [test-matrix, lint]
+    needs: [test-matrix, lint, integration]
     runs-on: ubuntu-latest
     if: always()
     steps:
       - name: Check matrix results
         run: |
-          if [[ "${{ needs.test-matrix.result }}" == "success" && "${{ needs.lint.result }}" == "success" ]]; then
-            echo "All matrix and lint jobs passed"
+          if [[ "${{ needs.test-matrix.result }}" == "success" && "${{ needs.lint.result }}" == "success" && "${{ needs.integration.result }}" == "success" ]]; then
+            echo "All matrix, lint and integration jobs passed"
           else
-            echo "Matrix jobs: ${{ needs.test-matrix.result }}, Lint: ${{ needs.lint.result }}"
+            echo "Matrix jobs: ${{ needs.test-matrix.result }}, Lint: ${{ needs.lint.result }}, Integration: ${{ needs.integration.result }}"
             exit 1
           fi
 
@@ -144,3 +153,80 @@ jobs:
 
       - name: Run scene / match unit tests
         run: pytest tests/test_scenes.py tests/test_match.py tests/test_optional_deps.py -v
+
+  # v0.9.5: security scanning — SAST (bandit) + dependency audit (pip-audit).
+  # Not gated by the `test` summary job; failures surface as a separate
+  # required check so the whole pipeline is not blocked by a stale
+  # advisory on a transitive dependency.
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: pyproject.toml
+
+      - run: pip install -e ".[dev]"
+      - name: SAST — bandit
+        run: bandit -r src/ -c pyproject.toml
+      - name: Dependency audit — pip-audit
+        # Audit the installed environment (the [dev] extra above pulls in
+        # every declared runtime + dev dependency). `-r pyproject.toml` is
+        # NOT valid — pip-audit treats that flag's argument as a
+        # requirements file, not a project file.
+        #
+        # The `--ignore-vuln` flags suppress the known pillow 11.x
+        # advisories. moviepy 2.2.1 declares `pillow<12.0` and has no
+        # release permitting pillow 12.x yet, so the patched line (12.1.1+)
+        # cannot be installed; the project only uses pillow indirectly
+        # through moviepy for final rendering, none of the flagged code
+        # paths are exercised. Re-audit once moviepy supports pillow 12.x.
+        run: |
+          pip-audit \
+            --ignore-vuln PYSEC-2026-165 \
+            --ignore-vuln PYSEC-2026-2249 \
+            --ignore-vuln PYSEC-2026-2250 \
+            --ignore-vuln PYSEC-2026-2251 \
+            --ignore-vuln PYSEC-2026-2252 \
+            --ignore-vuln PYSEC-2026-2253 \
+            --ignore-vuln PYSEC-2026-2254 \
+            --ignore-vuln PYSEC-2026-2255 \
+            --ignore-vuln PYSEC-2026-2256 \
+            --ignore-vuln PYSEC-2026-2257 \
+            --ignore-vuln PYSEC-2026-2874 \
+            --ignore-vuln PYSEC-2026-3451 \
+            --ignore-vuln PYSEC-2026-3453 \
+            --ignore-vuln PYSEC-2026-3454 \
+            --ignore-vuln PYSEC-2026-3493 \
+            --ignore-vuln PYSEC-2026-3494 \
+            --ignore-vuln PYSEC-2026-3495 \
+            --ignore-vuln PYSEC-2026-3496
+
+  # v0.9.5: integration tests — real-subsystem end-to-end coverage unified
+  # under the ``integration`` pytest marker. Requires ffmpeg + the [media]
+  # extra (scenedetect/OpenCV), so it runs in its own job with its own
+  # timeout rather than bloating the unit test-matrix.
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: pyproject.toml
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-noto-cjk
+
+      - run: pip install -e ".[media,dev]"
+      - name: Run integration tests
+        env:
+          CI: 1
+        run: pytest tests/ -m integration -v --timeout=300

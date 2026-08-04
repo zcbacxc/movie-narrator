@@ -62,7 +62,7 @@ def list_artifacts(
 
     req = urllib.request.Request(url, headers=headers, method="GET")
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310  # artifact listing from configured remote
             data = json.loads(resp.read().decode("utf-8"))
             return data.get("artifacts", [])
     except urllib.error.HTTPError as e:
@@ -115,7 +115,7 @@ def download_artifact(
 
     req = urllib.request.Request(url, headers=headers, method="GET")
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310  # artifact download from configured remote
             with open(out_path, "wb") as f:
                 while True:
                     chunk = resp.read(_CHUNK_SIZE)
@@ -253,7 +253,7 @@ def register_remote_tts(base_url: str, api_key: Optional[str] = None) -> None:
             loop = asyncio.get_event_loop()
 
             def _fetch():
-                with urllib.request.urlopen(req, timeout=60.0) as resp:
+                with urllib.request.urlopen(req, timeout=60.0) as resp:  # nosec B310  # TTS synthesis from configured remote
                     return resp.read()
 
             audio_data = await loop.run_in_executor(None, _fetch)

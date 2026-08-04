@@ -130,7 +130,7 @@ class NodeRegistry:
         """
         url = f"{base_url.rstrip('/')}/ready"
         try:
-            with urllib.request.urlopen(url, timeout=self._health_timeout) as resp:
+            with urllib.request.urlopen(url, timeout=self._health_timeout) as resp:  # nosec B310  # trusted node /ready probe
                 payload = json.loads(resp.read().decode("utf-8"))
                 return bool(payload.get("ready"))
         except Exception:  # noqa: BLE001 — probing must never raise

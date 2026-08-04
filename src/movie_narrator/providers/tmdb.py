@@ -151,7 +151,7 @@ def _tmdb_get_network(
     req = urllib.request.Request(url, headers={"Accept": "application/json"})
     for attempt in range(_TMDB_MAX_RETRIES + 1):  # initial attempt + retries
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310  # TMDB API call with https URL
                 status = resp.status
                 if status == 429:
                     # Defensive: urlopen normally raises HTTPError for 4xx,

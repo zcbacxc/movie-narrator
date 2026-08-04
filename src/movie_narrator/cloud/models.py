@@ -15,7 +15,10 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from ..utils.prompts import SUPPORTED_LANGS
+from ..workflow.schema import VALID_SUBTITLE_MODES
 
 
 # ── Enums ──────────────────────────────────────────────────
@@ -64,36 +67,41 @@ class TaskRequest(BaseModel):
 
     Mirrors the key arguments of ``build_context`` / ``mn create``
     so that any CLI invocation can be submitted as an async task.
+
+    v0.9.5: user-supplied fields are validated against bounded enums
+    and length ranges so that a malformed/malicious payload is rejected
+    with a 400 instead of reaching the worker. ``movie_name`` is trimmed
+    and required to be non-empty.
     """
 
-    movie_name: str
-    style: str = ""
-    duration: int = 60
-    voice: Optional[str] = None
+    movie_name: str = Field(min_length=1, max_length=200)
+    style: str = Field(default="", max_length=200)
+    duration: int = Field(default=60, ge=1, le=3600)
+    voice: Optional[str] = Field(default=None, max_length=100)
     # GAP-5 (v0.8.0): renamed from ``format`` to avoid shadowing the
     # Python builtin ``format()``. The ``format`` alias is kept so
     # existing API requests with {"format": "16:9"} still validate.
     video_format: str = Field(default="16:9", alias="format")
-    video: Optional[str] = None
-    library_dir: Optional[str] = None
+    video: Optional[str] = Field(default=None, max_length=500)
+    library_dir: Optional[str] = Field(default=None, max_length=500)
     research: Optional[bool] = None
-    bgm: Optional[str] = None
+    bgm: Optional[str] = Field(default=None, max_length=500)
     no_bgm: bool = False
     no_clips: bool = False
     strict: bool = False
-    subtitle_lang: Optional[str] = None
+    subtitle_lang: Optional[str] = Field(default=None, max_length=16)
     subtitle_mode: Optional[str] = None
-    narration_preset: Optional[str] = None
+    narration_preset: Optional[str] = Field(default=None, max_length=64)
     lang: str = "zh"
     workflow_steps: Optional[Dict[str, bool]] = None
     params: Optional[Dict[str, Any]] = None
-    config_path: Optional[str] = None
+    config_path: Optional[str] = Field(default=None, max_length=500)
 
     # Task-specific fields
-    output_dir: Optional[str] = None
+    output_dir: Optional[str] = Field(default=None, max_length=500)
     priority: TaskPriority = TaskPriority.NORMAL
-    max_retries: int = 3
-    retry_delay: float = 5.0
+    max_retries: int = Field(default=3, ge=0, le=100)
+    retry_delay: float = Field(default=5.0, ge=0, le=3600)
     keep_cache: bool = False
     log_level: str = "DEBUG"
     verbose: bool = False
@@ -106,6 +114,47 @@ class TaskRequest(BaseModel):
     # (``video_format``) while still accepting the legacy ``format``
     # alias defined above.
     model_config = {"populate_by_name": True}
+
+    @field_validator("movie_name")
+    @classmethod
+    def _strip_movie_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("movie_name must not be empty")
+        return v
+
+    @field_validator("video_format")
+    @classmethod
+    def _check_video_format(cls, v: str) -> str:
+        if v not in ("16:9", "9:16"):
+            raise ValueError("video_format must be '16:9' or '9:16'")
+        return v
+
+    @field_validator("subtitle_mode")
+    @classmethod
+    def _check_subtitle_mode(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in VALID_SUBTITLE_MODES:
+            raise ValueError(
+                f"subtitle_mode must be one of {sorted(VALID_SUBTITLE_MODES)}"
+            )
+        return v
+
+    @field_validator("lang")
+    @classmethod
+    def _check_lang(cls, v: str) -> str:
+        if v not in SUPPORTED_LANGS:
+            raise ValueError(
+                f"lang must be one of {sorted(SUPPORTED_LANGS)}"
+            )
+        return v
+
+    @field_validator("log_level")
+    @classmethod
+    def _check_log_level(cls, v: str) -> str:
+        normalized = v.upper()
+        if normalized not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
+            raise ValueError("log_level must be one of DEBUG/INFO/WARNING/ERROR/CRITICAL")
+        return normalized
 
 
 class TaskProgress(BaseModel):

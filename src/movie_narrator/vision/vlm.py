@@ -163,7 +163,9 @@ class VLMCaptioner(VisionCaptioner):
     def _frame_cache_key(self, video_path: str, scene: Scene) -> str:
         """Generate a cache key from video path and scene info."""
         key_str = f"{video_path}:{scene.index}:{scene.start:.2f}:{scene.end:.2f}"
-        return hashlib.md5(key_str.encode()).hexdigest()[:12]
+        # usedforsecurity=False: MD5 here is a non-cryptographic cache key,
+        # not a security hash — this keeps FIPS-140 environments happy.
+        return hashlib.md5(key_str.encode(), usedforsecurity=False).hexdigest()[:12]
 
     @staticmethod
     def _read_b64(path: str) -> str:
@@ -238,7 +240,7 @@ class VLMCaptioner(VisionCaptioner):
                     },
                     method="POST",
                 )
-                with urllib.request.urlopen(req, timeout=self._timeout) as resp:
+                with urllib.request.urlopen(req, timeout=self._timeout) as resp:  # nosec B310  # VLM API call to configured endpoint
                     result = json.loads(resp.read().decode("utf-8"))
 
                 content = (
