@@ -36,7 +36,7 @@ The original v0.6.2–v0.6.4 plan (distributed rendering, API gateway & auth, cl
 
 ---
 
-### v0.8.0 — Service Deployment Basics (partially delivered)
+### v0.8.0 — Service Deployment Basics (delivered across v0.8.0–v0.8.4)
 
 > **Goal**: Deployable as a reliable single-tenant service, without over-engineering.
 
