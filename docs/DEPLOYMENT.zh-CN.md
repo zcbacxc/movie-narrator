@@ -1,6 +1,7 @@
-# 部署指南
+[![English](https://img.shields.io/badge/English-Deployment-blue)](DEPLOYMENT.md)
+[![简体中文](https://img.shields.io/badge/简体中文-部署指南-green)](DEPLOYMENT.zh-CN.md)
 
-> English version: [DEPLOYMENT.md](DEPLOYMENT.md)
+# 部署指南
 
 `movie-narrator` 的容器镜像与本地集群（v0.8.4）。
 
