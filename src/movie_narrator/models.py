@@ -47,6 +47,19 @@ class MetadataDict(TypedDict, total=False):
     translate_retries: int
     translate_chunk_chars: int
     translate_chunk_size: int
+    # i18n pipeline (v0.9.6): language-aware narration / script / match / translate.
+    # ``lang`` is the single source of truth for the narration language
+    # (default "zh"); ``narration_lang`` / ``script_lang`` record the language
+    # the script step actually used; ``translate_*`` describe the subtitle
+    # translation direction; ``match_lang`` / ``match_text_source`` record which
+    # language the match step embedded against.
+    lang: str
+    narration_lang: str
+    script_lang: str
+    translate_source_lang: str
+    translate_target_lang: str
+    match_lang: str
+    match_text_source: str
     # Status tracking
     script_source: str
     script_degraded: bool

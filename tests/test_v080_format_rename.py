@@ -73,5 +73,5 @@ class TestContractVersionBump:
     """Tests for CONTRACT_VERSION bump."""
 
     def test_contract_version_is_0_8_0(self):
-        """CONTRACT_VERSION is (0, 9, 4)."""
-        assert CONTRACT_VERSION == (0, 9, 4)
+        """CONTRACT_VERSION is (0, 9, 5)."""
+        assert CONTRACT_VERSION == (0, 9, 5)

@@ -76,20 +76,32 @@ The original v0.6.2–v0.6.4 plan (distributed rendering, API gateway & auth, cl
 - [x] Distributed rendering (conditional) — trigger: single-machine render > 10 minutes with multiple nodes; builds on v0.8.0 containerization (v0.9.4)
 - [x] CONTRACT_VERSION → `(0, 9, 4)` — reliability, batch and distributed types exported via SDK
 
-#### v0.9.5 — Polish & Completeness (planned)
+#### v0.9.5 — Polish & Completeness (delivered)
 
 > **Goal**: Security, internationalization, and documentation fully ready for v1.0.
 
-- [ ] Input sanitization — comprehensive validation for all API inputs
-- [ ] Security scanning — dependency audit, SAST in CI pipeline
-- [ ] Full i18n pipeline — language-aware script generation and matching
+**Delivered:**
+
+- [x] Input sanitization — comprehensive validation for all API inputs (v0.9.5)
+- [x] Security scanning — dependency audit, SAST in CI pipeline (v0.9.5)
+- [x] Integration test suite — cross-module and end-to-end tests (v0.9.5)
+- [x] Test coverage gate — 80% coverage enforced in CI (v0.9.5)
+
+#### v0.9.6 — Internationalization (planned)
+
+> **Goal**: Language-aware narration and multilingual user experience.
+
+- [ ] Full i18n pipeline — language-aware script generation and matching (zh/en)
 - [ ] Localized TTS voices — per-language voice selection with fallback
 - [ ] Web UI localization — i18n support in movie-narrator-web
+
+#### v0.9.7 — Documentation & Governance (planned)
+
+> **Goal**: Ship the documentation depth needed for v1.0 stability.
+
 - [ ] Tutorial series — getting started → advanced usage walkthroughs
 - [ ] Architecture Decision Records (ADRs) — key design decisions documented
 - [ ] Migration guide — v0.x → v1.0 upgrade path
-- [ ] Integration test suite — cross-module and end-to-end tests
-- [ ] Test coverage gate — >95% coverage enforced in CI
 
 ### v1.0.0 — Stable Release
 

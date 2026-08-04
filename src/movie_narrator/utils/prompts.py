@@ -287,6 +287,53 @@ Output in JSON format:
 Output ONLY the JSON, no extra text or markdown markers.
 """
 
+# ── Language-aware script prompt (v0.9.6) ─────────────────
+# The single-pass SCRIPT_PROMPT (legacy) is kept in English. For the
+# i18n pipeline we add a Chinese-instruction variant so the *instruction
+# language* matches the narration language (zh → Chinese instructions,
+# en → the existing English template). The two-phase pipeline
+# (BEATS_PROMPT / EXPAND_PROMPT) keeps its English instruction template
+# and relies on ``build_language_hint`` to force the output language; this
+# helper only drives the legacy single-pass template selection.
+
+SCRIPT_PROMPT_ZH = """\
+你是一位拥有百万粉丝的电影解说博主。请为电影「{movie}」撰写一段约 {duration} 秒的解说旁白脚本。
+
+风格：{style}。
+
+{research}
+要求：
+1. 每句话不超过 {max_chars} 个字符。
+2. 每句话独占一段（一句话 = 一个片段）。
+3. 共 {target_sentences} 句话。
+4. 前 {hook_seconds} 秒必须有一个强有力的钩子（悬念、冲突、惊喜）。
+5. 最后一段需要情绪升华或发人深省的结尾。
+{cadence_hint}
+
+请以 JSON 格式输出：
+{{
+  "segments": [
+    {{"text": "第一句话"}},
+    {{"text": "第二句话"}},
+    ...
+  ]
+}}
+
+只输出 JSON，不要输出多余文字或 markdown 标记。
+"""
+
+
+def select_script_prompt(lang: str = "") -> str:
+    """Return the single-pass SCRIPT_PROMPT template matching *lang*.
+
+    zh → Chinese instructions (SCRIPT_PROMPT_ZH); any other value
+    (including empty / "en") → the existing English template, keeping
+    backward compatibility.
+    """
+    if lang == "zh":
+        return SCRIPT_PROMPT_ZH
+    return SCRIPT_PROMPT
+
 # ── Two-phase script generation (v0.4.16+) ─────────────────
 # Phase 1: extract exactly N plot beats (low temperature, structured task)
 # Phase 2: expand each beat into one narration line (style tags applied)

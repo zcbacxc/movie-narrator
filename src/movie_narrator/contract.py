@@ -50,7 +50,7 @@ from typing import Callable, Optional, Protocol, runtime_checkable
 #   MAJOR — breaking changes to exported symbols or signatures
 #   MINOR — new exports added (backward compatible)
 #   PATCH — bug fixes, doc changes (no API surface change)
-CONTRACT_VERSION: tuple[int, int, int] = (0, 9, 4)
+CONTRACT_VERSION: tuple[int, int, int] = (0, 9, 5)
 
 
 def check_version(required: tuple[int, int, int]) -> None:
@@ -123,6 +123,13 @@ from .providers import (
     tts_registry,
     vision_registry,
 )
+
+# ── Re-exports: i18n / localized TTS voice mapping (v0.9.6) ──
+# Language-aware default voice resolution. External consumers (web UI,
+# clients) can resolve a narration voice for a given language + provider,
+# or read the mapping table directly.
+
+from .tts.voice_map import DEFAULT_VOICE_MAP, SUPPORTED_PROVIDERS, resolve_voice
 
 # ── Step type alias ────────────────────────────────────────
 
@@ -291,6 +298,10 @@ __all__ = [
     "register_llm",
     "register_research",
     "step",  # alias for register_step
+    # i18n / localized TTS voice mapping (v0.9.6)
+    "DEFAULT_VOICE_MAP",
+    "SUPPORTED_PROVIDERS",
+    "resolve_voice",
     # Plugin system
     "Step",
     "PluginContext",
