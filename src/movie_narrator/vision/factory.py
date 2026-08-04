@@ -17,11 +17,13 @@ from .protocol import VisionCaptioner
 
 def _make_stub(**kwargs) -> VisionCaptioner:
     from .stub import StubVisionCaptioner
+
     return StubVisionCaptioner()
 
 
 def _make_vlm(**kwargs) -> VisionCaptioner:
     from .vlm import VLMCaptioner
+
     return VLMCaptioner(**kwargs)
 
 

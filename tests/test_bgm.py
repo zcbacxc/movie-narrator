@@ -28,9 +28,10 @@ def _write_tone_mp3(path: Path, ms: int = 500, freq: int = 440):
     """Write a sine-wave tone so gain is actually applied (non-silent)."""
     import math
     import struct
+
     sample_rate = 44100
     n_samples = int(sample_rate * ms / 1000.0)
-    amplitude = 2 ** 15 - 1
+    amplitude = 2**15 - 1
     sine_wave = bytearray()
     for i in range(n_samples):
         val = int(amplitude * math.sin(2.0 * math.pi * freq * i / sample_rate))
@@ -188,9 +189,7 @@ def test_mix_bgm_ambient_ducking_applied(tmp_path):
     narr = _write_tone_mp3(tmp_path / "narration.mp3", 800, freq=440)
     ambient = _write_tone_mp3(tmp_path / "ambient.mp3", 400, freq=220)
 
-    base_mixed = AudioSegment.from_file(narr).overlay(
-        AudioSegment.from_file(ambient).apply_gain(0)
-    )
+    base_mixed = AudioSegment.from_file(narr).overlay(AudioSegment.from_file(ambient).apply_gain(0))
     ducked_mixed, info = _mix_ambient_track(
         AudioSegment.from_file(narr),
         str(ambient),

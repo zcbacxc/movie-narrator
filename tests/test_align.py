@@ -38,8 +38,14 @@ def test_align_disabled_without_whisperx(tmp_path):
 def test_align_skipped_no_audio(tmp_path):
     ctx = _make_ctx(tmp_path, audio=False)
     with pytest.MonkeyPatch.context() as m:
-        m.setattr("movie_narrator.pipeline.align.probe", lambda name: (True, "") if name == "whisperx" else (False, ""))
-        m.setattr("movie_narrator.pipeline._align_backend.probe", lambda name: (True, "") if name == "whisperx" else (False, ""))
+        m.setattr(
+            "movie_narrator.pipeline.align.probe",
+            lambda name: (True, "") if name == "whisperx" else (False, ""),
+        )
+        m.setattr(
+            "movie_narrator.pipeline._align_backend.probe",
+            lambda name: (True, "") if name == "whisperx" else (False, ""),
+        )
         align_audio(ctx)
     assert ctx.status.align == "skipped"
 
@@ -64,8 +70,14 @@ def test_align_success_with_mocked_whisperx(tmp_path):
     fake_wx.align = MagicMock(return_value=mock_result)
 
     with pytest.MonkeyPatch.context() as m:
-        m.setattr("movie_narrator.pipeline.align.probe", lambda name: (True, "") if name == "whisperx" else (False, ""))
-        m.setattr("movie_narrator.pipeline._align_backend.probe", lambda name: (True, "") if name == "whisperx" else (False, ""))
+        m.setattr(
+            "movie_narrator.pipeline.align.probe",
+            lambda name: (True, "") if name == "whisperx" else (False, ""),
+        )
+        m.setattr(
+            "movie_narrator.pipeline._align_backend.probe",
+            lambda name: (True, "") if name == "whisperx" else (False, ""),
+        )
         m.setitem(sys.modules, "whisperx", fake_wx)
         align_audio(ctx)
 
@@ -169,8 +181,14 @@ def test_align_faster_whisper_path(tmp_path, monkeypatch):
     fake_fw.WhisperModel = MagicMock(return_value=fake_model)
 
     with pytest.MonkeyPatch.context() as m:
-        m.setattr("movie_narrator.pipeline._align_backend.probe", lambda name: (True, "") if name == "faster_whisper" else (False, ""))
-        m.setattr("movie_narrator.pipeline.align.probe", lambda name: (True, "") if name == "faster_whisper" else (False, ""))
+        m.setattr(
+            "movie_narrator.pipeline._align_backend.probe",
+            lambda name: (True, "") if name == "faster_whisper" else (False, ""),
+        )
+        m.setattr(
+            "movie_narrator.pipeline.align.probe",
+            lambda name: (True, "") if name == "faster_whisper" else (False, ""),
+        )
         m.setitem(sys.modules, "faster_whisper", fake_fw)
         align_audio(ctx)
 
@@ -212,8 +230,8 @@ def test_align_backward_jump_extreme_skips_segment(tmp_path):
         movie_name="m",
         output_dir=str(tmp_path),
         timed_segments=[
-            TimedSegment(text="first", start=9.0, end=11.0),   # midpoint=10
-            TimedSegment(text="second", start=4.0, end=5.0),    # midpoint=4.5
+            TimedSegment(text="first", start=9.0, end=11.0),  # midpoint=10
+            TimedSegment(text="second", start=4.0, end=5.0),  # midpoint=4.5
         ],
     )
     ctx.audio_path = str(tmp_path / "narration.mp3")
@@ -239,8 +257,14 @@ def test_align_backward_jump_extreme_skips_segment(tmp_path):
     original_seg2_end = ctx.timed_segments[1].end
 
     with pytest.MonkeyPatch.context() as m:
-        m.setattr("movie_narrator.pipeline.align.probe", lambda name: (True, "") if name == "whisperx" else (False, ""))
-        m.setattr("movie_narrator.pipeline._align_backend.probe", lambda name: (True, "") if name == "whisperx" else (False, ""))
+        m.setattr(
+            "movie_narrator.pipeline.align.probe",
+            lambda name: (True, "") if name == "whisperx" else (False, ""),
+        )
+        m.setattr(
+            "movie_narrator.pipeline._align_backend.probe",
+            lambda name: (True, "") if name == "whisperx" else (False, ""),
+        )
         m.setitem(sys.modules, "whisperx", fake_wx)
         align_audio(ctx)
 
@@ -268,7 +292,7 @@ def test_align_backward_jump_small_clamp_keeps_segment(tmp_path):
         movie_name="m",
         output_dir=str(tmp_path),
         timed_segments=[
-            TimedSegment(text="first", start=8.5, end=9.5),    # midpoint=9
+            TimedSegment(text="first", start=8.5, end=9.5),  # midpoint=9
             TimedSegment(text="second", start=10.5, end=11.5),  # midpoint=11
         ],
     )
@@ -291,8 +315,14 @@ def test_align_backward_jump_small_clamp_keeps_segment(tmp_path):
     fake_wx.align = MagicMock(return_value=mock_result)
 
     with pytest.MonkeyPatch.context() as m:
-        m.setattr("movie_narrator.pipeline.align.probe", lambda name: (True, "") if name == "whisperx" else (False, ""))
-        m.setattr("movie_narrator.pipeline._align_backend.probe", lambda name: (True, "") if name == "whisperx" else (False, ""))
+        m.setattr(
+            "movie_narrator.pipeline.align.probe",
+            lambda name: (True, "") if name == "whisperx" else (False, ""),
+        )
+        m.setattr(
+            "movie_narrator.pipeline._align_backend.probe",
+            lambda name: (True, "") if name == "whisperx" else (False, ""),
+        )
         m.setitem(sys.modules, "whisperx", fake_wx)
         align_audio(ctx)
 
@@ -323,8 +353,14 @@ def test_align_no_backward_jumps_zero_skipped(tmp_path):
     fake_wx.align = MagicMock(return_value=mock_result)
 
     with pytest.MonkeyPatch.context() as m:
-        m.setattr("movie_narrator.pipeline.align.probe", lambda name: (True, "") if name == "whisperx" else (False, ""))
-        m.setattr("movie_narrator.pipeline._align_backend.probe", lambda name: (True, "") if name == "whisperx" else (False, ""))
+        m.setattr(
+            "movie_narrator.pipeline.align.probe",
+            lambda name: (True, "") if name == "whisperx" else (False, ""),
+        )
+        m.setattr(
+            "movie_narrator.pipeline._align_backend.probe",
+            lambda name: (True, "") if name == "whisperx" else (False, ""),
+        )
         m.setitem(sys.modules, "whisperx", fake_wx)
         align_audio(ctx)
 
@@ -357,8 +393,14 @@ def test_align_midpoint_distance_when_no_containment(tmp_path):
     fake_wx.align = MagicMock(return_value=mock_result)
 
     with pytest.MonkeyPatch.context() as m:
-        m.setattr("movie_narrator.pipeline.align.probe", lambda name: (True, "") if name == "whisperx" else (False, ""))
-        m.setattr("movie_narrator.pipeline._align_backend.probe", lambda name: (True, "") if name == "whisperx" else (False, ""))
+        m.setattr(
+            "movie_narrator.pipeline.align.probe",
+            lambda name: (True, "") if name == "whisperx" else (False, ""),
+        )
+        m.setattr(
+            "movie_narrator.pipeline._align_backend.probe",
+            lambda name: (True, "") if name == "whisperx" else (False, ""),
+        )
         m.setitem(sys.modules, "whisperx", fake_wx)
         align_audio(ctx)
 
@@ -395,8 +437,14 @@ def test_align_unequal_segment_counts(tmp_path):
     fake_wx.align = MagicMock(return_value=mock_result)
 
     with pytest.MonkeyPatch.context() as m:
-        m.setattr("movie_narrator.pipeline.align.probe", lambda name: (True, "") if name == "whisperx" else (False, ""))
-        m.setattr("movie_narrator.pipeline._align_backend.probe", lambda name: (True, "") if name == "whisperx" else (False, ""))
+        m.setattr(
+            "movie_narrator.pipeline.align.probe",
+            lambda name: (True, "") if name == "whisperx" else (False, ""),
+        )
+        m.setattr(
+            "movie_narrator.pipeline._align_backend.probe",
+            lambda name: (True, "") if name == "whisperx" else (False, ""),
+        )
         m.setitem(sys.modules, "whisperx", fake_wx)
         align_audio(ctx)
 
@@ -416,7 +464,7 @@ def test_align_unequal_segment_counts(tmp_path):
         # A skipped segment keeps its original TTS start time, which may
         # be < prev.end. We can't directly detect skip here, but we can
         # verify positive duration always holds.
-        assert curr.end > curr.start    # always positive duration
+        assert curr.end > curr.start  # always positive duration
         # Monotonic should hold for most segments; if it doesn't, the
         # segment was likely skipped by backward-jump detection (backward jump > 50%).
         if not is_monotonic:
@@ -443,8 +491,14 @@ def test_align_empty_whisperx_segments_warns(tmp_path):
     fake_wx.load_model = MagicMock(return_value=fake_model)
 
     with pytest.MonkeyPatch.context() as m:
-        m.setattr("movie_narrator.pipeline.align.probe", lambda name: (True, "") if name == "whisperx" else (False, ""))
-        m.setattr("movie_narrator.pipeline._align_backend.probe", lambda name: (True, "") if name == "whisperx" else (False, ""))
+        m.setattr(
+            "movie_narrator.pipeline.align.probe",
+            lambda name: (True, "") if name == "whisperx" else (False, ""),
+        )
+        m.setattr(
+            "movie_narrator.pipeline._align_backend.probe",
+            lambda name: (True, "") if name == "whisperx" else (False, ""),
+        )
         m.setitem(sys.modules, "whisperx", fake_wx)
         align_audio(ctx)
 
@@ -485,8 +539,14 @@ def test_align_fallback_sets_status_failed(tmp_path):
     fake_wx.align = MagicMock()
 
     with pytest.MonkeyPatch.context() as m:
-        m.setattr("movie_narrator.pipeline.align.probe", lambda name: (True, "") if name == "whisperx" else (False, ""))
-        m.setattr("movie_narrator.pipeline._align_backend.probe", lambda name: (True, "") if name == "whisperx" else (False, ""))
+        m.setattr(
+            "movie_narrator.pipeline.align.probe",
+            lambda name: (True, "") if name == "whisperx" else (False, ""),
+        )
+        m.setattr(
+            "movie_narrator.pipeline._align_backend.probe",
+            lambda name: (True, "") if name == "whisperx" else (False, ""),
+        )
         m.setitem(sys.modules, "whisperx", fake_wx)
         align_audio(ctx)
 
@@ -530,8 +590,14 @@ def test_align_single_segment_drift_skips(tmp_path):
     original_ends = [ts.end for ts in ctx.timed_segments]
 
     with pytest.MonkeyPatch.context() as m:
-        m.setattr("movie_narrator.pipeline.align.probe", lambda name: (True, "") if name == "whisperx" else (False, ""))
-        m.setattr("movie_narrator.pipeline._align_backend.probe", lambda name: (True, "") if name == "whisperx" else (False, ""))
+        m.setattr(
+            "movie_narrator.pipeline.align.probe",
+            lambda name: (True, "") if name == "whisperx" else (False, ""),
+        )
+        m.setattr(
+            "movie_narrator.pipeline._align_backend.probe",
+            lambda name: (True, "") if name == "whisperx" else (False, ""),
+        )
         m.setitem(sys.modules, "whisperx", fake_wx)
         align_audio(ctx)
 
@@ -562,8 +628,14 @@ def test_align_single_segment_no_drift_succeeds(tmp_path):
     fake_wx.align = MagicMock(return_value=mock_result)
 
     with pytest.MonkeyPatch.context() as m:
-        m.setattr("movie_narrator.pipeline.align.probe", lambda name: (True, "") if name == "whisperx" else (False, ""))
-        m.setattr("movie_narrator.pipeline._align_backend.probe", lambda name: (True, "") if name == "whisperx" else (False, ""))
+        m.setattr(
+            "movie_narrator.pipeline.align.probe",
+            lambda name: (True, "") if name == "whisperx" else (False, ""),
+        )
+        m.setattr(
+            "movie_narrator.pipeline._align_backend.probe",
+            lambda name: (True, "") if name == "whisperx" else (False, ""),
+        )
         m.setitem(sys.modules, "whisperx", fake_wx)
         align_audio(ctx)
 

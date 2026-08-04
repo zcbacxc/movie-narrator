@@ -307,9 +307,7 @@ class TestLocalArtifactStore:
         store.put("final.mp4", source_file)
         assert store.url("final.mp4") is None
 
-    @pytest.mark.parametrize(
-        "key", ["../escape.txt", "/etc/passwd", "clips/../../escape.txt"]
-    )
+    @pytest.mark.parametrize("key", ["../escape.txt", "/etc/passwd", "clips/../../escape.txt"])
     def test_traversal_rejected(self, store, source_file, key):
         """Every mutating/reading entry point refuses traversal keys."""
         with pytest.raises(UnsafeKeyError):
@@ -471,9 +469,7 @@ class TestS3ArtifactStore:
                         "NextContinuationToken": "tok",
                     }
                 return {
-                    "Contents": [
-                        {"Key": "b.mp4", "Size": 2, "LastModified": None, "ETag": '"y"'}
-                    ],
+                    "Contents": [{"Key": "b.mp4", "Size": 2, "LastModified": None, "ETag": '"y"'}],
                     "IsTruncated": False,
                 }
 
@@ -717,8 +713,7 @@ class TestApiArtifactEndpoints:
     def test_download_traversal_forbidden(self, api_server, task_with_files):
         """Encoded traversal attempts are rejected with 403."""
         url = (
-            f"{api_server.base_url}/tasks/{task_with_files.id}"
-            f"/download/..%2f..%2f..%2fetc%2fpasswd"
+            f"{api_server.base_url}/tasks/{task_with_files.id}/download/..%2f..%2f..%2fetc%2fpasswd"
         )
         assert _status(url) == 403
 

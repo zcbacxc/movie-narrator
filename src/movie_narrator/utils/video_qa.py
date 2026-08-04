@@ -126,9 +126,13 @@ def _run_ffprobe(path: str, timeout: int = 30) -> Optional[dict]:
     try:
         proc = subprocess.run(
             [
-                ffprobe, "-v", "quiet",
-                "-print_format", "json",
-                "-show_format", "-show_streams",
+                ffprobe,
+                "-v",
+                "quiet",
+                "-print_format",
+                "json",
+                "-show_format",
+                "-show_streams",
                 path,
             ],
             capture_output=True,
@@ -226,9 +230,7 @@ def check_encoding_quality(
             f"video codec '{metrics.codec}' is not in accepted list "
             f"({', '.join(sorted(_ACCEPTABLE_CODECS))})"
         )
-        recommendations.append(
-            "Re-encode with H.264 (libx264) for maximum platform compatibility"
-        )
+        recommendations.append("Re-encode with H.264 (libx264) for maximum platform compatibility")
 
     # ── Resolution check ──
     if metrics.width > 0 and metrics.height > 0:
@@ -237,9 +239,7 @@ def check_encoding_quality(
                 f"resolution {metrics.width}x{metrics.height} is below "
                 f"minimum {min_width}x{min_height}"
             )
-            recommendations.append(
-                f"Re-render at {min_width}x{min_height} or higher"
-            )
+            recommendations.append(f"Re-render at {min_width}x{min_height} or higher")
 
         # Aspect ratio check
         actual_ratio = metrics.width / metrics.height
@@ -250,8 +250,7 @@ def check_encoding_quality(
                 break
         if not matched:
             issues.append(
-                f"aspect ratio {actual_ratio:.3f} is not standard "
-                f"({', '.join(_STANDARD_RATIOS)})"
+                f"aspect ratio {actual_ratio:.3f} is not standard ({', '.join(_STANDARD_RATIOS)})"
             )
             recommendations.append(
                 "Use 16:9 (landscape) or 9:16 (portrait) for platform compatibility"
@@ -260,8 +259,7 @@ def check_encoding_quality(
     # ── Bitrate check ──
     if metrics.bitrate_kbps > 0 and metrics.bitrate_kbps < min_bitrate_kbps:
         issues.append(
-            f"video bitrate {metrics.bitrate_kbps} kbps is below "
-            f"minimum {min_bitrate_kbps} kbps"
+            f"video bitrate {metrics.bitrate_kbps} kbps is below minimum {min_bitrate_kbps} kbps"
         )
         recommendations.append(
             "Increase video bitrate or use a slower encoding preset for better quality"
@@ -270,14 +268,10 @@ def check_encoding_quality(
     # ── Frame rate check ──
     if metrics.fps > 0:
         if metrics.fps < min_fps:
-            issues.append(
-                f"frame rate {metrics.fps:.1f} fps is below minimum {min_fps:.1f} fps"
-            )
+            issues.append(f"frame rate {metrics.fps:.1f} fps is below minimum {min_fps:.1f} fps")
             recommendations.append("Use 24, 25, or 30 fps")
         elif metrics.fps > max_fps:
-            issues.append(
-                f"frame rate {metrics.fps:.1f} fps is above maximum {max_fps:.1f} fps"
-            )
+            issues.append(f"frame rate {metrics.fps:.1f} fps is above maximum {max_fps:.1f} fps")
 
     # ── Audio codec check ──
     if metrics.audio_codec and metrics.audio_codec not in _ACCEPTABLE_AUDIO_CODECS:
@@ -289,9 +283,7 @@ def check_encoding_quality(
 
     # ── Pixel format check ──
     if metrics.pixel_format and metrics.pixel_format not in ("yuv420p", "yuv422p", "yuv444p"):
-        issues.append(
-            f"pixel format '{metrics.pixel_format}' may cause compatibility issues"
-        )
+        issues.append(f"pixel format '{metrics.pixel_format}' may cause compatibility issues")
         recommendations.append("Use yuv420p for maximum compatibility")
 
     report.issues = issues

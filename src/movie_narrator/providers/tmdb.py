@@ -213,12 +213,17 @@ def _search_movie(
     base_url: str, api_key: str, query: str, language: str
 ) -> Optional[Dict[str, Any]]:
     """Search TMDB for a movie by title. Returns the first result or None."""
-    data = _tmdb_get(base_url, _TMDB_SEARCH_PATH, api_key, {
-        "query": query,
-        "language": language,
-        "page": "1",
-        "include_adult": "false",
-    })
+    data = _tmdb_get(
+        base_url,
+        _TMDB_SEARCH_PATH,
+        api_key,
+        {
+            "query": query,
+            "language": language,
+            "page": "1",
+            "include_adult": "false",
+        },
+    )
     if not data or not isinstance(data, dict):
         return None
     results = data.get("results")
@@ -232,10 +237,15 @@ def _get_movie_details(
 ) -> Optional[Dict[str, Any]]:
     """Fetch detailed movie info from TMDB with credits appended."""
     path = _TMDB_MOVIE_PATH.format(movie_id=movie_id)
-    return _tmdb_get(base_url, path, api_key, {
-        "language": language,
-        "append_to_response": "credits",
-    })
+    return _tmdb_get(
+        base_url,
+        path,
+        api_key,
+        {
+            "language": language,
+            "append_to_response": "credits",
+        },
+    )
 
 
 def _extract_director(credits: Dict[str, Any]) -> Optional[str]:  # noqa: A002
@@ -338,13 +348,9 @@ def tmdb_research(ctx: Context, settings: Settings) -> ResearchInfo:
             settings.tmdb_base_url, api_key, ctx.movie_name, settings.tmdb_language
         )
     except (urllib.error.URLError, OSError) as e:
-        raise RuntimeError(
-            f"TMDB search failed for '{ctx.movie_name}': network error: {e}"
-        ) from e
+        raise RuntimeError(f"TMDB search failed for '{ctx.movie_name}': network error: {e}") from e
     if not search_result or not isinstance(search_result, dict):
-        raise RuntimeError(
-            f"Movie '{ctx.movie_name}' not found on TMDB"
-        )
+        raise RuntimeError(f"Movie '{ctx.movie_name}' not found on TMDB")
 
     movie_id = search_result.get("id")
     if not isinstance(movie_id, int):
@@ -372,9 +378,7 @@ def tmdb_research(ctx: Context, settings: Settings) -> ResearchInfo:
 # ── Card enrichment (cross-validation) ────────────────────
 
 
-def enrich_movie_card_with_tmdb(
-    card: MovieCard, ctx: Context, settings: Settings
-) -> MovieCard:
+def enrich_movie_card_with_tmdb(card: MovieCard, ctx: Context, settings: Settings) -> MovieCard:
     """Cross-validate and enrich an LLM-sourced MovieCard with TMDB data.
 
     When TMDB is available (API key configured and movie found), this
@@ -406,8 +410,7 @@ def enrich_movie_card_with_tmdb(
         )
     except (urllib.error.URLError, OSError) as e:
         logger.warning(
-            f"TMDB enrichment: network error while searching for "
-            f"'{ctx.movie_name}': {e}"
+            f"TMDB enrichment: network error while searching for '{ctx.movie_name}': {e}"
         )
         return card
     if not search_result or not isinstance(search_result, dict):
@@ -424,8 +427,7 @@ def enrich_movie_card_with_tmdb(
         )
     except (urllib.error.URLError, OSError) as e:
         logger.warning(
-            f"TMDB enrichment: network error while fetching details for "
-            f"movie ID {movie_id}: {e}"
+            f"TMDB enrichment: network error while fetching details for movie ID {movie_id}: {e}"
         )
         return card
     if not details or not isinstance(details, dict):
@@ -456,9 +458,7 @@ def enrich_movie_card_with_tmdb(
 
     if corrections:
         ctx.metadata["tmdb_corrections"] = corrections
-        logger.info(
-            f"TMDB enrichment corrected {len(corrections)} field(s): {corrections}"
-        )
+        logger.info(f"TMDB enrichment corrected {len(corrections)} field(s): {corrections}")
 
     ctx.metadata["movie_card_source"] = "tmdb_enriched"
     return enriched

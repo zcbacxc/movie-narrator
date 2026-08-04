@@ -16,12 +16,14 @@ from typing import List
 # all SOFT steps whose output is not required to validate the first N
 # seconds of a render.  Hard steps (generate_script, generate_voice,
 # render_video, etc.) must always run.
-_PREVIEW_SKIPPABLE_STEPS = frozenset({
-    "research_plot",
-    "translate_subtitles",
-    "run_qa_gate",
-    "export_clips",
-})
+_PREVIEW_SKIPPABLE_STEPS = frozenset(
+    {
+        "research_plot",
+        "translate_subtitles",
+        "run_qa_gate",
+        "export_clips",
+    }
+)
 
 # Clamping bounds for the preview duration, in seconds.  The lower bound
 # avoids uselessly short previews; the upper bound caps cost so a typo

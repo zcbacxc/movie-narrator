@@ -141,7 +141,7 @@ class TestSubstituteMovie:
     def test_special_chars_in_movie_name(self):
         """Special characters (quotes, parentheses) are inserted literally."""
         movie = '"战狼2"（特别版）'
-        assert _substitute_movie("{movie}解说", movie) == f'{movie}解说'
+        assert _substitute_movie("{movie}解说", movie) == f"{movie}解说"
 
 
 # ── 2. render_template field parsing ──────────────────────

@@ -176,6 +176,7 @@ def test_correlation_not_auto_propagated_to_thread():
     captured: Dict[str, Any] = {}
 
     with correlation_scope("parent-cid"):
+
         def worker() -> None:
             captured["auto"] = get_correlation_id()
 

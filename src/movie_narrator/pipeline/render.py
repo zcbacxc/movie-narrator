@@ -41,7 +41,7 @@ _DEFAULT_MUX_TIMEOUT = 600
 # buttons) can cover the bottom 20-25% of the screen. These conservative
 # ratios push subtitles above the danger zone.
 _VERTICAL_BOTTOM_MARGIN_RATIO = 0.15  # vs 0.08 default for 16:9
-_VERTICAL_MAX_WIDTH_RATIO = 0.82      # vs 0.90 default for 16:9
+_VERTICAL_MAX_WIDTH_RATIO = 0.82  # vs 0.90 default for 16:9
 
 
 class _RenderProgressLogger(TqdmProgressBarLogger):
@@ -82,11 +82,7 @@ def _overlay_text(ctx: Context, idx: int, seg: TimedSegment) -> str:
     is shorter than `timed_segments` — falls back to the original.
     """
     mode = ctx.metadata.get("subtitle_mode", "original")
-    t = (
-        ctx.translated_texts[idx]
-        if idx < len(ctx.translated_texts)
-        else None
-    )
+    t = ctx.translated_texts[idx] if idx < len(ctx.translated_texts) else None
     if mode == "translated" and t:
         return t
     if mode == "bilingual" and t:
@@ -131,22 +127,31 @@ def _export_cover_image(
         return
 
     extract_cmd = [
-        ffmpeg_bin, "-y", "-loglevel", "error",
-        "-ss", f"{mid_ts:.2f}",
-        "-i", str(ctx.source_video_path),
-        "-frames:v", "1",
-        "-q:v", "2",
+        ffmpeg_bin,
+        "-y",
+        "-loglevel",
+        "error",
+        "-ss",
+        f"{mid_ts:.2f}",
+        "-i",
+        str(ctx.source_video_path),
+        "-frames:v",
+        "1",
+        "-q:v",
+        "2",
         str(cover_raw),
     ]
     try:
         proc = subprocess.run(
-            extract_cmd, capture_output=True, text=True,
-            encoding="utf-8", errors="replace", timeout=30,
+            extract_cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
         )
         if proc.returncode != 0 or not cover_raw.exists():
-            ctx.services.console.debug(
-                f"  cover: ffmpeg extract failed: {proc.stderr[:200]}"
-            )
+            ctx.services.console.debug(f"  cover: ffmpeg extract failed: {proc.stderr[:200]}")
             return
     except (OSError, subprocess.SubprocessError) as e:
         ctx.services.console.debug(f"  cover: extract error: {e}")
@@ -177,12 +182,14 @@ def _export_cover_image(
 
         # Draw movie name
         from ..utils.font import get_font
+
         font_size = max(28, int(w * 0.06))
         font = get_font(font_size)
         text = ctx.movie_name or ""
 
         # Wrap text
         from ..utils.text_image import _wrap_line
+
         lines = _wrap_line(text, draw, font, int(w * 0.85))
         line_height = font_size + 6
         total_text_h = len(lines) * line_height
@@ -243,8 +250,12 @@ def _create_watermark_image(text: str, size: tuple, fontsize: int = 36):
 
     # Semi-transparent white text with a faint black stroke for legibility.
     draw.text(
-        (x, y), text, fill=(255, 255, 255, 140), font=font,
-        stroke_width=1, stroke_fill=(0, 0, 0, 120),
+        (x, y),
+        text,
+        fill=(255, 255, 255, 140),
+        font=font,
+        stroke_width=1,
+        stroke_fill=(0, 0, 0, 120),
     )
     return np.array(img)
 
@@ -281,6 +292,7 @@ def render_video(ctx: Context) -> Context:
     preview_mode = ctx.metadata.get("render_preview_mode", False)
     if preview_mode:
         from ..utils.preview import get_preview_duration, truncate_segments_for_preview
+
         preview_sec = get_preview_duration(
             ctx.metadata.get("render_preview_sec", 10.0), total_duration
         )
@@ -291,9 +303,7 @@ def render_video(ctx: Context) -> Context:
         # Truncate timed segments so subtitle overlays respect the preview
         # window (segments beyond the cut are dropped; spanning segments are
         # clamped to end at the boundary).
-        ctx.timed_segments = truncate_segments_for_preview(
-            ctx.timed_segments, total_duration
-        )
+        ctx.timed_segments = truncate_segments_for_preview(ctx.timed_segments, total_duration)
 
     # Production-quality render knobs (spec §7.2).
     fit_mode = ctx.metadata.get("render_fit_mode", "cover")
@@ -317,7 +327,9 @@ def render_video(ctx: Context) -> Context:
     vertical_safe = ctx.metadata.get("render_vertical_safe_area", True)
     if vertical_safe and video_format == "9:16":
         safe_max_width = aspect_safe_area.get("max_width_ratio", _VERTICAL_MAX_WIDTH_RATIO)
-        safe_bottom_margin = aspect_safe_area.get("bottom_margin_ratio", _VERTICAL_BOTTOM_MARGIN_RATIO)
+        safe_bottom_margin = aspect_safe_area.get(
+            "bottom_margin_ratio", _VERTICAL_BOTTOM_MARGIN_RATIO
+        )
         max_width_ratio = min(max_width_ratio, safe_max_width)
         bottom_margin_ratio = max(bottom_margin_ratio, safe_bottom_margin)
         ctx.services.console.debug(
@@ -357,18 +369,24 @@ def render_video(ctx: Context) -> Context:
                 try:
                     subclip = source.subclipped(mc.src_start, mc.src_end)
                     if src_duration > 0:
-                        subclip = subclip.with_speed_scaled(factor=src_duration / max(seg_duration, _SEG_DURATION_FLOOR))
+                        subclip = subclip.with_speed_scaled(
+                            factor=src_duration / max(seg_duration, _SEG_DURATION_FLOOR)
+                        )
 
                     # Fit source frame onto the canvas (cover=crop+fill,
                     # contain=letterbox+center). Keeps footage from overflowing
                     # or distorting the output resolution.
                     box = compute_fit_box(
-                        (subclip.w, subclip.h), size, mode=fit_mode,
+                        (subclip.w, subclip.h),
+                        size,
+                        mode=fit_mode,
                     )
                     if fit_mode == "cover":
                         fitted = subclip.cropped(
-                            x1=box.crop_x, y1=box.crop_y,
-                            x2=box.crop_x + box.crop_w, y2=box.crop_y + box.crop_h,
+                            x1=box.crop_x,
+                            y1=box.crop_y,
+                            x2=box.crop_x + box.crop_w,
+                            y2=box.crop_y + box.crop_h,
                         ).resized((box.out_w, box.out_h))
                         fitted = fitted.with_position((0, 0))
                     else:  # contain
@@ -382,7 +400,7 @@ def render_video(ctx: Context) -> Context:
                     if transition_type != "none":
                         trans_dur = get_transition_duration(
                             mc.narr_end - mc.narr_start,
-                            ctx.metadata.get("render_transition_duration", 0.5)
+                            ctx.metadata.get("render_transition_duration", 0.5),
                         )
                         fitted = apply_transition(fitted, transition_type, trans_dur)
 
@@ -392,7 +410,9 @@ def render_video(ctx: Context) -> Context:
                     logger.debug("clip fallback for segment %d", mc.segment_index, exc_info=True)
                     img_array = _create_text_image(
                         _overlay_text(ctx, mc.segment_index, ctx.timed_segments[mc.segment_index]),
-                        size, fontsize=font_size, position=subtitle_position,
+                        size,
+                        fontsize=font_size,
+                        position=subtitle_position,
                         max_width_ratio=max_width_ratio,
                         bottom_margin_ratio=bottom_margin_ratio,
                     )
@@ -417,7 +437,9 @@ def render_video(ctx: Context) -> Context:
     # order which is deterministic).
     def _make_subtitle_image(i, seg, pos):
         img_array = _create_text_image(
-            _overlay_text(ctx, i, seg), size, fontsize=font_size,
+            _overlay_text(ctx, i, seg),
+            size,
+            fontsize=font_size,
             position=pos,
             max_width_ratio=max_width_ratio,
             bottom_margin_ratio=bottom_margin_ratio,
@@ -429,8 +451,7 @@ def render_video(ctx: Context) -> Context:
         text_anim_type = ctx.metadata.get("render_text_animation", "none")
         if text_anim_type != "none":
             anim_dur = get_animation_duration(
-                seg.end - seg.start,
-                ctx.metadata.get("render_text_animation_duration", 0.3)
+                seg.end - seg.start, ctx.metadata.get("render_text_animation_duration", 0.3)
             )
             img_clip = apply_text_animation(img_clip, text_anim_type, anim_dur)
 
@@ -462,7 +483,9 @@ def render_video(ctx: Context) -> Context:
     if title_card_sec and title_card_sec > 0 and title_card_text:
         title_font_size = int(font_size * 1.4)
         title_img = _create_text_image(
-            title_card_text, size, fontsize=title_font_size,
+            title_card_text,
+            size,
+            fontsize=title_font_size,
             position="center",
             max_width_ratio=0.85,
         )
@@ -471,14 +494,13 @@ def render_video(ctx: Context) -> Context:
         # Fade in/out for polish (graceful degradation if MoviePy fx unavailable)
         try:
             from moviepy.video.fx import FadeIn, FadeOut
+
             fade_dur = min(0.3, title_card_sec / 3)
             title_clip = title_clip.with_effects([FadeIn(fade_dur), FadeOut(fade_dur)])
         except (ImportError, ValueError):
             logger.debug("title card fade effect failed", exc_info=True)
         clips.append(title_clip)
-        ctx.services.console.debug(
-            f"  title card: {title_card_text} ({title_card_sec}s)"
-        )
+        ctx.services.console.debug(f"  title card: {title_card_text} ({title_card_sec}s)")
 
     # End card overlay — show end card text at the end of the
     # video (similar to the title card but at the closing).  Soft addition:
@@ -489,7 +511,9 @@ def render_video(ctx: Context) -> Context:
         end_card_sec = title_card_sec if (title_card_sec and title_card_sec > 0) else 1.0
         end_font_size = int(font_size * 1.4)
         end_img = _create_text_image(
-            end_card_text, size, fontsize=end_font_size,
+            end_card_text,
+            size,
+            fontsize=end_font_size,
             position="center",
             max_width_ratio=0.85,
         )
@@ -498,14 +522,13 @@ def render_video(ctx: Context) -> Context:
         end_clip = end_clip.with_duration(end_card_sec).with_start(end_start)
         try:
             from moviepy.video.fx import FadeIn, FadeOut
+
             fade_dur = min(0.3, end_card_sec / 3)
             end_clip = end_clip.with_effects([FadeIn(fade_dur), FadeOut(fade_dur)])
         except (ImportError, ValueError):
             logger.debug("end card fade effect failed", exc_info=True)
         clips.append(end_clip)
-        ctx.services.console.debug(
-            f"  end card: {end_card_text} ({end_card_sec}s)"
-        )
+        ctx.services.console.debug(f"  end card: {end_card_text} ({end_card_sec}s)")
 
     # Watermark overlay — small semi-transparent text in the
     # top-right corner, visible for the entire video duration.
@@ -513,14 +536,14 @@ def render_video(ctx: Context) -> Context:
     if watermark_template:
         watermark_text = _substitute_movie(watermark_template, ctx.movie_name)
         wm_img = _create_watermark_image(
-            watermark_text, size, fontsize=max(24, int(font_size * 0.36)),
+            watermark_text,
+            size,
+            fontsize=max(24, int(font_size * 0.36)),
         )
         wm_clip = ImageClip(wm_img, is_mask=False)
         wm_clip = wm_clip.with_duration(total_duration).with_start(0)
         clips.append(wm_clip)
-        ctx.services.console.debug(
-            f"  watermark: {watermark_text}"
-        )
+        ctx.services.console.debug(f"  watermark: {watermark_text}")
 
     # Disclaimer overlay — small text at the very bottom,
     # visible for the entire video duration.  Uses a smaller font and a
@@ -529,7 +552,9 @@ def render_video(ctx: Context) -> Context:
     if disclaimer_template:
         disclaimer_text = _substitute_movie(disclaimer_template, ctx.movie_name)
         disc_img = _create_text_image(
-            disclaimer_text, size, fontsize=max(20, int(font_size * 0.42)),
+            disclaimer_text,
+            size,
+            fontsize=max(20, int(font_size * 0.42)),
             position="bottom",
             max_width_ratio=0.9,
             bottom_margin_ratio=0.02,
@@ -537,9 +562,7 @@ def render_video(ctx: Context) -> Context:
         disc_clip = ImageClip(disc_img, is_mask=False)
         disc_clip = disc_clip.with_duration(total_duration).with_start(0)
         clips.append(disc_clip)
-        ctx.services.console.debug(
-            f"  disclaimer: {disclaimer_text}"
-        )
+        ctx.services.console.debug(f"  disclaimer: {disclaimer_text}")
 
     final_video = CompositeVideoClip(clips).with_audio(audio_clip)
     # Free clip references before encoding to reduce peak memory (v0.7.0).
@@ -553,7 +576,6 @@ def render_video(ctx: Context) -> Context:
     # render_output_name from the user always takes precedence.
     default_output_name = "preview.mp4" if preview_mode else "final.mp4"
     video_path = output_dir / ctx.metadata.get("render_output_name", default_output_name)
-
 
     tmp_dir = output_dir / ".tmp"
     tmp_dir.mkdir(exist_ok=True)
@@ -618,8 +640,7 @@ def render_video(ctx: Context) -> Context:
                 # unsupported option, etc.) — retry with CPU libx264 so the
                 # pipeline degrades gracefully instead of aborting.
                 ctx.services.console.inline_warn(
-                    f"GPU encoding ({gpu_codec}) failed: {gpu_err}. "
-                    f"Retrying with libx264 (CPU)."
+                    f"GPU encoding ({gpu_codec}) failed: {gpu_err}. Retrying with libx264 (CPU)."
                 )
                 logger.debug("GPU encoding failed, falling back to CPU", exc_info=True)
                 gpu_codec = "libx264"
@@ -670,13 +691,20 @@ def render_video(ctx: Context) -> Context:
     mux_cmd = [
         ffmpeg_bin,
         "-y",
-        "-loglevel", "error",
-        "-i", str(video_only_path),
-        "-i", str(audio_path),
-        "-map", "0:v:0",
-        "-map", "1:a:0",
-        "-c:v", "copy",
-        "-c:a", audio_codec if not audio_codec.startswith("lib") else audio_codec[3:],
+        "-loglevel",
+        "error",
+        "-i",
+        str(video_only_path),
+        "-i",
+        str(audio_path),
+        "-map",
+        "0:v:0",
+        "-map",
+        "1:a:0",
+        "-c:v",
+        "copy",
+        "-c:a",
+        audio_codec if not audio_codec.startswith("lib") else audio_codec[3:],
     ]
     if faststart:
         mux_cmd += ["-movflags", "+faststart"]
@@ -693,9 +721,7 @@ def render_video(ctx: Context) -> Context:
                 timeout=ctx.metadata.get("render_ffmpeg_timeout", _DEFAULT_MUX_TIMEOUT),
             )
         if proc.returncode != 0:
-            raise RuntimeError(
-                f"ffmpeg mux failed (exit={proc.returncode}): {proc.stderr}"
-            )
+            raise RuntimeError(f"ffmpeg mux failed (exit={proc.returncode}): {proc.stderr}")
     finally:
         # Clean up the .tmp directory (video_only.mp4 and any
         # other intermediates) to keep the output dir tidy.
@@ -733,9 +759,7 @@ def render_video(ctx: Context) -> Context:
     # post-pipeline script or use --strict with custom logic.
     total_segments = len(ctx.timed_segments)
     footage_segments_count = len(footage_segments)
-    coverage_ratio = (
-        footage_segments_count / total_segments if total_segments > 0 else 0.0
-    )
+    coverage_ratio = footage_segments_count / total_segments if total_segments > 0 else 0.0
     ctx.metadata["footage_coverage"] = {
         "total_segments": total_segments,
         "footage_segments": footage_segments_count,

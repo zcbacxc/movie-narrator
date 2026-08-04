@@ -98,8 +98,7 @@ def test_diversity_swaps_log_triggered_with_small_scene_pool(tmp_path, monkeypat
     # P2: swaps must be > 0 — 10 segments over 3 scenes with max_reuse=1
     # forces at least some swaps in windows of 3.
     assert diversity["swaps"] > 0, (
-        "Expected diversity swaps > 0 with 10 segments over 3 scenes "
-        "and max_reuse=1, but got 0"
+        "Expected diversity swaps > 0 with 10 segments over 3 scenes and max_reuse=1, but got 0"
     )
 
     # swaps_log must be a non-empty list with correct schema
@@ -131,10 +130,7 @@ def test_diversity_swaps_zero_with_large_scene_pool(tmp_path, monkeypatch):
     (tmp_path / "video.mp4").write_bytes(b"00")
 
     # 20 scenes — ample for 5 segments
-    ctx.scenes = [
-        Scene(index=i, start=float(i * 5), end=float(i * 5 + 5))
-        for i in range(20)
-    ]
+    ctx.scenes = [Scene(index=i, start=float(i * 5), end=float(i * 5 + 5)) for i in range(20)]
     ctx.timed_segments = [
         TimedSegment(text=f"segment {i}", start=float(i * 3), end=float(i * 3 + 2.5))
         for i in range(5)
@@ -202,10 +198,10 @@ def test_script_truncated_audit_field_populated(tmp_path):
 
     # LLM returns 4 segments, all exceeding max_chars=5
     long_texts = [
-        "这是一句很长的中文句子",   # 11 chars
-        "另一段超长的旁白内容",     # 10 chars
-        "第三段也超过了限制",       # 9 chars
-        "最后一段同样很长",         # 8 chars
+        "这是一句很长的中文句子",  # 11 chars
+        "另一段超长的旁白内容",  # 10 chars
+        "第三段也超过了限制",  # 9 chars
+        "最后一段同样很长",  # 8 chars
     ]
     seg_json = json.dumps(
         {"segments": [{"text": t} for t in long_texts]},
@@ -217,7 +213,9 @@ def test_script_truncated_audit_field_populated(tmp_path):
     with patch("movie_narrator.pipeline.script.get_settings", return_value=_mock_settings()):
         with patch("movie_narrator.pipeline.script.get_llm_client", return_value=mock_cm):
             segments = _expand_beats_to_script(
-                ctx, _mock_settings(), mock_cm.__enter__(),
+                ctx,
+                _mock_settings(),
+                mock_cm.__enter__(),
                 beats=["beat1", "beat2", "beat3", "beat4"],
                 target_count=4,
             )
@@ -268,7 +266,9 @@ def test_script_truncated_absent_when_no_truncation(tmp_path):
     with patch("movie_narrator.pipeline.script.get_settings", return_value=_mock_settings()):
         with patch("movie_narrator.pipeline.script.get_llm_client", return_value=mock_cm):
             segments = _expand_beats_to_script(
-                ctx, _mock_settings(), mock_cm.__enter__(),
+                ctx,
+                _mock_settings(),
+                mock_cm.__enter__(),
                 beats=["beat1", "beat2", "beat3", "beat4"],
                 target_count=4,
             )

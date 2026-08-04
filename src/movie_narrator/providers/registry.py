@@ -125,8 +125,7 @@ class ProviderRegistry:
         if factory is None:
             available = sorted(self._factories.keys())
             raise ValueError(
-                f"Unknown {self._category} provider: {name!r}. "
-                f"Registered: {available}"
+                f"Unknown {self._category} provider: {name!r}. Registered: {available}"
             )
         instance = factory(*args, **kwargs)
         if self._protocol is not None and not isinstance(instance, self._protocol):

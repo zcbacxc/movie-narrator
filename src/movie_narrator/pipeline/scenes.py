@@ -73,6 +73,7 @@ def detect_scenes(ctx: Context) -> Context:
             except (AttributeError, TypeError, ValueError):
                 # Fallback: probe via ffprobe
                 from ..utils.deliverable_qa import probe_media
+
                 duration = probe_media(ctx.source_video_path).get("duration", 60.0)
             scenes = [Scene(index=0, start=0.0, end=duration)]
             ctx.metadata["scene_detection_degraded"] = True
@@ -86,14 +87,13 @@ def detect_scenes(ctx: Context) -> Context:
         try:
             output_dir = Path(ctx.output_dir)
             output_dir.mkdir(parents=True, exist_ok=True)
-            scenes_data = [
-                {"index": s.index, "start": s.start, "end": s.end}
-                for s in scenes
-            ]
+            scenes_data = [{"index": s.index, "start": s.start, "end": s.end} for s in scenes]
             with open(output_dir / "scenes.json", "w", encoding="utf-8") as f:
                 json.dump(
                     {"scene_count": len(scenes_data), "scenes": scenes_data},
-                    f, ensure_ascii=False, indent=2,
+                    f,
+                    ensure_ascii=False,
+                    indent=2,
                 )
         except Exception as e:
             # Best-effort: scenes.json is diagnostic, not critical.

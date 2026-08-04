@@ -148,15 +148,9 @@ class TestActiveCountOptimization:
     def test_active_count_not_started_falls_back_to_storage(self, tmp_path):
         """When not started, active_count scans storage for compatibility."""
         queue = LocalTaskQueue(storage_dir=tmp_path, auto_start=False)
-        queue.storage.save(
-            Task(request=TaskRequest(movie_name="A"), status=TaskStatus.PENDING)
-        )
-        queue.storage.save(
-            Task(request=TaskRequest(movie_name="B"), status=TaskStatus.RUNNING)
-        )
-        queue.storage.save(
-            Task(request=TaskRequest(movie_name="C"), status=TaskStatus.COMPLETED)
-        )
+        queue.storage.save(Task(request=TaskRequest(movie_name="A"), status=TaskStatus.PENDING))
+        queue.storage.save(Task(request=TaskRequest(movie_name="B"), status=TaskStatus.RUNNING))
+        queue.storage.save(Task(request=TaskRequest(movie_name="C"), status=TaskStatus.COMPLETED))
         assert queue.active_count == 2
 
 

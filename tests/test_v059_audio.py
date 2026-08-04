@@ -50,9 +50,7 @@ try:
 except Exception:
     _MP3_OK = False
 
-requires_mp3 = pytest.mark.skipif(
-    not _MP3_OK, reason="ffmpeg lacks mp3/wav codec support"
-)
+requires_mp3 = pytest.mark.skipif(not _MP3_OK, reason="ffmpeg lacks mp3/wav codec support")
 
 
 # ── Helpers ────────────────────────────────────────────────
@@ -420,8 +418,10 @@ def test_detect_emotion_zones_empty():
 
 def test_detect_emotion_zones_single_emotion():
     """All same emotion should produce one zone."""
-    segments = [TimedSegment(text="s1", start=0.0, end=1.0),
-                TimedSegment(text="s2", start=1.0, end=2.0)]
+    segments = [
+        TimedSegment(text="s1", start=0.0, end=1.0),
+        TimedSegment(text="s2", start=1.0, end=2.0),
+    ]
     emotions = ["intense", "intense"]
     zones = _detect_emotion_zones(segments, emotions)
     assert len(zones) == 1
@@ -432,9 +432,11 @@ def test_detect_emotion_zones_single_emotion():
 
 def test_detect_emotion_zones_two_zones():
     """Emotion change should produce two zones."""
-    segments = [TimedSegment(text="s1", start=0.0, end=1.0),
-                TimedSegment(text="s2", start=1.0, end=2.0),
-                TimedSegment(text="s3", start=2.0, end=3.0)]
+    segments = [
+        TimedSegment(text="s1", start=0.0, end=1.0),
+        TimedSegment(text="s2", start=1.0, end=2.0),
+        TimedSegment(text="s3", start=2.0, end=3.0),
+    ]
     emotions = ["intense", "intense", "calm"]
     zones = _detect_emotion_zones(segments, emotions)
     assert len(zones) == 2
@@ -534,17 +536,21 @@ class TestTTSPipelineIntegration:
     def test_tts_emotion_prosody_applied(self, tmp_path, monkeypatch):
         """TTS step should apply emotion-based prosody and log it."""
         from movie_narrator.config import get_settings
+
         get_settings.cache_clear()
         monkeypatch.setenv("MN_TTS_PROVIDER", "edge")
         monkeypatch.setenv("CI", "1")
         ctx = self._make_tts_ctx(tmp_path)
         ctx.metadata["beats_meta"] = [
-            {"emotion": "intense"}, {"emotion": "calm"},
-            {"emotion": "suspense"}, {"emotion": "intense"},
+            {"emotion": "intense"},
+            {"emotion": "calm"},
+            {"emotion": "suspense"},
+            {"emotion": "intense"},
             {"emotion": "laughter"},
         ]
 
         from movie_narrator.pipeline.tts import generate_voice
+
         result = generate_voice(ctx)
 
         aq = result.metadata.get("audio_quality", {})
@@ -559,12 +565,14 @@ class TestTTSPipelineIntegration:
     def test_tts_prosody_no_beats_meta(self, tmp_path, monkeypatch):
         """Without beats_meta, all prosody speeds should be 1.0."""
         from movie_narrator.config import get_settings
+
         get_settings.cache_clear()
         monkeypatch.setenv("MN_TTS_PROVIDER", "edge")
         monkeypatch.setenv("CI", "1")
         ctx = self._make_tts_ctx(tmp_path)
 
         from movie_narrator.pipeline.tts import generate_voice
+
         result = generate_voice(ctx)
 
         aq = result.metadata.get("audio_quality", {})
@@ -577,12 +585,14 @@ class TestTTSPipelineIntegration:
     def test_tts_audio_quality_metrics(self, tmp_path, monkeypatch):
         """TTS step should produce per-segment audio quality metrics."""
         from movie_narrator.config import get_settings
+
         get_settings.cache_clear()
         monkeypatch.setenv("MN_TTS_PROVIDER", "edge")
         monkeypatch.setenv("CI", "1")
         ctx = self._make_tts_ctx(tmp_path)
 
         from movie_narrator.pipeline.tts import generate_voice
+
         result = generate_voice(ctx)
 
         aq = result.metadata.get("audio_quality", {})
@@ -595,12 +605,14 @@ class TestTTSPipelineIntegration:
     def test_tts_v2_speed_not_triggered_when_ok(self, tmp_path, monkeypatch):
         """V2 speed should not trigger when duration is within range."""
         from movie_narrator.config import get_settings
+
         get_settings.cache_clear()
         monkeypatch.setenv("MN_TTS_PROVIDER", "edge")
         monkeypatch.setenv("CI", "1")
         ctx = self._make_tts_ctx(tmp_path, duration=10)
 
         from movie_narrator.pipeline.tts import generate_voice
+
         result = generate_voice(ctx)
 
         aq = result.metadata.get("audio_quality", {})
@@ -609,6 +621,7 @@ class TestTTSPipelineIntegration:
     def test_tts_v2_speed_triggered_on_overflow(self, tmp_path, monkeypatch):
         """V2 speed should trigger when narration overflows target."""
         from movie_narrator.config import get_settings
+
         get_settings.cache_clear()
         monkeypatch.setenv("MN_TTS_PROVIDER", "edge")
         monkeypatch.setenv("CI", "1")
@@ -617,6 +630,7 @@ class TestTTSPipelineIntegration:
         ctx.segments = [ScriptSegment(text=long_text) for _ in range(5)]
 
         from movie_narrator.pipeline.tts import generate_voice
+
         result = generate_voice(ctx)
 
         dm = result.metadata.get("duration_metrics", {})
@@ -625,12 +639,14 @@ class TestTTSPipelineIntegration:
     def test_tts_duration_metrics_always_present(self, tmp_path, monkeypatch):
         """Duration metrics should always be populated."""
         from movie_narrator.config import get_settings
+
         get_settings.cache_clear()
         monkeypatch.setenv("MN_TTS_PROVIDER", "edge")
         monkeypatch.setenv("CI", "1")
         ctx = self._make_tts_ctx(tmp_path, duration=60)
 
         from movie_narrator.pipeline.tts import generate_voice
+
         result = generate_voice(ctx)
 
         dm = result.metadata.get("duration_metrics", {})
@@ -676,8 +692,10 @@ def test_bgm_transitions_stored_in_metadata(tmp_path):
         TimedSegment(text="s5", start=4.0, end=5.0),
     ]
     ctx.metadata["beats_meta"] = [
-        {"emotion": "intense"}, {"emotion": "intense"},
-        {"emotion": "calm"}, {"emotion": "calm"},
+        {"emotion": "intense"},
+        {"emotion": "intense"},
+        {"emotion": "calm"},
+        {"emotion": "calm"},
         {"emotion": "suspense"},
     ]
 
@@ -687,7 +705,9 @@ def test_bgm_transitions_stored_in_metadata(tmp_path):
     assert transitions is not None
     assert len(transitions) >= 1
     # Check transition from intense to calm
-    intense_to_calm = [t for t in transitions if t["from_emotion"] == "intense" and t["to_emotion"] == "calm"]
+    intense_to_calm = [
+        t for t in transitions if t["from_emotion"] == "intense" and t["to_emotion"] == "calm"
+    ]
     assert len(intense_to_calm) >= 1
 
 

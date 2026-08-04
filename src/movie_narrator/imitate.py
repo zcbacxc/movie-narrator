@@ -87,8 +87,11 @@ def _get_video_duration(video_path: str) -> float:
     """
     try:
         cmd = [
-            "ffprobe", "-v", "quiet",
-            "-print_format", "json",
+            "ffprobe",
+            "-v",
+            "quiet",
+            "-print_format",
+            "json",
             "-show_format",
             video_path,
         ]
@@ -137,10 +140,12 @@ def _count_scenes(video_path: str, threshold: float = 27.0) -> tuple[int, List[D
         scene_list = scene_manager.get_scene_list()
         scenes = []
         for start, end in scene_list:
-            scenes.append({
-                "start": start.get_seconds(),
-                "end": end.get_seconds(),
-            })
+            scenes.append(
+                {
+                    "start": start.get_seconds(),
+                    "end": end.get_seconds(),
+                }
+            )
         return len(scenes), scenes
     except ImportError:
         logger.warning("scenedetect not available — scene count will be 0")
@@ -173,11 +178,13 @@ def _transcribe_reference(
         for seg in segments_gen:
             text = seg.text.strip()
             if text:
-                segments.append({
-                    "start": seg.start,
-                    "end": seg.end,
-                    "text": text,
-                })
+                segments.append(
+                    {
+                        "start": seg.start,
+                        "end": seg.end,
+                        "text": text,
+                    }
+                )
         return len(segments), segments
     except ImportError:
         pass
@@ -195,17 +202,16 @@ def _transcribe_reference(
             for seg in result["segments"]:
                 text = seg.get("text", "").strip()
                 if text:
-                    segments.append({
-                        "start": seg.get("start", 0.0),
-                        "end": seg.get("end", 0.0),
-                        "text": text,
-                    })
+                    segments.append(
+                        {
+                            "start": seg.get("start", 0.0),
+                            "end": seg.get("end", 0.0),
+                            "text": text,
+                        }
+                    )
         return len(segments), segments
     except ImportError:
-        logger.warning(
-            "Neither whisperx nor faster-whisper available — "
-            "sentence count will be 0"
-        )
+        logger.warning("Neither whisperx nor faster-whisper available — sentence count will be 0")
         return 0, []
     except Exception as e:
         logger.warning(f"Transcription failed: {e}")
@@ -257,9 +263,7 @@ def analyze_reference(
         metrics.sentence_count / duration_min if duration_min > 0 else 0.0
     )
     metrics.avg_segment_duration = (
-        metrics.duration_sec / metrics.sentence_count
-        if metrics.sentence_count > 0
-        else 0.0
+        metrics.duration_sec / metrics.sentence_count if metrics.sentence_count > 0 else 0.0
     )
 
     # Save raw data if output_dir is provided
@@ -319,9 +323,7 @@ def metrics_to_params(metrics: ReferenceMetrics) -> Dict[str, Any]:
         target_sentences = max(8, min(30, target_sentences))  # clamp
 
         params["prompt_target_sentences"] = target_sentences
-        params["prompt_target_segment_duration"] = round(
-            target_duration / target_sentences, 2
-        )
+        params["prompt_target_segment_duration"] = round(target_duration / target_sentences, 2)
         # Max chars per sentence based on avg segment duration
         # Shorter segments = fewer chars
         if metrics.avg_segment_duration > 0:

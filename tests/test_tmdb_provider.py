@@ -47,9 +47,7 @@ def _make_response(status: int, body: str, headers=None):
 def _make_http_error(code: int, headers=None):
     """Build an HTTPError instance for testing error paths."""
     hdrs = headers if headers is not None else http.client.HTTPMessage()
-    return urllib.error.HTTPError(
-        "http://test", code, "Error", hdrs, BytesIO(b"")
-    )
+    return urllib.error.HTTPError("http://test", code, "Error", hdrs, BytesIO(b""))
 
 
 class TestTmdbProviderRegistration:
@@ -297,14 +295,17 @@ class TestTmdbRetry:
 
     def test_retries_on_429_then_succeeds(self):
         ok_resp = _make_response(200, '{"results": []}')
-        with patch(
-            "movie_narrator.providers.tmdb.urllib.request.urlopen",
-            side_effect=[_make_http_error(429), ok_resp],
-        ) as mock_open, patch(
-            "movie_narrator.providers.tmdb.time.sleep"
-        ) as mock_sleep:
+        with (
+            patch(
+                "movie_narrator.providers.tmdb.urllib.request.urlopen",
+                side_effect=[_make_http_error(429), ok_resp],
+            ) as mock_open,
+            patch("movie_narrator.providers.tmdb.time.sleep") as mock_sleep,
+        ):
             result = _tmdb_get(
-                "https://api.themoviedb.org/3", "/search/movie", "key",
+                "https://api.themoviedb.org/3",
+                "/search/movie",
+                "key",
                 {"query": "test"},
             )
         assert result == {"results": []}
@@ -315,14 +316,17 @@ class TestTmdbRetry:
 
     def test_gives_up_after_max_retries(self):
         err = _make_http_error(429)
-        with patch(
-            "movie_narrator.providers.tmdb.urllib.request.urlopen",
-            side_effect=[err, err, err, err],
-        ) as mock_open, patch(
-            "movie_narrator.providers.tmdb.time.sleep"
-        ) as mock_sleep:
+        with (
+            patch(
+                "movie_narrator.providers.tmdb.urllib.request.urlopen",
+                side_effect=[err, err, err, err],
+            ) as mock_open,
+            patch("movie_narrator.providers.tmdb.time.sleep") as mock_sleep,
+        ):
             result = _tmdb_get(
-                "https://api.themoviedb.org/3", "/search/movie", "key",
+                "https://api.themoviedb.org/3",
+                "/search/movie",
+                "key",
                 {"query": "test"},
             )
         assert result is None
@@ -333,14 +337,17 @@ class TestTmdbRetry:
 
     def test_non_429_http_error_is_not_retried(self):
         err = _make_http_error(404)
-        with patch(
-            "movie_narrator.providers.tmdb.urllib.request.urlopen",
-            side_effect=err,
-        ) as mock_open, patch(
-            "movie_narrator.providers.tmdb.time.sleep"
-        ) as mock_sleep:
+        with (
+            patch(
+                "movie_narrator.providers.tmdb.urllib.request.urlopen",
+                side_effect=err,
+            ) as mock_open,
+            patch("movie_narrator.providers.tmdb.time.sleep") as mock_sleep,
+        ):
             result = _tmdb_get(
-                "https://api.themoviedb.org/3", "/search/movie", "key",
+                "https://api.themoviedb.org/3",
+                "/search/movie",
+                "key",
                 {"query": "test"},
             )
         assert result is None
@@ -361,11 +368,15 @@ class TestTmdbCache:
             return_value=resp,
         ) as mock_open:
             result1 = _tmdb_get(
-                "https://api.themoviedb.org/3", "/search/movie", "key",
+                "https://api.themoviedb.org/3",
+                "/search/movie",
+                "key",
                 {"query": "test"},
             )
             result2 = _tmdb_get(
-                "https://api.themoviedb.org/3", "/search/movie", "key",
+                "https://api.themoviedb.org/3",
+                "/search/movie",
+                "key",
                 {"query": "test"},
             )
         assert result1 == {"ok": True}
@@ -380,11 +391,15 @@ class TestTmdbCache:
             return_value=resp,
         ) as mock_open:
             _tmdb_get(
-                "https://api.themoviedb.org/3", "/search/movie", "key",
+                "https://api.themoviedb.org/3",
+                "/search/movie",
+                "key",
                 {"query": "a"},
             )
             _tmdb_get(
-                "https://api.themoviedb.org/3", "/search/movie", "key",
+                "https://api.themoviedb.org/3",
+                "/search/movie",
+                "key",
                 {"query": "b"},
             )
         # Different query params produce different URLs — both hit network.
@@ -398,13 +413,17 @@ class TestTmdbCache:
         ):
             # Prime the cache with the first call.
             _tmdb_get(
-                "https://api.themoviedb.org/3", "/search/movie", "key",
+                "https://api.themoviedb.org/3",
+                "/search/movie",
+                "key",
                 {"query": "test"},
             )
         # Second call: urlopen is not mocked, so any network access would
         # hit the real internet and fail. A cache hit avoids that entirely.
         result = _tmdb_get(
-            "https://api.themoviedb.org/3", "/search/movie", "key",
+            "https://api.themoviedb.org/3",
+            "/search/movie",
+            "key",
             {"query": "test", "api_key": "key"},
         )
         assert result == {"ok": True}
@@ -421,14 +440,17 @@ class TestTmdbRateLimitWithRetryAfter:
         headers.add_header("Retry-After", "5")
         err = _make_http_error(429, headers=headers)
         ok_resp = _make_response(200, '{"ok": true}')
-        with patch(
-            "movie_narrator.providers.tmdb.urllib.request.urlopen",
-            side_effect=[err, ok_resp],
-        ), patch(
-            "movie_narrator.providers.tmdb.time.sleep"
-        ) as mock_sleep:
+        with (
+            patch(
+                "movie_narrator.providers.tmdb.urllib.request.urlopen",
+                side_effect=[err, ok_resp],
+            ),
+            patch("movie_narrator.providers.tmdb.time.sleep") as mock_sleep,
+        ):
             result = _tmdb_get(
-                "https://api.themoviedb.org/3", "/search/movie", "key",
+                "https://api.themoviedb.org/3",
+                "/search/movie",
+                "key",
                 {"query": "test"},
             )
         assert result == {"ok": True}
@@ -440,14 +462,17 @@ class TestTmdbRateLimitWithRetryAfter:
         headers.add_header("Retry-After", "3")
         err = _make_http_error(429, headers=headers)
         ok_resp = _make_response(200, '{"ok": true}')
-        with patch(
-            "movie_narrator.providers.tmdb.urllib.request.urlopen",
-            side_effect=[err, err, ok_resp],
-        ), patch(
-            "movie_narrator.providers.tmdb.time.sleep"
-        ) as mock_sleep:
+        with (
+            patch(
+                "movie_narrator.providers.tmdb.urllib.request.urlopen",
+                side_effect=[err, err, ok_resp],
+            ),
+            patch("movie_narrator.providers.tmdb.time.sleep") as mock_sleep,
+        ):
             result = _tmdb_get(
-                "https://api.themoviedb.org/3", "/search/movie", "key",
+                "https://api.themoviedb.org/3",
+                "/search/movie",
+                "key",
                 {"query": "test"},
             )
         assert result == {"ok": True}
@@ -457,14 +482,17 @@ class TestTmdbRateLimitWithRetryAfter:
 
     def test_falls_back_to_backoff_without_retry_after(self):
         ok_resp = _make_response(200, '{"ok": true}')
-        with patch(
-            "movie_narrator.providers.tmdb.urllib.request.urlopen",
-            side_effect=[_make_http_error(429), ok_resp],
-        ), patch(
-            "movie_narrator.providers.tmdb.time.sleep"
-        ) as mock_sleep:
+        with (
+            patch(
+                "movie_narrator.providers.tmdb.urllib.request.urlopen",
+                side_effect=[_make_http_error(429), ok_resp],
+            ),
+            patch("movie_narrator.providers.tmdb.time.sleep") as mock_sleep,
+        ):
             result = _tmdb_get(
-                "https://api.themoviedb.org/3", "/search/movie", "key",
+                "https://api.themoviedb.org/3",
+                "/search/movie",
+                "key",
                 {"query": "test"},
             )
         assert result == {"ok": True}
@@ -476,14 +504,17 @@ class TestTmdbRateLimitWithRetryAfter:
         headers.add_header("Retry-After", "0.5")
         err = _make_http_error(429, headers=headers)
         ok_resp = _make_response(200, '{"ok": true}')
-        with patch(
-            "movie_narrator.providers.tmdb.urllib.request.urlopen",
-            side_effect=[err, ok_resp],
-        ), patch(
-            "movie_narrator.providers.tmdb.time.sleep"
-        ) as mock_sleep:
+        with (
+            patch(
+                "movie_narrator.providers.tmdb.urllib.request.urlopen",
+                side_effect=[err, ok_resp],
+            ),
+            patch("movie_narrator.providers.tmdb.time.sleep") as mock_sleep,
+        ):
             result = _tmdb_get(
-                "https://api.themoviedb.org/3", "/search/movie", "key",
+                "https://api.themoviedb.org/3",
+                "/search/movie",
+                "key",
                 {"query": "test"},
             )
         assert result == {"ok": True}
@@ -504,7 +535,9 @@ class TestTmdbNetworkErrorHandling:
         ):
             try:
                 _tmdb_get(
-                    "https://api.themoviedb.org/3", "/search/movie", "key",
+                    "https://api.themoviedb.org/3",
+                    "/search/movie",
+                    "key",
                     {"query": "test"},
                 )
                 assert False, "Should have raised URLError"
@@ -538,12 +571,13 @@ class TestTmdbNetworkErrorHandling:
         settings.tmdb_base_url = "https://api.themoviedb.org/3"
         settings.tmdb_language = "zh-CN"
         err = urllib.error.URLError("connection refused")
-        with patch(
-            "movie_narrator.providers.tmdb.urllib.request.urlopen",
-            side_effect=err,
-        ), patch(
-            "movie_narrator.providers.tmdb.logger"
-        ) as mock_logger:
+        with (
+            patch(
+                "movie_narrator.providers.tmdb.urllib.request.urlopen",
+                side_effect=err,
+            ),
+            patch("movie_narrator.providers.tmdb.logger") as mock_logger,
+        ):
             enrich_movie_card_with_tmdb(card, ctx, settings)
         # A network error during enrichment should be logged at warning.
         assert mock_logger.warning.called
@@ -580,9 +614,7 @@ class TestTmdbSearchEmptyResults:
             "movie_narrator.providers.tmdb.urllib.request.urlopen",
             return_value=resp,
         ):
-            result = _search_movie(
-                "https://api.themoviedb.org/3", "key", "Test", "zh-CN"
-            )
+            result = _search_movie("https://api.themoviedb.org/3", "key", "Test", "zh-CN")
         assert result is None
 
     def test_search_returns_none_for_missing_results_key(self):
@@ -591,9 +623,7 @@ class TestTmdbSearchEmptyResults:
             "movie_narrator.providers.tmdb.urllib.request.urlopen",
             return_value=resp,
         ):
-            result = _search_movie(
-                "https://api.themoviedb.org/3", "key", "Test", "zh-CN"
-            )
+            result = _search_movie("https://api.themoviedb.org/3", "key", "Test", "zh-CN")
         assert result is None
 
     def test_enrichment_returns_original_card_for_empty_results(self):
@@ -627,7 +657,9 @@ class TestTmdbMalformedResponse:
             return_value=resp,
         ):
             result = _tmdb_get(
-                "https://api.themoviedb.org/3", "/search/movie", "key",
+                "https://api.themoviedb.org/3",
+                "/search/movie",
+                "key",
                 {"query": "test"},
             )
         assert result is None
@@ -639,11 +671,15 @@ class TestTmdbMalformedResponse:
             return_value=resp,
         ) as mock_open:
             _tmdb_get(
-                "https://api.themoviedb.org/3", "/search/movie", "key",
+                "https://api.themoviedb.org/3",
+                "/search/movie",
+                "key",
                 {"query": "test"},
             )
             _tmdb_get(
-                "https://api.themoviedb.org/3", "/search/movie", "key",
+                "https://api.themoviedb.org/3",
+                "/search/movie",
+                "key",
                 {"query": "test", "api_key": "key"},
             )
         # Malformed JSON should not be cached, so both calls hit network.

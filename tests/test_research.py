@@ -42,8 +42,10 @@ def test_research_llm_success(tmp_path):
         ' "genres": ["Sci-Fi"], "cast": ["DiCaprio"], "keywords": ["dreams"]}'
     )
 
-    with patch("movie_narrator.pipeline.research.get_settings") as gs, \
-         patch("movie_narrator.pipeline.research.get_llm_client") as gl:
+    with (
+        patch("movie_narrator.pipeline.research.get_settings") as gs,
+        patch("movie_narrator.pipeline.research.get_llm_client") as gl,
+    ):
         gs.return_value.research_provider = "llm"
         gs.return_value.research_retries = 3
         gs.return_value.research_retry_delay = 0

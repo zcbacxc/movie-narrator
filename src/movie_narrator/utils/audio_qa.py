@@ -95,7 +95,7 @@ def estimate_snr(audio: AudioSegment, silence_threshold_dbfs: float = -50.0) -> 
     rms_values = []
     for i in range(n_windows):
         chunk = samples[i * window_samples : (i + 1) * window_samples]
-        rms = np.sqrt(np.mean(chunk ** 2))
+        rms = np.sqrt(np.mean(chunk**2))
         rms_values.append(rms)
 
     rms_arr = np.array(rms_values)
@@ -139,7 +139,7 @@ def check_silence(audio: AudioSegment, silence_threshold_dbfs: float = -50.0) ->
     max_val = float(np.iinfo(np.int16).max)
     for i in range(n_windows):
         chunk = samples[i * window_samples : (i + 1) * window_samples]
-        rms = np.sqrt(np.mean(chunk ** 2))
+        rms = np.sqrt(np.mean(chunk**2))
         rms_db = 20 * np.log10(max(rms / max_val, 1e-10))
         if rms_db <= silence_threshold_dbfs:
             silent_count += 1
@@ -174,14 +174,10 @@ def analyze_segment(
     issues: list[str] = []
 
     if clipping_ratio > max_clipping_ratio:
-        issues.append(
-            f"clipping detected: {clipping_ratio:.2%} samples near max amplitude"
-        )
+        issues.append(f"clipping detected: {clipping_ratio:.2%} samples near max amplitude")
 
     if silence_ratio > max_silence_ratio:
-        issues.append(
-            f"high silence ratio: {silence_ratio:.1%} of segment is silent"
-        )
+        issues.append(f"high silence ratio: {silence_ratio:.1%} of segment is silent")
 
     if snr_db is not None and snr_db < min_snr_db:
         issues.append(f"low SNR: {snr_db:.1f}dB < {min_snr_db}dB threshold")
@@ -209,9 +205,8 @@ def aggregate_metrics(metrics: list[SegmentAudioMetrics]) -> dict:
     total_issues = sum(len(m.issues) for m in metrics)
     segments_with_issues = sum(1 for m in metrics if m.issues)
     avg_duration = sum(m.duration_s for m in metrics) / len(metrics)
-    avg_snr = (
-        sum(m.snr_db for m in metrics if m.snr_db is not None)
-        / max(1, sum(1 for m in metrics if m.snr_db is not None))
+    avg_snr = sum(m.snr_db for m in metrics if m.snr_db is not None) / max(
+        1, sum(1 for m in metrics if m.snr_db is not None)
     )
     max_clipping = max(m.clipping_ratio for m in metrics)
     avg_silence = sum(m.silence_ratio for m in metrics) / len(metrics)

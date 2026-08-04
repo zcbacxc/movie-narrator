@@ -101,9 +101,7 @@ class TestCircuitBreakerStateMachine:
         assert excinfo.value.service == "svc"
 
     def test_recovery_opens_to_half_open_after_timeout(self):
-        b = CircuitBreaker(
-            "svc", failure_threshold=1, recovery_timeout=0.05, half_open_max_calls=1
-        )
+        b = CircuitBreaker("svc", failure_threshold=1, recovery_timeout=0.05, half_open_max_calls=1)
         with pytest.raises(ConnectionError):
             with b.guard():
                 raise ConnectionError("boom")
@@ -121,9 +119,7 @@ class TestCircuitBreakerStateMachine:
         assert b.state is CircuitState.CLOSED
 
     def test_half_open_probe_failure_reopens(self):
-        b = CircuitBreaker(
-            "svc", failure_threshold=1, recovery_timeout=0.05, half_open_max_calls=1
-        )
+        b = CircuitBreaker("svc", failure_threshold=1, recovery_timeout=0.05, half_open_max_calls=1)
         with pytest.raises(ConnectionError):
             with b.guard():
                 raise ConnectionError("boom")
@@ -141,9 +137,7 @@ class TestCircuitBreakerStateMachine:
                 pass
 
     def test_guard_rejects_when_probe_slot_busy(self):
-        b = CircuitBreaker(
-            "svc", failure_threshold=1, recovery_timeout=0.05, half_open_max_calls=1
-        )
+        b = CircuitBreaker("svc", failure_threshold=1, recovery_timeout=0.05, half_open_max_calls=1)
         with pytest.raises(ConnectionError):
             with b.guard():
                 raise ConnectionError("boom")
@@ -236,9 +230,7 @@ class TestCircuitBreakerConcurrency:
         assert b.failure_count == 0
 
     def test_concurrent_failures_open_at_threshold(self):
-        b = CircuitBreaker(
-            "svc", failure_threshold=5, recovery_timeout=30.0, half_open_max_calls=1
-        )
+        b = CircuitBreaker("svc", failure_threshold=5, recovery_timeout=30.0, half_open_max_calls=1)
 
         def worker():
             for _ in range(5):
@@ -318,7 +310,9 @@ class TestRetryPolicy:
             calls["n"] += 1
             raise ConnectionError("x")
 
-        with mock.patch("movie_narrator.reliability.retry.time.sleep", side_effect=lambda d: sleeps.append(d)):
+        with mock.patch(
+            "movie_narrator.reliability.retry.time.sleep", side_effect=lambda d: sleeps.append(d)
+        ):
             with pytest.raises(ConnectionError):
                 flaky()
 
@@ -429,7 +423,9 @@ class TestRetryPolicy:
         calls = {"n": 0}
 
         @with_retry(
-            RetryPolicy(max_attempts=3, base_delay=0.001, jitter=0.0, should_retry=lambda exc: False)
+            RetryPolicy(
+                max_attempts=3, base_delay=0.001, jitter=0.0, should_retry=lambda exc: False
+            )
         )
         def flaky():
             calls["n"] += 1
@@ -466,9 +462,7 @@ class TestRetryPolicy:
             calls["n"] += 1
             raise ConnectionError("x")
 
-        with mock.patch(
-            "movie_narrator.reliability.retry.asyncio.sleep", side_effect=fake_sleep
-        ):
+        with mock.patch("movie_narrator.reliability.retry.asyncio.sleep", side_effect=fake_sleep):
             with pytest.raises(ConnectionError):
                 asyncio.run(flaky())
 
@@ -515,9 +509,7 @@ class TestRetryPolicy:
 class TestTmdbIntegration:
     def _fresh_registry(self):
         registry = CircuitBreakerRegistry()
-        registry.get(
-            "tmdb", failure_threshold=2, recovery_timeout=0.05, half_open_max_calls=1
-        )
+        registry.get("tmdb", failure_threshold=2, recovery_timeout=0.05, half_open_max_calls=1)
         return registry
 
     def test_tmdb_network_error_counts_toward_breaker(self):
@@ -528,8 +520,9 @@ class TestTmdbIntegration:
         breaker = registry["tmdb"]
 
         err = OSError("connection refused")
-        with mock.patch.object(tmdb_module, "CIRCUIT_REGISTRY", registry), mock.patch(
-            "movie_narrator.providers.tmdb.urllib.request.urlopen", side_effect=err
+        with (
+            mock.patch.object(tmdb_module, "CIRCUIT_REGISTRY", registry),
+            mock.patch("movie_narrator.providers.tmdb.urllib.request.urlopen", side_effect=err),
         ):
             with pytest.raises(OSError):
                 tmdb_module._tmdb_get(
@@ -545,9 +538,10 @@ class TestTmdbIntegration:
         breaker = registry["tmdb"]
         breaker.force_open()
 
-        with mock.patch.object(tmdb_module, "CIRCUIT_REGISTRY", registry), mock.patch(
-            "movie_narrator.providers.tmdb.urllib.request.urlopen"
-        ) as mock_open:
+        with (
+            mock.patch.object(tmdb_module, "CIRCUIT_REGISTRY", registry),
+            mock.patch("movie_narrator.providers.tmdb.urllib.request.urlopen") as mock_open,
+        ):
             with pytest.raises(CircuitOpenError):
                 tmdb_module._tmdb_get(
                     "https://api.themoviedb.org/3", "/search/movie", "key", {"query": "t"}
@@ -558,9 +552,7 @@ class TestTmdbIntegration:
 class TestVlmIntegration:
     def _fresh_registry(self):
         registry = CircuitBreakerRegistry()
-        registry.get(
-            "vlm", failure_threshold=2, recovery_timeout=0.05, half_open_max_calls=1
-        )
+        registry.get("vlm", failure_threshold=2, recovery_timeout=0.05, half_open_max_calls=1)
         return registry
 
     def _captioner(self):
@@ -583,9 +575,10 @@ class TestVlmIntegration:
         captioner = self._captioner()
         scene = models.Scene(index=0, start=0.0, end=10.0)
 
-        with mock.patch.object(vlm_module, "CIRCUIT_REGISTRY", registry), mock.patch(
-            "movie_narrator.vision.vlm.urllib.request.urlopen"
-        ) as mock_open:
+        with (
+            mock.patch.object(vlm_module, "CIRCUIT_REGISTRY", registry),
+            mock.patch("movie_narrator.vision.vlm.urllib.request.urlopen") as mock_open,
+        ):
             with pytest.raises(CircuitOpenError):
                 captioner._caption_frame("ZmFrZQ==", scene)
             mock_open.assert_not_called()
@@ -603,11 +596,11 @@ class TestVlmIntegration:
         captioner = self._captioner()
         scene = models.Scene(index=0, start=0.0, end=10.0)
 
-        with mock.patch.object(vlm_module, "CIRCUIT_REGISTRY", registry), mock.patch.object(
-            captioner, "_extract_keyframe_b64", return_value="ZmFrZQ=="
-        ), mock.patch(
-            "movie_narrator.vision.vlm.urllib.request.urlopen"
-        ) as mock_open:
+        with (
+            mock.patch.object(vlm_module, "CIRCUIT_REGISTRY", registry),
+            mock.patch.object(captioner, "_extract_keyframe_b64", return_value="ZmFrZQ=="),
+            mock.patch("movie_narrator.vision.vlm.urllib.request.urlopen") as mock_open,
+        ):
             result = captioner.caption_scenes([scene], video_path=str(video))
             mock_open.assert_not_called()
         # Circuit open → per-scene failure → fallback label, not a crash.
@@ -624,9 +617,10 @@ class TestLlmIntegration:
         )
         breaker.force_open()
 
-        with mock.patch.object(llm_module, "CIRCUIT_REGISTRY", registry), mock.patch(
-            "movie_narrator.utils.llm.llm_registry"
-        ) as mock_registry:
+        with (
+            mock.patch.object(llm_module, "CIRCUIT_REGISTRY", registry),
+            mock.patch("movie_narrator.utils.llm.llm_registry") as mock_registry,
+        ):
             with pytest.raises(CircuitOpenError):
                 with llm_module.get_llm_client():
                     pass  # pragma: no cover — must not be reached
@@ -637,9 +631,7 @@ class TestLlmIntegration:
 class TestTtsIntegration:
     def _fresh_registry(self):
         registry = CircuitBreakerRegistry()
-        registry.get(
-            "tts", failure_threshold=2, recovery_timeout=0.05, half_open_max_calls=1
-        )
+        registry.get("tts", failure_threshold=2, recovery_timeout=0.05, half_open_max_calls=1)
         return registry
 
     def test_tts_open_circuit_raises_retryable_provider_error(self):
@@ -656,8 +648,9 @@ class TestTtsIntegration:
         registry["tts"].force_open()
         provider = StubProvider()
 
-        with mock.patch.object(tts_base, "CIRCUIT_REGISTRY", registry), mock.patch.object(
-            tts_base, "is_ci", return_value=False
+        with (
+            mock.patch.object(tts_base, "CIRCUIT_REGISTRY", registry),
+            mock.patch.object(tts_base, "is_ci", return_value=False),
         ):
             with pytest.raises(ProviderError) as excinfo:
                 asyncio.run(provider.synthesize("hi", "voice", Path("out.mp3")))
@@ -678,8 +671,9 @@ class TestTtsIntegration:
         breaker = registry["tts"]
         provider = FlakyProvider()
 
-        with mock.patch.object(tts_base, "CIRCUIT_REGISTRY", registry), mock.patch.object(
-            tts_base, "is_ci", return_value=False
+        with (
+            mock.patch.object(tts_base, "CIRCUIT_REGISTRY", registry),
+            mock.patch.object(tts_base, "is_ci", return_value=False),
         ):
             with pytest.raises(ProviderError) as excinfo:
                 asyncio.run(provider.synthesize("hi", "voice", Path("out.mp3")))
@@ -699,8 +693,9 @@ class TestTtsIntegration:
         breaker = registry["tts"]
         provider = BadProvider()
 
-        with mock.patch.object(tts_base, "CIRCUIT_REGISTRY", registry), mock.patch.object(
-            tts_base, "is_ci", return_value=False
+        with (
+            mock.patch.object(tts_base, "CIRCUIT_REGISTRY", registry),
+            mock.patch.object(tts_base, "is_ci", return_value=False),
         ):
             with pytest.raises(ValueError):
                 asyncio.run(provider.synthesize("hi", "voice", Path("out.mp3")))

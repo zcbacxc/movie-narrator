@@ -29,7 +29,7 @@ _MAX_CPS_CJK = 15.0
 
 # Line length (characters per displayed line)
 _MAX_CHARS_PER_LINE_LATIN = 42  # Netflix guideline for Latin scripts
-_MAX_CHARS_PER_LINE_CJK = 18    # Common CJK guideline
+_MAX_CHARS_PER_LINE_CJK = 18  # Common CJK guideline
 
 # Minimum display duration (seconds) — Netflix: 0.5s minimum
 _MIN_DURATION_S = 0.5
@@ -41,12 +41,12 @@ _MAX_GAP_S = 5.0
 # ── CJK detection ─────────────────────────────────────────
 
 _CJK_RANGES = [
-    (0x4E00, 0x9FFF),    # CJK Unified Ideographs
-    (0x3400, 0x4DBF),    # CJK Extension A
+    (0x4E00, 0x9FFF),  # CJK Unified Ideographs
+    (0x3400, 0x4DBF),  # CJK Extension A
     (0x20000, 0x2A6DF),  # CJK Extension B
-    (0x3040, 0x309F),    # Hiragana
-    (0x30A0, 0x30FF),    # Katakana
-    (0xAC00, 0xD7AF),    # Hangul Syllables
+    (0x3040, 0x309F),  # Hiragana
+    (0x30A0, 0x30FF),  # Katakana
+    (0xAC00, 0xD7AF),  # Hangul Syllables
 ]
 
 
@@ -233,11 +233,13 @@ def check_overlaps(
         cur = segments[i]
         nxt = segments[i + 1]
         if cur.end > nxt.start:
-            overlaps.append(SubtitleOverlap(
-                index_a=i,
-                index_b=i + 1,
-                overlap_s=round(cur.end - nxt.start, 3),
-            ))
+            overlaps.append(
+                SubtitleOverlap(
+                    index_a=i,
+                    index_b=i + 1,
+                    overlap_s=round(cur.end - nxt.start, 3),
+                )
+            )
     return overlaps
 
 
@@ -335,19 +337,13 @@ def analyze_cue(
 
     if cps_high:
         threshold = _MAX_CPS_CJK if is_cjk else _MAX_CPS_LATIN
-        issues.append(
-            f"high CPS: {cps:.1f} > {threshold:.0f} (text may be hard to read)"
-        )
+        issues.append(f"high CPS: {cps:.1f} > {threshold:.0f} (text may be hard to read)")
 
     if line_too_long:
-        issues.append(
-            f"line too long: exceeds {max_line_chars} chars/line"
-        )
+        issues.append(f"line too long: exceeds {max_line_chars} chars/line")
 
     if duration_s < _MIN_DURATION_S:
-        issues.append(
-            f"duration too short: {duration_s:.3f}s < {_MIN_DURATION_S}s"
-        )
+        issues.append(f"duration too short: {duration_s:.3f}s < {_MIN_DURATION_S}s")
 
     if char_count == 0:
         issues.append("empty text (no non-space characters)")
@@ -377,10 +373,7 @@ def validate_subtitles(
     Returns:
         A dict suitable for ``ctx.metadata["subtitle_qa"]``.
     """
-    use_translated = (
-        translated_texts is not None
-        and len(translated_texts) == len(segments)
-    )
+    use_translated = translated_texts is not None and len(translated_texts) == len(segments)
 
     cue_metrics: list[SubtitleCueMetrics] = []
     for i, seg in enumerate(segments):
@@ -398,11 +391,13 @@ def validate_subtitles(
     for i in range(len(segments) - 1):
         gap = segments[i + 1].start - segments[i].end
         if gap > _MAX_GAP_S:
-            gaps.append({
-                "index_a": i,
-                "index_b": i + 1,
-                "gap_s": round(gap, 3),
-            })
+            gaps.append(
+                {
+                    "index_a": i,
+                    "index_b": i + 1,
+                    "gap_s": round(gap, 3),
+                }
+            )
 
     return aggregate_cue_metrics(cue_metrics, overlaps, gaps, use_translated)
 
@@ -416,9 +411,8 @@ def aggregate_cue_metrics(
     """Aggregate per-cue metrics into a summary dict for metadata.json."""
     total_issues = sum(len(m.issues) for m in metrics)
     cues_with_issues = sum(1 for m in metrics if m.issues)
-    avg_cps = (
-        sum(m.cps for m in metrics if m.cps > 0)
-        / max(1, sum(1 for m in metrics if m.cps > 0))
+    avg_cps = sum(m.cps for m in metrics if m.cps > 0) / max(
+        1, sum(1 for m in metrics if m.cps > 0)
     )
     max_cps = max((m.cps for m in metrics), default=0.0)
     avg_duration = sum(m.duration_s for m in metrics) / max(1, len(metrics))
@@ -435,9 +429,6 @@ def aggregate_cue_metrics(
         "overlap_count": len(overlaps),
         "gaps": gaps,
         "gap_count": len(gaps),
-        "all_issues": [
-            {"index": m.index, "issues": m.issues}
-            for m in metrics if m.issues
-        ],
+        "all_issues": [{"index": m.index, "issues": m.issues} for m in metrics if m.issues],
         "cues": [m.to_dict() for m in metrics],
     }

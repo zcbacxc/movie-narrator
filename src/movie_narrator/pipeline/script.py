@@ -9,7 +9,20 @@ import re
 from ..config import get_settings
 from ..models import Context, ScriptSegment
 from ..utils.console import step_timing
-from ..utils.prompts import BEATS_PROMPT, EXPAND_PROMPT, JUDGE_PROMPT, build_cadence_hint, build_set_pieces_hint, build_hook_hint, build_platform_tone_hint, build_language_hint, build_perspective_hint, build_judge_feedback_hint, NARRATIVE_PRINCIPLES, ANTI_AI_TONE
+from ..utils.prompts import (
+    BEATS_PROMPT,
+    EXPAND_PROMPT,
+    JUDGE_PROMPT,
+    build_cadence_hint,
+    build_set_pieces_hint,
+    build_hook_hint,
+    build_platform_tone_hint,
+    build_language_hint,
+    build_perspective_hint,
+    build_judge_feedback_hint,
+    NARRATIVE_PRINCIPLES,
+    ANTI_AI_TONE,
+)
 from ..utils.llm import get_llm_client
 from ..utils.json_parser import extract_json
 from ..tts.base import is_ci
@@ -21,7 +34,7 @@ from time import sleep
 # LLM may ignore the max_chars prompt instruction. This post-processing
 # step hard-truncates any sentence exceeding the limit, cutting at the
 # last punctuation mark before the limit for natural breaks.
-_PUNCT_PATTERN = re.compile(r'[。！？；，、…\.,!?;]')
+_PUNCT_PATTERN = re.compile(r"[。！？；，、…\.,!?;]")
 
 
 def _truncate_to_max_chars(text: str, max_chars: int) -> str:
@@ -37,6 +50,7 @@ def _truncate_to_max_chars(text: str, max_chars: int) -> str:
         return truncated[: match.end()].rstrip()
     # No punctuation found — hard cut
     return truncated.rstrip()
+
 
 # CI-only fallback: used when LLM is unreachable in CI environment
 # to allow full pipeline testing. Never used for real users.
@@ -106,9 +120,7 @@ _RHYTHM_ZONES = frozenset({"hook", "rising", "peak", "settle"})
 _EMOTIONS = frozenset({"suspense", "laughter", "intense", "calm", "twist"})
 
 
-def _generate_plot_beats(
-    ctx: Context, settings, llm, target_count: int
-) -> List[str]:
+def _generate_plot_beats(ctx: Context, settings, llm, target_count: int) -> List[str]:
     """Phase 1: Extract exactly *target_count* plot beats from the movie.
 
     Uses low temperature (research_temperature) for structured extraction.
@@ -163,7 +175,12 @@ def _generate_plot_beats(
         max_tokens=scaled_max_tokens,
     )
     # v0.7.0: record LLM token usage for cost tracking
-    if hasattr(ctx, 'cost_tracker') and ctx.cost_tracker is not None and hasattr(response, 'usage') and response.usage:
+    if (
+        hasattr(ctx, "cost_tracker")
+        and ctx.cost_tracker is not None
+        and hasattr(response, "usage")
+        and response.usage
+    ):
         ctx.cost_tracker.record_llm_call("script", llm.model, response.usage.model_dump())
     raw = response.choices[0].message.content or ""
     data = extract_json(raw)
@@ -174,9 +191,7 @@ def _generate_plot_beats(
     if len(beats) == 0:
         raise ValueError("Phase 1: LLM returned zero beats")
     if len(beats) != target_count:
-        raise ValueError(
-            f"Phase 1: expected {target_count} beats, got {len(beats)}"
-        )
+        raise ValueError(f"Phase 1: expected {target_count} beats, got {len(beats)}")
 
     # Filter out None / non-string / empty beats.
     # str(None) = "None" is truthy and would silently pass the old
@@ -217,13 +232,29 @@ def _generate_plot_beats(
             if not isinstance(emotion, str) or emotion not in _EMOTIONS:
                 emotion = None
             cleaned.append(text)
-            beats_meta.append({"text": text, "act": act, "approx_ratio": ratio, "rhythm_zone": rhythm_zone, "emotion": emotion})
+            beats_meta.append(
+                {
+                    "text": text,
+                    "act": act,
+                    "approx_ratio": ratio,
+                    "rhythm_zone": rhythm_zone,
+                    "emotion": emotion,
+                }
+            )
         else:
             text = str(b).strip()
             if not text or text.lower() == "none":
                 continue
             cleaned.append(text)
-            beats_meta.append({"text": text, "act": None, "approx_ratio": None, "rhythm_zone": None, "emotion": None})
+            beats_meta.append(
+                {
+                    "text": text,
+                    "act": None,
+                    "approx_ratio": None,
+                    "rhythm_zone": None,
+                    "emotion": None,
+                }
+            )
     if len(cleaned) != target_count:
         raise ValueError(
             f"Phase 1: after filtering None/empty beats, expected {target_count}, got {len(cleaned)}"
@@ -237,7 +268,11 @@ def _generate_plot_beats(
 
 
 def _expand_beats_to_script(
-    ctx: Context, settings, llm, beats: List[str], target_count: int,
+    ctx: Context,
+    settings,
+    llm,
+    beats: List[str],
+    target_count: int,
     prev_judge_scores: dict | None = None,
 ) -> List[ScriptSegment]:
     """Phase 2: Expand each beat into exactly one narration segment.
@@ -254,7 +289,7 @@ def _expand_beats_to_script(
     hook_seconds = ctx.metadata.get("prompt_hook_seconds", 3)
 
     # Format beats as a numbered list for the prompt
-    beats_text = "\n".join(f"{i+1}. {b}" for i, b in enumerate(beats))
+    beats_text = "\n".join(f"{i + 1}. {b}" for i, b in enumerate(beats))
 
     prompt = EXPAND_PROMPT.format(
         movie=ctx.movie_name,
@@ -288,7 +323,12 @@ def _expand_beats_to_script(
         max_tokens=settings.script_max_tokens,
     )
     # v0.7.0: record LLM token usage for cost tracking
-    if hasattr(ctx, 'cost_tracker') and ctx.cost_tracker is not None and hasattr(response, 'usage') and response.usage:
+    if (
+        hasattr(ctx, "cost_tracker")
+        and ctx.cost_tracker is not None
+        and hasattr(response, "usage")
+        and response.usage
+    ):
         ctx.cost_tracker.record_llm_call("script", llm.model, response.usage.model_dump())
     raw = response.choices[0].message.content or ""
     data = extract_json(raw)
@@ -312,10 +352,12 @@ def _expand_beats_to_script(
             text = _truncate_to_max_chars(text, max_chars)
             if len(text) < original_len:
                 truncated_count += 1
-                truncated_details.append({
-                    "original_len": original_len,
-                    "truncated_len": len(text),
-                })
+                truncated_details.append(
+                    {
+                        "original_len": original_len,
+                        "truncated_len": len(text),
+                    }
+                )
             if text:
                 segments.append(ScriptSegment(text=text))
 
@@ -353,7 +395,10 @@ _DEFAULT_PASS_SCORE = {
 
 
 def judge_script(
-    segments: List[ScriptSegment], movie_name: str, llm, ctx=None,
+    segments: List[ScriptSegment],
+    movie_name: str,
+    llm,
+    ctx=None,
 ) -> dict:
     """Judge the expanded script on five quality dimensions.
 
@@ -382,9 +427,7 @@ def judge_script(
         return dict(_DEFAULT_PASS_SCORE)
 
     # Format the segments into a numbered script block for the judge.
-    script_text = "\n".join(
-        f"{i + 1}. {s.text}" for i, s in enumerate(segments)
-    )
+    script_text = "\n".join(f"{i + 1}. {s.text}" for i, s in enumerate(segments))
 
     prompt = JUDGE_PROMPT.format(movie=movie_name, script=script_text)
 
@@ -396,7 +439,13 @@ def judge_script(
         max_tokens=320,
     )
     # v0.7.0: record LLM token usage for cost tracking
-    if ctx is not None and hasattr(ctx, 'cost_tracker') and ctx.cost_tracker is not None and hasattr(response, 'usage') and response.usage:
+    if (
+        ctx is not None
+        and hasattr(ctx, "cost_tracker")
+        and ctx.cost_tracker is not None
+        and hasattr(response, "usage")
+        and response.usage
+    ):
         ctx.cost_tracker.record_llm_call("script", llm.model, response.usage.model_dump())
     raw = response.choices[0].message.content or ""
     scores = extract_json(raw)
@@ -419,10 +468,13 @@ def judge_script(
     narrative = scores.get("narrative_adherence", 0)
     scores["verdict"] = (
         "pass"
-        if (_is_int_ge(hook, 6) and _is_int_le(spoiler, 7)
+        if (
+            _is_int_ge(hook, 6)
+            and _is_int_le(spoiler, 7)
             and _is_int_ge(accuracy, 6)
             and _is_int_ge(anti_ai, 6)
-            and _is_int_ge(narrative, 5))
+            and _is_int_ge(narrative, 5)
+        )
         else "retry"
     )
     return scores
@@ -457,7 +509,7 @@ def _char_bigrams(text: str) -> frozenset[str]:
     text = text.strip().lower()
     if len(text) < 2:
         return frozenset([text])
-    return frozenset(text[i:i + 2] for i in range(len(text) - 1))
+    return frozenset(text[i : i + 2] for i in range(len(text) - 1))
 
 
 def _jaccard_similarity(a: frozenset[str], b: frozenset[str]) -> float:
@@ -549,9 +601,7 @@ def validate_script_quality(
             issues.append(f"Segment {i + 1} is too short ({seg_len} chars)")
             too_short += 1
         elif seg_len > upper_bound:
-            issues.append(
-                f"Segment {i + 1} exceeds length limit ({seg_len} > {upper_bound})"
-            )
+            issues.append(f"Segment {i + 1} exceeds length limit ({seg_len} > {upper_bound})")
             too_long += 1
 
     # Diversity check: pairwise bigram similarity
@@ -562,8 +612,7 @@ def validate_script_quality(
             sim = _jaccard_similarity(seg_bigrams[i], seg_bigrams[j])
             if sim > _QA_DIVERSITY_THRESHOLD:
                 issues.append(
-                    f"Segments {i + 1} and {j + 1} are near-duplicates "
-                    f"(similarity {sim:.0%})"
+                    f"Segments {i + 1} and {j + 1} are near-duplicates (similarity {sim:.0%})"
                 )
                 duplicates += 1
 
@@ -572,8 +621,7 @@ def validate_script_quality(
         first = segments[0].text.strip()
         if len(first) < 4:
             issues.append(
-                f"First segment (hook) is too short ({len(first)} chars) "
-                f"— needs a stronger opening"
+                f"First segment (hook) is too short ({len(first)} chars) — needs a stronger opening"
             )
 
     ctx.metadata["script_qa"] = {
@@ -667,7 +715,11 @@ def generate_script(ctx: Context) -> Context:
                 # Phase 2: expand beats into narration segments
                 with step_timing(ctx.services.console, "llm_expand_script"):
                     segments = _expand_beats_to_script(
-                        ctx, settings, llm, beats, n,
+                        ctx,
+                        settings,
+                        llm,
+                        beats,
+                        n,
                         prev_judge_scores=prev_judge_scores,
                     )
 
@@ -701,8 +753,7 @@ def generate_script(ctx: Context) -> Context:
                     _qa_issues = validate_script_quality(segments, n, _max_chars, ctx)
                     if _qa_issues:
                         ctx.services.console.inline_warn(
-                            f"Script QA: {len(_qa_issues)} issue(s) found — "
-                            f"{_qa_issues[:3]}"
+                            f"Script QA: {len(_qa_issues)} issue(s) found — {_qa_issues[:3]}"
                         )
 
                     return ctx
@@ -740,8 +791,7 @@ def generate_script(ctx: Context) -> Context:
                 _qa_issues = validate_script_quality(segments, n, _max_chars, ctx)
                 if _qa_issues:
                     ctx.services.console.inline_warn(
-                        f"Script QA: {len(_qa_issues)} issue(s) found — "
-                        f"{_qa_issues[:3]}"
+                        f"Script QA: {len(_qa_issues)} issue(s) found — {_qa_issues[:3]}"
                     )
 
                 return ctx

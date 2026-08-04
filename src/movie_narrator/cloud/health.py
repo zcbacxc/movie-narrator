@@ -327,8 +327,7 @@ def run_dependency_checks() -> Dict[str, Dict[str, Any]]:
     """
     targets = _dependency_targets()
     results: Dict[str, Dict[str, Any]] = {
-        name: _result(STATUS_SKIPPED, "not configured", 0.0)
-        for name in DEPENDENCY_NAMES
+        name: _result(STATUS_SKIPPED, "not configured", 0.0) for name in DEPENDENCY_NAMES
     }
     if not targets:
         return results
@@ -360,9 +359,7 @@ def run_dependency_checks() -> Dict[str, Dict[str, Any]]:
                 ok, detail = future.result()
             except Exception as e:  # noqa: BLE001 — probes must never raise
                 ok, detail = False, f"probe raised {type(e).__name__}: {e}"
-            results[name] = _result(
-                STATUS_PASS if ok else STATUS_FAIL, detail, elapsed_ms
-            )
+            results[name] = _result(STATUS_PASS if ok else STATUS_FAIL, detail, elapsed_ms)
     finally:
         executor.shutdown(wait=False, cancel_futures=True)
 

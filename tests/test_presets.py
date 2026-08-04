@@ -50,7 +50,9 @@ def test_preset_tags_within_allowed_vocab(preset_name):
     preset = get_preset(preset_name)
     for tag_key, tag_val in preset.tag_dict.items():
         assert tag_key in ALLOWED_PROMPT_TAGS, f"Unknown tag key: {tag_key}"
-        assert tag_val in ALLOWED_PROMPT_TAGS[tag_key], f"Tag '{tag_key}' value '{tag_val}' not allowed"
+        assert tag_val in ALLOWED_PROMPT_TAGS[tag_key], (
+            f"Tag '{tag_key}' value '{tag_val}' not allowed"
+        )
 
 
 # ── Preset differentiation ──────────────────────────────────
@@ -133,10 +135,13 @@ def test_validate_rejects_bad_param_key():
 
     class BadPreset:
         name = "bad"
+
         def params(self):
             return {"nonexistent_key": 42}
+
         def prompt_tags(self):
             return {}
+
         def description(self):
             return "bad"
 
@@ -149,10 +154,13 @@ def test_validate_rejects_bad_tag_value():
 
     class BadTagPreset:
         name = "bad-tag"
+
         def params(self):
             return {}
+
         def prompt_tags(self):
             return {"prompt_cadence": "supersonic"}  # not in allowed set
+
         def description(self):
             return "bad tag"
 
@@ -177,6 +185,7 @@ def test_builtin_presets_proxy_is_iterable():
 def test_allowed_param_keys_subset_of_param_whitelist():
     """ALLOWED_PARAM_KEYS must be a subset of PARAM_WHITELIST."""
     from movie_narrator.pipeline.runner import PARAM_WHITELIST
+
     assert ALLOWED_PARAM_KEYS <= PARAM_WHITELIST, (
         f"Keys in ALLOWED_PARAM_KEYS but not PARAM_WHITELIST: "
         f"{ALLOWED_PARAM_KEYS - PARAM_WHITELIST}"
@@ -202,5 +211,6 @@ def test_yaml_narration_preset_field_accepted(tmp_path):
 def test_yaml_narration_preset_defaults_none():
     """JobConfig.narration_preset defaults to None when not specified."""
     from movie_narrator.workflow.schema import JobConfig
+
     config = JobConfig(movie="test")
     assert config.narration_preset is None

@@ -142,9 +142,11 @@ def transcribe_with_faster_whisper(
     for seg in segments:
         text = seg.text.strip()
         if text:
-            wx_segments.append({
-                "start": float(seg.start),
-                "end": float(seg.end),
-                "text": text,
-            })
+            wx_segments.append(
+                {
+                    "start": float(seg.start),
+                    "end": float(seg.end),
+                    "text": text,
+                }
+            )
     return wx_segments

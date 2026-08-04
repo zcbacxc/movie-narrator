@@ -189,7 +189,12 @@ class TestTaskAPIServer:
 
         status = remote_queue.get_status(task_id)
         assert status is not None
-        assert status in [TaskStatus.PENDING, TaskStatus.RUNNING, TaskStatus.COMPLETED, TaskStatus.FAILED]
+        assert status in [
+            TaskStatus.PENDING,
+            TaskStatus.RUNNING,
+            TaskStatus.COMPLETED,
+            TaskStatus.FAILED,
+        ]
 
     def test_get_result_not_completed(self, api_server, remote_queue):
         """get_result returns None for non-terminal tasks."""
@@ -346,7 +351,8 @@ class TestWorkerDaemon:
     def test_double_start_raises(self, tmp_path):
         """Starting an already-running daemon raises RuntimeError."""
         daemon = WorkerDaemon(
-            host="127.0.0.1", port=0,
+            host="127.0.0.1",
+            port=0,
             storage_dir=tmp_path / "daemon_err",
             max_workers=1,
         )
@@ -529,9 +535,7 @@ class TestRemoteIntegration:
         """Multiple tasks can be submitted concurrently."""
         task_ids = []
         for i in range(5):
-            tid = remote_queue.submit(
-                TaskRequest(movie_name=f"Concurrent{i}", max_retries=0)
-            )
+            tid = remote_queue.submit(TaskRequest(movie_name=f"Concurrent{i}", max_retries=0))
             task_ids.append(tid)
 
         # All should have unique IDs
@@ -552,11 +556,13 @@ class TestContractExports:
     def test_contract_version_bumped(self):
         """CONTRACT_VERSION is (1, 0, 0)."""
         from movie_narrator.contract import CONTRACT_VERSION
+
         assert CONTRACT_VERSION == (1, 0, 0)
 
     def test_remote_types_in_contract_all(self):
         """Remote inference types are in contract __all__."""
         from movie_narrator import contract
+
         for name in [
             "RemoteTaskQueue",
             "RemoteQueueError",
@@ -580,6 +586,7 @@ class TestContractExports:
             run_daemon,
             download_artifact,
         )
+
         assert RemoteTaskQueue is not None
         assert TaskAPIServer is not None
         assert WorkerDaemon is not None

@@ -399,6 +399,7 @@ class TestCancelController:
     def test_implements_run_controller(self):
         """CancelController satisfies the RunController protocol."""
         from movie_narrator.pipeline.errors import RunController
+
         ctrl = CancelController()
         # RunController is a Protocol with is_cancelled() method
         assert hasattr(ctrl, "is_cancelled")
@@ -539,7 +540,12 @@ class TestLocalTaskQueue:
             task_id = queue.submit(req)
             status = queue.get_status(task_id)
             assert status is not None
-            assert status in [TaskStatus.PENDING, TaskStatus.RUNNING, TaskStatus.COMPLETED, TaskStatus.FAILED]
+            assert status in [
+                TaskStatus.PENDING,
+                TaskStatus.RUNNING,
+                TaskStatus.COMPLETED,
+                TaskStatus.FAILED,
+            ]
         finally:
             queue.shutdown(wait=False)
 
@@ -663,6 +669,7 @@ class TestExecuteTask:
         """Test that _execute_task runs the pipeline and captures results."""
         # Mock run_pipeline to return a fake context
         from movie_narrator.models import Context, Assets, Services
+
         fake_ctx = Context(
             movie_name="TestMovie",
             output_dir=str(tmp_path),
@@ -711,6 +718,7 @@ class TestExecuteTask:
     def test_pipeline_cancelled(self, tmp_path, monkeypatch):
         """Test that _execute_task handles cancellation."""
         from movie_narrator.pipeline.errors import PipelineCancelled
+
         monkeypatch.setenv("CI", "1")
         monkeypatch.setattr(
             "movie_narrator.cloud.worker.run_pipeline",
@@ -767,6 +775,7 @@ class TestRunTask:
     def test_successful_first_try(self, tmp_path, monkeypatch):
         """Task succeeds on first attempt — no retries needed."""
         from movie_narrator.models import Context, Assets, Services
+
         fake_ctx = Context(
             movie_name="Test",
             output_dir=str(tmp_path),
@@ -829,6 +838,7 @@ class TestRunTask:
                 raise exc
             # Succeed on second try
             from movie_narrator.models import Context, Assets, Services
+
             ctx.video_path = str(tmp_path / "out.mp4")
             return ctx
 
@@ -903,6 +913,7 @@ class TestRunTask:
 
         # Cancel after a short delay (during the retry sleep)
         import threading
+
         timer = threading.Timer(0.1, controller.cancel)
         timer.start()
 
@@ -921,6 +932,7 @@ class TestContractExports:
 
     def test_contract_version_bumped(self):
         from movie_narrator.contract import CONTRACT_VERSION
+
         assert CONTRACT_VERSION == (1, 0, 0)
 
     def test_contract_exports_cloud_types(self):
@@ -937,6 +949,7 @@ class TestContractExports:
             TaskStorage,
             run_task,
         )
+
         # All should be importable
         assert CancelController is not None
         assert LocalTaskQueue is not None
@@ -952,6 +965,7 @@ class TestContractExports:
             TaskResult,
             TaskStatus,
         )
+
         assert CancelController is not None
         assert LocalTaskQueue is not None
         assert Task is not None
@@ -973,11 +987,26 @@ class TestContractExports:
             TaskStorage,
             run_task,
         )
-        assert all(x is not None for x in [
-            ACTIVE_STATES, TERMINAL_STATES, CancelController, LocalTaskQueue,
-            ProgressConsole, Task, TaskPriority, TaskProgress, TaskQueue,
-            TaskRequest, TaskResult, TaskStatus, TaskStorage, run_task,
-        ])
+
+        assert all(
+            x is not None
+            for x in [
+                ACTIVE_STATES,
+                TERMINAL_STATES,
+                CancelController,
+                LocalTaskQueue,
+                ProgressConsole,
+                Task,
+                TaskPriority,
+                TaskProgress,
+                TaskQueue,
+                TaskRequest,
+                TaskResult,
+                TaskStatus,
+                TaskStorage,
+                run_task,
+            ]
+        )
 
 
 # ════════════════════════════════════════════════════════════

@@ -219,11 +219,15 @@ def _extract_alignment_score(meta: dict) -> Optional[tuple[float, int, dict]]:
         return None
     # Score: ratio of non-low-confidence segments
     score = (total - low_conf) / total
-    return score, low_conf, {
-        "total_segments": total,
-        "low_confidence_count": low_conf,
-        "avg_confidence": aq.get("avg_confidence"),
-    }
+    return (
+        score,
+        low_conf,
+        {
+            "total_segments": total,
+            "low_confidence_count": low_conf,
+            "avg_confidence": aq.get("avg_confidence"),
+        },
+    )
 
 
 def _extract_match_score(meta: dict) -> Optional[tuple[float, int, dict]]:
@@ -238,12 +242,16 @@ def _extract_match_score(meta: dict) -> Optional[tuple[float, int, dict]]:
     avg_composite = mq.get("avg_composite", 0.0)
     # Score: use avg_composite directly (already 0.0–1.0)
     score = avg_composite
-    return score, low_q, {
-        "total_clips": total,
-        "low_quality_count": low_q,
-        "avg_composite": round(avg_composite, 4),
-        "diversity_penalty_count": mq.get("diversity_penalty_count", 0),
-    }
+    return (
+        score,
+        low_q,
+        {
+            "total_clips": total,
+            "low_quality_count": low_q,
+            "avg_composite": round(avg_composite, 4),
+            "diversity_penalty_count": mq.get("diversity_penalty_count", 0),
+        },
+    )
 
 
 def _extract_subtitle_score(meta: dict) -> Optional[tuple[float, int, dict]]:
@@ -264,11 +272,15 @@ def _extract_subtitle_score(meta: dict) -> Optional[tuple[float, int, dict]]:
         return None
     # Score: ratio of cues without issues
     score = max(0.0, (total_cues - total_issues) / total_cues)
-    return score, total_issues, {
-        "total_cues": total_cues,
-        "total_issues": total_issues,
-        "display_fit_issues": len(sq.get("display_fit_issues", [])),
-    }
+    return (
+        score,
+        total_issues,
+        {
+            "total_cues": total_cues,
+            "total_issues": total_issues,
+            "display_fit_issues": len(sq.get("display_fit_issues", [])),
+        },
+    )
 
 
 def _extract_translation_score(meta: dict) -> Optional[tuple[float, int, dict]]:
@@ -319,12 +331,16 @@ def _extract_video_encoding_score(meta: dict) -> Optional[tuple[float, int, dict
     # Score: 1.0 when ok, 0.5 when issues exist
     score = 1.0 if ok else max(0.0, 1.0 - issue_count * 0.15)
     metrics = vq.get("metrics", {})
-    return score, issue_count, {
-        "ok": ok,
-        "codec": metrics.get("codec"),
-        "resolution": f"{metrics.get('width', 0)}x{metrics.get('height', 0)}",
-        "bitrate_kbps": metrics.get("bitrate_kbps"),
-    }
+    return (
+        score,
+        issue_count,
+        {
+            "ok": ok,
+            "codec": metrics.get("codec"),
+            "resolution": f"{metrics.get('width', 0)}x{metrics.get('height', 0)}",
+            "bitrate_kbps": metrics.get("bitrate_kbps"),
+        },
+    )
 
 
 # Registry of dimension extractors
@@ -362,13 +378,15 @@ def collect_quality_dimensions(
         if result is None:
             continue
         score, issues, details = result
-        dimensions.append(QualityDimension(
-            name=name,
-            score=score,
-            weight=weights.get(name, 0.0),
-            issues_count=issues,
-            details=details,
-        ))
+        dimensions.append(
+            QualityDimension(
+                name=name,
+                score=score,
+                weight=weights.get(name, 0.0),
+                issues_count=issues,
+                details=details,
+            )
+        )
     return dimensions
 
 
@@ -455,10 +473,12 @@ def _compare_with_baseline(
     for dim in current_dims:
         if dim.name in baseline_dims:
             baseline_score = baseline_dims[dim.name]
-            deltas.append(RegressionDelta(
-                name=dim.name,
-                current=dim.score,
-                baseline=baseline_score,
-                delta=dim.score - baseline_score,
-            ))
+            deltas.append(
+                RegressionDelta(
+                    name=dim.name,
+                    current=dim.score,
+                    baseline=baseline_score,
+                    delta=dim.score - baseline_score,
+                )
+            )
     return deltas

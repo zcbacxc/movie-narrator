@@ -51,6 +51,7 @@ def test_render_videofileclip_failure_warns(tmp_path, monkeypatch):
 
     # Patch at the moviepy module level
     import movie_narrator.pipeline.render as render_mod
+
     monkeypatch.setattr(render_mod, "VideoFileClip", mock_videofileclip)
 
     # Mock CompositeVideoClip to avoid actual rendering

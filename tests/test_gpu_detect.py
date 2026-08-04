@@ -42,14 +42,14 @@ def test_detect_returns_none_when_ffmpeg_missing():
 def test_detect_returns_none_in_ci_environment(monkeypatch):
     """CI env var set -> detection skips even when ffmpeg has GPU encoders."""
     monkeypatch.setenv("CI", "1")
-    fake_stdout = (
-        " V..... h264_nvenc            NVIDIA NVENC H.264 encoder (codec h264)\n"
-    )
-    with patch(f"{_GPU_DETECT_MOD}.shutil.which", return_value="/usr/bin/ffmpeg"), \
-         patch(
-             f"{_GPU_DETECT_MOD}.subprocess.run",
-             return_value=_fake_proc(stdout=fake_stdout),
-         ):
+    fake_stdout = " V..... h264_nvenc            NVIDIA NVENC H.264 encoder (codec h264)\n"
+    with (
+        patch(f"{_GPU_DETECT_MOD}.shutil.which", return_value="/usr/bin/ffmpeg"),
+        patch(
+            f"{_GPU_DETECT_MOD}.subprocess.run",
+            return_value=_fake_proc(stdout=fake_stdout),
+        ),
+    ):
         assert detect_gpu_encoder() is None
 
 
@@ -61,11 +61,13 @@ def test_detect_returns_nvenc_when_available():
         " V..... h264_nvenc            NVIDIA NVENC H.264 encoder (codec h264)\n"
         " V....D libx264               libx264 H.264 / AVC (codec h264)\n"
     )
-    with patch(f"{_GPU_DETECT_MOD}.shutil.which", return_value="/usr/bin/ffmpeg"), \
-         patch(
-             f"{_GPU_DETECT_MOD}.subprocess.run",
-             return_value=_fake_proc(stdout=fake_stdout),
-         ):
+    with (
+        patch(f"{_GPU_DETECT_MOD}.shutil.which", return_value="/usr/bin/ffmpeg"),
+        patch(
+            f"{_GPU_DETECT_MOD}.subprocess.run",
+            return_value=_fake_proc(stdout=fake_stdout),
+        ),
+    ):
         assert detect_gpu_encoder() == "h264_nvenc"
 
 

@@ -47,7 +47,7 @@ PLATFORM_TONE: dict[str, str] = {
         "- Scroll-stop energy — the first 3 seconds are do-or-die; open with a jolt.\n"
         "- Use internet-native slang and trending expressions naturally (not forced).\n"
         "- Cliffhanger endings — leave the viewer wanting more, not a tidy summary.\n"
-        '- Speak TO the viewer (\u201c你敢信？\u201d \u201c注意看\u201d) — second-person engagement.'
+        "- Speak TO the viewer (\u201c你敢信？\u201d \u201c注意看\u201d) — second-person engagement."
     ),
     "bilibili": (
         "Platform tone (B站/Bilibili — mid-length horizontal video):\n"
@@ -55,7 +55,7 @@ PLATFORM_TONE: dict[str, str] = {
         "- Measured pacing — let ideas breathe; don't rush through points.\n"
         "- Analytical angle — offer a perspective or interpretation, not just a recap.\n"
         "- Respect the audience's intelligence — avoid over-explaining obvious plot points.\n"
-        '- Use B\u5360-style asides (\u201c这里有个细节\u201d \u201c考据一下\u201d) for depth signals.'
+        "- Use B\u5360-style asides (\u201c这里有个细节\u201d \u201c考据一下\u201d) for depth signals."
     ),
     "youtube": (
         "Platform tone (YouTube — global, polished):\n"
@@ -121,6 +121,7 @@ def build_language_hint(lang: str = "") -> str:
 # existing behaviour is unchanged.  Generic narrative technique,
 # independently authored.
 
+
 def build_perspective_hint(perspective: str = "", focus_character: str = "") -> str:
     """Build the {perspective_hint} block for EXPAND_PROMPT.
 
@@ -167,6 +168,7 @@ def build_perspective_hint(perspective: str = "", focus_character: str = "") -> 
 # Builds a targeted feedback hint from the previous judge scores
 # so that retry attempts fix the identified problems instead of
 # blindly re-running with the same prompt.
+
 
 def build_judge_feedback_hint(prev_scores: dict | None) -> str:
     """Build the {judge_feedback} block for EXPAND_PROMPT on retry.
@@ -259,9 +261,8 @@ def build_judge_feedback_hint(prev_scores: dict | None) -> str:
     if not parts:
         return ""
 
-    return (
-        "IMPROVEMENT DIRECTIVE (fix these problems from the previous attempt):\n"
-        + "\n".join(parts)
+    return "IMPROVEMENT DIRECTIVE (fix these problems from the previous attempt):\n" + "\n".join(
+        parts
     )
 
 
@@ -339,6 +340,7 @@ def select_script_prompt(lang: str = "") -> str:
     if lang == "zh":
         return SCRIPT_PROMPT_ZH
     return SCRIPT_PROMPT
+
 
 # ── Two-phase script generation (v0.4.16+) ─────────────────
 # Phase 1: extract exactly N plot beats (low temperature, structured task)
@@ -445,8 +447,8 @@ _CADENCE_HINTS = {
 }
 
 _CONNECTOR_HINTS = {
-    "interjection": '7. Tone: conversational — use interjections like \u201c哦？\u201d \u201c等等\u201d \u201c注意这里\u201d to engage the viewer.',
-    "narrative": '7. Tone: narrative — use connecting phrases like \u201c话说\u201d \u201c你知道吗\u201d for smooth flow.',
+    "interjection": "7. Tone: conversational — use interjections like \u201c哦？\u201d \u201c等等\u201d \u201c注意这里\u201d to engage the viewer.",
+    "narrative": "7. Tone: narrative — use connecting phrases like \u201c话说\u201d \u201c你知道吗\u201d for smooth flow.",
     "none": "",
 }
 
@@ -500,11 +502,15 @@ def build_hook_hint(hook_templates: list[str] | None, movie: str) -> str:
     templates = hook_templates if hook_templates else DEFAULT_HOOK_TEMPLATES
     if not templates:
         return ""
-    lines = ["6. Hook templates for the FIRST sentence (pick one or write inspired by one — fill {movie} with the actual title):"]
+    lines = [
+        "6. Hook templates for the FIRST sentence (pick one or write inspired by one — fill {movie} with the actual title):"
+    ]
     for i, tmpl in enumerate(templates, 1):
         filled = tmpl.replace("{movie}", movie)
         lines.append(f"   {i}. {filled}")
-    lines.append("   The first sentence MUST be a scroll-stopping hook. Do NOT copy verbatim — adapt to the plot.")
+    lines.append(
+        "   The first sentence MUST be a scroll-stopping hook. Do NOT copy verbatim — adapt to the plot."
+    )
     return "\n".join(lines)
 
 

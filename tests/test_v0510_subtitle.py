@@ -59,11 +59,13 @@ def _make_segments(
     segs = []
     t = 0.0
     for i in range(n):
-        segs.append(TimedSegment(
-            text=f"{prefix}{i}",
-            start=t,
-            end=t + duration,
-        ))
+        segs.append(
+            TimedSegment(
+                text=f"{prefix}{i}",
+                start=t,
+                end=t + duration,
+            )
+        )
         t += duration
     return segs
 
@@ -338,7 +340,7 @@ def test_aggregate_normal():
 
 
 def test_extract_terms_quoted_cjk():
-    text = '电影「流浪地球」非常好看'
+    text = "电影「流浪地球」非常好看"
     terms = extract_terms(text)
     assert "流浪地球" in terms
 
@@ -559,6 +561,7 @@ def test_subtitle_qa_overlaps_detected(tmp_path):
 
 def test_balance_lines_cjk():
     from movie_narrator.utils.text_image import _balance_lines
+
     lines = ["中中中中中中中中中中中", "短"]
     balanced = _balance_lines(lines, 2)
     assert len(balanced) == 2
@@ -568,6 +571,7 @@ def test_balance_lines_cjk():
 
 def test_balance_lines_latin_skipped():
     from movie_narrator.utils.text_image import _balance_lines
+
     lines = ["very long latin text here", "short"]
     balanced = _balance_lines(lines, 2)
     # Latin text should not be rebalanced
@@ -576,16 +580,19 @@ def test_balance_lines_latin_skipped():
 
 def test_balance_lines_single():
     from movie_narrator.utils.text_image import _balance_lines
+
     assert _balance_lines(["only one"], 2) == ["only one"]
 
 
 def test_balance_lines_empty():
     from movie_narrator.utils.text_image import _balance_lines
+
     assert _balance_lines([], 2) == []
 
 
 def test_balance_lines_exceeds_max():
     from movie_narrator.utils.text_image import _balance_lines
+
     # 5 lines but max_lines=2 → don't balance
     lines = ["a", "b", "c", "d", "e"]
     result = _balance_lines(lines, 2)

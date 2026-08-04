@@ -63,6 +63,7 @@ def _import_fade_effects():
     """
     try:
         from moviepy.video.fx import FadeIn, FadeOut
+
         return FadeIn, FadeOut
     except Exception:  # noqa: BLE001 — broad on purpose, see docstring
         logger.debug("Failed to import FadeIn/FadeOut effects", exc_info=True)
@@ -131,8 +132,7 @@ def apply_transition(
             # Attempt a simple x-offset slide. If the clip does not
             # support with_position / with_effects (e.g. test mocks),
             # fall back to a fade so the transition is still applied.
-            slid = _apply_slide(clip, trans_dur, position, clip_duration,
-                                FadeIn, FadeOut)
+            slid = _apply_slide(clip, trans_dur, position, clip_duration, FadeIn, FadeOut)
             if slid is not None:
                 return slid
             # Fallback: fade.
@@ -237,8 +237,7 @@ def _apply_slide(
             x = base[0] + offset * (1.0 - progress)
         elif out_dur > 0 and t > (clip_duration - out_dur):
             # Exit: ease from base to -offset.
-            progress = max(0.0, min(1.0,
-                                     (t - (clip_duration - out_dur)) / out_dur))
+            progress = max(0.0, min(1.0, (t - (clip_duration - out_dur)) / out_dur))
             x = base[0] - offset * progress
         return (x, base[1])
 

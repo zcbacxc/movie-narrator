@@ -202,8 +202,7 @@ def _assert_step_skipped_by_runner(ctx: Context, step_name: str, status_field: s
 
     # Replicate runner's skip condition
     should_skip = bool(workflow_steps) and (
-        not workflow_steps.get(step_name, True)
-        or (alias and not workflow_steps.get(alias, True))
+        not workflow_steps.get(step_name, True) or (alias and not workflow_steps.get(alias, True))
     )
 
     assert should_skip, f"Runner should skip {step_name} but skip condition not met"

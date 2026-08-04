@@ -12,6 +12,7 @@ This module fills that gap. It is skipped automatically when PySceneDetect or
 OpenCV is unavailable (i.e. on CI); run it locally after
 ``pip install "movie-narrator[media]"``.
 """
+
 from pathlib import Path
 
 import pytest

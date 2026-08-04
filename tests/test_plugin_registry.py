@@ -210,8 +210,9 @@ class TestStepRegistry:
         def hard_step(ctx):
             return ctx
 
-        reg.register("soft", soft_step, soft=True, status_field="soft_field",
-                     consequence="soft step failed")
+        reg.register(
+            "soft", soft_step, soft=True, status_field="soft_field", consequence="soft step failed"
+        )
         reg.register("hard", hard_step)
 
         assert reg.soft_step_names() == {"soft"}
@@ -256,6 +257,7 @@ class TestStepRegistryDecorator:
         def local_register(name, **kwargs):
             def decorator(func):
                 return reg.register(name, func, **kwargs)
+
             return decorator
 
         @local_register("decorated", soft=True)
@@ -284,6 +286,7 @@ class TestGlobalStepRegistry:
 
     def test_ordered_names_match_pipeline(self):
         from movie_narrator.pipeline.runner import STEPS
+
         assert len(step_registry.ordered_steps()) == len(STEPS)
 
     def test_first_step_is_resolve_video(self):
@@ -296,8 +299,13 @@ class TestGlobalStepRegistry:
 
     def test_soft_steps_correct(self):
         expected = {
-            "research_plot", "align_audio", "detect_scenes",
-            "match_clips", "mix_bgm", "export_clips", "translate_subtitles",
+            "research_plot",
+            "align_audio",
+            "detect_scenes",
+            "match_clips",
+            "mix_bgm",
+            "export_clips",
+            "translate_subtitles",
             "run_qa_gate",
         }
         assert step_registry.soft_step_names() == expected
@@ -411,8 +419,10 @@ class TestGlobalTtsRegistry:
 
     def test_factory_returns_provider(self):
         from movie_narrator.config import Settings, TTSProviderType
+
         settings = Settings(tts_provider=TTSProviderType.EDGE)
         from movie_narrator.tts.factory import get_tts_provider
+
         provider = get_tts_provider(settings)
         assert provider is not None
 
@@ -434,11 +444,13 @@ class TestGlobalVisionRegistry:
     def test_stub_registered_after_import(self):
         # Import the factory to trigger registration
         import movie_narrator.vision.factory  # noqa: F401
+
         assert "stub" in vision_registry.names()
 
     def test_create_stub(self):
         import movie_narrator.vision.factory  # noqa: F401
         from movie_narrator.vision.protocol import VisionCaptioner
+
         provider = vision_registry.create("stub")
         assert isinstance(provider, VisionCaptioner)
 
@@ -449,6 +461,7 @@ class TestGlobalLlmRegistry:
     def test_openai_registered_after_import(self):
         # Import the module to trigger registration
         import movie_narrator.utils.llm  # noqa: F401
+
         assert "openai" in llm_registry.names()
 
     def test_registry_category(self):
@@ -465,6 +478,7 @@ class TestGlobalResearchRegistry:
     def test_llm_registered_after_import(self):
         # Import the module to trigger registration
         import movie_narrator.pipeline.research  # noqa: F401
+
         assert "llm" in research_registry.names()
 
     def test_registry_category(self):
@@ -607,21 +621,25 @@ class TestUnifiedParamSchema:
 
     def test_param_whitelist_is_frozenset(self):
         from movie_narrator.pipeline.runner import PARAM_WHITELIST
+
         assert isinstance(PARAM_WHITELIST, frozenset)
 
     def test_param_whitelist_has_vision_captioner(self):
         """vision_captioner was missing from JobParams before v0.5."""
         from movie_narrator.pipeline.runner import PARAM_WHITELIST
+
         assert "vision_captioner" in PARAM_WHITELIST
 
     def test_job_params_has_vision_captioner(self):
         from movie_narrator.workflow.schema import JobParams
+
         assert "vision_captioner" in JobParams.model_fields
 
     def test_allowed_param_keys_subset_of_whitelist(self):
         """ALLOWED_PARAM_KEYS must be a subset of PARAM_WHITELIST."""
         from movie_narrator.pipeline.runner import PARAM_WHITELIST
         from movie_narrator.presets.base import ALLOWED_PARAM_KEYS
+
         assert ALLOWED_PARAM_KEYS <= PARAM_WHITELIST
 
 
@@ -633,66 +651,80 @@ class TestSDKSurface:
 
     def test_register_step_exported(self):
         from movie_narrator import register_step
+
         assert callable(register_step)
 
     def test_register_tts_exported(self):
         from movie_narrator import register_tts
+
         assert callable(register_tts)
 
     def test_register_vision_exported(self):
         from movie_narrator import register_vision
+
         assert callable(register_vision)
 
     def test_register_llm_exported(self):
         from movie_narrator import register_llm
+
         assert callable(register_llm)
 
     def test_register_research_exported(self):
         from movie_narrator import register_research
+
         assert callable(register_research)
 
     def test_llm_registry_exported(self):
         from movie_narrator import llm_registry as exported
         from movie_narrator.providers import llm_registry
+
         assert exported is llm_registry
 
     def test_research_registry_exported(self):
         from movie_narrator import research_registry as exported
         from movie_narrator.providers import research_registry
+
         assert exported is research_registry
 
     def test_context_exported(self):
         from movie_narrator import Context as ExportedContext
         from movie_narrator.models import Context
+
         assert ExportedContext is Context
 
     def test_step_registry_exported(self):
         from movie_narrator import step_registry as exported
         from movie_narrator.pipeline.registry import step_registry
+
         assert exported is step_registry
 
     def test_tts_registry_exported(self):
         from movie_narrator import tts_registry as exported
         from movie_narrator.providers import tts_registry
+
         assert exported is tts_registry
 
     def test_vision_registry_exported(self):
         from movie_narrator import vision_registry as exported
         from movie_narrator.providers import vision_registry
+
         assert exported is vision_registry
 
     def test_plugin_types_exported(self):
         from movie_narrator import Plugin, PluginContext, load_plugin
+
         assert Plugin is not None
         assert PluginContext is not None
         assert callable(load_plugin)
 
     def test_step_type_alias_exported(self):
         from movie_narrator import Step
+
         assert Step is not None
 
     def test_build_context_and_run_pipeline_exported(self):
         from movie_narrator import build_context, run_pipeline
+
         assert callable(build_context)
         assert callable(run_pipeline)
 

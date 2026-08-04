@@ -31,7 +31,7 @@ _TTS_SEGMENT_RETRIES = 3
 _TTS_RETRY_DELAY = 1.0  # seconds
 
 # v0.5.9: V2 duration feedback — speed adjustment for overflow segments.
-_MAX_SPEEDUP = 1.15          # cap at 15% faster to avoid chipmunk effect
+_MAX_SPEEDUP = 1.15  # cap at 15% faster to avoid chipmunk effect
 _OVERFLOW_THRESHOLD_V2 = 1.10  # trigger v2 when >10% over target after v1
 
 
@@ -196,11 +196,13 @@ def generate_voice(ctx: Context) -> Context:
     # from the gather results (ordered by input segment), NOT collected as
     # a side-effect, so the flags stay aligned with ``ctx.segments`` even
     # when segments complete out of order under ``tts_max_concurrent``.
-    if hasattr(ctx, 'cost_tracker') and ctx.cost_tracker is not None:
+    if hasattr(ctx, "cost_tracker") and ctx.cost_tracker is not None:
         provider_name = settings.tts_provider.value
         tts_model = (
-            settings.openai_tts_model if settings.tts_provider is TTSProviderType.OPENAI
-            else settings.mimo_tts_model if settings.tts_provider is TTSProviderType.MIMO
+            settings.openai_tts_model
+            if settings.tts_provider is TTSProviderType.OPENAI
+            else settings.mimo_tts_model
+            if settings.tts_provider is TTSProviderType.MIMO
             else ""
         )
         for i, seg in enumerate(ctx.segments):
@@ -227,13 +229,15 @@ def generate_voice(ctx: Context) -> Context:
             audio, _ = results[i]
             adjusted = apply_speed(audio, speed)
             results[i] = (adjusted, round(len(adjusted) / 1000.0, 3))
-        prosody_log.append({
-            "index": i, "emotion": emotion, "speed": round(speed, 3),
-        })
+        prosody_log.append(
+            {
+                "index": i,
+                "emotion": emotion,
+                "speed": round(speed, 3),
+            }
+        )
 
-    combined, timed_segments = _build_audio(
-        results, ctx.segments, pause_ms
-    )
+    combined, timed_segments = _build_audio(results, ctx.segments, pause_ms)
 
     # ── v1 duration pause feedback ─────────────────────
     # If narration exceeds target duration by >15%, try reducing pause_ms
@@ -258,14 +262,15 @@ def generate_voice(ctx: Context) -> Context:
                     f"(ratio {ratio:.2f}). Reducing pause {pause_ms}ms → {new_pause_ms}ms."
                 )
                 applied_pause_ms = new_pause_ms
-                combined, timed_segments = _build_audio(
-                    results, ctx.segments, new_pause_ms
-                )
+                combined, timed_segments = _build_audio(results, ctx.segments, new_pause_ms)
                 ctx.metadata["duration_metrics"] = {
                     "target_sec": target_duration,
                     "narration_sec": round(timed_segments[-1].end, 2) if timed_segments else 0,
                     "ratio_vs_target": round(
-                        (timed_segments[-1].end / target_duration) if timed_segments and target_duration else 0, 3
+                        (timed_segments[-1].end / target_duration)
+                        if timed_segments and target_duration
+                        else 0,
+                        3,
                     ),
                     "pause_ms_original": pause_ms,
                     "pause_ms_applied": new_pause_ms,
@@ -311,17 +316,15 @@ def generate_voice(ctx: Context) -> Context:
                     adj = apply_speed(audio, v2_speed)
                     adjusted_results.append((adj, round(len(adj) / 1000.0, 3)))
                 results = adjusted_results
-                combined, timed_segments = _build_audio(
-                    results, ctx.segments, applied_pause_ms
-                )
+                combined, timed_segments = _build_audio(results, ctx.segments, applied_pause_ms)
                 dm = ctx.metadata.get("duration_metrics", {})
                 dm["v2_speed_applied"] = round(v2_speed, 3)
-                dm["narration_sec_v2"] = round(
-                    timed_segments[-1].end, 2
-                ) if timed_segments else 0
+                dm["narration_sec_v2"] = round(timed_segments[-1].end, 2) if timed_segments else 0
                 dm["ratio_v2"] = round(
                     (timed_segments[-1].end / target_duration)
-                    if timed_segments and target_duration else 0, 3
+                    if timed_segments and target_duration
+                    else 0,
+                    3,
                 )
                 ctx.metadata["duration_metrics"] = dm
 

@@ -54,12 +54,14 @@ def _make_word_segments(n: int = 5, start: float = 0.0, gap: float = 0.5) -> lis
     words = []
     t = start
     for i in range(n):
-        words.append({
-            "word": f"word{i}",
-            "start": t,
-            "end": t + gap * 0.8,
-            "score": 0.8 + 0.03 * i,  # varying scores 0.80–0.92
-        })
+        words.append(
+            {
+                "word": f"word{i}",
+                "start": t,
+                "end": t + gap * 0.8,
+                "score": 0.8 + 0.03 * i,  # varying scores 0.80–0.92
+            }
+        )
         t += gap
     return words
 
@@ -80,17 +82,19 @@ def _make_matched_clips(
 
     clips = []
     for i in range(n):
-        clips.append(MatchedClip(
-            segment_index=i,
-            text=f"segment {i}",
-            narr_start=float(i * 2.0),
-            narr_end=float(i * 2.0 + 1.5),
-            src_start=float(i * 3.0),
-            src_end=float(i * 3.0 + 2.5),
-            score=scores[i],
-            scene_index=scene_indices[i],
-            source=sources[i],
-        ))
+        clips.append(
+            MatchedClip(
+                segment_index=i,
+                text=f"segment {i}",
+                narr_start=float(i * 2.0),
+                narr_end=float(i * 2.0 + 1.5),
+                src_start=float(i * 3.0),
+                src_end=float(i * 3.0 + 2.5),
+                score=scores[i],
+                scene_index=scene_indices[i],
+                source=sources[i],
+            )
+        )
     return clips
 
 
@@ -573,8 +577,13 @@ def test_timed_segment_with_words():
 
 def test_matched_clip_default_fields():
     mc = MatchedClip(
-        segment_index=0, text="test", narr_start=0.0, narr_end=1.0,
-        src_start=0.0, src_end=1.0, score=0.8,
+        segment_index=0,
+        text="test",
+        narr_start=0.0,
+        narr_end=1.0,
+        src_start=0.0,
+        src_end=1.0,
+        score=0.8,
     )
     assert mc.embedding_score is None
     assert mc.rhythm_score is None
@@ -584,9 +593,15 @@ def test_matched_clip_default_fields():
 
 def test_matched_clip_model_dump_includes_new_fields():
     mc = MatchedClip(
-        segment_index=0, text="test", narr_start=0.0, narr_end=1.0,
-        src_start=0.0, src_end=1.0, score=0.8,
-        embedding_score=0.7, composite_score=0.65,
+        segment_index=0,
+        text="test",
+        narr_start=0.0,
+        narr_end=1.0,
+        src_start=0.0,
+        src_end=1.0,
+        score=0.8,
+        embedding_score=0.7,
+        composite_score=0.65,
     )
     d = mc.model_dump()
     assert "embedding_score" in d

@@ -229,9 +229,7 @@ class TestDeepHealth:
 
     def test_failed_core_check_is_503(self, open_server):
         """A failing core check makes the deep check report 503 / error."""
-        payload, code = build_health_payload(
-            open_server.queue, shutting_down=True, deep=True
-        )
+        payload, code = build_health_payload(open_server.queue, shutting_down=True, deep=True)
         assert code == 503
         assert payload["status"] == "error"
         assert payload["ready"] is False
@@ -243,9 +241,7 @@ class TestDeepHealth:
             "movie_narrator.cloud.health.dependency_report",
             lambda: {"llm": {"status": STATUS_FAIL, "detail": "down", "duration_ms": 1.0}},
         )
-        payload, code = build_health_payload(
-            open_server.queue, shutting_down=True, deep=True
-        )
+        payload, code = build_health_payload(open_server.queue, shutting_down=True, deep=True)
         assert code == 503
         assert payload["status"] == "error"
 
@@ -299,8 +295,10 @@ class TestReadinessEndpoint:
     def test_shutdown_flag_tracks_stop(self, tmp_path):
         """TaskAPIServer.is_shutting_down flips on stop()."""
         server = TaskAPIServer(
-            host="127.0.0.1", port=0,
-            storage_dir=tmp_path / "tasks", max_workers=1,
+            host="127.0.0.1",
+            port=0,
+            storage_dir=tmp_path / "tasks",
+            max_workers=1,
         )
         server.start(blocking=False)
         assert server.is_shutting_down is False
@@ -433,9 +431,7 @@ class TestDependencyProbes:
 
     def test_edge_tts_has_no_http_target(self, monkeypatch):
         """The default offline TTS backend exposes no URL to probe."""
-        monkeypatch.setattr(
-            "movie_narrator.config.get_settings", lambda: _FakeSettings("edge")
-        )
+        monkeypatch.setattr("movie_narrator.config.get_settings", lambda: _FakeSettings("edge"))
         monkeypatch.delenv(REMOTE_STORAGE_ENV, raising=False)
         targets = _dependency_targets()
         assert set(targets) == {"llm"}
@@ -446,17 +442,13 @@ class TestDependencyProbes:
     )
     def test_http_tts_providers_are_probed(self, monkeypatch, provider, expected):
         """HTTP-based TTS providers contribute their base URL."""
-        monkeypatch.setattr(
-            "movie_narrator.config.get_settings", lambda: _FakeSettings(provider)
-        )
+        monkeypatch.setattr("movie_narrator.config.get_settings", lambda: _FakeSettings(provider))
         targets = _dependency_targets()
         assert targets["tts"] == expected
 
     def test_remote_storage_from_env(self, monkeypatch):
         """MN_REMOTE_STORAGE_URL adds a remote storage target."""
-        monkeypatch.setattr(
-            "movie_narrator.config.get_settings", lambda: _FakeSettings("edge")
-        )
+        monkeypatch.setattr("movie_narrator.config.get_settings", lambda: _FakeSettings("edge"))
         monkeypatch.setenv(REMOTE_STORAGE_ENV, "http://storage.invalid")
         assert _dependency_targets()["remote_storage"] == "http://storage.invalid"
 
@@ -509,7 +501,11 @@ class TestDependencyProbes:
 
         def _raise(request, timeout=None):
             raise urllib.error.HTTPError(
-                "http://llm.invalid/v1", 404, "Not Found", None, None  # type: ignore[arg-type]
+                "http://llm.invalid/v1",
+                404,
+                "Not Found",
+                None,
+                None,  # type: ignore[arg-type]
             )
 
         monkeypatch.setattr(urllib.request, "urlopen", _raise)
@@ -538,8 +534,6 @@ class TestDependencyProbes:
             called["n"] += 1
             return {}
 
-        monkeypatch.setattr(
-            "movie_narrator.cloud.health.run_dependency_checks", _fake
-        )
+        monkeypatch.setattr("movie_narrator.cloud.health.run_dependency_checks", _fake)
         assert dependency_report() == {}
         assert called["n"] == 1

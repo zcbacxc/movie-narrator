@@ -43,11 +43,15 @@ def test_cost_tracker_has_lock():
 def test_record_llm_call_basic():
     """A single LLM call is appended to llm_calls."""
     tracker = CostTracker()
-    tracker.record_llm_call("script", "gpt-4o-mini", {
-        "prompt_tokens": 100,
-        "completion_tokens": 50,
-        "total_tokens": 150,
-    })
+    tracker.record_llm_call(
+        "script",
+        "gpt-4o-mini",
+        {
+            "prompt_tokens": 100,
+            "completion_tokens": 50,
+            "total_tokens": 150,
+        },
+    )
     assert len(tracker.llm_calls) == 1
     rec = tracker.llm_calls[0]
     assert rec.step == "script"
@@ -70,11 +74,15 @@ def test_record_llm_call_missing_keys_default_zero():
 def test_record_llm_call_none_values_default_zero():
     """None values in the usage dict are coerced to 0."""
     tracker = CostTracker()
-    tracker.record_llm_call("translate", "m", {
-        "prompt_tokens": None,
-        "completion_tokens": None,
-        "total_tokens": None,
-    })
+    tracker.record_llm_call(
+        "translate",
+        "m",
+        {
+            "prompt_tokens": None,
+            "completion_tokens": None,
+            "total_tokens": None,
+        },
+    )
     rec = tracker.llm_calls[0]
     assert rec.prompt_tokens == 0
     assert rec.completion_tokens == 0
@@ -93,9 +101,15 @@ def test_record_llm_call_multiple_accumulate():
     """Multiple calls all accumulate in the list."""
     tracker = CostTracker()
     for i in range(5):
-        tracker.record_llm_call("script", "m", {
-            "prompt_tokens": i, "completion_tokens": i, "total_tokens": 2 * i,
-        })
+        tracker.record_llm_call(
+            "script",
+            "m",
+            {
+                "prompt_tokens": i,
+                "completion_tokens": i,
+                "total_tokens": 2 * i,
+            },
+        )
     assert len(tracker.llm_calls) == 5
 
 
@@ -118,8 +132,7 @@ def test_record_tts_call_basic():
 def test_record_tts_call_cached():
     """cached=True is recorded correctly."""
     tracker = CostTracker()
-    tracker.record_tts_call("openai", model="tts-1",
-                            characters=500, segments=3, cached=True)
+    tracker.record_tts_call("openai", model="tts-1", characters=500, segments=3, cached=True)
     rec = tracker.tts_calls[0]
     assert rec.cached is True
     assert rec.segments == 3
@@ -151,9 +164,15 @@ def test_summary_returns_correct_top_level_keys():
 def test_summary_llm_structure():
     """The 'llm' sub-dict has all required fields."""
     tracker = CostTracker()
-    tracker.record_llm_call("script", "m", {
-        "prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150,
-    })
+    tracker.record_llm_call(
+        "script",
+        "m",
+        {
+            "prompt_tokens": 100,
+            "completion_tokens": 50,
+            "total_tokens": 150,
+        },
+    )
     llm = tracker.summary()["llm"]
     assert llm["total_calls"] == 1
     assert llm["total_prompt_tokens"] == 100
@@ -179,15 +198,33 @@ def test_summary_tts_structure():
 def test_summary_by_step_grouping():
     """LLM calls are grouped by step name."""
     tracker = CostTracker()
-    tracker.record_llm_call("script", "m", {
-        "prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150,
-    })
-    tracker.record_llm_call("script", "m", {
-        "prompt_tokens": 200, "completion_tokens": 100, "total_tokens": 300,
-    })
-    tracker.record_llm_call("research", "m", {
-        "prompt_tokens": 50, "completion_tokens": 25, "total_tokens": 75,
-    })
+    tracker.record_llm_call(
+        "script",
+        "m",
+        {
+            "prompt_tokens": 100,
+            "completion_tokens": 50,
+            "total_tokens": 150,
+        },
+    )
+    tracker.record_llm_call(
+        "script",
+        "m",
+        {
+            "prompt_tokens": 200,
+            "completion_tokens": 100,
+            "total_tokens": 300,
+        },
+    )
+    tracker.record_llm_call(
+        "research",
+        "m",
+        {
+            "prompt_tokens": 50,
+            "completion_tokens": 25,
+            "total_tokens": 75,
+        },
+    )
 
     by_step = tracker.summary()["llm"]["by_step"]
     assert "script" in by_step
@@ -230,9 +267,15 @@ def test_summary_by_provider_grouping():
 def test_summary_llm_estimated_cost():
     """LLM estimated cost = prompt*0.002/1K + completion*0.006/1K."""
     tracker = CostTracker()
-    tracker.record_llm_call("script", "m", {
-        "prompt_tokens": 1000, "completion_tokens": 500, "total_tokens": 1500,
-    })
+    tracker.record_llm_call(
+        "script",
+        "m",
+        {
+            "prompt_tokens": 1000,
+            "completion_tokens": 500,
+            "total_tokens": 1500,
+        },
+    )
     cost = tracker.summary()["llm"]["estimated_cost_usd"]
     # 1000/1000 * 0.002 + 500/1000 * 0.006 = 0.002 + 0.003 = 0.005
     assert abs(cost - 0.005) < 1e-9
@@ -296,11 +339,15 @@ def test_thread_safe_concurrent_llm_calls():
 
     def worker():
         for _ in range(calls_per_thread):
-            tracker.record_llm_call("script", "m", {
-                "prompt_tokens": 1,
-                "completion_tokens": 1,
-                "total_tokens": 2,
-            })
+            tracker.record_llm_call(
+                "script",
+                "m",
+                {
+                    "prompt_tokens": 1,
+                    "completion_tokens": 1,
+                    "total_tokens": 2,
+                },
+            )
 
     threads = [threading.Thread(target=worker) for _ in range(n_threads)]
     for t in threads:
@@ -340,9 +387,15 @@ def test_thread_safe_mixed_calls():
 
     def llm_worker():
         for _ in range(calls_per_thread):
-            tracker.record_llm_call("script", "m", {
-                "prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2,
-            })
+            tracker.record_llm_call(
+                "script",
+                "m",
+                {
+                    "prompt_tokens": 1,
+                    "completion_tokens": 1,
+                    "total_tokens": 2,
+                },
+            )
 
     def tts_worker():
         for _ in range(calls_per_thread):
@@ -375,9 +428,15 @@ def test_thread_safe_summary_during_writes():
     def writer():
         try:
             for i in range(100):
-                tracker.record_llm_call("script", "m", {
-                    "prompt_tokens": i, "completion_tokens": i, "total_tokens": 2 * i,
-                })
+                tracker.record_llm_call(
+                    "script",
+                    "m",
+                    {
+                        "prompt_tokens": i,
+                        "completion_tokens": i,
+                        "total_tokens": 2 * i,
+                    },
+                )
                 tracker.record_tts_call("edge", characters=i, segments=1)
         except Exception as e:
             errors.append(e)

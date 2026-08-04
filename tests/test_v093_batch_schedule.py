@@ -78,9 +78,7 @@ def _slow_pipeline(gate: threading.Event):
 @pytest.fixture
 def fast_pipeline(monkeypatch):
     """Patch run_pipeline so tasks complete without real work."""
-    monkeypatch.setattr(
-        "movie_narrator.cloud.worker.run_pipeline", _fast_pipeline
-    )
+    monkeypatch.setattr("movie_narrator.cloud.worker.run_pipeline", _fast_pipeline)
 
 
 @pytest.fixture
@@ -146,9 +144,7 @@ class TestBatchRequestValidation:
 
     def test_format_alias_supported(self):
         """The legacy ``format`` alias works inside batch requests (v0.9.5)."""
-        batch = BatchRequest(
-            requests=[{"movie_name": "x", "format": "9:16"}]
-        )
+        batch = BatchRequest(requests=[{"movie_name": "x", "format": "9:16"}])
         assert batch.requests[0].video_format == "9:16"
 
 
@@ -200,9 +196,7 @@ class TestSubmitBatch:
         """The batch record survives a queue restart (separate JSON file)."""
         storage = tmp_path / "persist"
         queue = LocalTaskQueue(storage_dir=storage)
-        batch = queue.submit_batch(
-            BatchRequest(requests=[TaskRequest(movie_name=_uniq("p"))])
-        )
+        batch = queue.submit_batch(BatchRequest(requests=[TaskRequest(movie_name=_uniq("p"))]))
         queue.shutdown()
 
         queue2 = LocalTaskQueue(storage_dir=storage)
@@ -244,9 +238,7 @@ class TestSubmitBatch:
 
         queue.submit = failing_submit  # type: ignore[method-assign]
         batch = queue.submit_batch(
-            BatchRequest(
-                requests=[TaskRequest(movie_name=_uniq("x"), max_retries=0)]
-            )
+            BatchRequest(requests=[TaskRequest(movie_name=_uniq("x"), max_retries=0)])
         )
         assert batch.status == BatchStatus.FAILED
         assert batch.task_ids == []
@@ -255,9 +247,7 @@ class TestSubmitBatch:
     def test_cancel_batch(self, tmp_path, monkeypatch):
         """cancel_batch cancels active members and refreshes the aggregate."""
         gate = threading.Event()
-        monkeypatch.setattr(
-            "movie_narrator.cloud.worker.run_pipeline", _slow_pipeline(gate)
-        )
+        monkeypatch.setattr("movie_narrator.cloud.worker.run_pipeline", _slow_pipeline(gate))
         queue = LocalTaskQueue(storage_dir=tmp_path / "q4", max_workers=1)
         batch = queue.submit_batch(
             BatchRequest(
@@ -413,17 +403,17 @@ class TestCronParser:
     @pytest.mark.parametrize(
         "expr",
         [
-            "",               # empty
-            "* * *",          # too few fields
-            "60 * * * *",     # minute out of range
-            "* 24 * * *",     # hour out of range
-            "* * 32 * *",     # day-of-month out of range
-            "* * * 13 *",     # month out of range
-            "* * * * 7",      # day-of-week out of range
-            "a * * * *",      # non-numeric
-            "* */0 * * *",    # zero step
-            "*/x * * * *",    # non-numeric step
-            "10-1 * * * *",   # reversed range
+            "",  # empty
+            "* * *",  # too few fields
+            "60 * * * *",  # minute out of range
+            "* 24 * * *",  # hour out of range
+            "* * 32 * *",  # day-of-month out of range
+            "* * * 13 *",  # month out of range
+            "* * * * 7",  # day-of-week out of range
+            "a * * * *",  # non-numeric
+            "* */0 * * *",  # zero step
+            "*/x * * * *",  # non-numeric step
+            "10-1 * * * *",  # reversed range
         ],
     )
     def test_invalid_expressions(self, expr):
@@ -462,9 +452,7 @@ class TestJobScheduler:
 
     def test_due_trigger_submits_job(self, mock_queue, tmp_path):
         scheduler = JobScheduler(queue=mock_queue, storage_dir=tmp_path)
-        schedule = scheduler.register_schedule(
-            "* * * * *", TaskRequest(movie_name="due_movie")
-        )
+        schedule = scheduler.register_schedule("* * * * *", TaskRequest(movie_name="due_movie"))
         # Force the next run into the past so it is due immediately.
         schedule.next_run_at = "2000-01-01T00:00:00+00:00"
         scheduler._store.save(schedule)
@@ -499,9 +487,7 @@ class TestJobScheduler:
                 raise RuntimeError("boom")
 
         scheduler = JobScheduler(queue=_BoomQueue(), storage_dir=tmp_path)
-        schedule = scheduler.register_schedule(
-            "* * * * *", TaskRequest(movie_name="fails")
-        )
+        schedule = scheduler.register_schedule("* * * * *", TaskRequest(movie_name="fails"))
         schedule.next_run_at = "2000-01-01T00:00:00+00:00"
         scheduler._store.save(schedule)
 
@@ -512,12 +498,8 @@ class TestJobScheduler:
 
     def test_runs_recorded_per_schedule(self, mock_queue, tmp_path):
         scheduler = JobScheduler(queue=mock_queue, storage_dir=tmp_path)
-        s1 = scheduler.register_schedule(
-            "* * * * *", TaskRequest(movie_name="a")
-        )
-        s2 = scheduler.register_schedule(
-            "* * * * *", TaskRequest(movie_name="b")
-        )
+        s1 = scheduler.register_schedule("* * * * *", TaskRequest(movie_name="a"))
+        s2 = scheduler.register_schedule("* * * * *", TaskRequest(movie_name="b"))
         for s in (s1, s2):
             s.next_run_at = "2000-01-01T00:00:00+00:00"
             scheduler._store.save(s)
@@ -531,9 +513,7 @@ class TestJobScheduler:
 
     def test_start_stop_thread(self, mock_queue, tmp_path):
         """The loop thread starts and stops cleanly."""
-        scheduler = JobScheduler(
-            queue=mock_queue, storage_dir=tmp_path, poll_interval=0.05
-        )
+        scheduler = JobScheduler(queue=mock_queue, storage_dir=tmp_path, poll_interval=0.05)
         assert not scheduler.is_running
         scheduler.start()
         assert scheduler.is_running
@@ -544,9 +524,7 @@ class TestJobScheduler:
 
     def test_cancel_schedule(self, mock_queue, tmp_path):
         scheduler = JobScheduler(queue=mock_queue, storage_dir=tmp_path)
-        schedule = scheduler.register_schedule(
-            "* * * * *", TaskRequest(movie_name="gone")
-        )
+        schedule = scheduler.register_schedule("* * * * *", TaskRequest(movie_name="gone"))
         assert scheduler.cancel_schedule(schedule.schedule_id) is True
         assert scheduler.cancel_schedule(schedule.schedule_id) is False
         assert scheduler.get_schedule(schedule.schedule_id) is None
@@ -589,9 +567,7 @@ class TestBatchApi:
             f"{api_server.base_url}/tasks/batch",
             body={"requests": [{"movie_name": _uniq("get"), "max_retries": 0}]},
         )
-        status, body = _http(
-            "GET", f"{api_server.base_url}/batches/{created['batch_id']}"
-        )
+        status, body = _http("GET", f"{api_server.base_url}/batches/{created['batch_id']}")
         assert status == 200
         assert body["batch_id"] == created["batch_id"]
         assert "progress" in body
@@ -645,9 +621,7 @@ class TestScheduleApi:
         status, listing = _http("GET", f"{api_server.base_url}/schedules")
         assert status == 200
         assert listing["count"] >= 1
-        assert created["schedule_id"] in {
-            s["schedule_id"] for s in listing["schedules"]
-        }
+        assert created["schedule_id"] in {s["schedule_id"] for s in listing["schedules"]}
 
         status, runs = _http(
             "GET",

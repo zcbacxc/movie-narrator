@@ -134,18 +134,14 @@ class TaskRequest(BaseModel):
     @classmethod
     def _check_subtitle_mode(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v not in VALID_SUBTITLE_MODES:
-            raise ValueError(
-                f"subtitle_mode must be one of {sorted(VALID_SUBTITLE_MODES)}"
-            )
+            raise ValueError(f"subtitle_mode must be one of {sorted(VALID_SUBTITLE_MODES)}")
         return v
 
     @field_validator("lang")
     @classmethod
     def _check_lang(cls, v: str) -> str:
         if v not in SUPPORTED_LANGS:
-            raise ValueError(
-                f"lang must be one of {sorted(SUPPORTED_LANGS)}"
-            )
+            raise ValueError(f"lang must be one of {sorted(SUPPORTED_LANGS)}")
         return v
 
     @field_validator("log_level")
@@ -309,9 +305,7 @@ class Task(BaseModel):
                 if self.progress and self.progress.current_step
                 else "—"
             ),
-            "current_step": (
-                self.progress.current_step if self.progress else ""
-            ),
+            "current_step": (self.progress.current_step if self.progress else ""),
             "retries": self.retries,
             "created_at": self.created_at,
             "completed_at": self.completed_at or "",

@@ -20,16 +20,19 @@ from .protocol import TTSProvider
 
 def _make_edge(settings: Settings) -> TTSProvider:
     from .edge import EdgeTTSProvider
+
     return EdgeTTSProvider()
 
 
 def _make_openai(settings: Settings) -> TTSProvider:
     from .openai_provider import OpenAITTSProvider
+
     return OpenAITTSProvider(settings)
 
 
 def _make_mimo(settings: Settings) -> TTSProvider:
     from .mimo_provider import MimoTTSProvider
+
     return MimoTTSProvider(settings)
 
 
@@ -68,6 +71,5 @@ def get_tts_provider(settings: Settings) -> TTSProvider:
         return tts_registry.create(provider_name, settings)
 
     raise ConfigError(
-        f"Unsupported TTS provider: {settings.tts_provider!r}. "
-        f"Registered: {tts_registry.names()}"
+        f"Unsupported TTS provider: {settings.tts_provider!r}. Registered: {tts_registry.names()}"
     )

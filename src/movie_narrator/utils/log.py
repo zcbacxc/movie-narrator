@@ -43,9 +43,7 @@ class _JsonFormatter(logging.Formatter):
             Formatted log string.
         """
         log_entry = {
-            "ts": datetime.fromtimestamp(record.created).strftime(
-                "%Y-%m-%d %H:%M:%S.%f"
-            )[:-3],
+            "ts": datetime.fromtimestamp(record.created).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
             "level": record.levelname,
             "message": record.getMessage(),
             "logger": record.name,

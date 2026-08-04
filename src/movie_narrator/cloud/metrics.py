@@ -82,7 +82,17 @@ HTTP_REQUESTS_TOTAL = "mn_http_requests_total"
 #: Bucket boundaries (seconds) tuned for end-to-end pipeline runs, which
 #: span from a few seconds (fully cached, no render) to tens of minutes.
 DEFAULT_DURATION_BUCKETS: Tuple[float, ...] = (
-    0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0, 600.0, 1800.0,
+    0.5,
+    1.0,
+    2.5,
+    5.0,
+    10.0,
+    30.0,
+    60.0,
+    120.0,
+    300.0,
+    600.0,
+    1800.0,
 )
 
 _LabelKey = Tuple[str, ...]
@@ -98,11 +108,7 @@ def _escape_help(text: str) -> str:
 
 def _escape_label_value(value: str) -> str:
     """Escape a label value: backslash, double quote and newline."""
-    return (
-        value.replace("\\", "\\\\")
-        .replace('"', '\\"')
-        .replace("\n", "\\n")
-    )
+    return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
 
 def _format_float(value: float) -> str:
@@ -129,8 +135,7 @@ def _render_labels(
 ) -> str:
     """Build the ``{k="v",...}`` suffix for a sample line."""
     parts = [
-        f'{name}="{_escape_label_value(value)}"'
-        for name, value in zip(label_names, label_values)
+        f'{name}="{_escape_label_value(value)}"' for name, value in zip(label_names, label_values)
     ]
     if extra is not None:
         parts.append(f'{extra[0]}="{_escape_label_value(extra[1])}"')
@@ -180,14 +185,10 @@ class _Metric:
         labels = labels or {}
         missing = set(self.label_names) - set(labels)
         if missing:
-            raise ValueError(
-                f"Metric {self.name!r} missing labels: {sorted(missing)}"
-            )
+            raise ValueError(f"Metric {self.name!r} missing labels: {sorted(missing)}")
         unexpected = set(labels) - set(self.label_names)
         if unexpected:
-            raise ValueError(
-                f"Metric {self.name!r} got unexpected labels: {sorted(unexpected)}"
-            )
+            raise ValueError(f"Metric {self.name!r} got unexpected labels: {sorted(unexpected)}")
         return tuple(str(labels[n]) for n in self.label_names)
 
     def render(self) -> List[str]:
@@ -383,16 +384,13 @@ class Histogram(_Metric):
         with self._lock:
             keys = sorted(self._counts)
             snapshot = {
-                key: (list(self._counts[key]), self._sums[key], self._totals[key])
-                for key in keys
+                key: (list(self._counts[key]), self._sums[key], self._totals[key]) for key in keys
             }
         lines: List[str] = []
         for key in keys:
             counts, total_sum, total_count = snapshot[key]
             for bound, cumulative in zip(self.buckets, counts):
-                suffix = _render_labels(
-                    self.label_names, key, extra=("le", _format_float(bound))
-                )
+                suffix = _render_labels(self.label_names, key, extra=("le", _format_float(bound)))
                 lines.append(f"{self.name}_bucket{suffix} {cumulative}")
             inf_suffix = _render_labels(self.label_names, key, extra=("le", "+Inf"))
             lines.append(f"{self.name}_bucket{inf_suffix} {total_count}")
@@ -434,8 +432,7 @@ class MetricsRegistry:
             if existing is not None:
                 if not isinstance(existing, cls):
                     raise ValueError(
-                        f"Metric {name!r} already registered as "
-                        f"{type(existing).__name__}"
+                        f"Metric {name!r} already registered as {type(existing).__name__}"
                     )
                 if existing.label_names != tuple(label_names):
                     raise ValueError(
@@ -479,9 +476,7 @@ class MetricsRegistry:
         buckets: Iterable[float] = DEFAULT_DURATION_BUCKETS,
     ) -> Histogram:
         """Get or create a Histogram."""
-        return self._get_or_create(
-            Histogram, name, help_text, label_names, buckets=buckets
-        )
+        return self._get_or_create(Histogram, name, help_text, label_names, buckets=buckets)
 
     def names(self) -> List[str]:
         """Sorted names of all registered metric families."""
@@ -586,9 +581,7 @@ def reset_registry() -> None:
 def record_task_submitted() -> None:
     """Count a task accepted into the queue."""
     try:
-        _registry.counter(TASKS_TOTAL, label_names=("status",)).inc(
-            labels={"status": "submitted"}
-        )
+        _registry.counter(TASKS_TOTAL, label_names=("status",)).inc(labels={"status": "submitted"})
     except Exception:  # noqa: BLE001 — telemetry must never break the caller
         logger.debug("Failed to record task submission metric", exc_info=True)
 
@@ -596,9 +589,7 @@ def record_task_submitted() -> None:
 def record_task_terminal(status: str) -> None:
     """Count a task reaching a terminal state (completed/failed/cancelled)."""
     try:
-        _registry.counter(TASKS_TOTAL, label_names=("status",)).inc(
-            labels={"status": status}
-        )
+        _registry.counter(TASKS_TOTAL, label_names=("status",)).inc(labels={"status": status})
     except Exception:  # noqa: BLE001 — telemetry must never break the caller
         logger.debug("Failed to record terminal task metric", exc_info=True)
 
@@ -661,9 +652,9 @@ def record_http_request(method: str, path: str, code: int) -> None:
         code: HTTP status code.
     """
     try:
-        _registry.counter(
-            HTTP_REQUESTS_TOTAL, label_names=("method", "path", "code")
-        ).inc(labels={"method": method, "path": path, "code": str(code)})
+        _registry.counter(HTTP_REQUESTS_TOTAL, label_names=("method", "path", "code")).inc(
+            labels={"method": method, "path": path, "code": str(code)}
+        )
     except Exception:  # noqa: BLE001 — telemetry must never break the caller
         logger.debug("Failed to record HTTP request metric", exc_info=True)
 

@@ -53,15 +53,11 @@ def test_cache_flags_stay_aligned_under_out_of_order_completion():
         await asyncio.sleep(delay)
         return _silent(), 0.3, False
 
-    results, cached_flags = asyncio.run(
-        _gather_aligned(segments, lambda s: _one(s))
-    )
+    results, cached_flags = asyncio.run(_gather_aligned(segments, lambda s: _one(s)))
 
     # Input order preserved in both results and flags.
     assert [r[0] for r in results]  # audios present, ordered by input
-    assert cached_flags == [False, True, False], (
-        f"flags misaligned with segments: {cached_flags}"
-    )
+    assert cached_flags == [False, True, False], f"flags misaligned with segments: {cached_flags}"
     # Sum must equal the true cache-hit count (1).
     assert sum(cached_flags) == 1
 
@@ -69,6 +65,7 @@ def test_cache_flags_stay_aligned_under_out_of_order_completion():
 def test_all_cache_hits_and_all_misses_still_correct():
     """Homogeneous cache states were correct even before the fix; they
     must stay correct (flags are now derived from gather results)."""
+
     async def _run(states: list[bool]):
         async def _one(hit: bool):
             if hit:
@@ -99,8 +96,6 @@ def test_mixed_flags_sum_matches_true_hit_count():
         await asyncio.sleep(0.05 * ((idx % 3) + 1))  # stagger misses
         return _silent(), 0.3, False
 
-    _, flags = asyncio.run(
-        _gather_aligned(states, lambda h, i=0: _one(h, i))
-    )
+    _, flags = asyncio.run(_gather_aligned(states, lambda h, i=0: _one(h, i)))
     assert flags == expected
     assert sum(flags) == sum(expected) == 2

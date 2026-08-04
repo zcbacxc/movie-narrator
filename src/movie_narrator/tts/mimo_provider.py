@@ -44,9 +44,7 @@ class MimoTTSProvider(BaseTTSProvider):
     def __init__(self, settings: Settings):
         api_key = settings.mimo_api_key or settings.llm_api_key
         if not api_key:
-            raise ConfigError(
-                "MiMo TTS requires MN_MIMO_API_KEY or MN_LLM_API_KEY set."
-            )
+            raise ConfigError("MiMo TTS requires MN_MIMO_API_KEY or MN_LLM_API_KEY set.")
         # Lazy import keeps startup lighter and allows future optional packaging.
         from openai import OpenAI
 
@@ -71,19 +69,14 @@ class MimoTTSProvider(BaseTTSProvider):
             audio_param = {"format": "wav", "optimize_text_preview": True}
         else:
             raise ConfigError(
-                f"Unsupported MiMo TTS model: {self._model!r}. "
-                f"Supported: {sorted(_MIMO_MODELS)}"
+                f"Unsupported MiMo TTS model: {self._model!r}. Supported: {sorted(_MIMO_MODELS)}"
             )
 
-        completion = await asyncio.to_thread(
-            self._call_api, text, user_content, audio_param
-        )
+        completion = await asyncio.to_thread(self._call_api, text, user_content, audio_param)
 
         message = completion.choices[0].message
         if not getattr(message, "audio", None) or not message.audio.data:
-            raise RuntimeError(
-                f"MiMo TTS returned no audio data (model={self._model})"
-            )
+            raise RuntimeError(f"MiMo TTS returned no audio data (model={self._model})")
 
         raw = base64.b64decode(message.audio.data)
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -109,9 +102,7 @@ class MimoTTSProvider(BaseTTSProvider):
         if voice_path not in self._voice_b64_cache:
             p = Path(voice_path)
             if not p.exists():
-                raise ConfigError(
-                    f"Voice clone file not found: {voice_path}"
-                )
+                raise ConfigError(f"Voice clone file not found: {voice_path}")
             b64 = base64.b64encode(p.read_bytes()).decode("utf-8")
             self._voice_b64_cache[voice_path] = f"data:audio/wav;base64,{b64}"
         return self._voice_b64_cache[voice_path]

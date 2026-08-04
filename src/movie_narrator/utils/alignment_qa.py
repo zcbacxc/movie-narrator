@@ -92,12 +92,14 @@ def extract_word_segments(
         word = ws.get("word", "").strip()
         if not word:
             continue
-        extracted.append({
-            "word": word,
-            "start": float(ws.get("start", 0.0)),
-            "end": float(ws.get("end", 0.0)),
-            "score": float(ws.get("score", 0.0)),
-        })
+        extracted.append(
+            {
+                "word": word,
+                "start": float(ws.get("start", 0.0)),
+                "end": float(ws.get("end", 0.0)),
+                "score": float(ws.get("score", 0.0)),
+            }
+        )
     return extracted
 
 
@@ -138,12 +140,14 @@ def assign_words_to_segments(
             ws = word_segments[ptr]
             # Include word if it overlaps with the segment's time range
             if ws["end"] >= ts.start and ws["start"] <= ts.end:
-                ts_words.append(WordSegment(
-                    word=ws["word"],
-                    start=ws["start"],
-                    end=ws["end"],
-                    score=ws["score"],
-                ))
+                ts_words.append(
+                    WordSegment(
+                        word=ws["word"],
+                        start=ws["start"],
+                        end=ws["end"],
+                        score=ws["score"],
+                    )
+                )
             ptr += 1
 
         if ts_words:
@@ -301,10 +305,7 @@ def validate_alignment(
         total_segments=len(timed_segments),
     )
 
-    confidences = [
-        ts.confidence for ts in timed_segments
-        if ts.confidence > 0
-    ]
+    confidences = [ts.confidence for ts in timed_segments if ts.confidence > 0]
 
     metrics.segments_with_words = len(confidences)
     metrics.word_level_available = len(confidences) > 0

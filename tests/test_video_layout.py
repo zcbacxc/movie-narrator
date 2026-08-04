@@ -17,8 +17,8 @@ def test_cover_wide_source_crops_width():
     """Source wider than canvas → crop width, keep full height."""
     # 1920x1080 source onto 1080x1080 canvas (square).
     box = compute_fit_box((1920, 1080), (1080, 1080), mode="cover")
-    assert box.crop_h == 1080          # full height retained
-    assert box.crop_w == 1080          # width cropped to match canvas aspect
+    assert box.crop_h == 1080  # full height retained
+    assert box.crop_w == 1080  # width cropped to match canvas aspect
     assert box.crop_x == (1920 - 1080) // 2  # center-cropped
     assert box.out_w == 1080 and box.out_h == 1080
 
@@ -27,8 +27,8 @@ def test_cover_tall_source_crops_height():
     """Source taller than canvas → crop height, keep full width."""
     # 1080x1920 source onto 1080x1080 canvas.
     box = compute_fit_box((1080, 1920), (1080, 1080), mode="cover")
-    assert box.crop_w == 1080          # full width retained
-    assert box.crop_h == 1080          # height cropped
+    assert box.crop_w == 1080  # full width retained
+    assert box.crop_h == 1080  # height cropped
     assert box.crop_y == (1920 - 1080) // 2
     assert box.out_w == 1080 and box.out_h == 1080
 

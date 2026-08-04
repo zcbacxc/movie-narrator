@@ -34,63 +34,65 @@ ALLOWED_PROMPT_TAGS: Dict[str, frozenset[str]] = {
 # registration time.  Single source of truth lives in runner.py;
 # this frozenset is intentionally a subset so presets can't set
 # infrastructure keys (whisperx_*, translate_*, async_*, video_sizes).
-ALLOWED_PARAM_KEYS: frozenset[str] = frozenset({
-    # Match / scene
-    "match_speed_clamp_min",
-    "match_speed_clamp_max",
-    "scene_merge_min_duration",
-    "match_drop_scene_min_duration",
-    "match_min_score",
-    # Scene filtering configuration
-    "match_skip_intro_sec",
-    "match_drop_dark_luma",
-    "match_source_window",
-    # BGM
-    "bgm_gain_db",
-    "bgm_duck_db",
-    "bgm_normalize",
-    "audio_target_dbfs",
-    "bgm_loudnorm",
-    # BGM emotion-based selection metadata file
-    "bgm_metadata_path",
-    # Render / subtitle
-    "render_subtitle_position",
-    "render_subtitle_max_width_ratio",
-    "render_subtitle_bottom_margin_ratio",
-    "render_font_size",
-    "render_fit_mode",
-    "render_crf",
-    "render_preset",
-    "render_faststart",
-    # TTS pacing
-    "tts_pause_ms",
-    # QA
-    "qa_enabled",
-    "qa_max_silence_db",
-    "qa_min_duration_ratio",
-    "qa_max_duration_ratio",
-    # Prompt shaping (new — added to whitelist in schema/load/runner)
-    "prompt_target_sentences",
-    "prompt_target_segment_duration",
-    "prompt_max_chars_per_sentence",
-    "prompt_hook_seconds",
-    # Hook templates and set pieces
-    "hook_templates",
-    "set_pieces",
-    # Title card, cover export, and vertical safe area
-    "render_title_card_sec",
-    "render_cover_export",
-    "render_vertical_safe_area",
-    # Target platform for tone adaptation
-    "target_platform",
-    # Narration language
-    "lang",
-    # Render template — per-preset styling dict
-    "render_template",
-    # Narrator perspective and character anchor
-    "narrator_perspective",
-    "focus_character",
-})
+ALLOWED_PARAM_KEYS: frozenset[str] = frozenset(
+    {
+        # Match / scene
+        "match_speed_clamp_min",
+        "match_speed_clamp_max",
+        "scene_merge_min_duration",
+        "match_drop_scene_min_duration",
+        "match_min_score",
+        # Scene filtering configuration
+        "match_skip_intro_sec",
+        "match_drop_dark_luma",
+        "match_source_window",
+        # BGM
+        "bgm_gain_db",
+        "bgm_duck_db",
+        "bgm_normalize",
+        "audio_target_dbfs",
+        "bgm_loudnorm",
+        # BGM emotion-based selection metadata file
+        "bgm_metadata_path",
+        # Render / subtitle
+        "render_subtitle_position",
+        "render_subtitle_max_width_ratio",
+        "render_subtitle_bottom_margin_ratio",
+        "render_font_size",
+        "render_fit_mode",
+        "render_crf",
+        "render_preset",
+        "render_faststart",
+        # TTS pacing
+        "tts_pause_ms",
+        # QA
+        "qa_enabled",
+        "qa_max_silence_db",
+        "qa_min_duration_ratio",
+        "qa_max_duration_ratio",
+        # Prompt shaping (new — added to whitelist in schema/load/runner)
+        "prompt_target_sentences",
+        "prompt_target_segment_duration",
+        "prompt_max_chars_per_sentence",
+        "prompt_hook_seconds",
+        # Hook templates and set pieces
+        "hook_templates",
+        "set_pieces",
+        # Title card, cover export, and vertical safe area
+        "render_title_card_sec",
+        "render_cover_export",
+        "render_vertical_safe_area",
+        # Target platform for tone adaptation
+        "target_platform",
+        # Narration language
+        "lang",
+        # Render template — per-preset styling dict
+        "render_template",
+        # Narrator perspective and character anchor
+        "narrator_perspective",
+        "focus_character",
+    }
+)
 
 # Safety: ALLOWED_PARAM_KEYS must be a subset of PARAM_WHITELIST.
 # This check is performed in registry._validate() at registration time

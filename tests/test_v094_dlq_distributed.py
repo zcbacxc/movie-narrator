@@ -170,9 +170,7 @@ class TestDeadLetterRouting:
     """Worker integration: retry exhaustion routes to the DLQ."""
 
     def test_retry_exhausted_routes_to_dead(self, monkeypatch, dlq_store, tmp_path):
-        task = _run_with_error(
-            monkeypatch, ConnectionError("network down"), max_retries=1
-        )
+        task = _run_with_error(monkeypatch, ConnectionError("network down"), max_retries=1)
         assert task.status == TaskStatus.DEAD
         assert task.retries == 1
 
@@ -185,15 +183,11 @@ class TestDeadLetterRouting:
 
     def test_dead_is_terminal(self, monkeypatch, dlq_store, tmp_path):
         assert TaskStatus.DEAD in TERMINAL_STATES
-        task = _run_with_error(
-            monkeypatch, ConnectionError("down"), max_retries=1
-        )
+        task = _run_with_error(monkeypatch, ConnectionError("down"), max_retries=1)
         assert task.is_terminal is True
 
     def test_non_retryable_error_stays_failed(self, monkeypatch, dlq_store, tmp_path):
-        task = _run_with_error(
-            monkeypatch, ValueError("config error"), max_retries=3
-        )
+        task = _run_with_error(monkeypatch, ValueError("config error"), max_retries=3)
         assert task.status == TaskStatus.FAILED
         assert dlq_store.get(task.id) is None
 
@@ -205,9 +199,7 @@ class TestDeadLetterRouting:
         assert dlq_store.get(task.id) is None
 
     def test_replay_creates_new_task(self, monkeypatch, dlq_store, tmp_path):
-        task = _run_with_error(
-            monkeypatch, ConnectionError("down"), max_retries=1
-        )
+        task = _run_with_error(monkeypatch, ConnectionError("down"), max_retries=1)
         assert task.status == TaskStatus.DEAD
 
         # Restore the success mock so the replayed task completes.
@@ -361,12 +353,8 @@ class TestNodeRegistry:
     """Node parsing and readiness probing."""
 
     def test_parse_comma_separated_nodes(self, monkeypatch):
-        monkeypatch.setattr(
-            NodeRegistry, "_probe", lambda self, url: True
-        )
-        reg = NodeRegistry(
-            nodes="http://a:1, http://b:2 ,", health_timeout=1.0
-        )
+        monkeypatch.setattr(NodeRegistry, "_probe", lambda self, url: True)
+        reg = NodeRegistry(nodes="http://a:1, http://b:2 ,", health_timeout=1.0)
         assert reg.configured_nodes == ["http://a:1", "http://b:2"]
         assert reg.available_nodes() == ["http://a:1", "http://b:2"]
 
@@ -376,9 +364,7 @@ class TestNodeRegistry:
             "_probe",
             lambda self, url: url == "http://ok:1",
         )
-        reg = NodeRegistry(
-            nodes="http://ok:1,http://bad:2", health_timeout=1.0
-        )
+        reg = NodeRegistry(nodes="http://ok:1,http://bad:2", health_timeout=1.0)
         assert reg.available_nodes() == ["http://ok:1"]
 
     def test_empty_nodes(self):

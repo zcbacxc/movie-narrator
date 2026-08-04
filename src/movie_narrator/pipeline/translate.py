@@ -126,7 +126,7 @@ def _call_llm_chunk(
             max_tokens=get_settings().translate_max_tokens,
         )
         # v0.7.0: Record LLM cost for translation
-        if cost_tracker is not None and hasattr(resp, 'usage') and resp.usage:
+        if cost_tracker is not None and hasattr(resp, "usage") and resp.usage:
             cost_tracker.record_llm_call("translate", llm.model, resp.usage.model_dump())
     raw = (resp.choices[0].message.content or "").strip()
     parsed = extract_json(raw)
@@ -260,7 +260,7 @@ def translate_subtitles(ctx: Context) -> Context:
     # Use `lang` (single source of truth) as default source
     # language for translation, falling back to "zh" for backward compat.
     narration_lang = ctx.metadata.get("lang", "zh")
-    source_lang = (ctx.metadata.get("translate_source_lang") or narration_lang)
+    source_lang = ctx.metadata.get("translate_source_lang") or narration_lang
     ctx.metadata.setdefault("translate_source_lang", source_lang)
 
     # i18n (v0.9.6): record the full translation direction + both narration
@@ -296,7 +296,7 @@ def translate_subtitles(ctx: Context) -> Context:
             retries=retries,
             max_chars=max_chars,
             max_items=max_items,
-            cost_tracker=ctx.cost_tracker if hasattr(ctx, 'cost_tracker') else None,
+            cost_tracker=ctx.cost_tracker if hasattr(ctx, "cost_tracker") else None,
         )
     except _ChunkFailure as cf:
         # At least one chunk failed after retries. Fill failed slots

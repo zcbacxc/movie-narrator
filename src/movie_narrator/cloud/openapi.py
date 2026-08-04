@@ -204,9 +204,7 @@ def _manual_schemas() -> Dict[str, Any]:
                         "`remote_storage`). Skipped unless "
                         "`MN_HEALTH_DEEP_DEPS=1`, and always skipped when `CI=1`."
                     ),
-                    "additionalProperties": {
-                        "$ref": "#/components/schemas/CheckResult"
-                    },
+                    "additionalProperties": {"$ref": "#/components/schemas/CheckResult"},
                 },
                 "duration_ms": {
                     "type": "number",
@@ -419,8 +417,7 @@ def _manual_schemas() -> Dict[str, Any]:
         "DeadLetterReplayed": {
             "type": "object",
             "description": (
-                "Acknowledgement returned by "
-                "`POST /deadletters/{id}/replay` (v0.9.4)."
+                "Acknowledgement returned by `POST /deadletters/{id}/replay` (v0.9.4)."
             ),
             "properties": {
                 "original_task_id": _string("ID of the dead-letter record."),
@@ -431,10 +428,7 @@ def _manual_schemas() -> Dict[str, Any]:
         },
         "DeadLetterRemoved": {
             "type": "object",
-            "description": (
-                "Acknowledgement returned by `DELETE /deadletters/{id}` "
-                "(v0.9.4)."
-            ),
+            "description": ("Acknowledgement returned by `DELETE /deadletters/{id}` (v0.9.4)."),
             "properties": {
                 "task_id": _string("ID of the removed record."),
                 "removed": {"type": "boolean", "description": "Always true."},
@@ -452,9 +446,7 @@ def _json_response(description: str, schema_name: str) -> Dict[str, Any]:
     return {
         "description": description,
         "content": {
-            "application/json": {
-                "schema": {"$ref": f"#/components/schemas/{schema_name}"}
-            }
+            "application/json": {"schema": {"$ref": f"#/components/schemas/{schema_name}"}}
         },
     }
 
@@ -543,9 +535,7 @@ def _paths() -> Dict[str, Any]:
                 "requestBody": {
                     "required": True,
                     "content": {
-                        "application/json": {
-                            "schema": {"$ref": "#/components/schemas/TaskRequest"}
-                        }
+                        "application/json": {"schema": {"$ref": "#/components/schemas/TaskRequest"}}
                     },
                 },
                 "responses": {
@@ -797,12 +787,8 @@ def _paths() -> Dict[str, Any]:
                                 "type": "object",
                                 "description": "Cron schedule creation payload.",
                                 "properties": {
-                                    "cron": _string(
-                                        "Standard 5-field cron expression."
-                                    ),
-                                    "task_request": {
-                                        "$ref": "#/components/schemas/TaskRequest"
-                                    },
+                                    "cron": _string("Standard 5-field cron expression."),
+                                    "task_request": {"$ref": "#/components/schemas/TaskRequest"},
                                     "enabled": {
                                         "type": "boolean",
                                         "description": "Start active (default true).",
@@ -914,9 +900,7 @@ def _paths() -> Dict[str, Any]:
                 "security": _secured(),
                 "parameters": [_task_id_param()],
                 "responses": {
-                    "201": _json_response(
-                        "Task accepted and queued.", "DeadLetterReplayed"
-                    ),
+                    "201": _json_response("Task accepted and queued.", "DeadLetterReplayed"),
                     "401": unauthorized,
                     "404": not_found,
                 },
@@ -928,7 +912,7 @@ def _paths() -> Dict[str, Any]:
                 "summary": "Health check",
                 "description": (
                     "Without a query string this returns the shallow "
-                    "`{\"status\": \"ok\"}` payload introduced in v0.6.1 — that "
+                    '`{"status": "ok"}` payload introduced in v0.6.1 — that '
                     "shape is frozen for backward compatibility. Pass "
                     "`?deep=1` for the full report. Exempt from authentication."
                 ),
@@ -949,8 +933,7 @@ def _paths() -> Dict[str, Any]:
                 "responses": {
                     "200": {
                         "description": (
-                            "Healthy, or degraded when only a dependency probe "
-                            "failed."
+                            "Healthy, or degraded when only a dependency probe failed."
                         ),
                         "content": {
                             "application/json": {
@@ -963,9 +946,7 @@ def _paths() -> Dict[str, Any]:
                             }
                         },
                     },
-                    "503": _json_response(
-                        "Deep check only: a core check failed.", "HealthDeep"
-                    ),
+                    "503": _json_response("Deep check only: a core check failed.", "HealthDeep"),
                 },
             },
         },

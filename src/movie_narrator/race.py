@@ -158,7 +158,7 @@ def generate_candidates(
         for i in range(min(n, len(presets))):
             candidates.append(
                 CandidateConfig(
-                    label=f"candidate-{i+1}",
+                    label=f"candidate-{i + 1}",
                     narration_preset=presets[i],
                     match_topk=topk_gradient[i % len(topk_gradient)],
                     match_topk_reuse_penalty=penalty_gradient[i % len(penalty_gradient)],
@@ -248,10 +248,7 @@ def score_candidate(metadata: Dict[str, Any]) -> tuple[float, Dict[str, float]]:
     }
 
     total = (
-        match_quality * 0.40
-        + duration_fit * 0.25
-        + diversity * 0.20
-        + scene_coverage * 0.15
+        match_quality * 0.40 + duration_fit * 0.25 + diversity * 0.20 + scene_coverage * 0.15
     ) * 100.0
 
     return round(total, 2), breakdown
@@ -303,7 +300,7 @@ def run_race(
     results: List[CandidateResult] = []
 
     for i, cand in enumerate(candidates):
-        cand_dir = output_base / f"candidate-{i+1}-{cand.label}"
+        cand_dir = output_base / f"candidate-{i + 1}-{cand.label}"
         cand_dir.mkdir(parents=True, exist_ok=True)
 
         result = CandidateResult(
@@ -312,28 +309,30 @@ def run_race(
         )
 
         try:
-            ctx = build_context(**common_build_kwargs(
-                movie=movie,
-                style=style,
-                duration=duration,
-                voice=voice,
-                video_format=video_format,
-                output_dir=cand_dir,
-                keep_cache=keep_cache,
-                video=video,
-                library_dir=library_dir,
-                research=research,
-                bgm=bgm,
-                no_bgm=no_bgm,
-                no_clips=no_clips,
-                strict=strict,
-                params=cand.to_params(),
-                config_path=config_path,
-                subtitle_lang=subtitle_lang,
-                subtitle_mode=subtitle_mode,
-                narration_preset=cand.narration_preset,
-                lang="zh",  # race mode defaults to Chinese
-            ))
+            ctx = build_context(
+                **common_build_kwargs(
+                    movie=movie,
+                    style=style,
+                    duration=duration,
+                    voice=voice,
+                    video_format=video_format,
+                    output_dir=cand_dir,
+                    keep_cache=keep_cache,
+                    video=video,
+                    library_dir=library_dir,
+                    research=research,
+                    bgm=bgm,
+                    no_bgm=no_bgm,
+                    no_clips=no_clips,
+                    strict=strict,
+                    params=cand.to_params(),
+                    config_path=config_path,
+                    subtitle_lang=subtitle_lang,
+                    subtitle_mode=subtitle_mode,
+                    narration_preset=cand.narration_preset,
+                    lang="zh",  # race mode defaults to Chinese
+                )
+            )
 
             ctx = run_pipeline(ctx)
 
@@ -347,7 +346,9 @@ def run_race(
             if footage_coverage:
                 ctx.metadata["footage_coverage"] = footage_coverage
 
-            result.score, result.score_breakdown = score_candidate(cast(Dict[str, Any], ctx.metadata))
+            result.score, result.score_breakdown = score_candidate(
+                cast(Dict[str, Any], ctx.metadata)
+            )
             result.metadata_path = cand_dir / "metadata.json"
 
         except PipelinePaused:
@@ -442,7 +443,9 @@ def format_race_report(results: List[CandidateResult]) -> str:
         f"{'Status':<10}"
     )
     lines.append(header)
-    lines.append(f"  {'-'*3} {'-'*14} {'-'*7}  {'-'*6}  {'-'*6}  {'-'*6}  {'-'*6}  {'-'*10}")
+    lines.append(
+        f"  {'-' * 3} {'-' * 14} {'-' * 7}  {'-' * 6}  {'-' * 6}  {'-' * 6}  {'-' * 6}  {'-' * 10}"
+    )
 
     for i, r in enumerate(results):
         bd = r.score_breakdown
@@ -456,7 +459,7 @@ def format_race_report(results: List[CandidateResult]) -> str:
         if i == 0:
             medal = " *"
         lines.append(
-            f"  {i+1:<3} {r.config.label:<14} {r.score:>6.1f}{medal}  "
+            f"  {i + 1:<3} {r.config.label:<14} {r.score:>6.1f}{medal}  "
             f"{match_v:>6}  {dur_v:>6}  {div_v:>6}  {cov_v:>6}  "
             f"{status:<10}"
         )
@@ -515,21 +518,23 @@ def save_race_report(
     }
 
     for i, r in enumerate(results):
-        report["candidates"].append({
-            "rank": i + 1,
-            "label": r.config.label,
-            "preset": r.config.narration_preset,
-            "match_topk": r.config.match_topk,
-            "reuse_penalty": r.config.match_topk_reuse_penalty,
-            "diversity_window": r.config.match_diversity_window,
-            "score": r.score,
-            "score_breakdown": r.score_breakdown,
-            "video_path": r.video_path,
-            "output_dir": str(r.output_dir),
-            "error": r.error,
-            "match_summary": r.match_summary,
-            "duration_metrics": r.duration_metrics,
-        })
+        report["candidates"].append(
+            {
+                "rank": i + 1,
+                "label": r.config.label,
+                "preset": r.config.narration_preset,
+                "match_topk": r.config.match_topk,
+                "reuse_penalty": r.config.match_topk_reuse_penalty,
+                "diversity_window": r.config.match_diversity_window,
+                "score": r.score,
+                "score_breakdown": r.score_breakdown,
+                "video_path": r.video_path,
+                "output_dir": str(r.output_dir),
+                "error": r.error,
+                "match_summary": r.match_summary,
+                "duration_metrics": r.duration_metrics,
+            }
+        )
 
     output_path.write_text(
         json.dumps(report, ensure_ascii=False, indent=2, default=str),

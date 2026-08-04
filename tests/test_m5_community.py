@@ -36,14 +36,17 @@ class TestCheckVersion:
 
     def test_check_version_exported_from_contract(self):
         from movie_narrator.contract import check_version as _cv
+
         assert _cv is check_version
 
     def test_check_version_exported_from_init(self):
         from movie_narrator import check_version as _cv
+
         assert _cv is check_version
 
     def test_check_version_in_all(self):
         from movie_narrator import contract
+
         assert "check_version" in contract.__all__
 
 
@@ -82,9 +85,7 @@ class TestCliPluginList:
         """When entry points exist, they are listed."""
         from movie_narrator.plugin_loader import list_available_plugins
 
-        with patch(
-            "movie_narrator.plugin_loader.entry_points"
-        ) as mock_ep:
+        with patch("movie_narrator.plugin_loader.entry_points") as mock_ep:
             mock_ep.return_value = []
             result = runner.invoke(app, ["plugin", "list"])
             assert result.exit_code == 0
@@ -146,10 +147,7 @@ class TestCliPluginInvalidAction:
 class TestPluginTemplate:
     """The plugin template in examples/plugins/template/ is valid."""
 
-    TEMPLATE_DIR = (
-        Path(__file__).resolve().parent.parent
-        / "examples" / "plugins" / "template"
-    )
+    TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "examples" / "plugins" / "template"
 
     def test_template_directory_exists(self):
         assert self.TEMPLATE_DIR.is_dir()

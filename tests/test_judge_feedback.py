@@ -119,6 +119,7 @@ class TestExpandBeatsAcceptsPrevScores:
         """Verify _expand_beats_to_script has prev_judge_scores parameter."""
         import inspect
         from movie_narrator.pipeline.script import _expand_beats_to_script
+
         sig = inspect.signature(_expand_beats_to_script)
         assert "prev_judge_scores" in sig.parameters
         assert sig.parameters["prev_judge_scores"].default is None

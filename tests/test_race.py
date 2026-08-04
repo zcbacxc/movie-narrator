@@ -73,8 +73,7 @@ class TestGenerateCandidates:
         """Each default candidate has a unique parameter combination."""
         cands = generate_candidates()
         combos = [
-            (c.match_topk, c.match_topk_reuse_penalty, c.match_diversity_window)
-            for c in cands
+            (c.match_topk, c.match_topk_reuse_penalty, c.match_diversity_window) for c in cands
         ]
         assert len(set(combos)) == len(combos)
 
@@ -610,13 +609,15 @@ class TestRunRace:
         fake_video.parent.mkdir(parents=True, exist_ok=True)
         fake_video.write_bytes(b"fake video content")
 
-        candidates = [CandidateConfig(
-            label="test",
-            narration_preset="douyin-fast",
-            match_topk=5,
-            match_topk_reuse_penalty=0.15,
-            match_diversity_window=3,
-        )]
+        candidates = [
+            CandidateConfig(
+                label="test",
+                narration_preset="douyin-fast",
+                match_topk=5,
+                match_topk_reuse_penalty=0.15,
+                match_diversity_window=3,
+            )
+        ]
 
         def mock_build_context(**kwargs):
             ctx = Context(
@@ -672,18 +673,24 @@ class TestRunRace:
             preset = kwargs.get("narration_preset", "")
             if preset == "douyin-fast":
                 ctx.metadata["match_summary"] = {
-                    "segments": 10, "embedding_ratio": 0.9,
-                    "score": {"avg": 0.8}, "diversity": {"swaps": 2},
+                    "segments": 10,
+                    "embedding_ratio": 0.9,
+                    "score": {"avg": 0.8},
+                    "diversity": {"swaps": 2},
                 }
             elif preset == "mainstream-dry":
                 ctx.metadata["match_summary"] = {
-                    "segments": 10, "embedding_ratio": 0.7,
-                    "score": {"avg": 0.5}, "diversity": {"swaps": 2},
+                    "segments": 10,
+                    "embedding_ratio": 0.7,
+                    "score": {"avg": 0.5},
+                    "diversity": {"swaps": 2},
                 }
             else:
                 ctx.metadata["match_summary"] = {
-                    "segments": 10, "embedding_ratio": 0.5,
-                    "score": {"avg": 0.3}, "diversity": {"swaps": 2},
+                    "segments": 10,
+                    "embedding_ratio": 0.5,
+                    "score": {"avg": 0.3},
+                    "diversity": {"swaps": 2},
                 }
             ctx.metadata["duration_metrics"] = {"ratio": 1.0}
             ctx.video_path = None

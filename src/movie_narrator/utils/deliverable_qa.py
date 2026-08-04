@@ -89,9 +89,13 @@ def _probe_with_ffprobe(path: str) -> Optional[dict]:
     try:
         proc = _run(
             [
-                ffprobe, "-v", "quiet",
-                "-print_format", "json",
-                "-show_format", "-show_streams",
+                ffprobe,
+                "-v",
+                "quiet",
+                "-print_format",
+                "json",
+                "-show_format",
+                "-show_streams",
                 path,
             ],
             timeout=30,
@@ -110,7 +114,9 @@ def _probe_with_ffprobe(path: str) -> Optional[dict]:
 
     duration = 0.0
     try:
-        duration = float(fmt.get("duration") or (v_stream.get("duration") if v_stream else None) or 0.0)
+        duration = float(
+            fmt.get("duration") or (v_stream.get("duration") if v_stream else None) or 0.0
+        )
     except (TypeError, ValueError):
         duration = 0.0
 
@@ -151,7 +157,7 @@ def _probe_with_ffmpeg(path: str) -> dict:
     if m:
         parts = m.group(1).split(":")
         try:
-            duration = sum(float(p) * (60 ** i) for i, p in enumerate(reversed(parts)))
+            duration = sum(float(p) * (60**i) for i, p in enumerate(reversed(parts)))
         except ValueError:
             duration = 0.0
 
@@ -261,24 +267,30 @@ def evaluate_deliverable(
     if expected_duration > 0 and duration > 0:
         ratio = duration / expected_duration
         if ratio < min_duration_ratio:
-            issues.append(QAIssue(
-                "too_short",
-                f"duration {duration:.2f}s is {ratio:.2%} of expected {expected_duration:.2f}s "
-                f"(min {min_duration_ratio:.0%})",
-            ))
+            issues.append(
+                QAIssue(
+                    "too_short",
+                    f"duration {duration:.2f}s is {ratio:.2%} of expected {expected_duration:.2f}s "
+                    f"(min {min_duration_ratio:.0%})",
+                )
+            )
         elif ratio > max_duration_ratio:
-            issues.append(QAIssue(
-                "too_long",
-                f"duration {duration:.2f}s is {ratio:.2%} of expected {expected_duration:.2f}s "
-                f"(max {max_duration_ratio:.0%})",
-            ))
+            issues.append(
+                QAIssue(
+                    "too_long",
+                    f"duration {duration:.2f}s is {ratio:.2%} of expected {expected_duration:.2f}s "
+                    f"(max {max_duration_ratio:.0%})",
+                )
+            )
 
     mean_vol = metrics.get("mean_volume")
     if mean_vol is not None and mean_vol <= max_silence_db:
-        issues.append(QAIssue(
-            "silent_audio",
-            f"mean volume {mean_vol:.1f}dB <= silence floor {max_silence_db:.1f}dB",
-        ))
+        issues.append(
+            QAIssue(
+                "silent_audio",
+                f"mean volume {mean_vol:.1f}dB <= silence floor {max_silence_db:.1f}dB",
+            )
+        )
 
     # ── AQ-05: fail-closed for unknown volume ──
     # If the file claims to have audio but volumedetect failed to parse
@@ -288,16 +300,20 @@ def evaluate_deliverable(
     # Fix: treat as a warning issue so the pipeline at least surfaces it.
     has_audio = metrics.get("has_audio", False)
     if mean_vol is None and has_audio:
-        issues.append(QAIssue(
-            "volume_unknown",
-            "audio stream present but volumedetect failed — cannot verify "
-            "audio is not silent (ffmpeg may lack decoder or file may be corrupt)",
-        ))
+        issues.append(
+            QAIssue(
+                "volume_unknown",
+                "audio stream present but volumedetect failed — cannot verify "
+                "audio is not silent (ffmpeg may lack decoder or file may be corrupt)",
+            )
+        )
 
     if metrics.get("width", 0) <= 0 or metrics.get("height", 0) <= 0:
-        issues.append(QAIssue(
-            "bad_resolution",
-            f"invalid dimensions {metrics.get('width')}x{metrics.get('height')}",
-        ))
+        issues.append(
+            QAIssue(
+                "bad_resolution",
+                f"invalid dimensions {metrics.get('width')}x{metrics.get('height')}",
+            )
+        )
 
     return QAReport(ok=len(issues) == 0, issues=issues, metrics=metrics)

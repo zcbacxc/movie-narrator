@@ -75,6 +75,7 @@ def check_version(required: tuple[int, int, int]) -> None:
             f"pip install -U movie-narrator"
         )
 
+
 # ── Re-exports: console abstraction ────────────────────────
 
 from .utils.console import BaseConsole, Console
@@ -499,6 +500,7 @@ from .reliability import (  # noqa: E402
     with_async_retry,
     with_retry,
 )
+
 # Cloud / task lifecycle (v0.9.2) — task checkpointing + graceful
 # shutdown. Backward compatible: existing exports are untouched.
 from .cloud import (  # noqa: E402
@@ -507,6 +509,7 @@ from .cloud import (  # noqa: E402
     ResumePlan,
     TaskCheckpoint,
 )
+
 # Cloud / batch & schedule (v0.9.3) — new exports, backward compatible.
 from .cloud import (  # noqa: E402
     Batch,
@@ -516,6 +519,7 @@ from .cloud import (  # noqa: E402
     ScheduleError,
     ScheduleRequest,
 )
+
 # Cloud / dead-letter queue + conditional distributed rendering (v0.9.4) —
 # new exports, backward compatible. TaskStatus was already exported with
 # the v0.6.0 Cloud / Task Queue group above.

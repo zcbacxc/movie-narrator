@@ -138,8 +138,7 @@ def _make_ctx(tmp_path, n_scenes=20, n_segments=18, mode="weighted_acts", weight
     (tmp_path / "video.mp4").write_bytes(b"00")
 
     ctx.scenes = [
-        Scene(index=i, start=float(i * 20), end=float(i * 20 + 20))
-        for i in range(n_scenes)
+        Scene(index=i, start=float(i * 20), end=float(i * 20 + 20)) for i in range(n_scenes)
     ]
     ctx.timed_segments = [
         TimedSegment(text=f"segment {i}", start=float(i * 3), end=float(i * 3 + 2.5))
@@ -152,9 +151,8 @@ def _make_ctx(tmp_path, n_scenes=20, n_segments=18, mode="weighted_acts", weight
 
     # Disable embedding path — isolate weighted_acts heuristic
     import unittest.mock as mock
-    ctx._mock_patch = mock.patch(
-        "movie_narrator.pipeline.match.probe", lambda name: (False, "")
-    )
+
+    ctx._mock_patch = mock.patch("movie_narrator.pipeline.match.probe", lambda name: (False, ""))
     return ctx
 
 
@@ -162,8 +160,7 @@ def test_weighted_acts_produces_act_constrained_heuristic(tmp_path):
     """18 segments over 20 scenes with weighted_acts → src_start distribution
     should be non-uniform, concentrated in act 2 (weight=0.40).
     """
-    ctx = _make_ctx(tmp_path, n_scenes=20, n_segments=18,
-                    weights=[0.15, 0.25, 0.40, 0.20])
+    ctx = _make_ctx(tmp_path, n_scenes=20, n_segments=18, weights=[0.15, 0.25, 0.40, 0.20])
     with ctx._mock_patch:
         match_clips(ctx)
 
@@ -181,10 +178,15 @@ def test_weighted_acts_produces_act_constrained_heuristic(tmp_path):
 
     # Verify src_start distribution: act 2 segments should map to scenes 10-14
     # (act 2 covers 200-300s out of 0-400s total)
-    act2_segs = [mc for i, mc in enumerate(ctx.matched_clips)
-                 if i < timeline["segments_per_act"][0] + timeline["segments_per_act"][1]
-                 + timeline["segments_per_act"][2]
-                 and i >= timeline["segments_per_act"][0] + timeline["segments_per_act"][1]]
+    act2_segs = [
+        mc
+        for i, mc in enumerate(ctx.matched_clips)
+        if i
+        < timeline["segments_per_act"][0]
+        + timeline["segments_per_act"][1]
+        + timeline["segments_per_act"][2]
+        and i >= timeline["segments_per_act"][0] + timeline["segments_per_act"][1]
+    ]
     for mc in act2_segs:
         # Scene index should be in act 2 range (10-14) or adjacent overflow (5-19)
         assert 5 <= mc.scene_index <= 19, (
@@ -195,8 +197,7 @@ def test_weighted_acts_produces_act_constrained_heuristic(tmp_path):
 
 def test_weighted_acts_disabled_with_few_scenes(tmp_path):
     """Fewer than 8 scenes → falls back to uniform, mode in metadata = "uniform"."""
-    ctx = _make_ctx(tmp_path, n_scenes=5, n_segments=10,
-                    weights=[0.15, 0.25, 0.40, 0.20])
+    ctx = _make_ctx(tmp_path, n_scenes=5, n_segments=10, weights=[0.15, 0.25, 0.40, 0.20])
     with ctx._mock_patch:
         match_clips(ctx)
 
@@ -207,8 +208,7 @@ def test_weighted_acts_disabled_with_few_scenes(tmp_path):
 
 def test_weighted_acts_disabled_with_few_segments(tmp_path):
     """Fewer than 4 segments → falls back to uniform."""
-    ctx = _make_ctx(tmp_path, n_scenes=20, n_segments=3,
-                    weights=[0.15, 0.25, 0.40, 0.20])
+    ctx = _make_ctx(tmp_path, n_scenes=20, n_segments=3, weights=[0.15, 0.25, 0.40, 0.20])
     with ctx._mock_patch:
         match_clips(ctx)
 
@@ -229,8 +229,7 @@ def test_uniform_mode_default(tmp_path):
 
 def test_weighted_acts_different_weights(tmp_path):
     """Custom weights → segment counts match weight ratios."""
-    ctx = _make_ctx(tmp_path, n_scenes=40, n_segments=20,
-                    weights=[0.10, 0.20, 0.50, 0.20])
+    ctx = _make_ctx(tmp_path, n_scenes=40, n_segments=20, weights=[0.10, 0.20, 0.50, 0.20])
     with ctx._mock_patch:
         match_clips(ctx)
 
@@ -250,8 +249,7 @@ def test_weighted_acts_src_start_not_uniform(tmp_path):
     """With weighted_acts, src_start values should NOT be uniformly distributed
     across the full timeline — they should cluster in act 2 (the heaviest act).
     """
-    ctx = _make_ctx(tmp_path, n_scenes=40, n_segments=20,
-                    weights=[0.10, 0.20, 0.50, 0.20])
+    ctx = _make_ctx(tmp_path, n_scenes=40, n_segments=20, weights=[0.10, 0.20, 0.50, 0.20])
     with ctx._mock_patch:
         match_clips(ctx)
 

@@ -214,7 +214,7 @@ def extract_json(raw_text: str) -> dict:
     first = raw_text.find("{")
     last = raw_text.rfind("}")
     if first != -1 and last > first:
-        candidates.append(raw_text[first:last + 1])
+        candidates.append(raw_text[first : last + 1])
     elif first != -1:
         # No closing } — JSON is likely truncated. Try from first { to
         # end so truncation recovery can work without prefix noise

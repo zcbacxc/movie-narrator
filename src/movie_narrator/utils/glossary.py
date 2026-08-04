@@ -73,9 +73,7 @@ class GlossaryEntry:
         """
         return {
             "source_term": self.source_term,
-            "translations": {
-                tr: indices for tr, indices in self.translations.items()
-            },
+            "translations": {tr: indices for tr, indices in self.translations.items()},
             "is_consistent": self.is_consistent,
             "translation_count": self.translation_count,
             "total_occurrences": self.total_occurrences,
@@ -221,10 +219,10 @@ def _find_translation_for_term(
 
     # 2. Check if the term was quoted in the source — if so, look for
     #    quoted text in the translation at the same relative position.
-    quote_pairs = [('"', '"'), ('「', '」'), ('『', '』'), ('"', '"')]
+    quote_pairs = [('"', '"'), ("「", "」"), ("『", "』"), ('"', '"')]
     for open_q, close_q in quote_pairs:
         before = source_text[:pos]
-        after = source_text[pos + len(term):]
+        after = source_text[pos + len(term) :]
         if before.endswith(open_q) and after.startswith(close_q):
             # Extract all quoted phrases from the translation
             tr_quoted = _extract_quoted_phrases(translated_text)
@@ -249,7 +247,7 @@ def _find_translation_for_term(
         first_space = window.find(" ")
         last_space = window.rfind(" ")
         if first_space > 0 and last_space > first_space:
-            result = window[first_space:last_space + 1].strip()
+            result = window[first_space : last_space + 1].strip()
             if result and len(result) <= _MAX_TERM_LEN:
                 return result
 

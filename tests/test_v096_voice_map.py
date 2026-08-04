@@ -66,10 +66,7 @@ def test_explicit_voice_overrides_default_map():
 
 def test_explicit_voice_overrides_config_override():
     settings = Settings(voice_zh="zh-CN-QingyangNeural")
-    assert (
-        resolve_voice("zh", "edge", explicit_voice="custom", settings=settings)
-        == "custom"
-    )
+    assert resolve_voice("zh", "edge", explicit_voice="custom", settings=settings) == "custom"
 
 
 # ── Config override ────────────────────────────────────────

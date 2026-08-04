@@ -41,6 +41,7 @@ class TestEP5ParamWhitelistSync:
 
     def test_params_in_schema(self):
         from movie_narrator.workflow.schema import JobParams
+
         fields = JobParams.model_fields
         assert "render_cover_export" in fields
         assert "render_vertical_safe_area" in fields
@@ -48,6 +49,7 @@ class TestEP5ParamWhitelistSync:
     def test_params_in_load(self):
         """load.py uses a local allowed_params set — inspect source."""
         from movie_narrator.workflow import load
+
         source = inspect.getsource(load.load_job_config)
         assert "render_cover_export" in source
         assert "render_vertical_safe_area" in source
@@ -55,6 +57,7 @@ class TestEP5ParamWhitelistSync:
     def test_params_in_merge(self):
         """merge.py uses an inline tuple — inspect source."""
         from movie_narrator.workflow import merge
+
         source = inspect.getsource(merge.merge_job)
         assert "render_cover_export" in source
         assert "render_vertical_safe_area" in source
@@ -68,27 +71,32 @@ class TestEP5PresetInjection:
 
     def test_douyin_fast_has_cover_export(self):
         from movie_narrator.presets.douyin_fast import DouyinFastPreset
+
         params = DouyinFastPreset().params()
         assert params.get("render_cover_export") is True
 
     def test_douyin_fast_has_vertical_safe_area(self):
         from movie_narrator.presets.douyin_fast import DouyinFastPreset
+
         params = DouyinFastPreset().params()
         assert params.get("render_vertical_safe_area") is True
 
     def test_bilibili_long_has_cover_export(self):
         from movie_narrator.presets.bilibili_long import BilibiliLongPreset
+
         params = BilibiliLongPreset().params()
         assert params.get("render_cover_export") is True
 
     def test_bilibili_long_has_vertical_safe_area(self):
         from movie_narrator.presets.bilibili_long import BilibiliLongPreset
+
         params = BilibiliLongPreset().params()
         assert params.get("render_vertical_safe_area") is True
 
     def test_mainstream_dry_does_not_have_cover_export(self):
         """mainstream-dry should NOT auto-inject cover export (not in its preset)."""
         from movie_narrator.presets.mainstream_dry import MainstreamDryPreset
+
         params = MainstreamDryPreset().params()
         # mainstream-dry doesn't define it — defaults to False
         assert params.get("render_cover_export") is None
@@ -105,8 +113,9 @@ class TestVerticalSafeArea:
             _VERTICAL_BOTTOM_MARGIN_RATIO,
             _VERTICAL_MAX_WIDTH_RATIO,
         )
+
         assert _VERTICAL_BOTTOM_MARGIN_RATIO > 0.08  # more than 16:9 default
-        assert _VERTICAL_MAX_WIDTH_RATIO < 0.90      # less than 16:9 default
+        assert _VERTICAL_MAX_WIDTH_RATIO < 0.90  # less than 16:9 default
 
     def test_vertical_safe_area_logic(self):
         """Verify the min/max clamp logic for 9:16 format."""
@@ -207,10 +216,18 @@ class TestCoverExport:
 
         ctx = self._make_ctx(tmp_path)
         ctx.source_video_path = None
-        clips = [MatchedClip(
-            segment_index=0, text="test", narr_start=0, narr_end=1,
-            src_start=0, src_end=1, score=0.8, source="embedding",
-        )]
+        clips = [
+            MatchedClip(
+                segment_index=0,
+                text="test",
+                narr_start=0,
+                narr_end=1,
+                src_start=0,
+                src_end=1,
+                score=0.8,
+                source="embedding",
+            )
+        ]
         _export_cover_image(ctx, clips, tmp_path)
 
         assert not (tmp_path / "cover.jpg").exists()
@@ -219,10 +236,18 @@ class TestCoverExport:
         from movie_narrator.pipeline.render import _export_cover_image
 
         ctx = self._make_ctx(tmp_path)
-        clips = [MatchedClip(
-            segment_index=0, text="test", narr_start=0, narr_end=1,
-            src_start=0, src_end=1, score=0.0, source="heuristic",
-        )]
+        clips = [
+            MatchedClip(
+                segment_index=0,
+                text="test",
+                narr_start=0,
+                narr_end=1,
+                src_start=0,
+                src_end=1,
+                score=0.0,
+                source="heuristic",
+            )
+        ]
         _export_cover_image(ctx, clips, tmp_path)
 
         assert not (tmp_path / "cover.jpg").exists()
@@ -231,10 +256,18 @@ class TestCoverExport:
         from movie_narrator.pipeline.render import _export_cover_image
 
         ctx = self._make_ctx(tmp_path)
-        clips = [MatchedClip(
-            segment_index=0, text="test", narr_start=0, narr_end=1,
-            src_start=5.0, src_end=10.0, score=0.85, source="embedding",
-        )]
+        clips = [
+            MatchedClip(
+                segment_index=0,
+                text="test",
+                narr_start=0,
+                narr_end=1,
+                src_start=5.0,
+                src_end=10.0,
+                score=0.85,
+                source="embedding",
+            )
+        ]
 
         with patch("movie_narrator.pipeline.render.shutil.which", return_value=None):
             _export_cover_image(ctx, clips, tmp_path)
@@ -248,16 +281,34 @@ class TestCoverExport:
         ctx = self._make_ctx(tmp_path, movie_name="最佳封面")
         clips = [
             MatchedClip(
-                segment_index=0, text="low", narr_start=0, narr_end=1,
-                src_start=0.0, src_end=5.0, score=0.3, source="embedding",
+                segment_index=0,
+                text="low",
+                narr_start=0,
+                narr_end=1,
+                src_start=0.0,
+                src_end=5.0,
+                score=0.3,
+                source="embedding",
             ),
             MatchedClip(
-                segment_index=1, text="high", narr_start=1, narr_end=2,
-                src_start=100.0, src_end=110.0, score=0.92, source="embedding",
+                segment_index=1,
+                text="high",
+                narr_start=1,
+                narr_end=2,
+                src_start=100.0,
+                src_end=110.0,
+                score=0.92,
+                source="embedding",
             ),
             MatchedClip(
-                segment_index=2, text="mid", narr_start=2, narr_end=3,
-                src_start=50.0, src_end=55.0, score=0.6, source="embedding",
+                segment_index=2,
+                text="mid",
+                narr_start=2,
+                narr_end=3,
+                src_start=50.0,
+                src_end=55.0,
+                score=0.6,
+                source="embedding",
             ),
         ]
 

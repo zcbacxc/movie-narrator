@@ -52,9 +52,7 @@ def run_qa_gate(ctx: Context) -> Context:
     if script_qa:
         total = script_qa.get("total_issues", 0)
         if total > _MAX_SCRIPT_ISSUES:
-            gate_issues.append(
-                f"Script QA: {total} issues (max {_MAX_SCRIPT_ISSUES})"
-            )
+            gate_issues.append(f"Script QA: {total} issues (max {_MAX_SCRIPT_ISSUES})")
         elif total > 0:
             gate_warnings.append(f"Script QA: {total} minor issues")
 
@@ -62,10 +60,7 @@ def run_qa_gate(ctx: Context) -> Context:
     audio_qa = ctx.metadata.get("audio_quality")
     if audio_qa:
         segments = audio_qa.get("segments", [])
-        bad_segments = [
-            s for s in segments
-            if s.get("clipping_ratio", 0) > _MAX_CLIPPING_RATIO
-        ]
+        bad_segments = [s for s in segments if s.get("clipping_ratio", 0) > _MAX_CLIPPING_RATIO]
         if bad_segments:
             gate_issues.append(
                 f"Audio QA: {len(bad_segments)} segment(s) with severe clipping "
@@ -100,9 +95,7 @@ def run_qa_gate(ctx: Context) -> Context:
     # ── Translation QA check ──
     untranslated = ctx.metadata.get("untranslated_indices", [])
     if untranslated and len(untranslated) > len(ctx.timed_segments) * 0.3:
-        gate_issues.append(
-            f"Translation: {len(untranslated)} untranslated lines (>30% of total)"
-        )
+        gate_issues.append(f"Translation: {len(untranslated)} untranslated lines (>30% of total)")
 
     # Store gate results
     ctx.metadata["qa_gate"] = {

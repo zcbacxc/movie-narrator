@@ -70,13 +70,11 @@ def _dockerfile_stages(text: str) -> List[str]:
 
 def _stage_body(text: str, stage: str) -> str:
     """Return the Dockerfile text belonging to a single build stage."""
-    stages = list(
-        re.finditer(r"^FROM\s+\S+\s+AS\s+(\S+)", text, re.MULTILINE | re.IGNORECASE)
-    )
+    stages = list(re.finditer(r"^FROM\s+\S+\s+AS\s+(\S+)", text, re.MULTILINE | re.IGNORECASE))
     for i, match in enumerate(stages):
         if match.group(1) == stage:
             end = stages[i + 1].start() if i + 1 < len(stages) else len(text)
-            return text[match.start():end]
+            return text[match.start() : end]
     raise AssertionError(f"stage {stage!r} not found in Dockerfile")
 
 
@@ -101,11 +99,7 @@ def _service_command(service: Dict[str, Any]) -> List[str]:
 
 def _mn_services(compose: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
     """Services built from this repo's Dockerfile (i.e. running ``mn``)."""
-    return {
-        name: svc
-        for name, svc in compose["services"].items()
-        if "build" in svc
-    }
+    return {name: svc for name, svc in compose["services"].items() if "build" in svc}
 
 
 # ── Dockerfile ───────────────────────────────────────────────
@@ -182,7 +176,7 @@ class TestDockerfile:
     ) -> None:
         body = _stage_body(dockerfile_text, stage)
         assert "HEALTHCHECK" in body, f"{stage}: must define a HEALTHCHECK"
-        healthcheck = body[body.index("HEALTHCHECK"):]
+        healthcheck = body[body.index("HEALTHCHECK") :]
         assert "/health" in healthcheck, f"{stage}: probe the /health endpoint"
 
     @pytest.mark.parametrize("stage", ["runtime", "runtime-gpu"])
@@ -204,7 +198,7 @@ class TestDockerfile:
         body = _stage_body(dockerfile_text, stage)
         entrypoints = _json_arrays_for("ENTRYPOINT", body)
         assert entrypoints == [["mn"]], (
-            f"{stage}: ENTRYPOINT must be the exec-form [\"mn\"], got {entrypoints}"
+            f'{stage}: ENTRYPOINT must be the exec-form ["mn"], got {entrypoints}'
         )
 
     @pytest.mark.parametrize("stage", ["runtime", "runtime-gpu"])
@@ -216,9 +210,7 @@ class TestDockerfile:
 
     def test_no_build_toolchain_in_runtime(self, dockerfile_text: str) -> None:
         body = _stage_body(dockerfile_text, "runtime")
-        assert "build-essential" not in body, (
-            "the build toolchain must stay in the builder stage"
-        )
+        assert "build-essential" not in body, "the build toolchain must stay in the builder stage"
         assert "gcc" not in body
 
     def test_builder_installs_dependencies_before_source(self, dockerfile_text: str) -> None:
@@ -338,10 +330,9 @@ class TestComposeFile:
         assert compose["services"]["worker-gpu"]["profiles"] == ["gpu"]
 
     def test_gpu_service_reserves_nvidia_devices(self, compose: Dict[str, Any]) -> None:
-        devices = (
-            compose["services"]["worker-gpu"]["deploy"]["resources"]
-            ["reservations"]["devices"]
-        )
+        devices = compose["services"]["worker-gpu"]["deploy"]["resources"]["reservations"][
+            "devices"
+        ]
         assert devices, "declare the NVIDIA device reservation stanza"
         device = devices[0]
         assert device["driver"] == "nvidia"
@@ -401,9 +392,7 @@ class TestComposeFile:
                     f"{name}: named volume {source!r} is not declared under top-level volumes"
                 )
 
-    def test_task_state_is_not_shared_between_replicas(
-        self, compose: Dict[str, Any]
-    ) -> None:
+    def test_task_state_is_not_shared_between_replicas(self, compose: Dict[str, Any]) -> None:
         # TaskStorage caches the whole index in memory and rewrites the file
         # on save, so two processes sharing --storage-dir corrupt each other.
         for name in ("worker", "worker-gpu"):
@@ -434,19 +423,14 @@ class TestComposeFile:
         for name, svc in _mn_services(compose).items():
             env_file = svc.get("env_file")
             assert env_file, f"{name}: wire configuration from .env"
-            paths = [
-                entry["path"] if isinstance(entry, dict) else entry
-                for entry in env_file
-            ]
+            paths = [entry["path"] if isinstance(entry, dict) else entry for entry in env_file]
             assert ".env" in paths, f"{name}: expected .env in env_file, got {paths}"
 
     def test_referenced_env_keys_documented_in_env_example(self, compose_text: str) -> None:
         referenced = set(re.findall(r"\$\{([A-Za-z_][A-Za-z0-9_]*)", compose_text))
         assert referenced, "expected the compose file to use env substitution"
         env_example = ENV_EXAMPLE.read_text(encoding="utf-8")
-        documented = set(
-            re.findall(r"^#?\s*([A-Z][A-Z0-9_]*)=", env_example, re.MULTILINE)
-        )
+        documented = set(re.findall(r"^#?\s*([A-Z][A-Z0-9_]*)=", env_example, re.MULTILINE))
         missing = sorted(referenced - documented)
         assert not missing, f"undocumented env keys in .env.example: {missing}"
 
@@ -471,9 +455,7 @@ class TestComposeMatchesCLI:
             "mn serve is the command the containers run; it must exist"
         )
 
-    def test_every_compose_command_exists_in_the_cli(
-        self, compose: Dict[str, Any]
-    ) -> None:
+    def test_every_compose_command_exists_in_the_cli(self, compose: Dict[str, Any]) -> None:
         group = self._cli_group()
         available = set(group.commands)
         checked = 0
@@ -488,9 +470,7 @@ class TestComposeMatchesCLI:
             checked += 1
         assert checked >= 3, "expected api + worker + worker-gpu to be checked"
 
-    def test_every_compose_flag_exists_on_its_command(
-        self, compose: Dict[str, Any]
-    ) -> None:
+    def test_every_compose_flag_exists_on_its_command(self, compose: Dict[str, Any]) -> None:
         group = self._cli_group()
         for name, svc in _mn_services(compose).items():
             tokens = _service_command(svc)

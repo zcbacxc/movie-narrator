@@ -109,23 +109,42 @@ class TestAllCompleteness:
     def test_all_names_in_all(self):
         """Key public names are in __all__."""
         expected = {
-            "BaseConsole", "Console", "SilentConsole",
-            "PipelineCancelled", "PipelineStrictError",
-            "RunController", "StepAction", "check_cancelled",
-            "PARAM_WHITELIST", "build_context", "run_pipeline",
-            "sanitize_filename", "PipelineResult",
+            "BaseConsole",
+            "Console",
+            "SilentConsole",
+            "PipelineCancelled",
+            "PipelineStrictError",
+            "RunController",
+            "StepAction",
+            "check_cancelled",
+            "PARAM_WHITELIST",
+            "build_context",
+            "run_pipeline",
+            "sanitize_filename",
+            "PipelineResult",
             # M1/M2 symbols (v0.5+)
             "CONTRACT_VERSION",
-            "StepRegistry", "step_registry",
-            "ProviderRegistry", "tts_registry", "vision_registry",
-            "llm_registry", "research_registry",
-            "register_step", "step",
-            "register_tts", "register_vision",
-            "register_llm", "register_research",
-            "Plugin", "PluginContext",
-            "load_plugin", "discover_plugins", "list_available_plugins",
+            "StepRegistry",
+            "step_registry",
+            "ProviderRegistry",
+            "tts_registry",
+            "vision_registry",
+            "llm_registry",
+            "research_registry",
+            "register_step",
+            "step",
+            "register_tts",
+            "register_vision",
+            "register_llm",
+            "register_research",
+            "Plugin",
+            "PluginContext",
+            "load_plugin",
+            "discover_plugins",
+            "list_available_plugins",
             "Step",
-            "list_presets", "get_preset",
+            "list_presets",
+            "get_preset",
         }
         assert expected.issubset(set(contract.__all__))
 
@@ -198,8 +217,7 @@ class TestContractIsolation:
         }
         contract_provided = set(contract.__all__)
         assert web_needed.issubset(contract_provided), (
-            f"web package needs {web_needed - contract_provided} "
-            f"which are not in contract.__all__"
+            f"web package needs {web_needed - contract_provided} which are not in contract.__all__"
         )
 
 
@@ -235,18 +253,32 @@ class TestContractVersion:
 class TestSDKSymbolExports:
     """M1/M2 SDK symbols are accessible from the contract module."""
 
-    @pytest.mark.parametrize("name", [
-        "StepRegistry", "step_registry",
-        "ProviderRegistry", "tts_registry", "vision_registry",
-        "llm_registry", "research_registry",
-        "register_step", "step",
-        "register_tts", "register_vision",
-        "register_llm", "register_research",
-        "Plugin", "PluginContext",
-        "load_plugin", "discover_plugins", "list_available_plugins",
-        "Step",
-        "list_presets", "get_preset",
-    ])
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "StepRegistry",
+            "step_registry",
+            "ProviderRegistry",
+            "tts_registry",
+            "vision_registry",
+            "llm_registry",
+            "research_registry",
+            "register_step",
+            "step",
+            "register_tts",
+            "register_vision",
+            "register_llm",
+            "register_research",
+            "Plugin",
+            "PluginContext",
+            "load_plugin",
+            "discover_plugins",
+            "list_available_plugins",
+            "Step",
+            "list_presets",
+            "get_preset",
+        ],
+    )
     def test_symbol_accessible(self, name):
         """Each M1/M2 symbol is accessible on the contract module."""
         assert hasattr(contract, name), f"{name!r} not accessible from contract module"
@@ -254,61 +286,73 @@ class TestSDKSymbolExports:
     def test_step_registry_is_global_instance(self):
         """step_registry is the global StepRegistry instance."""
         from movie_narrator.pipeline.registry import step_registry as _step_registry
+
         assert contract.step_registry is _step_registry
 
     def test_tts_registry_is_global_instance(self):
         """tts_registry is the global ProviderRegistry instance for TTS."""
         from movie_narrator.providers.registry import tts_registry as _tts_registry
+
         assert contract.tts_registry is _tts_registry
 
     def test_vision_registry_is_global_instance(self):
         """vision_registry is the global ProviderRegistry instance for vision."""
         from movie_narrator.providers.registry import vision_registry as _vision_registry
+
         assert contract.vision_registry is _vision_registry
 
     def test_register_step_identity(self):
         """register_step is the same function as in pipeline.registry."""
         from movie_narrator.pipeline.registry import register_step as _register_step
+
         assert contract.register_step is _register_step
 
     def test_register_tts_identity(self):
         """register_tts is the same function as in providers.registry."""
         from movie_narrator.providers.registry import register_tts as _register_tts
+
         assert contract.register_tts is _register_tts
 
     def test_register_vision_identity(self):
         """register_vision is the same function as in providers.registry."""
         from movie_narrator.providers.registry import register_vision as _register_vision
+
         assert contract.register_vision is _register_vision
 
     def test_llm_registry_is_global_instance(self):
         """llm_registry is the global ProviderRegistry instance for LLM."""
         from movie_narrator.providers.registry import llm_registry as _llm_registry
+
         assert contract.llm_registry is _llm_registry
 
     def test_research_registry_is_global_instance(self):
         """research_registry is the global ProviderRegistry instance for research."""
         from movie_narrator.providers.registry import research_registry as _research_registry
+
         assert contract.research_registry is _research_registry
 
     def test_register_llm_identity(self):
         """register_llm is the same function as in providers.registry."""
         from movie_narrator.providers.registry import register_llm as _register_llm
+
         assert contract.register_llm is _register_llm
 
     def test_register_research_identity(self):
         """register_research is the same function as in providers.registry."""
         from movie_narrator.providers.registry import register_research as _register_research
+
         assert contract.register_research is _register_research
 
     def test_load_plugin_identity(self):
         """load_plugin is the same function as in plugin_loader."""
         from movie_narrator.plugin_loader import load_plugin as _load_plugin
+
         assert contract.load_plugin is _load_plugin
 
     def test_discover_plugins_identity(self):
         """discover_plugins is the same function as in plugin_loader."""
         from movie_narrator.plugin_loader import discover_plugins as _discover_plugins
+
         assert contract.discover_plugins is _discover_plugins
 
     def test_list_presets_callable(self):

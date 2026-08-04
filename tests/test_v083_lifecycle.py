@@ -366,9 +366,7 @@ class TestProtection:
         store.seed("running.mp4", 10, age_seconds=99 * DAY)
         store.seed("done.mp4", 10, age_seconds=99 * DAY)
         policy = ArtifactLifecyclePolicy(ttl_seconds=1)
-        report = cleanup_artifacts(
-            store, policy, now=NOW, protected_keys=["running.mp4"]
-        )
+        report = cleanup_artifacts(store, policy, now=NOW, protected_keys=["running.mp4"])
         assert report.deleted == ["done.mp4"]
         assert report.skipped == ["running.mp4"]
         assert "running.mp4" in store.keys
@@ -378,9 +376,7 @@ class TestProtection:
         store.seed("running.mp4", 100, age_seconds=9 * DAY)
         store.seed("done.mp4", 100, age_seconds=1 * DAY)
         policy = ArtifactLifecyclePolicy(max_total_bytes=50)
-        report = cleanup_artifacts(
-            store, policy, now=NOW, protected_keys={"running.mp4"}
-        )
+        report = cleanup_artifacts(store, policy, now=NOW, protected_keys={"running.mp4"})
         assert report.deleted == ["done.mp4"]
         assert "running.mp4" in store.keys
 
@@ -473,9 +469,7 @@ class TestErrorHandling:
             def list(self, prefix: str = "") -> Iterator[ArtifactInfo]:
                 raise ArtifactStoreError("bucket unreachable")
 
-        report = cleanup_artifacts(
-            BrokenStore(), ArtifactLifecyclePolicy(ttl_seconds=1), now=NOW
-        )
+        report = cleanup_artifacts(BrokenStore(), ArtifactLifecyclePolicy(ttl_seconds=1), now=NOW)
         assert report.deleted == []
         assert report.errors and "bucket unreachable" in report.errors[0][1]
 
@@ -572,9 +566,7 @@ class TestArtifactSweeper:
     def test_thread_lifecycle(self, store):
         """start()/stop() manage a daemon thread cleanly."""
         store.seed("old.mp4", 10, age_seconds=99 * DAY, now=time.time())
-        sweeper = ArtifactSweeper(
-            store, ArtifactLifecyclePolicy(ttl_seconds=1), interval=1.0
-        )
+        sweeper = ArtifactSweeper(store, ArtifactLifecyclePolicy(ttl_seconds=1), interval=1.0)
         assert sweeper.is_running is False
         sweeper.start()
         try:
@@ -647,9 +639,7 @@ class TestArtifactsCli:
 
     def test_list_empty_store(self, tmp_path):
         """An empty store says so instead of printing a bare total."""
-        result = CliRunner().invoke(
-            app, ["artifacts", "list", "--root", str(tmp_path / "empty")]
-        )
+        result = CliRunner().invoke(app, ["artifacts", "list", "--root", str(tmp_path / "empty")])
         assert result.exit_code == 0
         assert "No artifacts found." in result.output
 
@@ -658,9 +648,12 @@ class TestArtifactsCli:
         result = CliRunner().invoke(
             app,
             [
-                "artifacts", "cleanup",
-                "--root", str(cli_root),
-                "--ttl", str(int(7 * DAY)),
+                "artifacts",
+                "cleanup",
+                "--root",
+                str(cli_root),
+                "--ttl",
+                str(int(7 * DAY)),
                 "--dry-run",
             ],
         )
@@ -686,10 +679,14 @@ class TestArtifactsCli:
         result = CliRunner().invoke(
             app,
             [
-                "artifacts", "cleanup",
-                "--root", str(cli_root),
-                "--ttl", "1",
-                "--keep-last", "2",
+                "artifacts",
+                "cleanup",
+                "--root",
+                str(cli_root),
+                "--ttl",
+                "1",
+                "--keep-last",
+                "2",
             ],
         )
         assert result.exit_code == 0

@@ -127,14 +127,22 @@ class PayloadTooLargeError(Exception):
     HTTP 413 instead of a generic 400 for an oversized body.
     """
 
+
 #: Environment variable opting ``/metrics`` out of API-key auth.
 _ENV_METRICS_PUBLIC = "MN_METRICS_PUBLIC"
 
 #: Paths that are already templates (no variable segment).
 _STATIC_PATHS = frozenset(
     {
-        "/health", "/info", "/tasks", "/ready", "/openapi.json",
-        _METRICS_PATH, "/tasks/batch", "/batches", "/schedules",
+        "/health",
+        "/info",
+        "/tasks",
+        "/ready",
+        "/openapi.json",
+        _METRICS_PATH,
+        "/tasks/batch",
+        "/batches",
+        "/schedules",
         "/deadletters",
     }
 )
@@ -179,7 +187,10 @@ def _metrics_public() -> bool:
     and error rates.
     """
     return os.environ.get(_ENV_METRICS_PUBLIC, "").strip().lower() in {
-        "1", "true", "yes", "on",
+        "1",
+        "true",
+        "yes",
+        "on",
     }
 
 
@@ -282,9 +293,7 @@ class _APIHandler(BaseHTTPRequestHandler):
             # in a clean state and the client can read the 413 response
             # instead of failing with a broken pipe mid-send.
             self._drain_body(length)
-            raise PayloadTooLargeError(
-                f"request body too large (max {_MAX_BODY_BYTES} bytes)"
-            )
+            raise PayloadTooLargeError(f"request body too large (max {_MAX_BODY_BYTES} bytes)")
         raw = self.rfile.read(length)
         try:
             return json.loads(raw.decode("utf-8"))
@@ -338,9 +347,7 @@ class _APIHandler(BaseHTTPRequestHandler):
         is generated. :meth:`send_response` echoes it on every response.
         """
         inbound = (
-            self.headers.get(REQUEST_ID_HEADER)
-            or self.headers.get(CORRELATION_HEADER)
-            or None
+            self.headers.get(REQUEST_ID_HEADER) or self.headers.get(CORRELATION_HEADER) or None
         )
         with correlation_scope(inbound):
             handler()
@@ -462,9 +469,7 @@ class _APIHandler(BaseHTTPRequestHandler):
     @_route_registry.register("GET", r"^/openapi\.json$", auth_required=False)
     def _handle_get_openapi(self) -> None:
         host = self.headers.get("Host")
-        self._send_json(
-            build_openapi_spec(server_url=f"http://{host}" if host else None)
-        )
+        self._send_json(build_openapi_spec(server_url=f"http://{host}" if host else None))
 
     @_route_registry.register("GET", r"^/metrics$", auth_required=False)
     def _handle_get_metrics(self) -> None:
@@ -476,14 +481,16 @@ class _APIHandler(BaseHTTPRequestHandler):
 
     @_route_registry.register("GET", r"^/info$")
     def _handle_get_info(self) -> None:
-        self._send_json({
-            "version": __version__,
-            "active_tasks": self.queue.active_count,
-            "is_started": self.queue.is_started,
-            # v0.9.2: orchestration tooling can watch this to detect
-            # that the server has begun its graceful shutdown.
-            "shutting_down": self._is_shutting_down(),
-        })
+        self._send_json(
+            {
+                "version": __version__,
+                "active_tasks": self.queue.active_count,
+                "is_started": self.queue.is_started,
+                # v0.9.2: orchestration tooling can watch this to detect
+                # that the server has begun its graceful shutdown.
+                "shutting_down": self._is_shutting_down(),
+            }
+        )
 
     @_route_registry.register("GET", r"^/tasks$")
     def _handle_get_tasks(self) -> None:
@@ -501,10 +508,12 @@ class _APIHandler(BaseHTTPRequestHandler):
             self._send_error(HTTPStatus.BAD_REQUEST, "Invalid limit")
             return
         tasks = self.queue.list_tasks(status=status_filter, limit=limit)
-        self._send_json({
-            "tasks": [t.to_summary() for t in tasks],
-            "count": len(tasks),
-        })
+        self._send_json(
+            {
+                "tasks": [t.to_summary() for t in tasks],
+                "count": len(tasks),
+            }
+        )
 
     @_route_registry.register("GET", r"^/tasks/(?P<task_id>[a-f0-9]+)/result$")
     def _handle_get_task_result(self, task_id: str) -> None:
@@ -548,10 +557,12 @@ class _APIHandler(BaseHTTPRequestHandler):
             self._send_error(HTTPStatus.BAD_REQUEST, "Invalid limit")
             return
         batches = self.queue.list_batches(limit=limit)
-        self._send_json({
-            "batches": [b.model_dump(mode="json") for b in batches],
-            "count": len(batches),
-        })
+        self._send_json(
+            {
+                "batches": [b.model_dump(mode="json") for b in batches],
+                "count": len(batches),
+            }
+        )
 
     @_route_registry.register("GET", r"^/batches/(?P<batch_id>[a-f0-9]+)$")
     def _handle_get_batch(self, batch_id: str) -> None:
@@ -564,39 +575,41 @@ class _APIHandler(BaseHTTPRequestHandler):
     @_route_registry.register("GET", r"^/schedules$")
     def _handle_get_schedules(self) -> None:
         schedules = self.scheduler.list_schedules()
-        self._send_json({
-            "schedules": [s.model_dump(mode="json") for s in schedules],
-            "count": len(schedules),
-        })
+        self._send_json(
+            {
+                "schedules": [s.model_dump(mode="json") for s in schedules],
+                "count": len(schedules),
+            }
+        )
 
     @_route_registry.register("GET", r"^/schedules/(?P<schedule_id>[a-f0-9]+)/runs$")
     def _handle_get_schedule_runs(self, schedule_id: str) -> None:
         if self.scheduler.get_schedule(schedule_id) is None:
-            self._send_error(
-                HTTPStatus.NOT_FOUND, f"Schedule {schedule_id} not found"
-            )
+            self._send_error(HTTPStatus.NOT_FOUND, f"Schedule {schedule_id} not found")
             return
         runs = self.scheduler.get_runs(schedule_id)
-        self._send_json({
-            "runs": [r.model_dump(mode="json") for r in runs],
-            "count": len(runs),
-        })
+        self._send_json(
+            {
+                "runs": [r.model_dump(mode="json") for r in runs],
+                "count": len(runs),
+            }
+        )
 
     @_route_registry.register("GET", r"^/deadletters$")
     def _handle_get_deadletters(self) -> None:
         records = self.dead_letter_store.list()
-        self._send_json({
-            "deadletters": [r.model_dump(mode="json") for r in records],
-            "count": len(records),
-        })
+        self._send_json(
+            {
+                "deadletters": [r.model_dump(mode="json") for r in records],
+                "count": len(records),
+            }
+        )
 
     @_route_registry.register("GET", r"^/deadletters/(?P<task_id>[a-f0-9]+)$")
     def _handle_get_deadletter(self, task_id: str) -> None:
         record = self.dead_letter_store.get(task_id)
         if record is None:
-            self._send_error(
-                HTTPStatus.NOT_FOUND, f"Dead letter {task_id} not found"
-            )
+            self._send_error(HTTPStatus.NOT_FOUND, f"Dead letter {task_id} not found")
             return
         self._send_json(record.model_dump(mode="json"))
 
@@ -669,9 +682,7 @@ class _APIHandler(BaseHTTPRequestHandler):
         try:
             new_task_id = replay_dead_letter(task_id, queue=self.queue)
         except KeyError:
-            self._send_error(
-                HTTPStatus.NOT_FOUND, f"Dead letter {task_id} not found"
-            )
+            self._send_error(HTTPStatus.NOT_FOUND, f"Dead letter {task_id} not found")
             return
         self._send_json(
             {
@@ -742,9 +753,7 @@ class _APIHandler(BaseHTTPRequestHandler):
         if self.scheduler.cancel_schedule(schedule_id):
             self._send_json({"schedule_id": schedule_id, "deleted": True})
         else:
-            self._send_error(
-                HTTPStatus.NOT_FOUND, f"Schedule {schedule_id} not found"
-            )
+            self._send_error(HTTPStatus.NOT_FOUND, f"Schedule {schedule_id} not found")
 
     @_route_registry.register("DELETE", r"^/deadletters/(?P<task_id>[a-f0-9]+)$")
     def _handle_delete_deadletter(self, task_id: str) -> None:
@@ -753,9 +762,7 @@ class _APIHandler(BaseHTTPRequestHandler):
         if removed:
             self._send_json({"task_id": task_id, "removed": True})
         else:
-            self._send_error(
-                HTTPStatus.NOT_FOUND, f"Dead letter {task_id} not found"
-            )
+            self._send_error(HTTPStatus.NOT_FOUND, f"Dead letter {task_id} not found")
 
     # ── HTTP method dispatch ────────────────────────────────
 
@@ -827,11 +834,13 @@ class _APIHandler(BaseHTTPRequestHandler):
             # Preserve v0.6.1 semantics: top-level files only, no dotfiles.
             if "/" in info.key or info.key.startswith("."):
                 continue
-            artifacts.append({
-                "filename": info.key,
-                "size": info.size,
-                "path": artifact_location(store, info.key),
-            })
+            artifacts.append(
+                {
+                    "filename": info.key,
+                    "size": info.size,
+                    "path": artifact_location(store, info.key),
+                }
+            )
         return artifacts
 
     def _serve_task_artifact(self, task: Task, filename: str) -> None:
@@ -943,7 +952,6 @@ class TaskAPIServer:
         artifact_policy: Optional[ArtifactLifecyclePolicy] = None,
         drain_timeout: Optional[float] = None,
         scheduler: Optional[JobScheduler] = None,
-
         dead_letter_store: Optional[DeadLetterStore] = None,
     ) -> None:
         self.host = host
@@ -1120,11 +1128,7 @@ class TaskAPIServer:
             self._sweeper = None
 
         if self._owns_queue:
-            timeout = (
-                drain_timeout
-                if drain_timeout is not None
-                else self._drain_timeout
-            )
+            timeout = drain_timeout if drain_timeout is not None else self._drain_timeout
             if timeout is None:
                 from .daemon import graceful_shutdown_timeout
 

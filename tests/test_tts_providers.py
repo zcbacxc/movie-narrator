@@ -41,6 +41,7 @@ from movie_narrator.utils.errors import ConfigError
 _FFMPEG_OK = shutil.which("ffmpeg") is not None
 try:
     from pydub import AudioSegment as _test_seg
+
     _tmp = Path(os.environ.get("TEMP", "/tmp")) / "_ffmpeg_probe.mp3"
     _test_seg.silent(duration=10).export(_tmp, format="mp3")
     _test_seg.from_mp3(_tmp)
@@ -49,9 +50,7 @@ try:
 except Exception:
     _MP3_OK = False
 
-requires_mp3 = pytest.mark.skipif(
-    not _MP3_OK, reason="ffmpeg lacks mp3/wav codec support"
-)
+requires_mp3 = pytest.mark.skipif(not _MP3_OK, reason="ffmpeg lacks mp3/wav codec support")
 
 
 # ─── TTSCacheKey & cache_path_for ───
@@ -245,6 +244,7 @@ class TestEdgeTTSProvider:
 class TestOpenAITTSProvider:
     def _make_settings(self, **overrides):
         from movie_narrator.config import Settings, TTSProviderType
+
         defaults = dict(
             tts_provider=TTSProviderType.OPENAI,
             openai_tts_model="tts-1",
@@ -258,6 +258,7 @@ class TestOpenAITTSProvider:
 
     def test_constructor_uses_explicit_api_key(self):
         from movie_narrator.tts.openai_provider import OpenAITTSProvider
+
         settings = self._make_settings(openai_tts_api_key="sk-explicit")
         with patch("openai.OpenAI") as mock_openai:
             provider = OpenAITTSProvider(settings)
@@ -267,6 +268,7 @@ class TestOpenAITTSProvider:
 
     def test_constructor_falls_back_to_llm_api_key(self):
         from movie_narrator.tts.openai_provider import OpenAITTSProvider
+
         settings = self._make_settings(openai_tts_api_key=None, llm_api_key="llm-fallback")
         with patch("openai.OpenAI") as mock_openai:
             provider = OpenAITTSProvider(settings)
@@ -275,6 +277,7 @@ class TestOpenAITTSProvider:
 
     def test_constructor_falls_back_to_llm_base_url(self):
         from movie_narrator.tts.openai_provider import OpenAITTSProvider
+
         settings = self._make_settings(
             openai_tts_base_url=None,
             llm_base_url="http://my-llm:8080/v1",
@@ -286,6 +289,7 @@ class TestOpenAITTSProvider:
 
     def test_constructor_raises_on_missing_key(self):
         from movie_narrator.tts.openai_provider import OpenAITTSProvider
+
         settings = self._make_settings(openai_tts_api_key=None, llm_api_key="")
         with patch("openai.OpenAI"):
             with pytest.raises(ConfigError, match="requires.*API_KEY"):
@@ -293,6 +297,7 @@ class TestOpenAITTSProvider:
 
     def test_real_synthesize_validates_voice(self, tmp_path):
         from movie_narrator.tts.openai_provider import OpenAITTSProvider
+
         settings = self._make_settings()
         with patch("openai.OpenAI"):
             provider = OpenAITTSProvider(settings)
@@ -302,6 +307,7 @@ class TestOpenAITTSProvider:
 
     def test_real_synthesize_accepts_valid_voice(self, tmp_path):
         from movie_narrator.tts.openai_provider import OpenAITTSProvider
+
         settings = self._make_settings()
         with patch("openai.OpenAI"):
             provider = OpenAITTSProvider(settings)
@@ -314,6 +320,7 @@ class TestOpenAITTSProvider:
 
     def test_all_whitelist_voices_accepted(self, tmp_path):
         from movie_narrator.tts.openai_provider import OpenAITTSProvider, OPENAI_TTS_VOICES
+
         settings = self._make_settings()
         with patch("openai.OpenAI"):
             provider = OpenAITTSProvider(settings)
@@ -330,6 +337,7 @@ class TestOpenAITTSProvider:
 class TestMimoTTSProvider:
     def _make_settings(self, **overrides):
         from movie_narrator.config import Settings, TTSProviderType
+
         defaults = dict(
             tts_provider=TTSProviderType.MIMO,
             mimo_tts_model="mimo-v2.5-tts",
@@ -352,6 +360,7 @@ class TestMimoTTSProvider:
         if audio_data is None:
             from io import BytesIO
             from pydub import AudioSegment as _seg
+
             seg = _seg.silent(duration=100, frame_rate=8000)
             buf = BytesIO()
             seg.export(buf, format="wav")
@@ -364,6 +373,7 @@ class TestMimoTTSProvider:
 
     def test_constructor_uses_explicit_api_key(self):
         from movie_narrator.tts.mimo_provider import MimoTTSProvider
+
         settings = self._make_settings(mimo_api_key="mimo-explicit")
         with patch("openai.OpenAI") as mock_openai:
             MimoTTSProvider(settings)
@@ -372,6 +382,7 @@ class TestMimoTTSProvider:
 
     def test_constructor_falls_back_to_llm_api_key(self):
         from movie_narrator.tts.mimo_provider import MimoTTSProvider
+
         settings = self._make_settings(mimo_api_key=None, llm_api_key="llm-fallback")
         with patch("openai.OpenAI") as mock_openai:
             MimoTTSProvider(settings)
@@ -380,6 +391,7 @@ class TestMimoTTSProvider:
 
     def test_constructor_raises_on_missing_key(self):
         from movie_narrator.tts.mimo_provider import MimoTTSProvider
+
         settings = self._make_settings(mimo_api_key=None, llm_api_key="")
         with patch("openai.OpenAI"):
             with pytest.raises(ConfigError, match="requires.*API_KEY"):
@@ -387,6 +399,7 @@ class TestMimoTTSProvider:
 
     def test_constructor_uses_custom_base_url(self):
         from movie_narrator.tts.mimo_provider import MimoTTSProvider
+
         settings = self._make_settings(mimo_base_url="https://custom.mimo.api/v1")
         with patch("openai.OpenAI") as mock_openai:
             MimoTTSProvider(settings)
@@ -396,6 +409,7 @@ class TestMimoTTSProvider:
     @requires_mp3
     def test_named_voice_mode_calls_api_correctly(self, tmp_path):
         from movie_narrator.tts.mimo_provider import MimoTTSProvider, MIMO_TTS
+
         settings = self._make_settings(
             mimo_tts_model=MIMO_TTS,
             mimo_style_prompt="Bright and bouncy tone.",
@@ -409,7 +423,7 @@ class TestMimoTTSProvider:
 
         assert provider._call_api.call_count == 1
         args = provider._call_api.call_args.args
-        assert args[0] == "Hello world"       # text
+        assert args[0] == "Hello world"  # text
         assert args[1] == "Bright and bouncy tone."  # user_content (style prompt)
         audio_param = args[2]
         assert audio_param["voice"] == "Chloe"
@@ -419,6 +433,7 @@ class TestMimoTTSProvider:
     @requires_mp3
     def test_voiceclone_mode_encodes_audio_file(self, tmp_path):
         from movie_narrator.tts.mimo_provider import MimoTTSProvider, MIMO_VOICECLONE
+
         # Create a fake voice file
         voice_file = tmp_path / "voice.wav"
         voice_file.write_bytes(b"fake wav header + data")
@@ -441,16 +456,20 @@ class TestMimoTTSProvider:
 
     def test_voiceclone_raises_on_missing_file(self, tmp_path):
         from movie_narrator.tts.mimo_provider import MimoTTSProvider, MIMO_VOICECLONE
+
         settings = self._make_settings(mimo_tts_model=MIMO_VOICECLONE)
         with patch("openai.OpenAI"):
             provider = MimoTTSProvider(settings)
 
         with pytest.raises(ConfigError, match="Voice clone file not found"):
-            asyncio.run(provider._real_synthesize("text", "/nonexistent/voice.wav", tmp_path / "out.mp3"))
+            asyncio.run(
+                provider._real_synthesize("text", "/nonexistent/voice.wav", tmp_path / "out.mp3")
+            )
 
     @requires_mp3
     def test_voicedesign_mode_uses_voice_as_description(self, tmp_path):
         from movie_narrator.tts.mimo_provider import MimoTTSProvider, MIMO_VOICEDESIGN
+
         settings = self._make_settings(mimo_tts_model=MIMO_VOICEDESIGN)
         with patch("openai.OpenAI"):
             provider = MimoTTSProvider(settings)
@@ -468,6 +487,7 @@ class TestMimoTTSProvider:
 
     def test_unsupported_model_raises_config_error(self, tmp_path):
         from movie_narrator.tts.mimo_provider import MimoTTSProvider
+
         settings = self._make_settings(mimo_tts_model="mimo-unsupported-model")
         with patch("openai.OpenAI"):
             provider = MimoTTSProvider(settings)
@@ -477,6 +497,7 @@ class TestMimoTTSProvider:
 
     def test_voice_b64_cache_avoids_reread(self, tmp_path):
         from movie_narrator.tts.mimo_provider import MimoTTSProvider, MIMO_VOICECLONE
+
         voice_file = tmp_path / "voice.wav"
         voice_file.write_bytes(b"cache test data")
 
@@ -493,6 +514,7 @@ class TestMimoTTSProvider:
 
     def test_is_protocol_subclass(self):
         from movie_narrator.tts.mimo_provider import MimoTTSProvider
+
         assert issubclass(MimoTTSProvider, TTSProvider)
 
 
@@ -502,12 +524,14 @@ class TestMimoTTSProvider:
 class TestFactory:
     def test_returns_edge_provider(self):
         from movie_narrator.config import Settings, TTSProviderType
+
         settings = Settings(tts_provider=TTSProviderType.EDGE)
         provider = get_tts_provider(settings)
         assert isinstance(provider, EdgeTTSProvider)
 
     def test_returns_openai_provider(self):
         from movie_narrator.config import Settings, TTSProviderType
+
         settings = Settings(
             tts_provider=TTSProviderType.OPENAI,
             openai_tts_api_key="sk-test",
@@ -515,10 +539,12 @@ class TestFactory:
         with patch("openai.OpenAI"):
             provider = get_tts_provider(settings)
         from movie_narrator.tts.openai_provider import OpenAITTSProvider
+
         assert isinstance(provider, OpenAITTSProvider)
 
     def test_no_singleton_each_call_new_instance(self):
         from movie_narrator.config import Settings, TTSProviderType
+
         settings = Settings(tts_provider=TTSProviderType.EDGE)
         p1 = get_tts_provider(settings)
         p2 = get_tts_provider(settings)
@@ -526,6 +552,7 @@ class TestFactory:
 
     def test_returns_mimo_provider(self):
         from movie_narrator.config import Settings, TTSProviderType
+
         settings = Settings(
             tts_provider=TTSProviderType.MIMO,
             mimo_api_key="mimo-test",
@@ -533,6 +560,7 @@ class TestFactory:
         with patch("openai.OpenAI"):
             provider = get_tts_provider(settings)
         from movie_narrator.tts.mimo_provider import MimoTTSProvider
+
         assert isinstance(provider, MimoTTSProvider)
 
 
@@ -543,6 +571,7 @@ class TestFactory:
 class TestGenerateVoiceCI:
     def _make_ctx(self, tmp_path):
         from movie_narrator.models import Context, ScriptSegment
+
         ctx = Context(movie_name="Test", output_dir=str(tmp_path))
         ctx.segments = [
             ScriptSegment(text="Hello world this is a test", index=0),
@@ -633,6 +662,7 @@ class TestGenerateVoiceCI:
 class TestGenerateVoiceCache:
     def _make_ctx(self, tmp_path):
         from movie_narrator.models import Context, ScriptSegment
+
         ctx = Context(movie_name="Test", output_dir=str(tmp_path))
         ctx.segments = [ScriptSegment(text="Cached segment", index=0)]
         return ctx
@@ -652,8 +682,10 @@ class TestGenerateVoiceCache:
         # First call to populate cache
         with patch("edge_tts.Communicate") as mock_comm:
             mock_comm.return_value.save = AsyncMock(
-                side_effect=lambda path: Path(path).parent.mkdir(parents=True, exist_ok=True)
-                or _write_silent_mp3(Path(path))
+                side_effect=lambda path: (
+                    Path(path).parent.mkdir(parents=True, exist_ok=True)
+                    or _write_silent_mp3(Path(path))
+                )
             )
             generate_voice(ctx)
 
@@ -672,12 +704,22 @@ class TestGenerateVoiceCache:
         from movie_narrator.tts.cache import TTSCacheKey, cache_path_for
 
         k_edge = TTSCacheKey(
-            schema_version=3, provider="edge", provider_version=1,
-            model="", voice="v", text="t", style_prompt="",
+            schema_version=3,
+            provider="edge",
+            provider_version=1,
+            model="",
+            voice="v",
+            text="t",
+            style_prompt="",
         )
         k_openai = TTSCacheKey(
-            schema_version=3, provider="openai", provider_version=1,
-            model="tts-1", voice="v", text="t", style_prompt="",
+            schema_version=3,
+            provider="openai",
+            provider_version=1,
+            model="tts-1",
+            voice="v",
+            text="t",
+            style_prompt="",
         )
         assert cache_path_for(tmp_path, k_edge) != cache_path_for(tmp_path, k_openai)
 
@@ -688,22 +730,26 @@ class TestGenerateVoiceCache:
 class TestSettingsTTS:
     def test_default_tts_provider_is_edge(self):
         from movie_narrator.config import Settings, TTSProviderType
+
         # Use _env_file=None to prevent .env from overriding defaults
         s = Settings(_env_file=None)
         assert s.tts_provider is TTSProviderType.EDGE
 
     def test_openai_tts_model_default(self):
         from movie_narrator.config import Settings
+
         s = Settings()
         assert s.openai_tts_model == "tts-1"
 
     def test_openai_tts_api_key_default_none(self):
         from movie_narrator.config import Settings
+
         s = Settings()
         assert s.openai_tts_api_key is None
 
     def test_env_prefix_tts_provider(self, monkeypatch):
         from movie_narrator.config import Settings, TTSProviderType
+
         # Clear lru_cache to pick up new env
         get_settings.cache_clear()
         monkeypatch.setenv("MN_TTS_PROVIDER", "openai")
@@ -714,6 +760,7 @@ class TestSettingsTTS:
     def test_invalid_tts_provider_raises(self, monkeypatch):
         from pydantic import ValidationError
         from movie_narrator.config import Settings
+
         get_settings.cache_clear()
         monkeypatch.setenv("MN_TTS_PROVIDER", "invalid-provider")
         with pytest.raises(ValidationError):
@@ -722,6 +769,7 @@ class TestSettingsTTS:
 
     def test_mimo_defaults(self):
         from movie_narrator.config import Settings
+
         # Use _env_file=None to prevent .env from overriding defaults
         s = Settings(_env_file=None)
         assert s.mimo_tts_model == "mimo-v2.5-tts"
@@ -731,6 +779,7 @@ class TestSettingsTTS:
 
     def test_env_prefix_mimo_provider(self, monkeypatch):
         from movie_narrator.config import Settings, TTSProviderType
+
         get_settings.cache_clear()
         monkeypatch.setenv("MN_TTS_PROVIDER", "mimo")
         s = Settings()
@@ -779,5 +828,6 @@ class TestMetadataExportTTS:
 def _write_silent_mp3(path: Path):
     """Write a minimal silent mp3 file for test mocks."""
     from pydub import AudioSegment
+
     path.parent.mkdir(parents=True, exist_ok=True)
     AudioSegment.silent(duration=1000).export(path, format="mp3")

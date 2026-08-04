@@ -24,7 +24,9 @@ def _make_ctx(tmp_path):
 def test_handle_step_error_no_controller(tmp_path):
     """No controller → ABORT (existing fail-fast behavior)."""
     ctx = _make_ctx(tmp_path)
-    action = _handle_step_error(None, "generate_voice", RuntimeError("timeout"), 1, ctx.services.console)
+    action = _handle_step_error(
+        None, "generate_voice", RuntimeError("timeout"), 1, ctx.services.console
+    )
     assert action is StepAction.ABORT
 
 
@@ -33,7 +35,9 @@ def test_handle_step_error_no_handler_method(tmp_path):
     ctx = _make_ctx(tmp_path)
     controller = MagicMock()
     del controller.on_step_error  # ensure attribute doesn't exist
-    action = _handle_step_error(controller, "generate_voice", RuntimeError("timeout"), 1, ctx.services.console)
+    action = _handle_step_error(
+        controller, "generate_voice", RuntimeError("timeout"), 1, ctx.services.console
+    )
     assert action is StepAction.ABORT
 
 
@@ -42,9 +46,13 @@ def test_handle_step_error_retry(tmp_path):
     ctx = _make_ctx(tmp_path)
     controller = MagicMock()
     controller.on_step_error.return_value = StepAction.RETRY
-    action = _handle_step_error(controller, "generate_voice", RuntimeError("timeout"), 1, ctx.services.console)
+    action = _handle_step_error(
+        controller, "generate_voice", RuntimeError("timeout"), 1, ctx.services.console
+    )
     assert action is StepAction.RETRY
-    controller.on_step_error.assert_called_once_with("generate_voice", controller.on_step_error.call_args[0][1], 1)
+    controller.on_step_error.assert_called_once_with(
+        "generate_voice", controller.on_step_error.call_args[0][1], 1
+    )
 
 
 def test_handle_step_error_skip(tmp_path):
@@ -52,7 +60,9 @@ def test_handle_step_error_skip(tmp_path):
     ctx = _make_ctx(tmp_path)
     controller = MagicMock()
     controller.on_step_error.return_value = StepAction.SKIP
-    action = _handle_step_error(controller, "generate_voice", RuntimeError("timeout"), 1, ctx.services.console)
+    action = _handle_step_error(
+        controller, "generate_voice", RuntimeError("timeout"), 1, ctx.services.console
+    )
     assert action is StepAction.SKIP
 
 
@@ -61,7 +71,9 @@ def test_handle_step_error_abort(tmp_path):
     ctx = _make_ctx(tmp_path)
     controller = MagicMock()
     controller.on_step_error.return_value = StepAction.ABORT
-    action = _handle_step_error(controller, "generate_voice", RuntimeError("timeout"), 1, ctx.services.console)
+    action = _handle_step_error(
+        controller, "generate_voice", RuntimeError("timeout"), 1, ctx.services.console
+    )
     assert action is StepAction.ABORT
 
 
@@ -111,6 +123,7 @@ def test_interactive_controller_abort_default(tmp_path, monkeypatch):
 
 def test_interactive_controller_eof_aborts(tmp_path, monkeypatch):
     """InteractiveCLIController aborts on EOFError (no stdin)."""
+
     def raise_eof(_):
         raise EOFError()
 

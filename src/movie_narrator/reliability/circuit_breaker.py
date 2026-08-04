@@ -416,6 +416,7 @@ def circuit_guard(
 
     def decorator(fn: Callable[..., _T]) -> Callable[..., _T]:
         """Register a decorator function."""
+
         @wraps(fn)
         def wrapper(*args: Any, **kwargs: Any) -> _T:
             """Wrapper function for the decorator pattern."""
