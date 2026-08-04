@@ -173,7 +173,11 @@ jobs:
       - name: SAST — bandit
         run: bandit -r src/ -c pyproject.toml
       - name: Dependency audit — pip-audit
-        run: pip-audit -r pyproject.toml
+        # Audit the installed environment (the [dev] extra above pulls in
+        # every declared runtime + dev dependency). `-r pyproject.toml` is
+        # NOT valid — pip-audit treats that flag's argument as a
+        # requirements file, not a project file.
+        run: pip-audit
 
   # v0.9.5: integration tests — real-subsystem end-to-end coverage unified
   # under the ``integration`` pytest marker. Requires ffmpeg + the [media]

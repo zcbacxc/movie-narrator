@@ -204,6 +204,10 @@ class _APIHandler(BaseHTTPRequestHandler):
         if length == 0:
             return {}
         if length > _MAX_BODY_BYTES:
+            # Drain the body before rejecting so the TCP connection is left
+            # in a clean state and the client can read the 413 response
+            # instead of failing with a broken pipe mid-send.
+            self._drain_body(length)
             raise PayloadTooLargeError(
                 f"request body too large (max {_MAX_BODY_BYTES} bytes)"
             )
@@ -212,6 +216,21 @@ class _APIHandler(BaseHTTPRequestHandler):
             return json.loads(raw.decode("utf-8"))
         except (json.JSONDecodeError, UnicodeDecodeError) as e:
             raise ValueError(f"Invalid JSON body: {e}")
+
+    def _drain_body(self, length: int) -> None:
+        """Read and discard *length* request-body bytes without buffering.
+
+        v0.9.5: called after rejecting an oversized request so the client
+        can finish uploading and read the 413 response. Bytes are read in
+        chunks and discarded, never accumulated, so memory stays bounded
+        regardless of the declared ``Content-Length``.
+        """
+        remaining = length
+        while remaining > 0:
+            chunk = self.rfile.read(min(8192, remaining))
+            if not chunk:
+                break
+            remaining -= len(chunk)
 
     def _send_json(
         self,

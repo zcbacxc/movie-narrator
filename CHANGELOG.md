@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 
 - **Input sanitization (GAP: 输入净化)** — `TaskRequest` now validates every user-supplied field: bounded enums (`lang` against `SUPPORTED_LANGS`, `video_format` against `16:9`/`9:16`, `subtitle_mode`), integer ranges (`duration` 1–3600, `max_retries` 0–100, `retry_delay` 0–3600), string length caps (`movie_name` ≤ 200 non-empty after trim; `style`/`voice`/`video`/`library_dir`/`bgm`/`config_path`/`output_dir` ≤ 500; `subtitle_lang` ≤ 16; `narration_preset` ≤ 64), and `log_level` normalised to upper-case. Malformed/malicious payloads are rejected with HTTP 400 before reaching the worker. `SUPPORTED_LANGS` is exposed on `movie_narrator.utils.prompts` as the single source of truth for language validation.
-- **API request-hardening** — `POST /tasks` and `POST /tasks/batch` reject bodies larger than 1 MiB with HTTP 413 (via `Content-Length` check before reading) and the `limit` query parameter is validated (non-negative) and clamped to ≤ 500 on list endpoints.
+- **API request-hardening** — `POST /tasks` and `POST /tasks/batch` reject bodies larger than 1 MiB with HTTP 413 (via a `Content-Length` check before reading; the oversized body is drained without buffering so the client can read the response instead of failing with a broken pipe) and the `limit` query parameter is validated (non-negative) and clamped to ≤ 500 on list endpoints.
 - **Security scanning** — CI gains a `security` job running Bandit (SAST over `src/`, configured in `pyproject.toml`) and `pip-audit` (dependency vulnerability audit). Dev dependencies include `bandit>=1.7` and `pip-audit>=2.7`.
 - **Coverage gate** — new `.coveragerc` (80% line-coverage threshold, scoped to `src/movie_narrator`); enforced on the 3.11 CI matrix leg via `--cov-fail-under=80`. Dev dependency `pytest-cov>=4.1`.
 - **Integration test suite** — new `integration` pytest marker unifying end-to-end tests over real subsystems (full pipeline via ffmpeg, real scenedetect, real render). Marked files: `test_e2e_smoke.py`, `test_render_real.py`, `test_v080_real_scenedetect.py`, `test_audit_integration.py`. A dedicated CI `integration` job runs them with the `[media]` extra; the unit test-matrix and coverage gate exclude them (`-m "not integration"`).
@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- CI `security` job dependency audit — `pip-audit` now audits the installed environment instead of `pip-audit -r pyproject.toml` (which wrongly treated the project file as a requirements file and failed on the `[build-system]` section).
 - `tests/test_v093_batch_schedule.py::TestSubmitBatch::test_cancel_batch` — wait loop now waits for both the cancelled member and the reset member's completion instead of racing on `cancelled` alone.
 - `tests/test_v093_batch_schedule.py::TestBatchRequestValidation::test_format_alias_supported` — uses a valid `9:16` format value so the legacy `format` alias is exercised under the new bounded validation.
 
