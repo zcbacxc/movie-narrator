@@ -36,23 +36,23 @@ class DouyinFastPreset:
             Dictionary of preset parameters.
         """
         return {
-            # Match: 快切镜,允许较大速度拉伸
+            # Match: fast cuts, allow larger speed stretch
             "match_speed_clamp_min": 0.85,
             "match_speed_clamp_max": 1.25,
             "scene_merge_min_duration": 2.0,
             "match_drop_scene_min_duration": 0.4,
-            # BGM: 深度闪避,不抢人声
+            # BGM: deep ducking, don't overpower the voice
             "bgm_duck_db": -10.0,
             "bgm_normalize": True,
             "audio_target_dbfs": -14.0,
             # RMS-based loudnorm for consistent loudness across short-form content
             "bgm_loudnorm": True,
-            # Render: 紧凑字幕
+            # Render: compact subtitles
             "render_subtitle_position": "bottom",
             "render_font_size": 100,
-            # TTS: 紧凑停顿
+            # TTS: tight pauses
             "tts_pause_ms": 150,
-            # Prompt: 18 句×~3.3s (60s 基准), max_chars 按字速 3.8 字/s 计算
+            # Prompt: 18 sentences x ~3.3s (60s baseline); max_chars at 3.8 chars/s
             "prompt_target_sentences": 18,
             "prompt_target_segment_duration": 3.3,
             "prompt_max_chars_per_sentence": 15,

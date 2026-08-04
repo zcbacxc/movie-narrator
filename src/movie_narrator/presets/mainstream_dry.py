@@ -33,22 +33,22 @@ class MainstreamDryPreset:
             Dictionary of preset parameters.
         """
         return {
-            # Match: 慢切镜,拒绝大幅拉伸
+            # Match: slow cuts, reject large stretch
             "match_speed_clamp_min": 0.9,
             "match_speed_clamp_max": 1.05,
             "scene_merge_min_duration": 3.5,
             "match_drop_scene_min_duration": 0.5,
-            # BGM: 更轻,不抢人声
+            # BGM: lighter, don't overpower the voice
             "bgm_duck_db": -15.0,
             "bgm_normalize": True,
             "audio_target_dbfs": -14.0,
-            # Render: 厚背板字幕
+            # Render: thick backplate subtitles
             "render_subtitle_position": "bottom",
             "render_font_size": 90,
-            # TTS: 留呼吸
+            # TTS: leave breathing room
             "tts_pause_ms": 200,
-            # Prompt: 12 句×~5s (60s 基准), max_chars 按字速 3.8 字/s 计算
-            # 5.0s × 3.8 = 19.0 字, max_chars=22 留 16% 余量
+            # Prompt: 12 sentences x ~5s (60s baseline); max_chars at 3.8 chars/s
+            # 5.0s x 3.8 = 19.0 chars, max_chars=22 leaves 16% headroom
             "prompt_target_sentences": 12,
             "prompt_target_segment_duration": 5.0,
             "prompt_max_chars_per_sentence": 22,

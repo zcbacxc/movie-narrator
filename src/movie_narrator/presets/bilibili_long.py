@@ -34,22 +34,22 @@ class BilibiliLongPreset:
             Dictionary of preset parameters.
         """
         return {
-            # Match: 大场景合并,几乎不拉伸
+            # Match: merge large scenes, barely stretch
             "match_speed_clamp_min": 0.95,
             "match_speed_clamp_max": 1.02,
             "scene_merge_min_duration": 5.0,
             "match_drop_scene_min_duration": 0.8,
-            # BGM: 很轻
+            # BGM: very light
             "bgm_duck_db": -18.0,
             "bgm_normalize": True,
             "audio_target_dbfs": -16.0,
-            # Render: 小字幕,克制
+            # Render: small subtitles, restrained
             "render_subtitle_position": "bottom",
             "render_font_size": 75,
-            # TTS: 长停顿,留白
+            # TTS: long pauses, whitespace
             "tts_pause_ms": 300,
-            # Prompt: 8 句×~7.5s (60s 基准), max_chars 按字速 3.8 字/s 计算
-            # 7.5s × 3.8 = 28.5 字, max_chars=32 留 12% 余量
+            # Prompt: 8 sentences x ~7.5s (60s baseline); max_chars at 3.8 chars/s
+            # 7.5s x 3.8 = 28.5 chars, max_chars=32 leaves 12% headroom
             "prompt_target_sentences": 8,
             "prompt_target_segment_duration": 7.5,
             "prompt_max_chars_per_sentence": 32,
