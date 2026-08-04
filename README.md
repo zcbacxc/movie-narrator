@@ -35,6 +35,11 @@ Movie Narrator is an open-source toolkit that automatically generates movie reca
 - 🔌 Extensible plugin architecture
 - ☁️ Async task queue (local + remote job submission, progress polling, retry)
 - 🌐 Remote inference via REST API
+- 🛡️ Circuit breaker + retry policy for external APIs (v0.9.1)
+- 💾 Task checkpointing with resume (v0.9.2)
+- 📦 Batch job submission + cron scheduling (v0.9.3)
+- 💀 Dead-letter queue for failed task inspection and replay (v0.9.4)
+- 🌍 Conditional distributed rendering across nodes (v0.9.4)
 
 ---
 
@@ -257,7 +262,8 @@ movie-narrator/
 │   ├── models.py            # Data models (Context, Status, etc.)
 │   ├── contract.py          # Stable API contract surface
 │   ├── pipeline/            # 16-step pipeline (runner, steps, errors)
-│   ├── cloud/               # Task queue + remote inference (v0.6.x)
+│   ├── cloud/               # Task queue, remote inference, batch, scheduling, DLQ, distributed (v0.9.x)
+│   ├── reliability/         # Circuit breaker + retry policy (v0.9.1)
 │   ├── workflow/            # YAML job config (schema, loader, merge)
 │   ├── tts/                 # TTS provider abstraction layer
 │   └── utils/               # Shared utilities (console, log, font, etc.)

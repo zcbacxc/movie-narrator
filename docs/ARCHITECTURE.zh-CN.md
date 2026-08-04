@@ -131,9 +131,9 @@ run_pipeline(...) # STEPS 顺序不变
 - `.env.example` 是首次运行配置的真理源头（由 `ensure_user_config()` 读取，避免内联模板漂移）
 - 严格的 env/yaml 边界：`.env`（Settings）= 32 个 LLM + TTS 基础设施字段；`job.yaml`（params）= 77 个流水线行为键；无代码常量模块 —— 内联字面值与示例文件保持一致
 
-## 云端架构（v0.6.x）
+## 云端架构（v0.9.x）
 
-`cloud/` 包提供异步任务执行和远程推理能力，使流水线可以作为云服务运行，而非仅限于本地 CLI 工具。
+`cloud/` 包提供异步任务执行、远程推理、批量调度、可靠性保障与分布式渲染能力，使流水线可以作为云服务运行，而非仅限于本地 CLI 工具。
 
 ### 部署模式
 
@@ -157,15 +157,18 @@ run_pipeline(...) # STEPS 顺序不变
 
 ```text
 pending → running → completed
-              ↘         ↗
-            retrying   failed
-              ↘         ↗
-               cancelled
+              ↘           ↗
+            retrying    failed
+              ↘           ↗
+              cancelled
+              ↘
+              dead（重试耗尽 → DLQ，v0.9.4）
 ```
 
-- **`TaskStatus`**：`pending | running | retrying | completed | failed | cancelled`
-- **终态**：`completed`、`failed`、`cancelled`
+- **`TaskStatus`**：`pending | running | retrying | completed | failed | cancelled | dead`
+- **终态**：`completed`、`failed`、`cancelled`、`dead`
 - **重试**：瞬态错误（ConnectionError、TimeoutError、RateLimitError）触发指数退避重试，上限 `max_retries`（默认 3）
+- **死信路由（v0.9.4）**：可重试任务耗尽重试预算且 `TaskRequest.enable_dlq` 为真（默认）时，worker 将其转入 `DEAD`（DLQ）而非 `FAILED`；`DEAD` 任务计入错误指标。不可重试失败与关闭 DLQ 的任务保持原有 `FAILED` 行为。
 
 ### 关键模块
 
@@ -179,6 +182,12 @@ pending → running → completed
 | `cloud/worker.py` | `run_task` —— 流水线执行包装器，含取消 + 进度 + 重试；`CancelController` 实现 `RunController` |
 | `cloud/storage.py` | `TaskStorage` —— JSON 持久化，原子写入 |
 | `cloud/remote_provider.py` | `register_remote_llm` / `register_remote_tts` —— 代理推理；`download_artifact` / `list_artifacts` —— 拉取产物 |
+| `cloud/checkpoint.py` | `TaskCheckpoint` / `CheckpointStore` —— 每步后保存中间状态，支持断点续跑（v0.9.2） |
+| `cloud/scheduler.py` | `JobScheduler` —— 无依赖 cron 定时调度，JSON 持久化（v0.9.3） |
+| `cloud/dlq.py` | `DeadLetterStore` / `replay_dead_letter` —— 持久化死信任务并以新 ID 重放（v0.9.4） |
+| `cloud/distributed.py` | `NodeRegistry` / `DistributedRenderPlanner` / `render_task_dispatcher` —— 条件分布式渲染（v0.9.4） |
+| `reliability/circuit_breaker.py` | `CircuitBreaker` / `CircuitBreakerRegistry` —— CLOSED/OPEN/HALF_OPEN 状态机，守护外部 API 调用（v0.9.1） |
+| `reliability/retry.py` | `RetryPolicy` / `with_retry` / `with_async_retry` —— 可配置重试，指数退避（v0.9.1） |
 
 ### REST API 端点
 
@@ -194,7 +203,20 @@ pending → running → completed
 | GET | `/health` | 健康检查（`?deep=1` 返回完整报告） |
 | GET | `/ready` | 就绪探针（v0.8.2） |
 | GET | `/info` | 服务端信息（版本、worker 数） |
+| GET | `/metrics` | Prometheus 指标（v0.8.1） |
 | GET | `/openapi.json` | OpenAPI 3.1 规范（v0.8.2） |
+| POST | `/tasks/batch` | 提交一批任务（v0.9.3） |
+| GET | `/batches` | 列出批次（v0.9.3） |
+| GET | `/batches/{id}` | 获取批次及聚合进度（v0.9.3） |
+| DELETE | `/batches/{id}` | 取消批次内所有任务（v0.9.3） |
+| POST | `/schedules` | 创建 cron 定时任务（v0.9.3） |
+| GET | `/schedules` | 列出定时任务（v0.9.3） |
+| DELETE | `/schedules/{id}` | 删除定时任务（v0.9.3） |
+| GET | `/schedules/{id}/runs` | 最近触发记录（v0.9.3） |
+| GET | `/deadletters` | 列出死信记录（v0.9.4） |
+| GET | `/deadletters/{id}` | 获取死信记录（v0.9.4） |
+| POST | `/deadletters/{id}/replay` | 以新任务 ID 重放死信（v0.9.4） |
+| DELETE | `/deadletters/{id}` | 删除死信记录（v0.9.4） |
 
 ### 健康与就绪探针（v0.8.2）
 
@@ -236,6 +258,28 @@ OpenAPI 文档由 `cloud/openapi.py`（`build_openapi_spec`）生成，通过
 - **重试保留缓存**：重试时调用 `CancelController.reset()`，流水线从头重新执行 —— 缓存结果（TTS 片段、场景检测）通过内容寻址缓存复用
 - **产物管理**：已完成任务的产物通过 `/tasks/{id}/download/{file}` 提供下载，带路径遍历保护
 - **远程推理代理**：`register_remote_llm("remote")` / `register_remote_tts("remote")` 允许将 LLM/TTS 调用卸载到远程 worker，无需改动流水线代码
+
+**可靠性（v0.9.1）：**
+
+- **外部调用熔断**：`@circuit_guard("service")` 守护 LLM / TTS / TMDB / VLM 调用；OPEN 熔断抛 `CircuitOpenError`（标记为可重试）且不触网。阈值通过 `MN_CIRCUIT_*` 配置
+- **统一重试策略**：`RetryPolicy`（最大尝试次数、指数退避 + 抖动、可重试异常集合）同时支撑 `with_retry` 与 `with_async_retry`；可重试性遵循 `ProviderError.retryable` / `is_network_error()`
+
+**生命周期（v0.9.2）：**
+
+- **每步后写检查点**：`ProgressConsole.on_step_complete` 触发 `CheckpointStore` 写入；恢复计划通过 `run_pipeline(start_step=...)` 从下一步续跑。`COMPLETED` 后删除检查点，`FAILED`/`CANCELLED` 保留
+- **优雅关闭**：`LocalTaskQueue.shutdown(wait, timeout)` 以协作式取消排空在途 worker；`TaskAPIServer.begin_drain()` 在排空期间以 503 拒绝新提交。守护进程的 SIGINT/SIGTERM 处理在退出前排空（`MN_GRACEFUL_SHUTDOWN_TIMEOUT`）
+
+**批量与调度（v0.9.3）：**
+
+- **原子批次记录**：`submit_batch` 原子创建批次记录、逐任务提交，成员提交失败时降级为 `partial_failed`/`failed`
+- **等权聚合进度**：批次进度为成员进度的等权均值，随任务完成实时更新
+- **无依赖 cron**：`JobScheduler` 使用 5 段 cron 解析器 + `threading.Event` 等待（不忙轮询）；非法表达式抛 `ScheduleError`
+
+**DLQ 与分布式渲染（v0.9.4）：**
+
+- **软性、可选失败路径**：DLQ 路由与分布式渲染均为软性分支 —— 二者都不会把本可成功的任务变成失败。分发失败回退本地渲染
+- **DEAD 是终态且可观测**：入 DLQ 的任务变为 `DEAD` 并计入错误指标，从而在 Prometheus 中可见而非悄然消失
+- **条件分发**：仅在启用 + 存在健康节点 + 预估渲染 ≥ `MN_DISTRIBUTED_MIN_RENDER_SECONDS` 时才触发分布式渲染
 
 ## TTS 抽象层
 

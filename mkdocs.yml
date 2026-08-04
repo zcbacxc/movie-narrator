@@ -38,6 +38,7 @@ nav:
       - Vision: sdk/vision.md
       - Presets: sdk/presets.md
       - Cloud: sdk/cloud.md
+      - Reliability: sdk/reliability.md
 
 plugins:
   - mkdocstrings:

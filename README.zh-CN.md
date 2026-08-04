@@ -35,6 +35,11 @@ Movie Narrator 是一个开源工具包，可通过简单命令自动生成带�
 - 🔌 可扩展的插件架构
 - ☁️ 异步任务队列（本地 + 远程任务提交、进度轮询、重试）
 - 🌐 通过 REST API 远程推理
+- 🛡️ 外部 API 熔断器 + 重试策略（v0.9.1）
+- 💾 任务检查点，支持断点续跑（v0.9.2）
+- 📦 批量任务提交 + cron 定时调度（v0.9.3）
+- 💀 死信队列，失败任务检查与重放（v0.9.4）
+- 🌍 跨节点条件分布式渲染（v0.9.4）
 
 ---
 
@@ -257,7 +262,8 @@ movie-narrator/
 │   ├── models.py            # 数据模型（Context、Status 等）
 │   ├── contract.py          # 稳定 API 契约层
 │   ├── pipeline/            # 16 步流水线（runner、steps、errors）
-│   ├── cloud/               # 任务队列 + 远程推理 (v0.6.x)
+│   ├── cloud/               # 任务队列、远程推理、批量、调度、DLQ、分布式 (v0.9.x)
+│   ├── reliability/         # 熔断器 + 重试策略 (v0.9.1)
 │   ├── workflow/            # YAML 任务配置（schema、loader、merge）
 │   ├── tts/                 # TTS provider 抽象层
 │   └── utils/               # 共享工具（console、log、font 等）

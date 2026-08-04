@@ -133,9 +133,9 @@ run_pipeline(...) # STEPS order unchanged
 - `.env.example` is the single source of truth for first-run config (read by `ensure_user_config()`, not a divergent inline template)
 - Strict env/yaml boundary: `.env` (Settings) = 32 LLM + TTS infrastructure fields only; `job.yaml` (params) = 77 pipeline behavior keys; no code constants module — inline literals match example files
 
-## Cloud Architecture (v0.6.x)
+## Cloud Architecture (v0.9.x)
 
-The `cloud/` package provides async job execution and remote inference capabilities, enabling the pipeline to run as a cloud service rather than only as a local CLI tool.
+The `cloud/` package provides async job execution, remote inference, batch scheduling, reliability, and distributed rendering capabilities, enabling the pipeline to run as a cloud service rather than only as a local CLI tool.
 
 ### Deployment modes
 
@@ -159,15 +159,18 @@ Mode 2: Remote worker (client-server)
 
 ```text
 pending → running → completed
-              ↘         ↗
-            retrying   failed
-              ↘         ↗
-               cancelled
+              ↘           ↗
+            retrying    failed
+              ↘           ↗
+              cancelled
+              ↘
+              dead (exhausted retries → DLQ, v0.9.4)
 ```
 
-- **`TaskStatus`**: `pending | running | retrying | completed | failed | cancelled`
-- **Terminal states**: `completed`, `failed`, `cancelled`
+- **`TaskStatus`**: `pending | running | retrying | completed | failed | cancelled | dead`
+- **Terminal states**: `completed`, `failed`, `cancelled`, `dead`
 - **Retry**: transient errors (ConnectionError, TimeoutError, RateLimitError) trigger exponential backoff up to `max_retries` (default 3)
+- **Dead-letter routing (v0.9.4)**: when a retryable task exhausts its retry budget and `TaskRequest.enable_dlq` is set (default), the worker routes it to `DEAD` (DLQ) instead of `FAILED`; `DEAD` tasks count toward the error metric. Non-retryable failures and DLQ-disabled tasks keep the `FAILED` behaviour.
 
 ### Key modules
 
@@ -181,6 +184,12 @@ pending → running → completed
 | `cloud/worker.py` | `run_task` — pipeline wrapper with cancel + progress + retry; `CancelController` implements `RunController` |
 | `cloud/storage.py` | `TaskStorage` — JSON persistence with atomic writes |
 | `cloud/remote_provider.py` | `register_remote_llm` / `register_remote_tts` — proxy inference; `download_artifact` / `list_artifacts` — fetch outputs |
+| `cloud/checkpoint.py` | `TaskCheckpoint` / `CheckpointStore` — save intermediate state after each step, resume from checkpoint (v0.9.2) |
+| `cloud/scheduler.py` | `JobScheduler` — dependency-free cron scheduling with JSON persistence (v0.9.3) |
+| `cloud/dlq.py` | `DeadLetterStore` / `replay_dead_letter` — persist dead tasks and replay them under a fresh ID (v0.9.4) |
+| `cloud/distributed.py` | `NodeRegistry` / `DistributedRenderPlanner` / `render_task_dispatcher` — conditional distributed rendering (v0.9.4) |
+| `reliability/circuit_breaker.py` | `CircuitBreaker` / `CircuitBreakerRegistry` — CLOSED/OPEN/HALF_OPEN state machine guarding external API calls (v0.9.1) |
+| `reliability/retry.py` | `RetryPolicy` / `with_retry` / `with_async_retry` — configurable retry with exponential backoff (v0.9.1) |
 
 ### REST API endpoints
 
@@ -196,7 +205,20 @@ pending → running → completed
 | GET | `/health` | Health check (`?deep=1` for the full report) |
 | GET | `/ready` | Readiness probe (v0.8.2) |
 | GET | `/info` | Server info (version, worker count) |
+| GET | `/metrics` | Prometheus metrics (v0.8.1) |
 | GET | `/openapi.json` | OpenAPI 3.1 specification (v0.8.2) |
+| POST | `/tasks/batch` | Submit a batch of tasks (v0.9.3) |
+| GET | `/batches` | List batches (v0.9.3) |
+| GET | `/batches/{id}` | Get a batch with aggregate progress (v0.9.3) |
+| DELETE | `/batches/{id}` | Cancel every task in a batch (v0.9.3) |
+| POST | `/schedules` | Create a cron scheduled job (v0.9.3) |
+| GET | `/schedules` | List scheduled jobs (v0.9.3) |
+| DELETE | `/schedules/{id}` | Delete a scheduled job (v0.9.3) |
+| GET | `/schedules/{id}/runs` | Recent trigger records (v0.9.3) |
+| GET | `/deadletters` | List dead-letter records (v0.9.4) |
+| GET | `/deadletters/{id}` | Get a dead-letter record (v0.9.4) |
+| POST | `/deadletters/{id}/replay` | Replay a dead letter with a fresh task ID (v0.9.4) |
+| DELETE | `/deadletters/{id}` | Remove a dead-letter record (v0.9.4) |
 
 ### Health & readiness probes (v0.8.2)
 
@@ -242,6 +264,28 @@ served at `GET /openapi.json`, and can be dumped with `mn api-spec -o openapi.js
 - **Retry preserves cache**: on retry, `CancelController.reset()` is called and the pipeline re-executes from scratch — cached results (TTS segments, scene detection) are reused via content-addressable cache
 - **Artifact management**: completed task outputs served via `/tasks/{id}/download/{file}` with path-traversal protection
 - **Remote inference proxy**: `register_remote_llm("remote")` / `register_remote_tts("remote")` allow offloading LLM/TTS calls to a remote worker without changing pipeline code
+
+**Reliability (v0.9.1):**
+
+- **Circuit breaker around external calls**: `@circuit_guard("service")` guards LLM / TTS / TMDB / VLM calls; an OPEN circuit raises `CircuitOpenError` (marked retryable) without hitting the network. Thresholds via `MN_CIRCUIT_*`
+- **Single retry policy**: `RetryPolicy` (max attempts, exponential backoff + jitter, retryable-exception set) backs both `with_retry` and `with_async_retry`; retryability follows `ProviderError.retryable` / `is_network_error()`
+
+**Lifecycle (v0.9.2):**
+
+- **Checkpoint after every step**: `ProgressConsole.on_step_complete` triggers a `CheckpointStore` write; a resume plan continues from the next step via `run_pipeline(start_step=...)`. Checkpoints are deleted on `COMPLETED`, kept for `FAILED`/`CANCELLED`
+- **Graceful shutdown**: `LocalTaskQueue.shutdown(wait, timeout)` drains in-flight workers with cooperative cancel; `TaskAPIServer.begin_drain()` rejects new submissions with 503 during drain. The daemon's SIGINT/SIGTERM handler drains before exiting (`MN_GRACEFUL_SHUTDOWN_TIMEOUT`)
+
+**Batch & scheduling (v0.9.3):**
+
+- **Atomic batch record**: `submit_batch` creates the batch record atomically, submits each task, and downgrades to `partial_failed`/`failed` on member submission errors
+- **Equal-weight aggregate progress**: batch progress is the equal-weight mean of member progress, updated as tasks complete
+- **Dependency-free cron**: `JobScheduler` uses a 5-field cron parser with `threading.Event` wait (no busy-wait); invalid expressions raise `ScheduleError`
+
+**DLQ & distributed rendering (v0.9.4):**
+
+- **Soft, opt-in failure paths**: DLQ routing and distributed rendering are soft legs — neither can turn a would-be-successful task into a failed one. Distribution failures fall back to local rendering
+- **DEAD is terminal and observable**: DLQ'd tasks become `DEAD` and count toward the error metric, so they surface in Prometheus instead of vanishing
+- **Conditional dispatch**: distributed rendering fires only when enabled + a healthy node exists + estimated render ≥ `MN_DISTRIBUTED_MIN_RENDER_SECONDS`
 
 ## TTS Abstraction Layer
 

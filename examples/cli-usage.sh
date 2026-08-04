@@ -217,3 +217,33 @@ mn download <task_id> -r http://worker:8765 -o ./output
 
 # 从暂停点恢复管线
 mn resume --state output/<电影名>/pipeline_state.json
+
+# ============================================================
+# 可靠性 / 批量 / 调度 / DLQ / 分布式 (v0.9.x)
+# ============================================================
+# v0.9.x 的新特性通过 `mn serve` 的 REST API 与 `MN_*` 环境变量暴露，
+# CLI 本身不新增命令。启用方式见 `.env.example`。
+
+# 熔断器 + 重试策略（v0.9.1）— 通过环境变量配置
+#   MN_CIRCUIT_FAILURE_THRESHOLD=5
+#   MN_CIRCUIT_RECOVERY_TIMEOUT=60
+#   MN_CIRCUIT_HALF_OPEN_MAX_CALLS=3
+
+# 优雅关闭超时（v0.9.2）
+#   MN_GRACEFUL_SHUTDOWN_TIMEOUT=30
+
+# 定时调度（v0.9.3）— 启动服务时启用调度线程
+#   MN_SCHEDULER_ENABLED=1
+#   MN_SCHEDULER_POLL_INTERVAL=15
+# 之后通过 API 创建 cron 任务：POST /schedules
+
+# 批量任务（v0.9.3）— 通过 API 提交一批任务
+#   POST /tasks/batch
+
+# 分布式渲染（v0.9.4）— 通过环境变量配置节点
+#   MN_DISTRIBUTED_NODES=http://node1:8765,http://node2:8765
+#   MN_DISTRIBUTED_MIN_RENDER_SECONDS=600
+
+# 死信队列（v0.9.4）— 任务重试耗尽后自动转入 DLQ，通过 API 检查/重放
+#   GET  /deadletters
+#   POST /deadletters/<id>/replay
