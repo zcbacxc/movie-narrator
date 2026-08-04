@@ -603,6 +603,16 @@ def generate_script(ctx: Context) -> Context:
     base_count = ctx.metadata.get("prompt_target_sentences")
     seg_duration = ctx.metadata.get("prompt_target_segment_duration")
 
+    # i18n (v0.9.6): `lang` is the single source of truth for the narration
+    # language (default "zh"). Record the language the script step actually
+    # used so downstream steps (match / export) and metadata.json can be
+    # language-aware. Both BEATS_PROMPT and EXPAND_PROMPT already inject
+    # ``build_language_hint(lang)``, so en narration is generated via the
+    # English language directive; zh (default) is unchanged.
+    narration_lang = ctx.metadata.get("lang", "zh")
+    ctx.metadata.setdefault("narration_lang", narration_lang)
+    ctx.metadata.setdefault("script_lang", narration_lang)
+
     # Track judge scores across retry attempts so the feedback
     # hint can be injected into the next retry's expand prompt, turning
     # blind retries into targeted corrections.

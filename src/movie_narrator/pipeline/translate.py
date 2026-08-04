@@ -260,6 +260,14 @@ def translate_subtitles(ctx: Context) -> Context:
     source_lang = (ctx.metadata.get("translate_source_lang") or narration_lang)
     ctx.metadata.setdefault("translate_source_lang", source_lang)
 
+    # i18n (v0.9.6): record the full translation direction + both narration
+    # and script language so the i18n pipeline is auditable in metadata.json.
+    # ``lang`` is the narration language; subtitle_lang is the target the
+    # subtitle(s) are translated into.
+    ctx.metadata.setdefault("narration_lang", narration_lang)
+    ctx.metadata.setdefault("script_lang", narration_lang)
+    ctx.metadata["translate_target_lang"] = target_lang
+
     texts = [seg.text for seg in ctx.timed_segments]
 
     # CI passthrough: copy originals, mark skipped, no network.

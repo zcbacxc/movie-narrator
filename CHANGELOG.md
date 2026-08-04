@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.6] - 2026-08-04
+
+### Added
+
+- **Full i18n pipeline (中英双语)** — the pipeline is now language-aware. `generate_script` records `narration_lang` / `script_lang` from `lang` (default `"zh"`), and the two-phase script prompts inject a language instruction so narration is generated in the target language (`zh` or `en`). `select_script_prompt(lang)` selects the language-appropriate script template. The translate step records the full i18n chain (`narration_lang`, `script_lang`, `translate_source_lang`, `translate_target_lang`). Matching is language-aware: when translated texts are aligned with the timed segments, the match step uses the translated (target-language) text via `_resolve_match_texts`, recording `match_lang` and `match_text_source` (`"translated"` or `"narration"`). New metadata keys added to `MetadataDict`.
+- **Localized TTS voices (语音映射)** — new `movie_narrator.tts.voice_map` module with `DEFAULT_VOICE_MAP` (language → provider → default voice id, provider-aware: `edge` / `openai` / `mimo`) and `resolve_voice(lang, provider, explicit_voice, settings)`. Voice resolution priority: explicit per-job `voice` > per-language config override (`voice_zh` / `voice_en`, env `MN_VOICE_ZH` / `MN_VOICE_EN`) > `DEFAULT_VOICE_MAP[lang][provider]` > `settings.default_voice`. `generate_voice` now resolves the narration voice from `lang` via this mapping, so each language gets a sensible default speaker while explicit overrides stay intact. Language tags are normalized to ISO 639-1 (e.g. `zh-CN` → `zh`).
+- New public exports on `movie_narrator.contract`: `DEFAULT_VOICE_MAP`, `SUPPORTED_PROVIDERS`, `resolve_voice`. `CONTRACT_VERSION` bumped to `(0, 9, 5)` (MINOR: new exports, backward compatible).
+- `tests/test_v096_i18n_pipeline.py` — 8 test cases covering language-aware script generation, `select_script_prompt`, the translate i18n chain, and language-aware matching.
+- `tests/test_v096_voice_map.py` — 14 test cases covering per-language default mapping, explicit-voice override, provider awareness, per-language config override, fallback to `default_voice`, and language-tag normalization.
+
 ## [0.9.5] - 2026-08-04
 
 ### Added

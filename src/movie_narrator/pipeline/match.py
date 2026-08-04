@@ -203,6 +203,21 @@ def _embed_texts(texts: List[str], model_name: str = _EMBEDDING_MODEL_NAME):
     return arr / norms
 
 
+def _resolve_match_texts(ctx: Context) -> List[str]:
+    """Return the narration texts to embed for matching in the target language.
+
+    i18n pipeline (v0.9.6): when ``translated_texts`` are present and aligned
+    with ``timed_segments`` (i.e. the narration was translated to
+    ``subtitle_lang``), the embedding re-rank should match against the
+    target-language text so it aligns with the scene captions' transcription
+    language. Otherwise fall back to the narration segments' own text (which is
+    already written in the narration ``lang``).
+    """
+    if ctx.translated_texts and len(ctx.translated_texts) == len(ctx.timed_segments):
+        return list(ctx.translated_texts)
+    return [seg.text for seg in ctx.timed_segments]
+
+
 def _cosine_top1(target_vec, candidate_matrix) -> int:
     """Return index of the candidate with the highest cosine similarity.
 
@@ -775,6 +790,19 @@ def _match_clips_impl(
     drop_min: float,
     output_dir: Path,
 ) -> Context:
+    # i18n (v0.9.6): match in the target language. When the narration was
+    # translated to subtitle_lang (translated_texts present & aligned), the
+    # embedding re-rank matches the target-language text against the scene
+    # captions; otherwise it matches the narration text (already in `lang`).
+    # Record which language and which text source were used for auditability.
+    match_texts = _resolve_match_texts(ctx)
+    if ctx.translated_texts and len(ctx.translated_texts) == len(ctx.timed_segments):
+        ctx.metadata["match_text_source"] = "translated"
+        ctx.metadata["match_lang"] = ctx.metadata.get("subtitle_lang", ctx.metadata.get("lang", "zh"))
+    else:
+        ctx.metadata["match_text_source"] = "narration"
+        ctx.metadata["match_lang"] = ctx.metadata.get("lang", "zh")
+
     # Optionally merge short scenes to reduce extreme speed factors
     scenes = ctx.scenes
     scenes_in = len(ctx.scenes)  # original scene count
@@ -1093,7 +1121,7 @@ def _match_clips_impl(
                 # Extract labels from (label, is_fake) tuples
                 scene_labels = [label for label, _ in scene_captions]
                 scene_vecs = _embed_texts(scene_labels, emb_model)
-                narration_vecs = _embed_texts([seg.text for seg in ctx.timed_segments], emb_model)
+                narration_vecs = _embed_texts(match_texts, emb_model)
 
                 # Greedy top-K assignment with reuse penalty
                 topk_results = _greedy_topk_assign(

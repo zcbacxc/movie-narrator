@@ -146,6 +146,12 @@ class Settings(BaseSettings):
     tmdb_language: str = "zh-CN"
     # ── TTS ──
     default_voice: str = "zh-CN-YunxiNeural"
+    # v0.9.6: per-language voice overrides (MN_VOICE_ZH / MN_VOICE_EN).
+    # Provider-agnostic, like default_voice — the value is interpreted by
+    # the active provider. Takes precedence over the language→voice default
+    # map but below an explicit job-level "voice" (metadata).
+    voice_zh: Optional[str] = None
+    voice_en: Optional[str] = None
     tts_provider: TTSProviderType = TTSProviderType.EDGE
     openai_tts_model: str = "tts-1"
     openai_tts_api_key: Optional[str] = None

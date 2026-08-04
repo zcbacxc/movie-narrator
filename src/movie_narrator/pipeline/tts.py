@@ -15,6 +15,7 @@ from ..utils.audio_qa import analyze_segment, aggregate_metrics
 from ..utils.console import step_timing
 from ..utils.prosody import emotion_to_speed, apply_speed, map_segment_emotions
 from ..tts import TTSCacheKey, get_tts_provider, is_ci
+from ..tts.voice_map import resolve_voice
 from ..tts.cache import (
     cache_path_for,
     CACHE_SCHEMA_VERSION,
@@ -63,7 +64,15 @@ def generate_voice(ctx: Context) -> Context:
     cache_root = output_dir / "cache" / "tts" / settings.tts_provider.value
     cache_root.mkdir(parents=True, exist_ok=True)
 
-    voice = ctx.metadata.get("voice") or settings.default_voice
+    voice = (
+        resolve_voice(
+            ctx.metadata.get("lang", "zh"),
+            settings.tts_provider.value,
+            explicit_voice=ctx.metadata.get("voice"),
+            settings=settings,
+        )
+        or settings.default_voice
+    )
     provider = get_tts_provider(settings)
     pause_ms = ctx.metadata.get("tts_pause_ms", 300)
     max_concurrent = ctx.metadata.get("tts_max_concurrent", 3)
