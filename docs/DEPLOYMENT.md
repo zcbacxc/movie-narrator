@@ -1,6 +1,7 @@
-# Deployment
+[![English](https://img.shields.io/badge/English-Deployment-blue)](DEPLOYMENT.md)
+[![简体中文](https://img.shields.io/badge/简体中文-部署指南-green)](DEPLOYMENT.zh-CN.md)
 
-> 中文版本：[DEPLOYMENT.zh-CN.md](DEPLOYMENT.zh-CN.md)
+# Deployment
 
 Container images and a local cluster for `movie-narrator` (v0.8.4).
 
