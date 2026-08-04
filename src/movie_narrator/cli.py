@@ -1383,12 +1383,12 @@ def serve(
     )
 
     if public:
-        host = "0.0.0.0"
+        host = "0.0.0.0"  # nosec B104  # explicit opt-in via --public; guarded by API-key check below
 
     settings = get_settings()
     effective_api_key = api_key or settings.api_key
 
-    if host == "0.0.0.0":
+    if host == "0.0.0.0":  # nosec B104  # comparing the explicit --public host, not a listener
         if effective_api_key is None and not insecure:
             typer.echo(
                 "WARNING: serving on 0.0.0.0 without an API key.\n"

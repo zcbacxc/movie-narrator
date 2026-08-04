@@ -78,7 +78,7 @@ logger = logging.getLogger(__name__)
 # ── Constants ──────────────────────────────────────────────
 
 #: Result status for a check that passed.
-STATUS_PASS = "pass"
+STATUS_PASS = "pass"  # nosec B105  # health-check status literal, not a credential
 #: Result status for a check that failed.
 STATUS_FAIL = "fail"
 #: Result status for a check that was deliberately not run.
@@ -296,7 +296,7 @@ def _probe_url(url: str) -> Tuple[bool, str]:
     """
     request = urllib.request.Request(url, method="HEAD")
     try:
-        with urllib.request.urlopen(request, timeout=DEP_PROBE_TIMEOUT) as resp:
+        with urllib.request.urlopen(request, timeout=DEP_PROBE_TIMEOUT) as resp:  # nosec B310  # HEAD probe to configured dependency
             return True, f"reachable (HTTP {resp.status})"
     except urllib.error.HTTPError as e:
         return True, f"reachable (HTTP {e.code})"

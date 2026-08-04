@@ -109,6 +109,24 @@ _SCHEDULE_RUNS_PATTERN = re.compile(r"^/schedules/([a-f0-9]+)/runs$")
 
 _METRICS_PATH = "/metrics"
 
+#: Max accepted request body size in bytes (v0.9.5). A batch of up to 50
+#: task requests is well under this limit; anything larger is rejected as
+#: payload-too-large before the body is read, protecting the server from
+#: unbounded memory consumption on a single request.
+_MAX_BODY_BYTES = 1024 * 1024  # 1 MiB
+
+#: Max ``limit`` query value for list endpoints (v0.9.5). Bounds the
+#: number of records a single request can retrieve.
+_MAX_LIST_LIMIT = 500
+
+
+class PayloadTooLargeError(Exception):
+    """Raised when a request body exceeds ``_MAX_BODY_BYTES`` (v0.9.5).
+
+    Distinct from :class:`ValueError` so the API layer can return an
+    HTTP 413 instead of a generic 400 for an oversized body.
+    """
+
 #: Environment variable opting ``/metrics`` out of API-key auth.
 _ENV_METRICS_PUBLIC = "MN_METRICS_PUBLIC"
 
@@ -175,10 +193,20 @@ class _APIHandler(BaseHTTPRequestHandler):
     # ── Helpers ─────────────────────────────────────────────
 
     def _read_body(self) -> Dict[str, Any]:
-        """Read and parse JSON body from the request."""
+        """Read and parse JSON body from the request.
+
+        v0.9.5: requests whose declared ``Content-Length`` exceeds
+        ``_MAX_BODY_BYTES`` are rejected with :class:`PayloadTooLargeError`
+        before any bytes are read, so a hostile client cannot force the
+        server to buffer an unbounded body.
+        """
         length = int(self.headers.get("Content-Length", 0))
         if length == 0:
             return {}
+        if length > _MAX_BODY_BYTES:
+            raise PayloadTooLargeError(
+                f"request body too large (max {_MAX_BODY_BYTES} bytes)"
+            )
         raw = self.rfile.read(length)
         try:
             return json.loads(raw.decode("utf-8"))
@@ -389,7 +417,11 @@ class _APIHandler(BaseHTTPRequestHandler):
                 except ValueError:
                     self._send_error(HTTPStatus.BAD_REQUEST, f"Invalid status: {query['status']}")
                     return
-            limit = int(query.get("limit", "50"))
+            try:
+                limit = self._parse_limit(query.get("limit"))
+            except ValueError:
+                self._send_error(HTTPStatus.BAD_REQUEST, "Invalid limit")
+                return
             tasks = self.queue.list_tasks(status=status_filter, limit=limit)
             self._send_json({
                 "tasks": [t.to_summary() for t in tasks],
@@ -447,7 +479,7 @@ class _APIHandler(BaseHTTPRequestHandler):
         if path == "/batches":
             query = self._parse_query()
             try:
-                limit = int(query.get("limit", "50"))
+                limit = self._parse_limit(query.get("limit"))
             except ValueError:
                 self._send_error(HTTPStatus.BAD_REQUEST, "Invalid limit")
                 return
@@ -542,6 +574,9 @@ class _APIHandler(BaseHTTPRequestHandler):
 
             try:
                 body = self._read_body()
+            except PayloadTooLargeError as e:
+                self._send_error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, str(e))
+                return
             except ValueError as e:
                 self._send_error(HTTPStatus.BAD_REQUEST, str(e))
                 return
@@ -564,6 +599,9 @@ class _APIHandler(BaseHTTPRequestHandler):
         if path == "/tasks/batch":
             try:
                 body = self._read_body()
+            except PayloadTooLargeError as e:
+                self._send_error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, str(e))
+                return
             except ValueError as e:
                 self._send_error(HTTPStatus.BAD_REQUEST, str(e))
                 return
@@ -609,6 +647,9 @@ class _APIHandler(BaseHTTPRequestHandler):
         if path == "/schedules":
             try:
                 body = self._read_body()
+            except PayloadTooLargeError as e:
+                self._send_error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, str(e))
+                return
             except ValueError as e:
                 self._send_error(HTTPStatus.BAD_REQUEST, str(e))
                 return
@@ -715,6 +756,20 @@ class _APIHandler(BaseHTTPRequestHandler):
             else:
                 result[pair] = ""
         return result
+
+    def _parse_limit(self, raw: Optional[str]) -> int:
+        """Parse and clamp a ``limit`` query parameter (v0.9.5).
+
+        Returns the clamped value and raises :class:`ValueError` for a
+        non-numeric or negative input, so callers can return a 400
+        instead of letting :func:`int` raise an unhandled 500.
+        """
+        if raw is None:
+            return 50
+        value = int(raw)
+        if value < 0:
+            raise ValueError("limit must be >= 0")
+        return min(value, _MAX_LIST_LIMIT)
 
     # ── Artifact helpers ────────────────────────────────────
 

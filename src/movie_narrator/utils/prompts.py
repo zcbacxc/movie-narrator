@@ -92,6 +92,12 @@ _LANG_NAMES: dict[str, str] = {
     "de": "German (Deutsch)",
 }
 
+#: Language codes with a known narration directive (v0.9.5). Exposed as
+#: the single source of truth for validating user-supplied ``lang``
+#: values (CLI, API, job config) — anything outside this set has no
+#: language hint and defaults to the existing Chinese behaviour.
+SUPPORTED_LANGS: frozenset[str] = frozenset(_LANG_NAMES)
+
 
 def build_language_hint(lang: str = "") -> str:
     """Build the language directive for BEATS_PROMPT and EXPAND_PROMPT.

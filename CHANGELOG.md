@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.5] - 2026-08-04
+
+### Added
+
+- **Input sanitization (GAP: 输入净化)** — `TaskRequest` now validates every user-supplied field: bounded enums (`lang` against `SUPPORTED_LANGS`, `video_format` against `16:9`/`9:16`, `subtitle_mode`), integer ranges (`duration` 1–3600, `max_retries` 0–100, `retry_delay` 0–3600), string length caps (`movie_name` ≤ 200 non-empty after trim; `style`/`voice`/`video`/`library_dir`/`bgm`/`config_path`/`output_dir` ≤ 500; `subtitle_lang` ≤ 16; `narration_preset` ≤ 64), and `log_level` normalised to upper-case. Malformed/malicious payloads are rejected with HTTP 400 before reaching the worker. `SUPPORTED_LANGS` is exposed on `movie_narrator.utils.prompts` as the single source of truth for language validation.
+- **API request-hardening** — `POST /tasks` and `POST /tasks/batch` reject bodies larger than 1 MiB with HTTP 413 (via `Content-Length` check before reading) and the `limit` query parameter is validated (non-negative) and clamped to ≤ 500 on list endpoints.
+- **Security scanning** — CI gains a `security` job running Bandit (SAST over `src/`, configured in `pyproject.toml`) and `pip-audit` (dependency vulnerability audit). Dev dependencies include `bandit>=1.7` and `pip-audit>=2.7`.
+- **Coverage gate** — new `.coveragerc` (80% line-coverage threshold, scoped to `src/movie_narrator`); enforced on the 3.11 CI matrix leg via `--cov-fail-under=80`. Dev dependency `pytest-cov>=4.1`.
+- **Integration test suite** — new `integration` pytest marker unifying end-to-end tests over real subsystems (full pipeline via ffmpeg, real scenedetect, real render). Marked files: `test_e2e_smoke.py`, `test_render_real.py`, `test_v080_real_scenedetect.py`, `test_audit_integration.py`. A dedicated CI `integration` job runs them with the `[media]` extra; the unit test-matrix and coverage gate exclude them (`-m "not integration"`).
+- `tests/test_v095_input_sanitization.py` — 20 test cases covering TaskRequest field constraints and HTTP-level rejection (413 body size, 400 invalid enum/limit, clamping).
+
+### Changed
+
+- CI unit test-matrix now runs only non-integration tests (`-m "not integration"`); end-to-end tests over real subsystems run in the dedicated `integration` job with the `[media]` extra.
+
+### Fixed
+
+- `tests/test_v093_batch_schedule.py::TestSubmitBatch::test_cancel_batch` — wait loop now waits for both the cancelled member and the reset member's completion instead of racing on `cancelled` alone.
+- `tests/test_v093_batch_schedule.py::TestBatchRequestValidation::test_format_alias_supported` — uses a valid `9:16` format value so the legacy `format` alias is exercised under the new bounded validation.
+
 ## [0.9.4] - 2026-08-03
 
 ### Added
@@ -1151,7 +1171,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `workflow_steps` and `params` metadata injection.
 - Console log refactoring design.
 
-[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v0.9.4...HEAD
+[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v0.9.5...HEAD
+[0.9.5]: https://github.com/zcbacxc/movie-narrator/compare/v0.9.4...v0.9.5
 [0.9.4]: https://github.com/zcbacxc/movie-narrator/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/zcbacxc/movie-narrator/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/zcbacxc/movie-narrator/compare/v0.9.1...v0.9.2

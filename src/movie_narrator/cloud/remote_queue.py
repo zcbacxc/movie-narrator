@@ -109,7 +109,7 @@ class RemoteTaskQueue:
         )
 
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:  # nosec B310  # API call to configured remote queue
                 raw = resp.read()
                 return json.loads(raw.decode("utf-8"))
         except urllib.error.HTTPError as e:

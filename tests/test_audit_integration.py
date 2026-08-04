@@ -29,6 +29,9 @@ from movie_narrator.pipeline.script import (
 )
 
 
+pytestmark = pytest.mark.integration
+
+
 @pytest.fixture(autouse=True)
 def _clear_embedding_cache():
     """Clear lru_cache between tests so mock SentenceTransformer doesn't leak."""

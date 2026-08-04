@@ -29,10 +29,13 @@ try:
 except Exception:  # noqa: BLE001
     _CV2_OK = False
 
-pytestmark = pytest.mark.skipif(
-    not (_SCENEDET_OK and _CV2_OK),
-    reason="requires [media] extra (PySceneDetect + OpenCV); skipped in CI",
-)
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.skipif(
+        not (_SCENEDET_OK and _CV2_OK),
+        reason="requires [media] extra (PySceneDetect + OpenCV); skipped in CI",
+    ),
+]
 
 
 def _write_synthetic_video(path: Path, seconds: float = 2.0, fps: int = 30) -> None:

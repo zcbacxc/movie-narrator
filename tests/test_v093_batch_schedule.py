@@ -145,11 +145,11 @@ class TestBatchRequestValidation:
         assert batch.name == "big"
 
     def test_format_alias_supported(self):
-        """The legacy ``format`` alias works inside batch requests."""
+        """The legacy ``format`` alias works inside batch requests (v0.9.5)."""
         batch = BatchRequest(
-            requests=[{"movie_name": "x", "format": "4:3"}]
+            requests=[{"movie_name": "x", "format": "9:16"}]
         )
-        assert batch.requests[0].video_format == "4:3"
+        assert batch.requests[0].video_format == "9:16"
 
 
 # ════════════════════════════════════════════════════════════
@@ -279,7 +279,13 @@ class TestSubmitBatch:
 
         deadline = time.time() + 10
         refreshed = queue.get_batch(batch.batch_id)
-        while time.time() < deadline and refreshed.progress.cancelled == 0:
+        # Wait until BOTH the cancelled member is counted AND the reset
+        # (second) member reaches a terminal state. The cancelled member is
+        # reported first, so breaking on cancelled alone races the second
+        # task's completion (v0.9.5 test-robustness fix).
+        while time.time() < deadline and (
+            refreshed.progress.cancelled == 0 or refreshed.progress.completed == 0
+        ):
             time.sleep(0.05)
             refreshed = queue.get_batch(batch.batch_id)
         # One member was cancelled, the second (reset) member completed.
