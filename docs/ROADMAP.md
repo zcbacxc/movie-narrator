@@ -17,7 +17,7 @@
 | v0.6.x | Task Queue & Remote Inference | Async job system, task persistence, cancellation, progress tracking, retry; REST API server, remote task queue, worker daemon, artifact management, remote provider proxies. `CONTRACT_VERSION` → `(0, 6, 1)` |
 | v0.7.x | Output Experience | GPU encoding, cost tracking, preview mode, scene transitions, text animation, multi-track audio, security hardening. `CONTRACT_VERSION` → `(0, 7, 2)` |
 | v0.8.x | Service Deployment Basics | API key authentication (X-API-Key middleware), format→video_format rename, render template system (preset styling with safe areas), exception narrowing (45 broad catches → specific types), ruff/mypy lint toolchain + pytest-timeout, queue deadlock fix. `CONTRACT_VERSION` → `(0, 8, 0)` |
-| v0.9.x | Reliability & Batch | Circuit breaker + retry policy framework (v0.9.1), task checkpointing + graceful shutdown (v0.9.2), batch job submission + cron scheduled jobs (v0.9.3), dead-letter queue + conditional distributed rendering (v0.9.4), input sanitization + security scanning + integration tests + coverage gate (v0.9.5), i18n pipeline + localized TTS voices + Web UI localization (v0.9.6). `CONTRACT_VERSION` → `(0, 9, 5)` |
+| v0.9.x | Reliability, Batch & Docs | Circuit breaker + retry policy framework (v0.9.1), task checkpointing + graceful shutdown (v0.9.2), batch job submission + cron scheduled jobs (v0.9.3), dead-letter queue + conditional distributed rendering (v0.9.4), input sanitization + security scanning + integration tests + coverage gate (v0.9.5), i18n pipeline + localized TTS voices + Web UI localization (v0.9.6), documentation & governance — tutorial series, ADR-001..010, migration guide (v0.9.7). `CONTRACT_VERSION` → `(0, 9, 5)` |
 
 ---
 
@@ -34,76 +34,6 @@ The original v0.6.2–v0.6.4 plan (distributed rendering, API gateway & auth, cl
 - **JWT / multi-tenant isolation / token bucket rate limiting** — deferred to post-v1.0, pending community demand
 
 ---
-
-### v0.8.x — Service Deployment Basics (delivered across v0.8.0–v0.8.4)
-
-> **Goal**: Deployable as a reliable single-tenant service, without over-engineering.
-
-**Delivered in v0.8.0:**
-
-- [x] API key authentication — server-side `X-API-Key` validation middleware (client-side header already sent by `RemoteTaskQueue` / `remote_provider`)
-- [x] CONTRACT_VERSION → `(0, 8, 0)` — service deployment types exported via SDK
-- [x] Render template system — preset-based styling with safe areas, watermark, disclaimer
-- [x] Exception narrowing — broad `except Exception` blocks narrowed to specific types
-- [x] Lint toolchain — ruff BLE+A rules, mypy, pytest-timeout CI protection
-
-**Deferred to v0.8.x point releases:**
-
-- [x] Dockerfile — multi-stage build (builder + runtime), GPU support (v0.8.4)
-- [x] docker-compose.yml — local cluster (API + N workers + storage) (v0.8.4)
-- [x] Storage backend abstraction — `StorageBackend` protocol (local / S3) (v0.8.3)
-- [x] Artifact lifecycle — TTL-based cleanup (v0.8.3)
-- [x] Structured logging — JSON format with correlation IDs (v0.8.1)
-- [x] Prometheus metrics — `/metrics` endpoint (task count, queue depth, render duration, error rate) (v0.8.1)
-- [x] Health/readiness probes — `/ready` endpoint + deep health check with dependency connectivity (`/health` already exists in v0.6.1) (v0.8.2)
-- [x] OpenAPI spec — auto-generated API documentation (v0.8.2)
-
-### v0.9.x — Reliability & Batch (delivered across v0.9.1–v0.9.4)
-
-> **Goal**: Long-running tasks don't lose progress; batch video production has scheduling.
-
-**Delivered:**
-
-- [x] Circuit breaker — for external APIs (LLM, TTS, TMDB, VLM) (v0.9.1)
-- [x] Task checkpointing — save intermediate state for long renders, support resume from checkpoint (v0.9.2)
-- [x] Graceful shutdown — drain in-flight tasks before process exit (v0.9.2)
-- [x] Retry policy framework — configurable per-step retry strategies (v0.9.1)
-- [x] Batch job submission — submit N movies in one API request (v0.9.3)
-- [x] Scheduled jobs — cron-based recurring task submission (v0.9.3)
-- [x] Batch progress tracking — aggregate progress across sub-tasks (v0.9.3)
-- [x] Dead letter queue — failed tasks moved to DLQ for inspection and replay (v0.9.4)
-- [x] Distributed rendering (conditional) — trigger: single-machine render > 10 minutes with multiple nodes; builds on v0.8.0 containerization (v0.9.4)
-- [x] CONTRACT_VERSION → `(0, 9, 4)` — reliability, batch and distributed types exported via SDK
-
-#### v0.9.5 — Polish & Completeness (delivered)
-
-> **Goal**: Security, internationalization, and documentation fully ready for v1.0.
-
-**Delivered:**
-
-- [x] Input sanitization — comprehensive validation for all API inputs (v0.9.5)
-- [x] Security scanning — dependency audit, SAST in CI pipeline (v0.9.5)
-- [x] Integration test suite — cross-module and end-to-end tests (v0.9.5)
-- [x] Test coverage gate — 80% coverage enforced in CI (v0.9.5)
-
-#### v0.9.6 — Internationalization (delivered)
-
-> **Goal**: Language-aware narration and multilingual user experience.
-
-**Delivered:**
-
-- [x] Full i18n pipeline — language-aware script generation and matching (zh/en) (v0.9.6)
-- [x] Localized TTS voices — per-language voice selection with fallback (v0.9.6)
-- [x] Web UI localization — i18n support in movie-narrator-web (v0.9.6)
-- [x] CONTRACT_VERSION → `(0, 9, 5)` — i18n & voice-map exports via SDK
-
-#### v0.9.7 — Documentation & Governance (planned)
-
-> **Goal**: Ship the documentation depth needed for v1.0 stability.
-
-- [ ] Tutorial series — getting started → advanced usage walkthroughs
-- [ ] Architecture Decision Records (ADRs) — key design decisions documented
-- [ ] Migration guide — v0.x → v1.0 upgrade path
 
 ### v1.0.0 — Stable Release
 
