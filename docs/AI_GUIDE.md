@@ -11,6 +11,7 @@
 |------|------|
 | Project overview and installation | [README](../README.md) |
 | 5-minute quickstart | [QUICKSTART.md](QUICKSTART.md) |
+| From-zero-to-advanced walkthrough | [TUTORIAL.md](TUTORIAL.md) |
 | LLM provider configuration | [LLM_PROVIDERS.md](LLM_PROVIDERS.md) |
 
 ## Architecture & Design
@@ -18,6 +19,7 @@
 | Topic | Document |
 |------|------|
 | System architecture and component relationships | [ARCHITECTURE.md](ARCHITECTURE.md) |
+| Architecture decision records | [ADR.md](ADR.md) |
 | Metadata field reference | [METADATA_SCHEMA.md](METADATA_SCHEMA.md) |
 | 16-step pipeline and step responsibilities | [ARCHITECTURE.md § Pipeline Overview](ARCHITECTURE.md#pipeline-overview) |
 
@@ -35,6 +37,7 @@
 |------|------|
 | Contributing guide | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Version roadmap | [ROADMAP.md](ROADMAP.md) |
+| v0.x → v1.0 upgrade path | [MIGRATION.md](MIGRATION.md) |
 
 ## CLI Command Cheat Sheet
 

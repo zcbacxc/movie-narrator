@@ -18,7 +18,7 @@
 | v0.6.1 | Remote Inference | REST API server, remote task queue, worker daemon, artifact management, remote provider proxies, CLI commands. `CONTRACT_VERSION` → `(0, 6, 1)` |
 | v0.7.x | Output Experience | GPU encoding, cost tracking, preview mode, scene transitions, text animation, multi-track audio, security hardening. `CONTRACT_VERSION` → `(0, 7, 2)` |
 | v0.8.0 | Service Deployment Basics | API key authentication (X-API-Key middleware), format→video_format rename, render template system (preset styling with safe areas), exception narrowing (45 broad catches → specific types), ruff/mypy lint toolchain + pytest-timeout, queue deadlock fix. `CONTRACT_VERSION` → `(0, 8, 0)` |
-| v0.9.x | Reliability & Batch | Circuit breaker + retry policy framework (v0.9.1), task checkpointing + graceful shutdown (v0.9.2), batch job submission + cron scheduled jobs (v0.9.3), dead-letter queue + conditional distributed rendering (v0.9.4). `CONTRACT_VERSION` → `(0, 9, 4)` |
+| v0.9.x | Reliability & Batch | Circuit breaker + retry policy framework (v0.9.1), task checkpointing + graceful shutdown (v0.9.2), batch job submission + cron scheduled jobs (v0.9.3), dead-letter queue + conditional distributed rendering (v0.9.4), input sanitization + security scanning + integration tests + coverage gate (v0.9.5), i18n pipeline + localized TTS voices + Web UI localization (v0.9.6). `CONTRACT_VERSION` → `(0, 9, 5)` |
 
 ---
 
@@ -87,13 +87,16 @@ The original v0.6.2–v0.6.4 plan (distributed rendering, API gateway & auth, cl
 - [x] Integration test suite — cross-module and end-to-end tests (v0.9.5)
 - [x] Test coverage gate — 80% coverage enforced in CI (v0.9.5)
 
-#### v0.9.6 — Internationalization (planned)
+#### v0.9.6 — Internationalization (delivered)
 
 > **Goal**: Language-aware narration and multilingual user experience.
 
-- [ ] Full i18n pipeline — language-aware script generation and matching (zh/en)
-- [ ] Localized TTS voices — per-language voice selection with fallback
-- [ ] Web UI localization — i18n support in movie-narrator-web
+**Delivered:**
+
+- [x] Full i18n pipeline — language-aware script generation and matching (zh/en) (v0.9.6)
+- [x] Localized TTS voices — per-language voice selection with fallback (v0.9.6)
+- [x] Web UI localization — i18n support in movie-narrator-web (v0.9.6)
+- [x] CONTRACT_VERSION → `(0, 9, 5)` — i18n & voice-map exports via SDK
 
 #### v0.9.7 — Documentation & Governance (planned)
 

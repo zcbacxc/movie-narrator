@@ -11,6 +11,7 @@
 |------|------|
 | 项目简介与安装 | [README](../README.md) / [README.zh-CN](../README.zh-CN.md) |
 | 5 分钟快速开始 | [QUICKSTART.md](QUICKSTART.md) |
+| 从零到进阶完整走查 | [TUTORIAL.zh-CN.md](TUTORIAL.zh-CN.md) |
 | LLM 服务商配置 | [LLM_PROVIDERS.md](LLM_PROVIDERS.md) |
 
 ## 架构与设计
@@ -18,6 +19,7 @@
 | 主题 | 文档 |
 |------|------|
 | 系统架构与组件关系 | [ARCHITECTURE.zh-CN.md](ARCHITECTURE.zh-CN.md) |
+| 架构决策记录 | [ADR.zh-CN.md](ADR.zh-CN.md) |
 | 元数据字段参考 | [METADATA_SCHEMA.md](METADATA_SCHEMA.md) |
 | 16 步流水线与步骤职责 | [ARCHITECTURE.zh-CN.md § 流水线总览](ARCHITECTURE.zh-CN.md#流水线总览) |
 
@@ -35,6 +37,7 @@
 |------|------|
 | 贡献指南 | [CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md) |
 | 版本路线图 | [ROADMAP.zh-CN.md](ROADMAP.zh-CN.md) |
+| v0.x → v1.0 升级路径 | [MIGRATION.zh-CN.md](MIGRATION.zh-CN.md) |
 
 ## CLI 命令速查
 
