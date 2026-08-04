@@ -11,16 +11,16 @@
 
 ## 目录
 
-- [前置条件](#prerequisites)
-- [教程 1 —— 快速创建你的第一个视频](#tutorial-1--create-your-first-video-fast)
-- [教程 2 —— 配置 `job.yaml`](#tutorial-2--configure-jobyaml)
-- [教程 3 —— Presets 与样式](#tutorial-3--presets--styles)
-- [教程 4 —— 多语言与配音](#tutorial-4--multilingual--voice)
-- [教程 5 —— 高级 pipeline 控制](#tutorial-5--advanced-pipeline-control)
-- [教程 6 —— 异步任务与远程服务](#tutorial-6--async-jobs--remote-service)
-- [教程 7 —— 批量与可靠性](#tutorial-7--batch--reliability)
-- [教程 8 —— 插件](#tutorial-8--plugins)
-- [下一步](#next-steps)
+- [前置条件](#前置条件)
+- [教程 1 —— 快速创建你的第一个视频](#教程-1--快速创建你的第一个视频)
+- [教程 2 —— 配置 `job.yaml`](#教程-2--配置-jobyaml)
+- [教程 3 —— Presets 与样式](#教程-3--presets-与样式)
+- [教程 4 —— 多语言与配音](#教程-4--多语言与配音)
+- [教程 5 —— 高级 pipeline 控制](#教程-5--高级-pipeline-控制)
+- [教程 6 —— 异步任务与远程服务](#教程-6--异步任务与远程服务)
+- [教程 7 —— 批量与可靠性](#教程-7--批量与可靠性)
+- [教程 8 —— 插件](#教程-8--插件)
+- [下一步](#下一步)
 
 ---
 
