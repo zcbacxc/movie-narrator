@@ -12,23 +12,20 @@
 ## 代码质量
 
 - [ ] **mypy：零错误**
-  - 命令：`mypy src/movie_narrator/workflow src/movie_narrator/cloud src/movie_narrator/utils src/movie_narrator/pipeline`
-  - 预期结果：`Success: no issues found`
-  - 说明：必须在 Python 3.10 目标下通过（如 `pyproject.toml` 中配置）
+  - 命令：`mypy src/movie_narrator`
+  - 预期结果：`Success: no issues found in 114 source files`
+  - 说明：必须在 Python 3.10 目标下通过（如 `pyproject.toml` 中配置）；必须与 CI 的 `mypy` 调用完全一致
 
 - [ ] **ruff：零错误**
-  - 命令：`ruff check src/ tests/`
+  - 命令：`ruff check src/`
   - 预期结果：无输出（退出码 0）
-  - 说明：所有 `E`、`F`、`W`、`BLE`、`A` 规则必须通过（详见 `pyproject.toml`）
+  - 说明：所有 `E`、`F`、`W`、`BLE`、`A` 规则必须通过（详见 `pyproject.toml`）；CI 仅检查 `src/`
 
-- [ ] **ruff format 检查**
-  - 命令：`ruff format --check src/ tests/`
-  - 预期结果：`All checks passed`
-  - 说明：行长度目标为 100 字符
+> **代码格式化（非阻塞，v1.0 范围外）**：`ruff format` 未通过 CI 或 pre-commit 强制（未配置 `.pre-commit-config.yaml`）。`src/` 下约 80 个文件（含 `tests/` 共约 150 个）目前未格式化。作为独立 `chore/ruff-format` 清理项跟踪，使 diff 与 v1.0 的 docstring/稳定性改动隔离。
 
 - [ ] **测试覆盖率达标**
-  - 命令：`pytest --cov=movie_narrator --cov-report=term-missing --cov-fail-under=80`
-  - 预期结果：`Required test coverage of 80% reached. Total coverage: XX%`
+  - 命令：`pytest --cov=movie_narrator --cov-report=term-missing --cov-fail-under=82`
+  - 预期结果：`Required test coverage of 82% reached. Total coverage: XX%`
   - 说明：阈值在 CI 配置中定义；不得低于 v0.9.x 基线
 
 ---

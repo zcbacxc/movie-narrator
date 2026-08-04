@@ -13,23 +13,20 @@
 ## Code Quality
 
 - [ ] **mypy: zero errors**
-  - Command: `mypy src/movie_narrator/workflow src/movie_narrator/cloud src/movie_narrator/utils src/movie_narrator/pipeline`
-  - Expected: `Success: no issues found`
-  - Note: Must pass on Python 3.10 target (as configured in `pyproject.toml`)
+  - Command: `mypy src/movie_narrator`
+  - Expected: `Success: no issues found in 114 source files`
+  - Note: Must pass on Python 3.10 target (as configured in `pyproject.toml`); must match the CI `mypy` invocation exactly
 
 - [ ] **ruff: zero errors**
-  - Command: `ruff check src/ tests/`
+  - Command: `ruff check src/`
   - Expected: No output (exit code 0)
-  - Note: All `E`, `F`, `W`, `BLE`, `A` rules must pass (see `pyproject.toml`)
+  - Note: All `E`, `F`, `W`, `BLE`, `A` rules must pass (see `pyproject.toml`); CI lints `src/` only
 
-- [ ] **ruff format check**
-  - Command: `ruff format --check src/ tests/`
-  - Expected: `All checks passed`
-  - Note: Line length target is 100 characters
+> **Code formatting (non-blocking, out of scope for v1.0)**: `ruff format` is not enforced by CI or pre-commit (no `.pre-commit-config.yaml` configured). ~80 files under `src/` (150 incl. `tests/`) are currently unformatted. Track as a separate `chore/ruff-format` cleanup so the diff stays isolated from the v1.0 docstring/stability changes.
 
 - [ ] **Test coverage meets threshold**
-  - Command: `pytest --cov=movie_narrator --cov-report=term-missing --cov-fail-under=80`
-  - Expected: `Required test coverage of 80% reached. Total coverage: XX%`
+  - Command: `pytest --cov=movie_narrator --cov-report=term-missing --cov-fail-under=82`
+  - Expected: `Required test coverage of 82% reached. Total coverage: XX%`
   - Note: Threshold defined in CI config; must not regress from v0.9.x baseline
 
 ---

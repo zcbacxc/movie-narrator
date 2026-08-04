@@ -28,7 +28,7 @@
 
 > **Planning principle**: Alternate user-visible improvements with infrastructure work. v1.0 target users: local CLI creators + optional single-tenant service deployment.
 
-### v1.0.0 — Stable Release (RC in progress)
+### v1.0.0 — Stable Release
 
 > **Goal**: API stability guarantee, production-ready, feature-complete for target use cases.
 > **Status**: Release Candidate phase — see [Release Checklist](RELEASE_CHECKLIST.md).

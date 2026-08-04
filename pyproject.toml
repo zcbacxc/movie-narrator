@@ -104,7 +104,7 @@ check_untyped_defs = false
 warn_unused_ignores = true
 warn_redundant_casts = true
 follow_imports = "skip"
-files = ["src/movie_narrator/workflow", "src/movie_narrator/cloud", "src/movie_narrator/utils", "src/movie_narrator/pipeline"]
+files = ["src/movie_narrator"]
 
 [tool.ruff]
 target-version = "py310"

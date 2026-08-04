@@ -5,7 +5,7 @@
 
 这是 **movie-narrator** 从零到进阶的完整上手指南。movie-narrator 是一个 Python 引擎，可将单个电影片名转化为一段带旁白解说的回顾视频。本教程面向**内容创作者**——你无需具备开发经验即可跟随学习。如果你是插件作者，请阅读 [QUICKSTART.md](QUICKSTART.md)。
 
-> **兼容性说明。** 本文档描述的是 **0.9.7** 版本的治理（governance）机制。引擎本身为 **0.9.6** 版本，`CONTRACT_VERSION=(0,9,5)`。运行 `mn version` 可查看你当前安装的构建版本。
+> **兼容性说明。** 本文档描述的是 **1.0.0** 版本的治理（governance）机制。引擎本身为 **1.0.0** 版本，`CONTRACT_VERSION=(1,0,0)`。运行 `mn version` 可查看你当前安装的构建版本。
 
 ---
 
