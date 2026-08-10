@@ -35,7 +35,7 @@ dependencies = [
     # pillow 12.x yet. The known pillow 11.x advisories are ignored in the
     # CI security job's ``pip-audit --ignore-vuln`` call; re-evaluate once
     # moviepy supports pillow 12.x (the patched line is 12.1.1+).
-    "pillow>=11.3.0,<12.0",
+    "pillow>=11.3.0,<13.0",
     "pydub>=0.25.0",
     "pyyaml>=6.0",
     "tqdm>=4.0.0",
