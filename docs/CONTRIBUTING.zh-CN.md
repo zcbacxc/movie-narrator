@@ -66,7 +66,9 @@ Web UI（FastAPI + React 18 SPA，安装 `pip install movie-narrator-web` 后通
 - **素材爬取爬虫**（针对流媒体平台的 yt-dlp / Bilibili / Playwright）—— 平台服务条款 + 版权。请坚持"用户自备素材"路线；空镜素材仅可来自公有领域来源（Archive.org、NASA、Wikimedia、Pexels）。
 - **声音克隆**（针对任意声音的 IndexTTS / CosyVoice）—— 声音权法律风险。若未来接入，仅可克隆用户本人/已授权声音。
 
-**FFmpeg**：请勿将 FFmpeg 二进制捆绑进发行包。请保持通过 `shutil.which` 在 `PATH` 上解析外部 `ffmpeg`。若确需捆绑，必须先经 [ADR-011](ADR.zh-CN.md#adr-011许可禁区与-ffmpeg-捆绑策略) 决策，并附带 `THIRD_PARTY_NOTICES` 文件（优先 LGPL 构建）。
+**FFmpeg**：请勿自行将 FFmpeg 二进制捆绑进发行包。务必通过共享的 `utils/ffmpeg_bin.ffmpeg_bin()` 策略解析二进制（优先捆绑的 imageio-ffmpeg 构建，其次 `PATH` 上的系统二进制，最后 `"ffmpeg"`）——切勿临时用 `shutil.which("ffmpeg")`。若确需真正在发行层捆绑，必须先经 [ADR-011](ADR.zh-CN.md#adr-011许可禁区与-ffmpeg-捆绑策略) 决策，并附带 `THIRD_PARTY_NOTICES` 文件（优先 LGPL 构建）。
+
+> **CI 强制检查**：上述禁区依赖清单已由 CI 中的 `scripts/check_forbidden_deps.py` 自动检查；构建产物是否误捆绑 FFmpeg/FFprobe 二进制由 `scripts/check_no_ffmpeg_bundle.py` 检查。若新增禁区包，请同步更新本清单与脚本的守卫清单。
 
 ## 提交规范
 

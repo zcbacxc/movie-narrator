@@ -25,8 +25,9 @@ mn version                     # print version + CONTRACT_VERSION
 mn --help                      # full command list
 ```
 
-External prerequisites: **FFmpeg** on `PATH` (renderer locates it via
-`shutil.which`). Optional extras: `[media]` (scene detection), `[ml]`
+External prerequisites: **FFmpeg** on `PATH` (the renderer resolves it via
+`utils/ffmpeg_bin.ffmpeg_bin()`, preferring the bundled imageio-ffmpeg build, then
+the system binary). Optional extras: `[media]` (scene detection), `[ml]`
 (WhisperX alignment, embedding matching), `[full]` (all extras).
 
 ## Command Reference
@@ -177,8 +178,8 @@ failures fatal.
     failed to import; the hint names the exact missing module (e.g.
     `torchaudio` for `whisperx`). Install that module rather than reinstalling
     the whole extra.
-- **FFmpeg not found** — ensure FFmpeg is on `PATH`; the renderer locates it
-  via `shutil.which`.
+- **FFmpeg not found** — ensure FFmpeg is on `PATH`; the renderer resolves it
+  via `utils/ffmpeg_bin.ffmpeg_bin()` (bundled imageio-ffmpeg first, then system).
 - **CJK font fallback** — `assets/fonts/NotoSansSC-Regular.otf` → system
   paths → install hint if missing.
 - **`mn` command missing** — run `pip install -e ".[dev]"` first.

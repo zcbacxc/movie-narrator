@@ -30,3 +30,4 @@ Brief description of what this PR does and why.
 - [ ] Comments added for complex logic
 - [ ] No new warnings introduced
 - [ ] CONTRACT_VERSION bumped if SDK/API surface changed
+- [ ] New dependencies checked against ADR-011 license red lines (no Remotion / TypeTale source / scrapers / voice cloning)

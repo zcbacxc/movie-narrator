@@ -45,7 +45,7 @@ movie-narrator 由一组包（package）构成——核心的 `movie_narrator` �
 
 **决策结果**
 
-我们建立了一个稳定的契约表面：`web` 包和每个插件只允许依赖 `movie_narrator.contract`。内部模块不允许跨包边界导入。包之间的兼容性由一个采用语义化版本管理的 `CONTRACT_VERSION` 常量约束，当前为 `(0, 9, 5)`。任何对契约的破坏性变更都必须以符合语义化版本规则的方式提升契约版本，以便使用方在加载时检测兼容性。
+我们建立了一个稳定的契约表面：`web` 包和每个插件只允许依赖 `movie_narrator.contract`。内部模块不允许跨包边界导入。包之间的兼容性由一个采用语义化版本管理的 `CONTRACT_VERSION` 常量约束，撰写本 ADR 时为 `(0, 9, 5)`。任何对契约的破坏性变更都必须以符合语义化版本规则的方式提升契约版本，以便使用方在加载时检测兼容性。
 
 **后果**
 
@@ -399,7 +399,7 @@ movie-narrator 流水线是一条 16 步处理链。部分步骤具有软依赖�
 ## ADR-011：许可禁区与 FFmpeg 捆绑策略
 
 - **状态：** Accepted
-- **版本：** 于 v1.0.0 记录
+- **版本：** 于 v1.1.0 记录
 
 **背景**
 
@@ -427,12 +427,12 @@ movie-narrator 流水线是一条 16 步处理链。部分步骤具有软依赖�
 - **素材爬取爬虫**（针对流媒体平台的 yt-dlp/Bilibili/Playwright）——平台服务条款 + 版权；坚持"用户自备素材"路线。空镜素材仅可来自公有领域来源（Archive.org、NASA、Wikimedia、Pexels）。
 - **声音克隆**（针对任意声音的 IndexTTS/CosyVoice）——声音权法律风险；若未来接入，仅可克隆用户本人/已授权声音。
 
-对于 **FFmpeg**：引擎通过 `shutil.which` 找到的 `PATH` 上的外部 `ffmpeg` 继续以进程方式调用（聚合而非衍生作品——无义务外溢）。若未来某个 Windows 发行包确实需要捆绑 FFmpeg 二进制，必须 (a) 优先选择 LGPL 构建，(b) 附带 `THIRD_PARTY_NOTICES` 文件（许可全文 + 源码 URL + 构建配置），(c) 在发布前在此记录该决策。`mn doctor` 命令是检测并引导安装 FFmpeg 而非捆绑它的预期载体。
+对于 **FFmpeg**：引擎通过共享的 `utils/ffmpeg_bin.ffmpeg_bin()` 策略解析二进制 —— `MN_FFMPEG_BIN` 覆盖 → 捆绑的 imageio-ffmpeg 构建（功能完整的静态构建，免疫于被精简/残缺的系统 ffmpeg 遮蔽 PATH）→ `PATH` 上的系统二进制 → 裸 `"ffmpeg"`。该捆绑构建是作为 moviepy 的传递依赖（imageio-ffmpeg）提供的，而非项目自身打包进发行物的二进制，因此不引入再分发义务。若未来某个 Windows 发行包确实需要自行捆绑 FFmpeg 二进制，必须 (a) 优先选择 LGPL 构建，(b) 附带 `THIRD_PARTY_NOTICES` 文件（许可全文 + 源码 URL + 构建配置），(c) 在发布前在此记录该决策。`mn doctor` 命令是检测并引导安装 FFmpeg 而非捆绑它的预期载体。
 
 **后果**
 
 - 正面：禁区清单防止意外的许可/平台服务条款违规；FFmpeg 保持外部依赖，无再分发义务；合规姿态有文档记录且可审查。
-- 负面：贡献者在添加依赖前必须核对禁区清单；FFmpeg 捆绑策略仍停留在文档层面——当前未捆绑，因此 `THIRD_PARTY_NOTICES` 文件是未来捆绑时才需要的条件性产物。`mn doctor` 命令（检测并引导安装 FFmpeg 而非捆绑）已实现。
+- 负面：贡献者在添加依赖前必须核对禁区清单；FFmpeg 捆绑策略对项目自身发行物仍停留在文档层面——项目自身并未把二进制打包进发行物，因此 `THIRD_PARTY_NOTICES` 文件是未来捆绑时才需要的条件性产物（捆绑的 imageio-ffmpeg 构建仅作为 moviepy 传递依赖提供）。`mn doctor` 命令（检测并引导安装 FFmpeg 而非捆绑）已实现。
 
 **参考资料**
 
@@ -455,4 +455,4 @@ movie-narrator 流水线是一条 16 步处理链。部分步骤具有软依赖�
 | ADR-008 | 配置边界 | Accepted | — | `.env`（`MN_`，基础设施）vs `job.yaml`（行为）；CLI > job.yaml > 默认值 |
 | ADR-009 | 输入净化与安全 | Accepted | v0.9.5 | 字段校验；HTTP 400/413；Bandit + pip-audit；80% 覆盖率门槛 |
 | ADR-010 | 国际化与本地化语音 | Accepted | v0.9.6 | 语言感知生成（默认语言 `zh`）；`voice_map`/`resolve_voice` 优先级解析 |
-| ADR-011 | 许可禁区与 FFmpeg 捆绑策略 | Accepted | v1.0.0 | 禁区清单（Remotion/TypeTale 代码/爬虫/声音克隆）；FFmpeg 保持外部依赖，捆绑推迟至有文档记录的决策 |
+| ADR-011 | 许可禁区与 FFmpeg 捆绑策略 | Accepted | v1.1.0 | 禁区清单（Remotion/TypeTale 代码/爬虫/声音克隆）；FFmpeg 经 `ffmpeg_bin()` 解析（优先 imageio-ffmpeg），项目自身不将二进制打包进发行物 |

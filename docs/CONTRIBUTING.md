@@ -66,7 +66,9 @@ Before adding any dependency or copying reference code, check the red-line list 
 - **Material crawling scrapers** (yt-dlp / Bilibili / Playwright against streaming platforms) — platform ToS + copyright. Keep the "user-provided material" route; B-roll may only come from public-domain sources (Archive.org, NASA, Wikimedia, Pexels).
 - **Voice cloning** (IndexTTS / CosyVoice for arbitrary voices) — voice-rights legal exposure. Only clone the user's own/authorized voice if ever added.
 
-**FFmpeg**: do not bundle an FFmpeg binary into a distribution. Keep resolving it externally on `PATH` via `shutil.which`. If bundling is ever required, it must first be decided in [ADR-011](ADR.md#adr-011-licensing-red-lines-and-ffmpeg-bundling-policy) and include a `THIRD_PARTY_NOTICES` file (LGPL build preferred).
+**FFmpeg**: do not bundle an FFmpeg binary into a distribution yourself. Always resolve the binary through the shared `utils/ffmpeg_bin.ffmpeg_bin()` policy (bundled imageio-ffmpeg build first, then a system `PATH` binary, then `"ffmpeg"`) — never ad-hoc `shutil.which("ffmpeg")`. If a true distribution-level bundling is ever required, it must first be decided in [ADR-011](ADR.md#adr-011-licensing-red-lines-and-ffmpeg-bundling-policy) and include a `THIRD_PARTY_NOTICES` file (LGPL build preferred).
+
+> **CI enforcement**: the forbidden dependency list above is automatically checked in CI via `scripts/check_forbidden_deps.py`, and built distributions are checked to not bundle an FFmpeg/FFprobe binary via `scripts/check_no_ffmpeg_bundle.py`. If you add a new red-line package, update both this list and the scripts' guard lists.
 
 ## Commit Convention
 

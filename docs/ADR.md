@@ -45,7 +45,7 @@ movie-narrator is structured as a set of packages — the core `movie_narrator` 
 
 **Decision Outcome**
 
-We established a single stable contract surface: the `web` package and every plugin may depend only on `movie_narrator.contract`. Internal modules are not allowed to be imported across package boundaries. Compatibility across packages is governed by a semantic versioned `CONTRACT_VERSION` constant, currently `(0, 9, 5)`. Any breaking change to the contract must bump the contract version in a way that obeys semantic versioning rules, so consumers can detect compatibility at load time.
+We established a single stable contract surface: the `web` package and every plugin may depend only on `movie_narrator.contract`. Internal modules are not allowed to be imported across package boundaries. Compatibility across packages is governed by a semantic versioned `CONTRACT_VERSION` constant, at the time of this ADR `(0, 9, 5)`. Any breaking change to the contract must bump the contract version in a way that obeys semantic versioning rules, so consumers can detect compatibility at load time.
 
 **Consequences**
 
@@ -399,7 +399,7 @@ We added language-aware script generation and matching, with the default languag
 ## ADR-011: Licensing Red Lines and FFmpeg Bundling Policy
 
 - **Status:** Accepted
-- **Version:** Recorded at v1.0.0
+- **Version:** Recorded at v1.1.0
 
 **Context**
 
@@ -427,12 +427,12 @@ We adopt an explicit **red-line list** that must never be introduced into the co
 - **Material crawling scrapers** (yt-dlp/Bilibili/Playwright against streaming platforms) — platform ToS + copyright; keep the "user-provided material" route. B-roll may only come from public-domain sources (Archive.org, NASA, Wikimedia, Pexels).
 - **Voice cloning** (IndexTTS/CosyVoice for arbitrary voices) — voice-rights legal exposure; only clone the user's own/authorized voice if ever added.
 
-For **FFmpeg**: the engine keeps invoking an external `ffmpeg` found on `PATH` via `shutil.which` (aggregation, not derivative work — no obligation spillover). If a future Windows distribution ever bundles an FFmpeg binary, it must (a) prefer an LGPL build, (b) include a `THIRD_PARTY_NOTICES` file (license text + source URL + build config), and (c) record the decision here before shipping. A `mn doctor` command is the intended vehicle for detecting and guiding FFmpeg installation rather than bundling it.
+For **FFmpeg**: the engine resolves the binary through the shared `utils/ffmpeg_bin.ffmpeg_bin()` policy — `MN_FFMPEG_BIN` override → bundled imageio-ffmpeg build (a full-featured static build, immune to PATH shadowing by a crippled/minimal system ffmpeg) → system `PATH` binary → bare `"ffmpeg"`. The bundled build arrives as a transitive dependency of moviepy (imageio-ffmpeg), not as a binary the project itself bundles into a distribution, so this does not introduce redistribution obligations. If a future Windows distribution ever bundles an FFmpeg binary itself, it must (a) prefer an LGPL build, (b) include a `THIRD_PARTY_NOTICES` file (license text + source URL + build config), and (c) record the decision here before shipping. A `mn doctor` command is the intended vehicle for detecting and guiding FFmpeg installation rather than bundling it.
 
 **Consequences**
 
 - Positive: the red-line list prevents accidental license/platform-ToS violations; FFmpeg stays an external dependency with no redistribution duty; the compliance posture is documented and reviewable.
-- Negative: contributors must check the red-line list before adding dependencies; the FFmpeg bundling policy remains documentation-only — no bundling currently happens, so the `THIRD_PARTY_NOTICES` file is a future conditional artifact. The `mn doctor` command (which guides FFmpeg installation rather than bundling) is implemented.
+- Negative: contributors must check the red-line list before adding dependencies; the FFmpeg bundling policy for the project's own distribution remains documentation-only — no binary is bundled into a distribution by the project itself, so the `THIRD_PARTY_NOTICES` file is a future conditional artifact (the bundled imageio-ffmpeg build ships only as a moviepy transitive dependency). The `mn doctor` command (which guides FFmpeg installation rather than bundling) is implemented.
 
 **References**
 
@@ -455,4 +455,4 @@ For **FFmpeg**: the engine keeps invoking an external `ffmpeg` found on `PATH` v
 | ADR-008 | Configuration Boundary | Accepted | — | `.env` (`MN_`, infra) vs `job.yaml` (behavior); CLI > job.yaml > defaults |
 | ADR-009 | Input Sanitization and Security | Accepted | v0.9.5 | Field validation; HTTP 400/413; Bandit + pip-audit; 80% coverage gate |
 | ADR-010 | i18n and Localized Voice | Accepted | v0.9.6 | Language-aware generation (lang default `zh`); `voice_map`/`resolve_voice` priority resolution |
-| ADR-011 | Licensing Red Lines and FFmpeg Bundling Policy | Accepted | v1.0.0 | Red-line list (Remotion/TypeTale code/scrapers/voice cloning); FFmpeg stays external, bundling deferred to documented decision |
+| ADR-011 | Licensing Red Lines and FFmpeg Bundling Policy | Accepted | v1.1.0 | Red-line list (Remotion/TypeTale code/scrapers/voice cloning); FFmpeg resolved via `ffmpeg_bin()` (imageio-ffmpeg preferred), no binary bundled into a distribution by the project |

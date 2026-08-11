@@ -40,8 +40,8 @@
 
 - [ ] **Integration tests: all pass**
   - Command: `pytest -v -m integration`
-  - Expected: All integration tests pass (may be skipped if media/ffmpeg not available)
-  - Note: Requires `ffmpeg` and `scenedetect` (install `[media]` extra)
+  - Expected: All integration tests pass (may be skipped if scenedetect/ffmpeg not available)
+  - Note: Requires `scenedetect` (install `[media]` extra); ffmpeg is bundled
 
 - [ ] **E2E smoke test passes**
   - Command: `pytest -v tests/test_e2e_smoke.py`
@@ -81,6 +81,16 @@
 - [ ] **SECURITY.md is up to date**
   - Verification: Review `SECURITY.md` and `SECURITY.zh-CN.md`
   - Expected: Vulnerability reporting process is current, contact info is valid
+
+- [ ] **ADR-011 forbidden dependency check passes (machine-enforceable subset)**
+  - Command: `python scripts/check_forbidden_deps.py`
+  - Expected: No forbidden pip-installable packages found (Remotion, TypeTale, yt-dlp, Bilibili API, Playwright, IndexTTS, CosyVoice)
+  - Note: This checks the machine-detectable subset of ADR-011's red-line list (see `docs/ADR.md` ADR-011 and `docs/CONTRIBUTING.md` License Red Lines). Non-package red lines (e.g. copying TypeTale source, using scrapers behaviorally) still require manual code review.
+
+- [ ] **FFmpeg bundle check passes**
+  - Command: `python scripts/check_no_ffmpeg_bundle.py`
+  - Expected: No `ffmpeg` or `ffprobe` binary found in built wheel
+  - Note: Confirms the ADR-011 FFmpeg policy; also runs automatically in `.github/workflows/publish.yml` after `twine check`.
 
 ---
 

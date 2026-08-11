@@ -21,25 +21,21 @@ Movie Narrator is an open-source toolkit that automatically generates movie reca
 - 🔊 Text-to-Speech narration (Edge-TTS by default)
 - 💬 Automatic SRT subtitle generation
 - 🌐 Multi-language subtitles with LLM translation
-- 🏁 Multi-candidate horse race — run N variations, score and auto-pick the best
+- 🏁 Multi-candidate horse race — run N variations, auto-pick the best
 - 🎯 Reference video imitation — extract style from viral narration
 - 👁️ VLM scene captioning via cloud VLM API
 - 🎭 Narrator perspective (omniscient / character / detective)
 - 🎨 Render template system (title cards, watermarks, slogans)
-- 🔍 TMDB fact verification for movie cards
-- 🖥️ Web UI (separate `movie-narrator-web` package — FastAPI + React)
-- 🎞️ Video rendering with MoviePy and FFmpeg
+- 🔍 TMDB fact verification with source attribution
+- 🖥️ Web UI (separate `movie-narrator-web` package)
+- 🎞️ Video rendering (1080p/4K output)
 - 📝 Script markdown export
 - 🎵 Background music integration
-- 📦 Metadata export
-- 🔌 Extensible plugin architecture
-- ☁️ Async task queue (local + remote job submission, progress polling, retry)
+- 🔌 Extensible plugin architecture (custom TTS / LLM backends)
+- ☁️ Async task processing (submit and go, notified on completion)
 - 🌐 Remote inference via REST API
-- 🛡️ Circuit breaker + retry policy for external APIs (v0.9.1)
-- 💾 Task checkpointing with resume (v0.9.2)
-- 📦 Batch job submission + cron scheduling (v0.9.3)
-- 💀 Dead-letter queue for failed task inspection and replay (v0.9.4)
-- 🌍 Conditional distributed rendering across nodes (v0.9.4)
+- ✅ Final-video QA — black-frame / slideshow-risk detection
+- 🗣️ Optional Chinese ASR (automatic multi-backend fallback)
 
 ---
 
@@ -48,39 +44,6 @@ Movie Narrator is an open-source toolkit that automatically generates movie reca
 ### Requirements
 
 - Python 3.10+
-- FFmpeg
-
-### Install FFmpeg
-
-#### macOS
-
-```bash
-brew install ffmpeg
-```
-
-#### Ubuntu / Debian
-
-```bash
-sudo apt install ffmpeg
-```
-
-#### Windows
-
-```bash
-# Option 1: winget
-winget install Gyan.FFmpeg
-
-# Option 2: chocolatey
-choco install ffmpeg
-
-# Option 3: Manual download from https://ffmpeg.org/
-```
-
-Verify installation:
-
-```bash
-ffmpeg -version
-```
 
 ---
 
@@ -116,7 +79,7 @@ pip install movie-narrator-web
 pip install "movie-narrator[full]"
 ```
 
-> **Note on Python 3.14+**: The `[ml]` extra (WhisperX + faster-whisper + FunASR + sentence-transformers) is currently gated to Python < 3.14 due to upstream dependency wheel availability. On Python 3.14+, `pip install "movie-narrator[full]"` will install all other extras and **silently skip** the ML components. The `align` and `match` pipeline steps will soft-degrade (see [Soft steps](#pipeline)) instead of failing.
+> **Note on Python 3.14+**: The `[ml]` extra is limited to Python < 3.14 (upstream PyTorch dependency constraint); on 3.14+ it is silently skipped and the align/match steps automatically soft-degrade (see [Soft steps](#pipeline)).
 
 For development:
 
@@ -131,7 +94,6 @@ pip install -e ".[dev]"
 ### Prerequisites
 
 - **LLM**: Default uses local Ollama (`ollama serve` to start). Or configure remote LLM via `.env` file.
-- **FFmpeg**: Required for video rendering.
 
 ### Basic Usage
 
@@ -154,10 +116,10 @@ mn serve               # Start remote inference API server (v0.6.1+)
 mn submit -m <movie>   # Submit async task
 mn tasks               # List recent tasks
 mn version             # Show version
-mn --help              # Full help with all 24 CLI flags
+mn --help              # Show full CLI help
 ```
 
-All 24 CLI flags are documented in [`examples/cli-usage.sh`](examples/cli-usage.sh).
+All CLI flags and usage examples are documented in [`examples/cli-usage.sh`](examples/cli-usage.sh).
 
 ---
 
@@ -235,6 +197,8 @@ Movie Narrator works with any OpenAI-compatible LLM. New user? Check out the [LL
 | `matches.json` | Scene-to-segment clip matching (when video provided) |
 | `clips/` | Per-segment clip .mp4 files (when `--no-clips` not set) |
 
+> `clips/` holds a standalone clip per segment, ready for secondary editing or reuse.
+
 ---
 
 ## Pipeline
@@ -253,6 +217,8 @@ run_qa_gate → render_video → validate_deliverable → export_clips
 ---
 
 ## Project Structure
+
+> For contributors — most users only need `mn create`. See [Architecture](docs/ARCHITECTURE.md) for details.
 
 ```text
 movie-narrator/

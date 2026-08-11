@@ -39,8 +39,8 @@
 
 - [ ] **集成测试：全部通过**
   - 命令：`pytest -v -m integration`
-  - 预期结果：所有集成测试通过（若 media/ffmpeg 不可用可能被跳过）
-  - 说明：需要 `ffmpeg` 和 `scenedetect`（安装 `[media]` 额外依赖）
+  - 预期结果：所有集成测试通过（若 scenedetect/ffmpeg 不可用可能被跳过）
+  - 说明：需要 `scenedetect`（安装 `[media]` 额外依赖）；ffmpeg 已捆绑
 
 - [ ] **E2E 冒烟测试通过**
   - 命令：`pytest -v tests/test_e2e_smoke.py`
@@ -80,6 +80,16 @@
 - [ ] **SECURITY.md 已更新**
   - 验证：审阅 `SECURITY.md` 和 `SECURITY.zh-CN.md`
   - 预期结果：漏洞报告流程是最新的，联系方式有效
+
+- [ ] **ADR-011 禁区依赖检查通过（机器可检测子集）**
+  - 命令：`python scripts/check_forbidden_deps.py`
+  - 预期结果：未发现禁区 pip 可安装包（Remotion、TypeTale、yt-dlp、Bilibili API、Playwright、IndexTTS、CosyVoice）
+  - 说明：仅检查 ADR-011 禁区清单的机器可检测子集（见 `docs/ADR.md` ADR-011 与 `docs/CONTRIBUTING.md` 许可禁区）。非包类禁区（如复制 TypeTale 源码、行为上使用爬虫）仍需人工代码审查。
+
+- [ ] **FFmpeg 捆绑检查通过**
+  - 命令：`python scripts/check_no_ffmpeg_bundle.py`
+  - 预期结果：构建产物中未发现 `ffmpeg` 或 `ffprobe` 二进制
+  - 说明：确认 ADR-011 的 FFmpeg 政策；`.github/workflows/publish.yml` 中 `twine check` 之后也会自动运行。
 
 ---
 

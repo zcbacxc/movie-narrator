@@ -29,41 +29,6 @@
 
 > **Planning principle**: Alternate user-visible improvements with infrastructure work. v1.0 target users: local CLI creators + optional single-tenant service deployment.
 
-### v1.0.0 — Stable Release
-
-> **Goal**: API stability guarantee, production-ready, feature-complete for target use cases.
-> **Status**: Release Candidate phase — see [Release Checklist](RELEASE_CHECKLIST.md).
-
-- [x] **CONTRACT_VERSION freeze** → `(1, 0, 0)` — API surface declared stable
-- [x] **API stability guarantee** — no breaking changes in v1.x without v2.0; documented in [STABILITY.md](STABILITY.md)
-- [x] **Final documentation pass** — all docs reviewed and up-to-date
-- [ ] **Release announcement** — changelog, migration guide, blog post
-- [x] **Long-term support policy** — v1.x maintenance branch and backport rules (see [STABILITY.md](STABILITY.md#upgrade-guarantees))
-- [x] **Release checklist** — Definition of Done for v1.0 published
-
----
-
-### v1.1.0 — Community & Polish
-
-> **Goal**: Community-driven improvements, plugin ecosystem growth, quality-of-life features.
-> **Status**: Released (v1.1.0, 2026-08-10).
-> **Note**: The items below were implemented and released in v1.1. See [CHANGELOG.md](../CHANGELOG.md) for per-item detail.
-
-- [x] **Final-video QA completion** — slideshow-risk score + black-frame detection in `deliverable_qa`/`video_qa`; shared `ffmpeg_bin()` fallback
-- [x] **AI Agent Skill distribution surface** — `docs/skill/SKILL.md` CLI capability listing + environment diagnostics
-- [x] **`mn doctor` environment precheck** — environment pre-check command with `probe()` three-state distinction (not-installed / dep-missing / ok)
-- [x] **EmotionTrack unified modeling** — unified `EmotionTrack` value object converging prosody/bgm/tts emotion consumption
-- [x] **FunASR Chinese ASR optional backend** — `providers/asr/funasr.py` three-backend alignment chain (whisperx → faster-whisper → funasr)
-- [x] **sidechaincompress ducking optional backend** — envelope/sidechain dispatch with automatic fallback
-- [x] **SQLite task storage (WAL)** — idempotent JSON→SQLite migration, contract-compatible
-- [x] **Visual-embedding match backend (phase 1)** — pure-FFmpeg visual feature skeleton, default-off (phase 2 decision: not doing — covered by VLMCaptioner)
-- [x] **timeline_export plugin** — Jianying + OTIO timeline export plugin (out-of-tree), CI-wired via `plugin-timeline-export` job
-- [x] **Compliance completion** — edge-tts commercial warning + TMDB attribution in `research.json`
-
-> **Released in v1.1.0 (2026-08-10).** CONTRACT_VERSION remains `(1, 0, 0)` — no new contract exports.
-
----
-
 ### Post-v1.0 — Community Ecosystem (demand-driven)
 
 The following features are out of scope for v1.0 and will be prioritized based on community feedback and enterprise demand:

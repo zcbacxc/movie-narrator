@@ -21,25 +21,21 @@ Movie Narrator 是一个开源工具包，可通过简单命令自动生成带�
 - 🔊 文字转语音解说（默认使用 Edge-TTS）
 - 💬 自动生成 SRT 字幕文件
 - 🌐 多语言字幕（LLM 翻译）
-- 🏁 多候选赛马 — 同输入跑 N 套变体，打分排名，自动选优
+- 🏁 多候选赛马 — 跑 N 套变体，自动选优
 - 🎯 参考片模仿 — 从爆款解说提取风格
-- 👁️ VLM 视觉场景描述（云端 VLM API）
+- 👁️ VLM 视觉场景描述
 - 🎭 解说视角（全知 / 角色 / 悬疑）
 - 🎨 渲染模板系统（标题卡、水印、口号）
-- 🔍 TMDB 事实验证
-- 🖥️ Web UI（独立 `movie-narrator-web` 包 — FastAPI + React）
-- 🎞️ 使用 MoviePy 和 FFmpeg 渲染视频
+- 🔍 TMDB 事实验证（带来源署名）
+- 🖥️ Web UI（独立 movie-narrator-web 包）
+- 🎞️ 视频渲染（支持 1080p/4K 输出）
 - 📝 脚本 Markdown 导出
 - 🎵 背景音乐集成
-- 📦 元数据导出
-- 🔌 可扩展的插件架构
-- ☁️ 异步任务队列（本地 + 远程任务提交、进度轮询、重试）
-- 🌐 通过 REST API 远程推理
-- 🛡️ 外部 API 熔断器 + 重试策略（v0.9.1）
-- 💾 任务检查点，支持断点续跑（v0.9.2）
-- 📦 批量任务提交 + cron 定时调度（v0.9.3）
-- 💀 死信队列，失败任务检查与重放（v0.9.4）
-- 🌍 跨节点条件分布式渲染（v0.9.4）
+- 🔌 可扩展插件架构（支持自定义 TTS / LLM 后端）
+- ☁️ 异步任务处理（提交即走，完成后通知）
+- 🌐 REST API 远程推理
+- ✅ 成片质检 — 黑场 / 幻灯片风险检测
+- 🗣️ 可选中文 ASR（多后端自动回退）
 
 ---
 
@@ -48,39 +44,6 @@ Movie Narrator 是一个开源工具包，可通过简单命令自动生成带�
 ### 环境要求
 
 - Python 3.10+
-- FFmpeg
-
-### 安装 FFmpeg
-
-#### macOS
-
-```bash
-brew install ffmpeg
-```
-
-#### Ubuntu / Debian
-
-```bash
-sudo apt install ffmpeg
-```
-
-#### Windows
-
-```bash
-# 方式一：winget
-winget install Gyan.FFmpeg
-
-# 方式二：chocolatey
-choco install ffmpeg
-
-# 方式三：从官网下载 https://ffmpeg.org/
-```
-
-验证安装：
-
-```bash
-ffmpeg -version
-```
 
 ---
 
@@ -116,7 +79,7 @@ pip install movie-narrator-web
 pip install "movie-narrator[full]"
 ```
 
-> **Python 3.14+ 注意**：`[ml]` 扩展（WhisperX + faster-whisper + FunASR + sentence-transformers）因上游依赖 wheel 可用性限制，目前仅支持 Python < 3.14。在 Python 3.14+ 上，`pip install "movie-narrator[full]"` 会安装其他所有扩展并**静默跳过** ML 组件。`align` 和 `match` 步骤会软降级（见[软步骤](#流水线)）而非报错。
+> **Python 3.14+ 注意**：`[ml]` 扩展仅支持 Python < 3.14（上游 PyTorch 依赖限制）；3.14+ 上会静默跳过，对齐/匹配步骤自动降级（见[软步骤](#流水线)）。
 
 开发模式安装：
 
@@ -131,7 +94,6 @@ pip install -e ".[dev]"
 ### 前置条件
 
 - **LLM**：默认使用本地 Ollama（先运行 `ollama serve`）。也可通过 `.env` 文件配置远程 LLM。
-- **FFmpeg**：视频渲染必需。
 
 ### 基本用法
 
@@ -154,10 +116,10 @@ mn serve               # 启动远程推理 API 服务 (v0.6.1+)
 mn submit -m <movie>   # 提交异步任务
 mn tasks               # 列出最近任务
 mn version             # 查看版本
-mn --help              # 完整帮助（含全部 24 个 CLI 参数）
+mn --help              # 查看完整 CLI 帮助
 ```
 
-全部 24 个 CLI 参数及各场景用法示例请参考 [`examples/cli-usage.sh`](examples/cli-usage.sh)。
+各 CLI 参数及用法示例请参考 [`examples/cli-usage.sh`](examples/cli-usage.sh)。
 
 ---
 
@@ -235,6 +197,8 @@ Movie Narrator 支持任何 OpenAI 兼容的 LLM。新用户不知道选哪个�
 | `matches.json` | 场景-片段匹配结果（提供视频时） |
 | `clips/` | 逐片段剪辑 .mp4 文件（未设置 `--no-clips` 时） |
 
+> `clips/` 存放每个片段的独立剪辑，便于二次编辑或复用。
+
 ---
 
 ## 流水线
@@ -253,6 +217,8 @@ run_qa_gate → render_video → validate_deliverable → export_clips
 ---
 
 ## 项目结构
+
+> 面向贡献者 —— 多数用户只需 `mn create`。详见[架构设计](docs/ARCHITECTURE.md)。
 
 ```text
 movie-narrator/

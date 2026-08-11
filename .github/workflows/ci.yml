@@ -198,6 +198,11 @@ jobs:
           cache-dependency-path: pyproject.toml
 
       - run: pip install -e ".[dev]"
+      - name: ADR-011 forbidden dependency guard
+        # Fail if any ADR-011 licensing red-line dependency (Remotion /
+        # TypeTale / scrapers / voice cloning) is installed. See
+        # scripts/check_forbidden_deps.py and docs/ADR.md ADR-011.
+        run: python scripts/check_forbidden_deps.py
       - name: SAST — bandit
         run: bandit -r src/ -c pyproject.toml
       - name: Dependency audit — pip-audit

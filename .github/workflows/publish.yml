@@ -44,6 +44,11 @@ jobs:
       - name: Check distribution
         run: twine check dist/*
 
+      - name: Assert no bundled FFmpeg binary (ADR-011)
+        # Fail the release if any wheel accidentally ships an FFmpeg/FFprobe
+        # binary. See scripts/check_no_ffmpeg_bundle.py and docs/ADR.md ADR-011.
+        run: python scripts/check_no_ffmpeg_bundle.py dist
+
       - name: Publish to ${{ steps.determine_target.outputs.target }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:

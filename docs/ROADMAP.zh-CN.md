@@ -7,62 +7,27 @@
 
 ## 已完成
 
-| 版本 | 关键主题 |
-|------|----------|
-| v0.1.x | 核心流水线 / CLI / LLM 解说稿 / Edge-TTS / SRT 字幕 / MoviePy 渲染 / TTS 缓存 / CI |
-| v0.2.x | 场景与媒体 / 研究 agent / WhisperX 对齐 / 场景检测 / 片段匹配 / BGM / 优雅降级 |
-| v0.3.x | 平台与工作流 / YAML job 配置 / 多语言字幕 / Gradio WebUI（后被取代） |
-| v0.4.x | TTS 抽象与基础设施 / TTS provider 抽象 / 配置体系重做 / FastAPI + React WebUI / 渲染质量 / 匹配智能 / 效果组合 / 契约层 |
-| v0.5.x | 生态 / Plugin API / SDK 冻结 / 插件发现 / VLM 视觉 Provider / 叙事预设 / 场景过滤 / WebUI 拆分 / QA 仪表盘 |
-| v0.6.x | 任务队列与远程推理 / 异步 job / 持久化 / 取消 / 进度 / 重试 / REST API 服务器 / Worker 守护进程 / 产物管理 / 远程代理 |
-| v0.7.x | 出片体验 / GPU 编码 / 成本统计 / 预览模式 / 场景转场 / 文字动画 / 多音轨混音 / 安全加固 |
-| v0.8.x | 服务化基础 / API Key 鉴权 / video_format 重命名 / 渲染模板 / 异常收窄 / 代码检查工具链 / 队列死锁修复 |
-| v0.9.x | 可靠 / 批量 / 文档 / 熔断器 / 检查点 / 优雅关闭 / 重试策略 / 批量任务 / cron / 死信队列 / 分布式渲染 / 输入净化 / SAST / 覆盖率门禁 / 集成测试 / i18n / 语音映射 / 教程 / ADR / 迁移指南 |
-| v1.0.x | **稳定发布** / API 冻结 / 稳定性保障 / 发布清单 / 最终文档审查 / 长期支持策略 |
-| v1.1.x | FunASR 中文 ASR / `mn doctor` / QA 幻灯片与黑场检测 / EmotionTrack / SQLite 任务存储 / 视觉嵌入 match 骨架 / timeline_export 插件 / 合规（edge-tts + TMDB）/ 90% 覆盖率门禁 |
+| 版本     | 关键主题                                                                                                                                          |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| v0.1.x | 核心流水线 / CLI / LLM 解说稿 / Edge-TTS / SRT 字幕 / MoviePy 渲染 / TTS 缓存 / CI                                                                          |
+| v0.2.x | 场景与媒体 / 研究 agent / WhisperX 对齐 / 场景检测 / 片段匹配 / BGM / 优雅降级                                                                                     |
+| v0.3.x | 平台与工作流 / YAML job 配置 / 多语言字幕 / Gradio WebUI（后被取代）                                                                                             |
+| v0.4.x | TTS 抽象与基础设施 / TTS provider 抽象 / 配置体系重做 / FastAPI + React WebUI / 渲染质量 / 匹配智能 / 效果组合 / 契约层                                                     |
+| v0.5.x | 生态 / Plugin API / SDK 冻结 / 插件发现 / VLM 视觉 Provider / 叙事预设 / 场景过滤 / WebUI 拆分 / QA 仪表盘                                                           |
+| v0.6.x | 任务队列与远程推理 / 异步 job / 持久化 / 取消 / 进度 / 重试 / REST API 服务器 / Worker 守护进程 / 产物管理 / 远程代理                                                            |
+| v0.7.x | 出片体验 / GPU 编码 / 成本统计 / 预览模式 / 场景转场 / 文字动画 / 多音轨混音 / 安全加固                                                                                      |
+| v0.8.x | 服务化基础 / API Key 鉴权 / video\_format 重命名 / 渲染模板 / 异常收窄 / 代码检查工具链 / 队列死锁修复                                                                       |
+| v0.9.x | 可靠 / 批量 / 文档 / 熔断器 / 检查点 / 优雅关闭 / 重试策略 / 批量任务 / cron / 死信队列 / 分布式渲染 / 输入净化 / SAST / 覆盖率门禁 / 集成测试 / i18n / 语音映射 / 教程 / ADR / 迁移指南              |
+| v1.0.x | **稳定发布** / API 冻结 / 稳定性保障 / 发布清单 / 最终文档审查 / 长期支持策略                                                                                            |
+| v1.1.x | FunASR 中文 ASR / `mn doctor` / QA 幻灯片与黑场检测 / EmotionTrack / SQLite 任务存储 / 视觉嵌入 match 骨架 / timeline\_export 插件 / 合规（edge-tts + TMDB）/ 90% 覆盖率门禁 |
 
 `CONTRACT_VERSION`（当前）：`(1, 0, 0)`（v1.1 未变——无新增契约导出）
 
----
+***
 
 ## 当前与规划
 
 > **规划原则**：用户可感知的改善与基础设施交替交付。v1.0 目标用户：本地 CLI 创作者 + 可选单租户服务部署。
-
-### v1.0.0 — 稳定发布
-
-> **目标**：API 稳定性保证、生产就绪、目标用例功能完整。
-> **状态**：发布候选阶段——详见 [发布清单](RELEASE_CHECKLIST.zh-CN.md)。
-
-- [x] **CONTRACT_VERSION 冻结** → `(1, 0, 0)` — API 表面声明稳定
-- [x] **API 稳定性保证** — v1.x 不做破坏性变更，除非 v2.0；记录在 [STABILITY.zh-CN.md](STABILITY.zh-CN.md) 中
-- [x] **最终文档审查** — 所有文档审阅并保持最新
-- [ ] **发布公告** — 变更日志、迁移指南、博客文章
-- [x] **长期支持策略** — v1.x 维护分支和补丁回溯规则（见 [STABILITY.zh-CN.md](STABILITY.zh-CN.md#升级承诺)）
-- [x] **发布清单** — v1.0 完成定义已发布
-
----
-
-### v1.1.0 — 社区与打磨
-
-> **目标**：社区驱动的改进、插件生态增长、提升使用体验的特性。
-> **状态**：已发布（v1.1.0，2026-08-10）。
-> **说明**：以下各项均已实现并发布于 v1.1。逐项细节见 [CHANGELOG.md](../CHANGELOG.md)。
-
-- [x] **成片质检补全** — `deliverable_qa`/`video_qa` 增加幻灯片风险分 + 黑场检测；共享 `ffmpeg_bin()` 回退
-- [x] **AI Agent Skill 分发面** — `docs/skill/SKILL.md` CLI 能力清单 + 环境诊断章节
-- [x] **`mn doctor` 环境预检** — 环境预检命令，`probe()` 三态区分（未安装 / 依赖缺失 / 正常）
-- [x] **EmotionTrack 统一建模** — 统一 `EmotionTrack` 值对象，收敛 prosody/bgm/tts 情绪消费
-- [x] **FunASR 中文 ASR 可选后端** — `providers/asr/funasr.py` 三后端对齐链（whisperx → faster-whisper → funasr）
-- [x] **sidechaincompress ducking 可选后端** — envelope/sidechain 分派 + 自动回退
-- [x] **SQLite 任务存储（WAL）** — JSON→SQLite 幂等迁移，契约兼容
-- [x] **视觉嵌入 match 后端（阶段 1）** — 纯 FFmpeg 视觉特征骨架，默认关闭（阶段 2 判定不做——已被 VLMCaptioner 覆盖）
-- [x] **timeline_export 插件** — 剪映 + OTIO 时间线导出插件（out-of-tree），经 `plugin-timeline-export` job 接入 CI
-- [x] **合规补全** — edge-tts 商用警示 + TMDB 署名写入 `research.json`
-
-> **已在 v1.1.0（2026-08-10）发布。** CONTRACT_VERSION 保持 `(1, 0, 0)`——无新增契约导出。
-
----
 
 ### v1.0 后 — 社区生态（视需求决定）
 
@@ -73,3 +38,4 @@
 - 多租户隔离 — 租户隔离的任务存储与产物（仅当有多用户部署需求时）
 - OAuth2 认证 — 面向 Web 客户端的完整认证流程（仅当有 SaaS 需求时）
 - 令牌桶限流 — 按租户的请求限速（仅当有多用户部署需求时）
+
