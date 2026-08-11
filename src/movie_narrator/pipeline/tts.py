@@ -15,7 +15,8 @@ from ..models import Context, TimedSegment
 from ..utils.async_utils import run_async
 from ..utils.audio_qa import analyze_segment, aggregate_metrics
 from ..utils.console import step_timing
-from ..utils.prosody import emotion_to_speed, apply_speed, map_segment_emotions
+from ..utils.emotion_track import EmotionTrack
+from ..utils.prosody import emotion_to_speed, apply_speed
 from ..tts import TTSCacheKey, get_tts_provider, is_ci
 from ..tts.voice_map import resolve_voice
 from ..tts.cache import (
@@ -219,8 +220,7 @@ def generate_voice(ctx: Context) -> Context:
     # Apply per-segment speed/pitch adjustment based on beat emotion labels.
     # Uses pydub's frame-rate trick: changes both speed and pitch, which is
     # desirable for emotion expression (intense→faster, suspense→slower).
-    beats_meta = ctx.metadata.get("beats_meta") or []
-    segment_emotions = map_segment_emotions(len(results), beats_meta)
+    segment_emotions = EmotionTrack.from_metadata(ctx.metadata).segment_emotions(len(results))
     prosody_log: list[dict] = []
     for i in range(len(results)):
         emotion = segment_emotions[i] if i < len(segment_emotions) else None
@@ -277,7 +277,11 @@ def generate_voice(ctx: Context) -> Context:
                     "adjusted": True,
                 }
             else:
-                ctx.metadata["duration_metrics"] = {
+                # Unreachable: entering this block requires ratio > 1.15, i.e.
+                # audio_only + n_pause*pause_ms > 1.15*target, which forces
+                # new_pause_ms < pause_ms (see the if-branch above). The else
+                # path would need new_pause_ms >= pause_ms, a contradiction.
+                ctx.metadata["duration_metrics"] = {  # pragma: no cover
                     "target_sec": target_duration,
                     "narration_sec": round(actual_duration, 2),
                     "ratio_vs_target": round(ratio, 3),
@@ -300,12 +304,16 @@ def generate_voice(ctx: Context) -> Context:
     # If narration still overflows after v1 pause reduction, apply a uniform
     # speedup to all segments.  This is more aggressive than v1 but avoids
     # re-running TTS — the speedup is applied via pydub post-processing.
+    #
+    # ``apply_speed(audio, speed)`` treats ``speed > 1.0`` as faster (higher
+    # sample rate -> shorter duration). Overflow means actual > target, so the
+    # required multiplier is actual/target (> 1.0), NOT target/actual (< 1.0).
     v2_speed = 1.0
     if target_duration:
         actual_duration = timed_segments[-1].end if timed_segments else 0
         ratio = actual_duration / target_duration if target_duration else 1.0
         if ratio > _OVERFLOW_THRESHOLD_V2:
-            v2_speed = min(_MAX_SPEEDUP, target_duration / actual_duration)
+            v2_speed = min(_MAX_SPEEDUP, actual_duration / target_duration)
             if v2_speed > 1.01:
                 console.inline_warn(
                     f"Narration {actual_duration:.1f}s still exceeds target "

@@ -3,10 +3,9 @@
 
 """StubVisionCaptioner — placeholder captions for CI and dev (vision captioner integration).
 
-Returns:
-    Deterministic placeholder labels so the embedding re-rank
-    path stays exercisable without a real vision model. Directly
-    analogous to BaseTTSProvider._silent_synthesize for CI.
+Produces deterministic placeholder labels so the embedding re-rank
+path stays exercisable without a real vision model. Directly
+analogous to BaseTTSProvider._silent_synthesize for CI.
 """
 
 from typing import List, Optional
@@ -16,15 +15,13 @@ from .protocol import VisionCaptioner
 
 
 class StubVisionCaptioner(VisionCaptioner):
-    """
-    Returns:
-        Placeholder scene labels without any ML model.
+    """Placeholder scene labels without any ML model.
 
-        Labels follow the same format as match._build_scene_label:
-        ``"scene {index} from {start}s to {end}s"``. This ensures
-        backward compatibility — the fake-caption guard in match.py
-        will detect these as placeholders and fall back to heuristic
-        matching, exactly as before vision captioner integration.
+    Labels follow the same format as match._build_scene_label:
+    ``"scene {index} from {start}s to {end}s"``. This ensures
+    backward compatibility — the fake-caption guard in match.py
+    will detect these as placeholders and fall back to heuristic
+    matching, exactly as before vision captioner integration.
     """
 
     def caption_scenes(

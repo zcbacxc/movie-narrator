@@ -8,6 +8,8 @@ Built-in provider (stub) is registered at import time. External
 plugins can register additional providers via :func:`register_vision`.
 """
 
+from typing import Any
+
 from ..providers import vision_registry
 from .protocol import VisionCaptioner
 
@@ -44,7 +46,7 @@ vision_registry.set_protocol(VisionCaptioner)
 
 def get_vision_captioner(
     provider: str = "stub",
-    **kwargs,
+    **kwargs: Any,
 ) -> VisionCaptioner:
     """Return a VisionCaptioner instance.
 

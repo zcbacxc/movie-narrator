@@ -16,12 +16,12 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
-import shutil
 import subprocess
 from pathlib import Path
 from typing import List, Optional, Tuple
 
 from ..models import Scene
+from ..utils.ffmpeg_bin import ffmpeg_bin
 
 logger = logging.getLogger(__name__)
 
@@ -78,14 +78,14 @@ def _extract_mid_frame(
         ``True`` on success, ``False`` on failure (ffmpeg missing,
         corrupt video, etc.).
     """
-    ffmpeg_bin = shutil.which("ffmpeg")
-    if not ffmpeg_bin:
+    ffmpeg = ffmpeg_bin()
+    if not ffmpeg or ffmpeg == "ffmpeg":
         return False
 
     try:
         result = subprocess.run(
             [
-                ffmpeg_bin,
+                ffmpeg,
                 "-y",  # overwrite
                 "-ss",
                 str(timestamp),  # seek to timestamp
@@ -153,7 +153,7 @@ def filter_dark_scenes(
         return scenes, 0
 
     # Check ffmpeg availability upfront
-    if not shutil.which("ffmpeg"):
+    if not ffmpeg_bin() or ffmpeg_bin() == "ffmpeg":
         logger.debug("ffmpeg not found — dark frame filter skipped")
         return scenes, 0
 

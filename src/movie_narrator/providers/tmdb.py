@@ -58,6 +58,11 @@ logger = logging.getLogger(__name__)
 _TMDB_SEARCH_PATH = "/search/movie"
 _TMDB_MOVIE_PATH = "/movie/{movie_id}"
 
+# TMDB attribution required by their terms of service. When TMDB data is
+# written into research artifacts (research.json), this attribution must
+# accompany it so downstream consumers can credit the data source.
+TMDB_ATTRIBUTION = "This product uses the TMDB API but is not endorsed or certified by TMDB."
+
 # Process-level response cache. Keyed by full request URL. No expiry —
 # the cache lives for the lifetime of the Python process and is intended
 # to deduplicate requests for the same resource within a single run.

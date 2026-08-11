@@ -101,7 +101,7 @@ def download_artifact(
         Path to the downloaded file.
 
     Raises:
-        ``RemoteQueueError`` if the download fails.
+        RemoteQueueError: if the download fails.
     """
     from .remote_queue import RemoteQueueError
 

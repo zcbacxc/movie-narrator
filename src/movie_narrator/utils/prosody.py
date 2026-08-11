@@ -21,16 +21,12 @@ from __future__ import annotations
 
 from pydub import AudioSegment
 
+from .emotion_track import EMOTION_SPEED as _EMOTION_SPEED, EmotionTrack
+
 
 # Emotion → speed multiplier. 1.0 = no change.
 # Range: 0.85 (15% slower) to 1.12 (12% faster).
-_EMOTION_SPEED: dict[str, float] = {
-    "intense": 1.12,
-    "suspense": 0.88,
-    "calm": 0.94,
-    "twist": 1.06,
-    "laughter": 1.08,
-}
+# Single source of truth: utils/emotion_track.py (G5).
 
 # Maximum absolute speed deviation from 1.0 (safety clamp).
 _MAX_SPEED_DEVIATION = 0.15
@@ -80,37 +76,11 @@ def map_segment_emotions(
     mapping: segment *i* gets the emotion of beat
     ``floor(i * n_beats / n_segments)``.
 
+    Retained as a thin wrapper for backward compatibility; the logic now
+    lives on :class:`~movie_narrator.utils.emotion_track.EmotionTrack`.
+
     Returns:
         A list of ``n_segments`` emotion strings (or ``None`` when
         no beats_meta is available).
     """
-    if not beats_meta or n_segments <= 0:
-        return [None] * max(0, n_segments)
-
-    emotions: list[str | None] = []
-    for bm in beats_meta:
-        if isinstance(bm, dict):
-            emo = bm.get("emotion")
-            emotions.append(emo if isinstance(emo, str) else None)
-        else:
-            emotions.append(None)
-
-    # Filter out None emotions — if none have values, return all None
-    if not any(emotions):
-        return [None] * n_segments
-
-    # Fill None emotions with the previous non-None value (forward fill)
-    last_valid: str | None = None
-    filled: list[str | None] = []
-    for emo in emotions:
-        if emo is not None:
-            last_valid = emo
-        filled.append(last_valid)
-
-    n_beats = len(filled)
-    result: list[str | None] = []
-    for i in range(n_segments):
-        beat_idx = min(n_beats - 1, int(i * n_beats / n_segments))
-        result.append(filled[beat_idx])
-
-    return result
+    return EmotionTrack.from_beats(beats_meta).segment_emotions(n_segments)

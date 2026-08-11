@@ -368,8 +368,49 @@ class TestTaskStorage:
         storage = TaskStorage(tmp_path)
         storage.save(Task(request=TaskRequest(movie_name="Test")))
         assert storage.index_path.exists()
-        data = json.loads(storage.index_path.read_text(encoding="utf-8"))
-        assert isinstance(data, dict)
+        # SQLite (G8): the index is a WAL database, not a JSON file.
+        assert storage.index_path.name == "tasks.db"
+        assert storage.count() == 1
+
+    def test_migrate_from_legacy_json(self, tmp_path):
+        """Legacy tasks.json is imported into SQLite and archived idempotently."""
+        legacy = {
+            "t1": {
+                "id": "t1",
+                "status": "completed",
+                "created_at": "2026-01-01T00:00:00",
+                "request": {"movie_name": "Legacy"},
+            }
+        }
+        (tmp_path / "tasks.json").write_text(
+            json.dumps(legacy), encoding="utf-8"
+        )
+
+        storage = TaskStorage(tmp_path)
+        loaded = storage.load("t1")
+        assert loaded is not None
+        assert loaded.request.movie_name == "Legacy"
+        # JSON archived, not deleted.
+        assert (tmp_path / "tasks.json.migrated").exists()
+        assert not (tmp_path / "tasks.json").exists()
+
+        # Idempotent: a second instance does not double-import.
+        storage2 = TaskStorage(tmp_path)
+        assert storage2.count() == 1
+
+    def test_no_migration_when_db_has_tasks(self, tmp_path):
+        """If the DB already has data, tasks.json is left untouched."""
+        storage = TaskStorage(tmp_path)
+        storage.save(Task(request=TaskRequest(movie_name="Fresh")))
+        storage.close()
+
+        legacy = {"tX": {"id": "tX", "status": "pending", "request": {}}}
+        (tmp_path / "tasks.json").write_text(json.dumps(legacy), encoding="utf-8")
+
+        storage2 = TaskStorage(tmp_path)
+        assert storage2.count() == 1
+        assert storage2.load("tX") is None
+        assert (tmp_path / "tasks.json").exists()
 
 
 # ════════════════════════════════════════════════════════════

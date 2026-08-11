@@ -269,7 +269,7 @@ class TestCoverExport:
             )
         ]
 
-        with patch("movie_narrator.pipeline.render.shutil.which", return_value=None):
+        with patch("movie_narrator.pipeline.render.ffmpeg_bin", return_value="ffmpeg"):
             _export_cover_image(ctx, clips, tmp_path)
 
         assert not (tmp_path / "cover.jpg").exists()
@@ -313,7 +313,7 @@ class TestCoverExport:
         ]
 
         # Mock ffmpeg to not exist so we test the selection logic without actual extraction
-        with patch("movie_narrator.pipeline.render.shutil.which", return_value=None):
+        with patch("movie_narrator.pipeline.render.ffmpeg_bin", return_value="ffmpeg"):
             _export_cover_image(ctx, clips, tmp_path)
 
         # The function should have attempted extraction (and failed gracefully)

@@ -1069,6 +1069,17 @@ def version():
 
 
 @app.command()
+def doctor():
+    """Environment pre-flight check — ffmpeg, extras, config."""
+    from .doctor import run_doctor, render_report
+
+    report = run_doctor()
+    typer.echo(render_report(report))
+    if not report.healthy:
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def preset(
     name: Optional[str] = typer.Argument(
         None, help="预设名称(省略则列出��部) / Preset name (omitted = list all)"

@@ -69,3 +69,60 @@ def test_research_llm_success(tmp_path):
     assert isinstance(envelope["research"]["genres"], list)
     assert isinstance(envelope["research"]["cast"], list)
     assert isinstance(envelope["research"]["keywords"], list)
+
+
+def test_research_tmdb_attribution_written(tmp_path):
+    """TMDB-sourced research must carry the required attribution in research.json."""
+    ctx = Context(movie_name="Inception", output_dir=str(tmp_path))
+    ctx.metadata["research_enabled"] = True
+    ctx.metadata["movie_card_source"] = "tmdb_enriched"
+
+    mock_response = MagicMock()
+    mock_response.choices[0].message.content = (
+        '{"title": "Inception", "year": 2010, "summary": "A thief who steals secrets.",'
+        ' "genres": ["Sci-Fi"], "cast": ["DiCaprio"], "keywords": ["dreams"]}'
+    )
+
+    with (
+        patch("movie_narrator.pipeline.research.get_settings") as gs,
+        patch("movie_narrator.pipeline.research.get_llm_client") as gl,
+    ):
+        gs.return_value.research_provider = "llm"
+        gs.return_value.research_retries = 3
+        gs.return_value.research_retry_delay = 0
+        gs.return_value.research_temperature = 0.3
+        gs.return_value.research_max_tokens = 1024
+        gl.return_value.__enter__.return_value = gl.return_value
+        gl.return_value.client.chat.completions.create.return_value = mock_response
+        research_plot(ctx)
+
+    assert ctx.status.research == "success"
+    envelope = json.loads((tmp_path / "research.json").read_text(encoding="utf-8"))
+    assert "attribution" in envelope
+    assert "TMDB" in envelope["attribution"]
+
+
+def test_research_llm_no_attribution(tmp_path):
+    """Pure-LLM research (no TMDB) must NOT carry a TMDB attribution."""
+    ctx = Context(movie_name="Inception", output_dir=str(tmp_path))
+    ctx.metadata["research_enabled"] = True
+
+    mock_response = MagicMock()
+    mock_response.choices[0].message.content = '{"title": "Inception", "year": 2010}'
+
+    with (
+        patch("movie_narrator.pipeline.research.get_settings") as gs,
+        patch("movie_narrator.pipeline.research.get_llm_client") as gl,
+    ):
+        gs.return_value.research_provider = "llm"
+        gs.return_value.research_retries = 3
+        gs.return_value.research_retry_delay = 0
+        gs.return_value.research_temperature = 0.3
+        gs.return_value.research_max_tokens = 1024
+        gl.return_value.__enter__.return_value = gl.return_value
+        gl.return_value.client.chat.completions.create.return_value = mock_response
+        research_plot(ctx)
+
+    assert ctx.status.research == "success"
+    envelope = json.loads((tmp_path / "research.json").read_text(encoding="utf-8"))
+    assert "attribution" not in envelope

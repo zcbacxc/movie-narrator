@@ -33,7 +33,6 @@ _ALLOWED_TOP = (
     "subtitle_lang",
     "subtitle_mode",
     "narration_preset",
-    "align_backend",
     "lang",  # top-level narration language
 )
 
@@ -106,13 +105,20 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
             "match_act_weights",
             "match_topk",
             "match_topk_reuse_penalty",
+            "match_visual_features",
+            "match_skip_intro_sec",
+            "match_drop_dark_luma",
+            "match_source_window",
             # Vision (VLM caption provider)
             "vision_captioner",
             # BGM + loudness
             "bgm_gain_db",
             "bgm_duck_db",
             "bgm_normalize",
+            "bgm_ducking_backend",
             "audio_target_dbfs",
+            "bgm_ambient_path",
+            "bgm_ambient_gain_db",
             # TTS pacing
             "tts_pause_ms",
             "tts_max_concurrent",
@@ -154,6 +160,13 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
             "render_title_card_sec",
             "render_cover_export",
             "render_vertical_safe_area",
+            "render_encoder",
+            "render_transition",
+            "render_transition_duration",
+            "render_text_animation",
+            "render_text_animation_duration",
+            "render_preview_mode",
+            "render_preview_sec",
             "bgm_loudnorm",
             # BGM emotion-based selection metadata file
             "bgm_metadata_path",
@@ -162,6 +175,8 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
             "qa_max_silence_db",
             "qa_min_duration_ratio",
             "qa_max_duration_ratio",
+            "qa_max_slideshow_risk",
+            "qa_max_black_ratio",
             # Prompt shaping (preset-driven)
             "prompt_target_sentences",
             "prompt_target_segment_duration",

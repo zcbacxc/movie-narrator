@@ -35,6 +35,7 @@ from typing import List, Optional
 
 from ..models import Scene
 from ..reliability import CIRCUIT_REGISTRY, CircuitOpenError
+from ..utils.ffmpeg_bin import ffmpeg_bin
 from .protocol import VisionCaptioner
 
 logger = logging.getLogger(__name__)
@@ -137,7 +138,7 @@ class VLMCaptioner(VisionCaptioner):
 
         # Extract frame using ffmpeg
         cmd = [
-            "ffmpeg",
+            ffmpeg_bin(),
             "-y",
             "-ss",
             f"{mid_time:.2f}",

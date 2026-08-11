@@ -28,6 +28,7 @@ import platform
 from typing import List, Tuple
 
 from ..models import Context
+from ..providers.asr.funasr import FunASRUnavailable, transcribe_with_funasr
 from ..utils.optional_deps import probe
 
 
@@ -40,21 +41,23 @@ def select_align_backend(ctx: Context) -> Tuple[str, str]:
     Returns:
         ``(backend, reason)``.
 
-        ``backend`` is one of ``"whisperx"``, ``"faster_whisper"``, ``"none"``.
-        The decision is based on:
+        ``backend`` is one of ``"whisperx"``, ``"faster_whisper"``,
+        ``"funasr"``, ``"none"``. The decision is based on:
 
         1. Explicit override via ``ctx.metadata['align_backend']``
         2. GPU available + whisperx importable → whisperx
         3. CPU + whisperx importable + non-Windows → whisperx
         (k2-fsa has prebuilt wheels on Linux/macOS)
-        4. Windows CPU + whisperx importable → faster_whisper
+        4. Windows CPU + whisperx importable + faster_whisper → faster_whisper
         (k2-fsa has no prebuilt Windows CPU wheel)
-        5. whisperx not importable → faster_whisper
-        6. faster_whisper not importable → none
+        5. Windows CPU + whisperx importable + faster_whisper missing + funasr → funasr
+        6. whisperx not importable → faster_whisper
+        7. faster_whisper not importable → funasr (Chinese ASR fallback)
+        8. none importable → none
     """
     # 1. Explicit override
     override = ctx.metadata.get("align_backend")
-    if override in ("whisperx", "faster_whisper"):
+    if override in ("whisperx", "faster_whisper", "funasr"):
         ok, _ = probe(override)
         if ok:
             return override, f"explicit override (align_backend={override})"
@@ -64,9 +67,10 @@ def select_align_backend(ctx: Context) -> Tuple[str, str]:
             f"{override}: explicit override but import failed"
         )
 
-    # 2-5. Auto-detect
+    # 2-7. Auto-detect
     wx_ok, _ = probe("whisperx")
     fw_ok, _ = probe("faster_whisper")
+    fa_ok, _ = probe("funasr")
     device = ctx.metadata.get("whisperx_device", "cpu")
     is_windows = platform.system() == "Windows"
 
@@ -79,15 +83,19 @@ def select_align_backend(ctx: Context) -> Tuple[str, str]:
         # Windows CPU: k2-fsa likely missing → prefer faster_whisper
         if fw_ok:
             return "faster_whisper", "Windows CPU (k2-fsa may be unavailable) → faster_whisper"
-        # faster_whisper not installed, but whisperx is — try whisperx
-        # and let it fail at load_align_model time (graceful fallback)
-        return "whisperx", "Windows CPU but faster_whisper not installed; trying whisperx"
+        # faster_whisper not installed — try funasr before falling back to
+        # whisperx (which may fail at load_align_model time on Windows).
+        if fa_ok:
+            return "funasr", "Windows CPU, faster_whisper missing → funasr"
+        return "whisperx", "Windows CPU but faster_whisper/funasr not installed; trying whisperx"
 
     # whisperx not importable
     if fw_ok:
         return "faster_whisper", "whisperx not importable → faster_whisper"
+    if fa_ok:
+        return "funasr", "whisperx/faster_whisper not importable → funasr"
 
-    return "none", "neither whisperx nor faster_whisper importable"
+    return "none", "no alignment backend importable (whisperx/faster_whisper/funasr)"
 
 
 def run_faster_whisper(ctx: Context) -> List[dict]:
@@ -150,3 +158,22 @@ def transcribe_with_faster_whisper(
                 }
             )
     return wx_segments
+
+
+def run_funasr(ctx: Context) -> List[dict]:
+    """Transcribe with FunASR (Chinese ASR), return ``wx_segments`` list.
+
+    Same output shape as the other backends so ``align.py``'s remapping
+    loop consumes it unchanged. Draws its settings from ``ctx.metadata``
+    (``whisperx_device`` reuse, ``funasr_model``, ``funasr_hotword``).
+    """
+    assert ctx.audio_path is not None, "audio_path must be set before alignment"
+    try:
+        return transcribe_with_funasr(
+            audio_path=ctx.audio_path,
+            device=ctx.metadata.get("whisperx_device", "cpu"),
+            model=ctx.metadata.get("funasr_model"),
+            hotword=ctx.metadata.get("funasr_hotword"),
+        )
+    except FunASRUnavailable as exc:
+        raise BackendUnavailable(str(exc)) from exc

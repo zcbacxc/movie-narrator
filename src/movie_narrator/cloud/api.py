@@ -50,6 +50,7 @@ import re
 import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Tuple
 
 from .. import __version__
@@ -945,7 +946,7 @@ class TaskAPIServer:
         port: int = 8765,
         *,
         queue: Optional[LocalTaskQueue] = None,
-        storage_dir=None,
+        storage_dir: Optional[Path] = None,
         max_workers: int = 2,
         api_key: Optional[str] = None,
         artifact_store: Optional[StorageBackend] = None,

@@ -15,11 +15,15 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import shutil
 import subprocess
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
+
+from .ffmpeg_bin import ffmpeg_bin
 
 
 logger = logging.getLogger(__name__)
@@ -317,4 +321,143 @@ def evaluate_video_quality(
         min_width=min_width,
         min_height=min_height,
         min_bitrate_kbps=min_bitrate_kbps,
+    )
+
+
+# ── Slideshow-risk & black-frame detection (G2) ────────────
+
+
+@dataclass
+class SlideshowRisk:
+    """Slideshow (degraded to image carousel) risk analysis.
+
+    ``risk`` is a 0–1 score where higher means more likely the output is a
+    near-static image sequence rather than a real video. ``static_ratio`` is
+    the fraction of sampled frame transitions with negligible motion.
+    ``black_ratio`` is the fraction of sampled frames that are near-black.
+    """
+
+    risk: float = 0.0
+    static_ratio: float = 0.0
+    avg_motion: float = 0.0
+    black_ratio: float = 0.0
+    samples: int = 0
+    probed: bool = False
+
+    def to_dict(self) -> dict:
+        """Return a JSON-serializable representation."""
+        return {
+            "risk": round(self.risk, 3),
+            "static_ratio": round(self.static_ratio, 3),
+            "avg_motion": round(self.avg_motion, 3),
+            "black_ratio": round(self.black_ratio, 3),
+            "samples": self.samples,
+            "probed": self.probed,
+        }
+
+
+def _extract_luma_frames(video_path: str, sample_sec: float, max_frames: int) -> list[float]:
+    """Sample frames across the video and return their mean luma (0–255).
+
+    Uses ffmpeg to extract one frame every ``sample_sec`` seconds and PIL to
+    compute each frame's mean luminance (ITU-R 601-2 luma). Returns an empty
+    list when ffmpeg or PIL is unavailable or extraction fails, so callers can
+    degrade gracefully (``probed=False``).
+    """
+    ffmpeg = ffmpeg_bin()
+    if not ffmpeg:
+        return []
+    try:
+        from PIL import Image  # noqa: F401
+    except ImportError:
+        return []
+
+    with tempfile.TemporaryDirectory() as tmp:
+        pattern = os.path.join(tmp, "frame_%04d.png")
+        try:
+            proc = subprocess.run(
+                [
+                    ffmpeg,
+                    "-y",
+                    "-i",
+                    video_path,
+                    "-vf",
+                    f"fps=1/{sample_sec}",
+                    "-frames:v",
+                    str(max_frames),
+                    pattern,
+                ],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=60,
+            )
+        except Exception:  # noqa: BLE001
+            logger.debug("frame sampling failed", exc_info=True)
+            return []
+        if proc.returncode != 0:
+            logger.debug("ffmpeg frame sampling exit=%s", proc.returncode)
+            return []
+
+        frames = sorted(Path(tmp).glob("frame_*.png"))
+        lumas: list[float] = []
+        for f in frames:
+            try:
+                img = Image.open(f).convert("L")
+                if img.width > 64:
+                    img = img.resize((64, 64))
+                pixels = list(img.getdata())
+                if pixels:
+                    lumas.append(sum(pixels) / len(pixels))
+            except Exception:  # noqa: BLE001
+                continue
+        return lumas
+
+
+def check_slideshow_risk(
+    video_path: str,
+    *,
+    sample_sec: float = 1.0,
+    max_frames: int = 60,
+    motion_static_threshold: float = 1.5,
+    black_luma_threshold: float = 16.0,
+) -> SlideshowRisk:
+    """Analyze a video for slideshow-degradation and near-black segments.
+
+    Estimated by sampling frames and measuring:
+    - **motion**: mean absolute change in luma between consecutive samples
+      (a near-static video has ~0 motion → looks like an image carousel);
+    - **static_ratio**: fraction of consecutive transitions below
+      ``motion_static_threshold``;
+    - **black_ratio**: fraction of sampled frames below ``black_luma_threshold``.
+
+    Risk is a composition of the two failure signals:
+
+        risk = clamp(1 - avg_motion / motion_static_threshold)
+             + black_ratio * 0.5
+
+    Returns a :class:`SlideshowRisk` with ``probed=False`` when the probe
+    cannot run (no ffmpeg/PIL, extraction failure, or too few frames).
+    """
+    lumas = _extract_luma_frames(video_path, sample_sec, max_frames)
+    if len(lumas) < 2:
+        return SlideshowRisk()
+
+    # Frame-to-frame motion = luma delta between consecutive samples.
+    deltas = [abs(lumas[i] - lumas[i - 1]) for i in range(1, len(lumas))]
+    avg_motion = sum(deltas) / len(deltas)
+    static = sum(1 for d in deltas if d < motion_static_threshold) / len(deltas)
+    black = sum(1 for lum in lumas if lum < black_luma_threshold) / len(lumas)
+
+    motion_risk = max(0.0, 1.0 - avg_motion / motion_static_threshold)
+    risk = min(1.0, motion_risk + black * 0.5)
+
+    return SlideshowRisk(
+        risk=risk,
+        static_ratio=static,
+        avg_motion=avg_motion,
+        black_ratio=black,
+        samples=len(lumas),
+        probed=True,
     )

@@ -95,7 +95,7 @@ class TestFilterDarkScenes:
     def test_no_ffmpeg_returns_unchanged(self):
         """When ffmpeg is not available, skip filtering."""
         scenes = _scenes()
-        with patch("movie_narrator.pipeline.scene_filter.shutil.which", return_value=None):
+        with patch("movie_narrator.pipeline.scene_filter.ffmpeg_bin", return_value="ffmpeg"):
             result, dropped = filter_dark_scenes(scenes, "video.mp4", 20.0)
         assert result is scenes
         assert dropped == 0
@@ -105,7 +105,7 @@ class TestFilterDarkScenes:
         scenes = _scenes()
         with (
             patch(
-                "movie_narrator.pipeline.scene_filter.shutil.which", return_value="/usr/bin/ffmpeg"
+                "movie_narrator.pipeline.scene_filter.ffmpeg_bin", return_value="/usr/bin/ffmpeg"
             ),
             patch.dict(sys.modules, {"PIL": None, "PIL.Image": None}),
         ):
@@ -167,7 +167,7 @@ class TestFilterDarkScenes:
 
         with (
             patch(
-                "movie_narrator.pipeline.scene_filter.shutil.which", return_value="/usr/bin/ffmpeg"
+                "movie_narrator.pipeline.scene_filter.ffmpeg_bin", return_value="/usr/bin/ffmpeg"
             ),
             patch(
                 "movie_narrator.pipeline.scene_filter._extract_mid_frame", side_effect=fake_extract
@@ -194,7 +194,7 @@ class TestFilterDarkScenes:
 
         with (
             patch(
-                "movie_narrator.pipeline.scene_filter.shutil.which", return_value="/usr/bin/ffmpeg"
+                "movie_narrator.pipeline.scene_filter.ffmpeg_bin", return_value="/usr/bin/ffmpeg"
             ),
             patch("movie_narrator.pipeline.scene_filter._extract_mid_frame", return_value=False),
         ):
@@ -216,7 +216,7 @@ class TestFilterDarkScenes:
 
         with (
             patch(
-                "movie_narrator.pipeline.scene_filter.shutil.which", return_value="/usr/bin/ffmpeg"
+                "movie_narrator.pipeline.scene_filter.ffmpeg_bin", return_value="/usr/bin/ffmpeg"
             ),
             patch("movie_narrator.pipeline.scene_filter._extract_mid_frame", return_value=True),
             patch("movie_narrator.pipeline.scene_filter._compute_mean_luma", return_value=5.0),

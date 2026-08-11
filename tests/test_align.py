@@ -157,7 +157,7 @@ def test_select_align_backend_neither_available(tmp_path, monkeypatch):
 
     backend, reason = select_align_backend(ctx)
     assert backend == "none"
-    assert "neither" in reason
+    assert "no alignment backend" in reason
 
 
 def test_align_faster_whisper_path(tmp_path, monkeypatch):

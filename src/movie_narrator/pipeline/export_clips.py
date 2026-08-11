@@ -3,13 +3,13 @@
 
 """Clip export step — export matched scenes as individual files."""
 
-import shutil
 import subprocess
 from pathlib import Path
 
 from tqdm import tqdm
 
 from ..models import Context, StepResult
+from ..utils.ffmpeg_bin import ffmpeg_bin
 from ..utils.optional_deps import probe
 from ..utils.warnings import append_warning
 
@@ -45,8 +45,8 @@ def export_clips(ctx: Context) -> Context:
         ctx.step_state.message = "no source video"
         return ctx
 
-    ffmpeg = shutil.which("ffmpeg")
-    if not ffmpeg:
+    ffmpeg = ffmpeg_bin()
+    if not ffmpeg or ffmpeg == "ffmpeg":
         ctx.status.export = "disabled"
         ctx.step_state.result = StepResult.SKIPPED
         ctx.step_state.message = "ffmpeg not found on PATH"

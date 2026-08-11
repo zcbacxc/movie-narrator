@@ -49,7 +49,11 @@ Do NOT add any text before or after the JSON.
 
 
 def _write_envelope(
-    output_dir: Path, status: str, error: str | None, research: dict | None
+    output_dir: Path,
+    status: str,
+    error: str | None,
+    research: dict | None,
+    attribution: str | None = None,
 ) -> Path:
     path = output_dir / "research.json"
     payload = {
@@ -57,6 +61,10 @@ def _write_envelope(
         "error": error,
         "research": research or {},
     }
+    # TMDB ToS requires the attribution to accompany any TMDB-derived data.
+    # It is only recorded when TMDB was actually used as a data source.
+    if attribution:
+        payload["attribution"] = attribution
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return path
 
@@ -165,7 +173,17 @@ def research_plot(ctx: Context) -> Context:
         try:
             info = research_registry.create(provider, ctx, settings)
             ctx.research = info
-            _write_envelope(output_dir, "success", None, ctx.research.model_dump())
+            # TMDB ToS: when research data was sourced from (or enriched
+            # by) TMDB, attach the required attribution to research.json.
+            attribution = None
+            source = ctx.metadata.get("movie_card_source")
+            if isinstance(source, str) and "tmdb" in source:
+                from ..providers.tmdb import TMDB_ATTRIBUTION
+
+                attribution = TMDB_ATTRIBUTION
+            _write_envelope(
+                output_dir, "success", None, ctx.research.model_dump(), attribution
+            )
             ctx.status.research = "success"
             return ctx
         except Exception as e:  # noqa: BLE001

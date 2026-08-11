@@ -16,6 +16,7 @@ from proglog import TqdmProgressBarLogger
 
 from ..models import Context, MatchedClip, TimedSegment
 from ..utils.console import step_timing
+from ..utils.ffmpeg_bin import ffmpeg_bin
 from ..utils.gpu_detect import get_encoder_info, resolve_encoder
 from ..utils.metadata_export import build_metadata_json
 from ..utils.text_image import create_text_image as _create_text_image
@@ -121,13 +122,13 @@ def _export_cover_image(
     cover_final = output_dir / "cover.jpg"
 
     # Extract frame via ffmpeg
-    ffmpeg_bin = shutil.which("ffmpeg")
-    if not ffmpeg_bin:
+    ffmpeg = ffmpeg_bin()
+    if not ffmpeg or ffmpeg == "ffmpeg":
         ctx.services.console.debug("  cover: ffmpeg not found — skipping")
         return
 
     extract_cmd = [
-        ffmpeg_bin,
+        ffmpeg,
         "-y",
         "-loglevel",
         "error",
@@ -680,16 +681,16 @@ def render_video(ctx: Context) -> Context:
     # more robust than MoviePy for muxing (it's what MoviePy ultimately
     # shells out to internally) and lets us apply +faststart atomically
     # alongside the mux.
-    if shutil.which("ffmpeg") is None:  # pragma: no cover - ffmpeg is required
+    ffmpeg = ffmpeg_bin()
+    if ffmpeg == "ffmpeg":  # pragma: no cover - ffmpeg is required
         raise RuntimeError(
-            "ffmpeg binary not found on PATH — required for production-quality "
+            "ffmpeg binary unavailable — required for production-quality "
             "mux. Install ffmpeg (https://ffmpeg.org/download.html) and retry."
         )
-    ffmpeg_bin = shutil.which("ffmpeg")
-    assert ffmpeg_bin is not None
+    assert ffmpeg is not None
 
     mux_cmd = [
-        ffmpeg_bin,
+        ffmpeg,
         "-y",
         "-loglevel",
         "error",

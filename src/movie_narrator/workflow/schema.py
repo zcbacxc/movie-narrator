@@ -61,10 +61,14 @@ class JobParams(BaseModel):
     match_source_window: Optional[list] = (
         None  # [start_ratio, end_ratio] highlight window (default [0.0, 1.0])
     )
+    # Opt-in visual feature pipeline (G9 stage-1 skeleton; default off).
+    match_visual_features: Optional[bool] = None
     # ── BGM ──
     bgm_gain_db: Optional[float] = None
     bgm_duck_db: Optional[float] = None
     bgm_normalize: Optional[bool] = None
+    # Ducking implementation: "envelope" (default) | "sidechaincompress" (G7)
+    bgm_ducking_backend: Optional[str] = None
     audio_target_dbfs: Optional[float] = None
     # RMS-based loudness normalization (more consistent than peak)
     bgm_loudnorm: Optional[bool] = None
@@ -87,7 +91,7 @@ class JobParams(BaseModel):
     whisperx_device: Optional[str] = None
     whisperx_model: Optional[str] = None
     whisperx_language: Optional[str] = None
-    align_backend: Optional[str] = None  # "whisperx" | "faster_whisper" | None (auto)
+    align_backend: Optional[str] = None  # "whisperx" | "faster_whisper" | "funasr" | None (auto)
     # ── Render ──
     render_fps: Optional[int] = None
     render_video_codec: Optional[str] = None
@@ -137,6 +141,8 @@ class JobParams(BaseModel):
     qa_max_silence_db: Optional[float] = None
     qa_min_duration_ratio: Optional[float] = None
     qa_max_duration_ratio: Optional[float] = None
+    qa_max_slideshow_risk: Optional[float] = None
+    qa_max_black_ratio: Optional[float] = None
     # ── Prompt shaping (preset-driven) ──
     prompt_target_sentences: Optional[int] = None
     prompt_target_segment_duration: Optional[float] = None

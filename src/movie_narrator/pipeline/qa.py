@@ -73,6 +73,8 @@ def validate_deliverable(ctx: Context) -> Context:
         max_silence_db=ctx.metadata.get("qa_max_silence_db", -50.0),
         min_duration_ratio=ctx.metadata.get("qa_min_duration_ratio", 0.85),
         max_duration_ratio=ctx.metadata.get("qa_max_duration_ratio", 1.25),
+        max_slideshow_risk=ctx.metadata.get("qa_max_slideshow_risk"),
+        max_black_ratio=ctx.metadata.get("qa_max_black_ratio"),
     )
 
     # Stash the report so downstream steps / metadata can surface it.

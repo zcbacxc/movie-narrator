@@ -12,11 +12,44 @@ window with linear attack/release.
 
 from __future__ import annotations
 
-from typing import Any
+import logging
+import subprocess
+from enum import Enum
+from typing import Any, Optional
 
 import numpy as np
 from pydub import AudioSegment
 from pydub.utils import db_to_float
+
+from ..utils.ffmpeg_bin import ffmpeg_bin as _resolve_ffmpeg
+
+logger = logging.getLogger(__name__)
+
+
+class DuckingBackend(str, Enum):
+    """Selects the BGM ducking implementation.
+
+    G7: the historical envelope-based ducking stays as the default
+    (``ENVELOPE``). ``SIDECHAIN`` routes through FFmpeg's
+    ``sidechaincompress`` for a more natural, proportional duck that
+    follows the narration's real-time level ("voice up, BGM down; pause,
+    BGM recovers"). ``ENVELOPE`` has no external dependency; ``SIDECHAIN``
+    requires FFmpeg on ``PATH`` (fallback to ``ENVELOPE`` when absent).
+    """
+
+    ENVELOPE = "envelope"
+    SIDECHAIN = "sidechaincompress"
+
+    @classmethod
+    def from_value(cls, value: Optional[str]) -> "DuckingBackend":
+        """Parse a config value, defaulting to :attr:`ENVELOPE` on any
+        unrecognized / missing input (lenient, never raises)."""
+        if not value:
+            return cls.ENVELOPE
+        try:
+            return cls(value)
+        except ValueError:
+            return cls.ENVELOPE
 
 
 def normalize_peak(seg: AudioSegment, target_dbfs: float = -14.0) -> AudioSegment:
@@ -52,7 +85,7 @@ def normalize_loudnorm(seg: AudioSegment, target_dbfs: float = -16.0) -> AudioSe
     return seg.apply_gain(gain)
 
 
-def duck_bgm(
+def duck_bgm_envelope(
     narration: AudioSegment,
     bgm: AudioSegment,
     *,
@@ -72,6 +105,9 @@ def duck_bgm(
        attack (``attack_ms``) ramps the duck in; release (``release_ms``)
        ramps it out, avoiding abrupt volume jumps.
     4. Overlay ducked BGM under narration.
+
+    This is the historical envelope backend. See :func:`duck_bgm` for the
+    backend-dispatching entry point.
 
     Returns:
         A mix the same length as ``narration``.
@@ -166,6 +202,59 @@ def duck_bgm(
     return narration.overlay(ducked_bgm)
 
 
+def duck_bgm(
+    narration: AudioSegment,
+    bgm: AudioSegment,
+    *,
+    bgm_gain_db: float = -18.0,
+    duck_db: float = -10.0,
+    attack_ms: int = 50,
+    release_ms: int = 200,
+    window_ms: int = 50,
+    speech_threshold_dbfs: float = -40.0,
+    backend: DuckingBackend | str | None = DuckingBackend.ENVELOPE,
+) -> AudioSegment:
+    """Duck ``bgm`` under ``narration`` and overlay the two tracks.
+
+    Backend-dispatching entry point (G7). Selects the ducking
+    implementation via ``backend``:
+
+    - :attr:`DuckingBackend.ENVELOPE` (default) — the historical windowed
+      RMS envelope (no external dependency).
+    - :attr:`DuckingBackend.SIDECHAIN` — FFmpeg ``sidechaincompress`` for a
+      proportional, more natural duck. Falls back to the envelope backend
+      when FFmpeg is unavailable or the sidechain mix fails.
+
+    All other parameters match the envelope backend's contract.
+
+    Returns:
+        A mix the same length as ``narration``.
+    """
+    selected = DuckingBackend.from_value(backend)
+    if selected is DuckingBackend.SIDECHAIN:
+        mixed = duck_bgm_sidechain(
+            narration,
+            bgm,
+            bgm_gain_db=bgm_gain_db,
+            duck_db=duck_db,
+            attack_ms=attack_ms,
+            release_ms=release_ms,
+        )
+        if mixed is not None:
+            return mixed
+        logger.debug("sidechaincompress ducking unavailable; falling back to envelope")
+    return duck_bgm_envelope(
+        narration,
+        bgm,
+        bgm_gain_db=bgm_gain_db,
+        duck_db=duck_db,
+        attack_ms=attack_ms,
+        release_ms=release_ms,
+        window_ms=window_ms,
+        speech_threshold_dbfs=speech_threshold_dbfs,
+    )
+
+
 def crossfade_segments(
     segments: list[tuple[AudioSegment, float]],
     crossfade_ms: int = 500,
@@ -234,3 +323,131 @@ def _smooth_envelope(
             max_step = abs(prev) / release_w
             smoothed[i] = min(cur, prev + max_step)
     return smoothed
+
+
+# ── G7: sidechaincompress ducking backend ────────────────
+
+
+def _ffmpeg_bin() -> Optional[str]:
+    """Locate an FFmpeg binary, or ``None`` when unavailable.
+
+    Delegates to the shared :func:`ffmpeg_bin` resolution so the whole project
+    uses one policy: ``MN_FFMPEG_BIN`` override → imageio-ffmpeg bundled build
+    (full-featured, ships ``sidechaincompress`` / ``asplit`` / ``amix``) →
+    system ``ffmpeg`` on ``PATH``. The bare ``"ffmpeg"`` fallback is mapped to
+    ``None`` so callers can fall back to the envelope backend.
+    """
+    resolved = _resolve_ffmpeg()
+    if resolved and resolved != "ffmpeg":
+        return resolved
+    return None
+
+
+def duck_bgm_sidechain(
+    narration: AudioSegment,
+    bgm: AudioSegment,
+    *,
+    bgm_gain_db: float = -18.0,
+    duck_db: float = -10.0,
+    attack_ms: int = 50,
+    release_ms: int = 200,
+) -> Optional[AudioSegment]:
+    """Duck ``bgm`` under ``narration`` using FFmpeg ``sidechaincompress``.
+
+    Implements the same contract as :func:`duck_bgm` but through FFmpeg's
+    native sidechain compressor, which proportionally lowers the BGM while
+    narration is present and lets it recover during pauses — a more natural
+    mix than the fixed envelope.
+
+    Args:
+        narration: Voice track (sidechain key).
+        bgm: Background music track.
+        bgm_gain_db: Baseline attenuation applied to BGM before ducking.
+        duck_db: Maximum duck amount in dB (maps to the compressor's
+            ``threshold``/``ratio``).
+        attack_ms / release_ms: Compressor envelope timings.
+
+    Returns:
+        The ducked+overlaid mix, or ``None`` if FFmpeg is unavailable or
+        the sidechain filter cannot be built (callers fall back to the
+        envelope backend).
+    """
+    ffmpeg = _ffmpeg_bin()
+    if not ffmpeg:
+        return None
+
+    # Normalize both tracks to a common format for ffmpeg's multi-input.
+    common = {"frame_rate": narration.frame_rate, "channels": 1, "sample_width": 2}
+    narr = narration.set_frame_rate(common["frame_rate"]).set_channels(1)
+    bgm_st = bgm.set_frame_rate(common["frame_rate"]).set_channels(1)
+
+    target_len = len(narration)
+    if len(bgm_st) < target_len:
+        times = target_len // max(len(bgm_st), 1) + 1
+        bgm_st = bgm_st * times
+    bgm_st = bgm_st[:target_len]
+
+    # Baseline BGM gain before ducking.
+    bgm_st = bgm_st.apply_gain(bgm_gain_db)
+
+    # sidechaincompress: key = narration, compressed = bgm.
+    # The amix node is the final output — ffmpeg maps it automatically.
+    # ``threshold`` is a 0-1 linear level (voice above this triggers the
+    # duck); ``ratio`` scales how much BGM drops relative to voice excess.
+    threshold = round(db_to_float(-40.0), 5)  # ≈0.01 — speech detection floor
+    release = max(10, release_ms)
+    attack = max(1, attack_ms)
+    ratio = max(2.0, abs(duck_db) / 6.0)
+    filter_graph = (
+        "[0:a]asplit[n1][n2];"
+        f"[1:a][n1]sidechaincompress=threshold={threshold}:"
+        f"ratio={ratio}:attack={attack}:release={release}[ducked];"
+        f"[n2][ducked]amix=inputs=2:duration=first:dropout_transition=0"
+    )
+
+    # Export narration & bgm to temp WAVs.
+    import tempfile
+
+    from pathlib import Path
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        narr_path = str(Path(tmpdir) / "narr.wav")
+        bgm_path = str(Path(tmpdir) / "bgm.wav")
+        out_path = str(Path(tmpdir) / "out.wav")
+        narr.export(narr_path, format="wav")
+        bgm_st.export(bgm_path, format="wav")
+
+        cmd = [
+            ffmpeg,
+            "-y",
+            "-i",
+            narr_path,
+            "-i",
+            bgm_path,
+            "-filter_complex",
+            filter_graph,
+            out_path,
+        ]
+
+        try:
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+            )
+        except Exception:  # noqa: BLE001
+            return None
+        if proc.returncode != 0:
+            logger.debug("sidechaincompress failed: %s", proc.stderr)
+            return None
+
+        mixed = AudioSegment.from_file(out_path)
+
+    # Trim/pad to exact narration length.
+    if len(mixed) > target_len:
+        mixed = mixed[:target_len]
+    elif len(mixed) < target_len:
+        mixed = mixed + AudioSegment.silent(duration=target_len - len(mixed))
+    return mixed

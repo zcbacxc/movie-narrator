@@ -205,6 +205,36 @@ def _embed_texts(texts: List[str], model_name: str = _EMBEDDING_MODEL_NAME):
     return arr / norms
 
 
+def _collect_visual_features(ctx: Context, scene_vecs, scenes) -> None:
+    """G9 stage-1 skeleton: extract visual features and record availability.
+
+    Pure-FFmpeg low-level features (luma + RGB histogram) are extracted per
+    scene and recorded in ``ctx.metadata`` for the match_summary. Selection
+    is deliberately unchanged — stage-1 features carry no semantics. Any
+    failure degrades gracefully and is recorded, never breaking the chain.
+    """
+    from ..utils.visual_features import (
+        extract_scene_visual_features,
+        visual_feature_vector,
+    )
+
+    if not ctx.source_video_path:
+        ctx.metadata["match_visual_features_available"] = False
+        return
+    try:
+        features = extract_scene_visual_features(ctx.source_video_path, scenes)
+    except Exception:  # noqa: BLE001
+        logger.debug("visual feature extraction failed", exc_info=True)
+        features = None
+    if not features:
+        ctx.metadata["match_visual_features_available"] = False
+        return
+
+    vectors = [visual_feature_vector(f) for f in features]
+    ctx.metadata["match_visual_features_available"] = all(v is not None for v in vectors)
+    ctx.metadata["match_visual_features_samples"] = [f.to_dict() for f in features][:3]
+
+
 def _resolve_match_texts(ctx: Context) -> List[str]:
     """
     Returns:
@@ -1138,6 +1168,17 @@ def _match_clips_impl(
                 scene_labels = [label for label, _ in scene_captions]
                 scene_vecs = _embed_texts(scene_labels, emb_model)
                 narration_vecs = _embed_texts(match_texts, emb_model)
+
+                # ── Visual features (G9 stage-1 skeleton) ────────────────
+                # Opt-in pipeline skeleton: extracts pure-FFmpeg low-level
+                # visual features (luma + RGB histogram) per scene and records
+                # availability in match_summary. It does NOT alter scene
+                # selection (stage-1 features carry no semantics); it validates
+                # the extraction pipeline so a stage-2 semantic encoder can be
+                # swapped in through the same interface.
+                if ctx.metadata.get("match_visual_features", False):
+                    _collect_visual_features(ctx, scene_vecs, scenes)
+                # ── End visual features ──────────────────────────────────
 
                 # Greedy top-K assignment with reuse penalty
                 topk_results = _greedy_topk_assign(

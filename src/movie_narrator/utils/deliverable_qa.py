@@ -21,6 +21,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
+from .ffmpeg_bin import ffmpeg_bin
+from .video_qa import check_slideshow_risk
+
 
 logger = logging.getLogger(__name__)
 
@@ -43,24 +46,12 @@ class QAReport:
 
 
 def _ffmpeg_bin() -> str:
-    """
-    Returns:
-        A usable ffmpeg binary path.
+    """Backward-compatible alias for :func:`ffmpeg_bin`.
 
-        Prefers a system ``ffprobe``-adjacent ``ffmpeg``; falls back to the
-        imageio-ffmpeg bundled binary so probing works even without a system
-        ffmpeg install.
+    Kept so existing internal callers (and any direct test imports) keep
+    working unchanged; new code should import ``ffmpeg_bin`` directly.
     """
-    sys_ffmpeg = shutil.which("ffmpeg")
-    if sys_ffmpeg:
-        return sys_ffmpeg
-    try:
-        import imageio_ffmpeg
-
-        return imageio_ffmpeg.get_ffmpeg_exe()
-    except Exception:
-        logger.debug("ffmpeg bundled binary lookup failed, using fallback", exc_info=True)
-        return "ffmpeg"  # last resort — let subprocess raise
+    return ffmpeg_bin()
 
 
 def _run(cmd: list[str], *, timeout: int = 30) -> subprocess.CompletedProcess:
@@ -233,6 +224,8 @@ def evaluate_deliverable(
     min_duration_ratio: float = 0.85,
     max_duration_ratio: float = 1.15,
     min_size_bytes: int = 10_000,
+    max_slideshow_risk: Optional[float] = None,
+    max_black_ratio: Optional[float] = None,
 ) -> QAReport:
     """Run all QA checks and return a structured report.
 
@@ -242,6 +235,8 @@ def evaluate_deliverable(
     3. duration within ``[min_duration_ratio, max_duration_ratio]`` of expected
     4. ``mean_volume > max_silence_db`` (audio is not near-silent)
     5. width/height > 0
+    6. (G2) slideshow-degradation risk <= ``max_slideshow_risk`` (opt-in)
+    7. (G2) ratio of near-black frames <= ``max_black_ratio`` (opt-in)
     """
     issues: list[QAIssue] = []
     metrics: dict = {}
@@ -315,5 +310,33 @@ def evaluate_deliverable(
                 f"invalid dimensions {metrics.get('width')}x{metrics.get('height')}",
             )
         )
+
+    # ── G2: slideshow-degradation & near-black frame checks (opt-in) ──
+    # Both are opt-in via the *max_* parameters (None = disabled) so existing
+    # callers keep their behavior. They use ffmpeg frame sampling + PIL luma,
+    # degrade silently (probed=False) when those tools are unavailable.
+    if max_slideshow_risk is not None or max_black_ratio is not None:
+        slides = check_slideshow_risk(video_path)
+        metrics["slideshow_risk"] = slides.risk
+        metrics["slideshow_static_ratio"] = slides.static_ratio
+        metrics["slideshow_black_ratio"] = slides.black_ratio
+        metrics["slideshow_samples"] = slides.samples
+        metrics["slideshow_probed"] = slides.probed
+
+        if slides.probed and max_slideshow_risk is not None and slides.risk > max_slideshow_risk:
+            issues.append(
+                QAIssue(
+                    "slideshow_degraded",
+                    f"slideshow risk {slides.risk:.2f} exceeds max {max_slideshow_risk:.2f} "
+                    f"(static {slides.static_ratio:.0%}, avg motion {slides.avg_motion:.2f})",
+                )
+            )
+        if slides.probed and max_black_ratio is not None and slides.black_ratio > max_black_ratio:
+            issues.append(
+                QAIssue(
+                    "excessive_black_frames",
+                    f"near-black frames {slides.black_ratio:.0%} exceed max {max_black_ratio:.0%}",
+                )
+            )
 
     return QAReport(ok=len(issues) == 0, issues=issues, metrics=metrics)

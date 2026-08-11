@@ -839,4 +839,6 @@ def generate_script(ctx: Context) -> Context:
                 setattr(wrapped, "retryable", is_network_error(e))
                 raise wrapped from e
             sleep(settings.script_retry_delay)
-    return ctx
+    # Only reached when script_retries == 0 (empty for-loop); every iteration
+    # returns/raises/continues otherwise. Marked pragma-no-cover as a guard.
+    return ctx  # pragma: no cover

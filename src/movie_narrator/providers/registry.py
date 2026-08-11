@@ -114,7 +114,8 @@ class ProviderRegistry:
 
         Args:
             name: Provider identifier.
-            *args, **kwargs: Passed to the factory.
+            *args: Positional arguments passed to the factory.
+            **kwargs: Keyword arguments passed to the factory.
 
         Raises:
             ValueError: if *name* is not registered.

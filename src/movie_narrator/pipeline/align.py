@@ -11,7 +11,12 @@ from ..utils.alignment_qa import (
     word_level_remap,
     validate_alignment,
 )
-from ._align_backend import select_align_backend, run_faster_whisper, BackendUnavailable
+from ._align_backend import (
+    select_align_backend,
+    run_faster_whisper,
+    run_funasr,
+    BackendUnavailable,
+)
 
 
 # ── Shared remapping logic (extracted from WhisperX and faster-whisper paths) ──
@@ -162,12 +167,15 @@ def align_audio(ctx: Context) -> Context:
     try:
         if backend == "faster_whisper":
             return _align_with_faster_whisper(ctx)
+        elif backend == "funasr":
+            return _align_with_funasr(ctx)
         else:
             return _align_with_whisperx(ctx)
     except BackendUnavailable as e:
-        # faster-whisper was selected but failed at runtime — try whisperx
-        ctx.services.console.inline_warn(f"faster-whisper failed ({e}); trying whisperx")
-        ctx.metadata.setdefault("align_backend_attempted", []).append(f"faster_whisper: {e}")
+        # A segment-level backend (faster-whisper/funasr) was selected but
+        # failed at runtime — try whisperx, then the other segment backend.
+        ctx.services.console.inline_warn(f"{backend} failed ({e}); trying whisperx")
+        ctx.metadata.setdefault("align_backend_attempted", []).append(f"{backend}: {e}")
         try:
             return _align_with_whisperx(ctx)
         except Exception as fallback_err:
@@ -338,6 +346,47 @@ def _align_with_faster_whisper(ctx: Context) -> Context:
     backward_skipped = _remap_segments(ctx, wx_segments)
 
     # ── v0.5.11: Alignment QA (no word-level for faster-whisper) ──
+    align_qa = validate_alignment(ctx.timed_segments)
+    ctx.metadata["alignment_qa"] = align_qa.to_dict()
+
+    ctx.metadata["align_segments"] = len(wx_segments)
+    ctx.metadata["align_backward_skipped"] = backward_skipped
+    return ctx
+
+
+def _align_with_funasr(ctx: Context) -> Context:
+    """FunASR backend (segment-level, Chinese ASR, no forced alignment).
+
+    Mirrors the faster-whisper path: build ``wx_segments`` via
+    ``run_funasr`` then run the same drift detection + monotonic remapping.
+    """
+    wx_segments = run_funasr(ctx)
+
+    if not wx_segments:
+        ctx.services.console.inline_warn(
+            "FunASR returned no speech segments; timestamps remain TTS-estimated"
+        )
+        ctx.status.align = "skipped"
+        ctx.step_state.result = StepResult.WARNING
+        ctx.step_state.message = "FunASR ASR returned empty"
+        ctx.metadata["align_degraded"] = True
+        return ctx
+
+    # FunASR has no forced alignment → mark as fallback, but keep status
+    # 'success' (timestamps + remapping did succeed); subtitle.py only needs
+    # segment-level timestamps.
+    ctx.metadata["align_fallback"] = True
+    ctx.status.align = "success"
+    ctx.step_state.message = "funasr (segment-level, no forced alignment)"
+
+    # ── Drift detection (shared logic) ──
+    if _detect_drift(ctx, wx_segments, "funasr"):
+        return ctx
+
+    # ── Monotonic non-overlap remapping (shared logic) ──
+    backward_skipped = _remap_segments(ctx, wx_segments)
+
+    # ── Alignment QA (no word-level for funasr) ──
     align_qa = validate_alignment(ctx.timed_segments)
     ctx.metadata["alignment_qa"] = align_qa.to_dict()
 

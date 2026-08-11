@@ -2,10 +2,17 @@
 
 import math
 import struct
+from unittest.mock import patch
 
 from pydub import AudioSegment
 
-from movie_narrator.utils.audio_mix import duck_bgm, normalize_peak
+from movie_narrator.utils.audio_mix import (
+    DuckingBackend,
+    duck_bgm,
+    duck_bgm_envelope,
+    duck_bgm_sidechain,
+    normalize_peak,
+)
 
 
 def _tone(ms: int = 500, freq: int = 440, gain_db: float = 0.0) -> AudioSegment:
@@ -71,3 +78,86 @@ def test_duck_bgm_silent_narration_no_duck():
     mixed = duck_bgm(narr, bgm, bgm_gain_db=-12.0, duck_db=-20.0)
     # Output exists and has the right length.
     assert len(mixed) == 500
+
+
+# ── G7: ducking backend dispatch ─────────────────────────
+
+
+def test_ducking_backend_from_value():
+    assert DuckingBackend.from_value(None) is DuckingBackend.ENVELOPE
+    assert DuckingBackend.from_value("") is DuckingBackend.ENVELOPE
+    assert DuckingBackend.from_value("envelope") is DuckingBackend.ENVELOPE
+    assert DuckingBackend.from_value("sidechaincompress") is DuckingBackend.SIDECHAIN
+    assert DuckingBackend.from_value("bogus") is DuckingBackend.ENVELOPE
+
+
+def test_duck_bgm_default_backend_is_envelope():
+    """Default (no backend) routes to the envelope implementation."""
+    narr = _tone(ms=500, freq=440)
+    bgm = _tone(ms=500, freq=880)
+    with patch("movie_narrator.utils.audio_mix.duck_bgm_envelope", wraps=duck_bgm_envelope) as env:
+        with patch(
+            "movie_narrator.utils.audio_mix.duck_bgm_sidechain",
+            wraps=duck_bgm_sidechain,
+        ) as sc:
+            duck_bgm(narr, bgm, backend=DuckingBackend.ENVELOPE)
+    env.assert_called_once()
+    sc.assert_not_called()
+
+
+def test_duck_bgm_sidechain_used_when_requested(monkeypatch):
+    """Requesting sidechaincompress calls the sidechain implementation."""
+    narr = _tone(ms=500, freq=440)
+    bgm = _tone(ms=500, freq=880)
+    fake = lambda *a, **k: _tone(ms=500, freq=440)  # noqa: E731
+    monkeypatch.setattr(
+        "movie_narrator.utils.audio_mix.duck_bgm_sidechain", fake
+    )
+    with patch("movie_narrator.utils.audio_mix.duck_bgm_envelope") as env:
+        mixed = duck_bgm(narr, bgm, backend="sidechaincompress")
+    env.assert_not_called()
+    assert len(mixed) == 500
+
+
+def test_duck_bgm_sidechain_falls_back_to_envelope(monkeypatch):
+    """When sidechain returns None (ffmpeg missing), fall back to envelope."""
+    narr = _tone(ms=500, freq=440)
+    bgm = _tone(ms=500, freq=880)
+    monkeypatch.setattr("movie_narrator.utils.audio_mix.duck_bgm_sidechain", lambda *a, **k: None)
+    with patch("movie_narrator.utils.audio_mix.duck_bgm_envelope", wraps=duck_bgm_envelope) as env:
+        mixed = duck_bgm(narr, bgm, backend=DuckingBackend.SIDECHAIN)
+    env.assert_called_once()
+    assert len(mixed) == 500
+
+
+def test_duck_bgm_sidechain_returns_none_without_ffmpeg(monkeypatch):
+    """duck_bgm_sidechain returns None when no ffmpeg binary is found."""
+    narr = _tone(ms=200, freq=440)
+    bgm = _tone(ms=200, freq=880)
+    monkeypatch.setattr("movie_narrator.utils.audio_mix._ffmpeg_bin", lambda: None)
+    assert duck_bgm_sidechain(narr, bgm) is None
+
+
+def test_duck_bgm_sidechain_builds_output(monkeypatch):
+    """Sidechain path produces a valid same-length mix with a working ffmpeg."""
+    narr = _tone(ms=300, freq=440)
+    bgm = _tone(ms=300, freq=880)
+
+    fake_mixed = _tone(ms=300, freq=440)
+    fake_proc = type("P", (), {"returncode": 0, "stderr": ""})()
+
+    def fake_run(cmd, **kwargs):
+        # Simulate ffmpeg writing the out.wav from the exported files.
+        return fake_proc
+
+    monkeypatch.setattr("movie_narrator.utils.audio_mix._ffmpeg_bin", lambda: "ffmpeg")
+    monkeypatch.setattr(
+        "movie_narrator.utils.audio_mix.subprocess.run", fake_run
+    )
+    monkeypatch.setattr(
+        "movie_narrator.utils.audio_mix.AudioSegment.from_file",
+        lambda path: fake_mixed,
+    )
+    mixed = duck_bgm_sidechain(narr, bgm, bgm_gain_db=-18.0, duck_db=-10.0)
+    assert mixed is not None
+    assert len(mixed) == len(narr)

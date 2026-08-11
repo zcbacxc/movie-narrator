@@ -5,7 +5,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import numpy as np
 import yaml
@@ -14,7 +14,12 @@ from pydub.utils import db_to_float
 
 from ..models import Context, StepResult, TimedSegment
 from ..utils.audio_mix import duck_bgm, normalize_loudnorm, normalize_peak
-from ..utils.prosody import map_segment_emotions
+from ..utils.emotion_track import EmotionTrack, EMOTION_BGM_GAIN_DB, EMOTION_ENERGY
+
+# Backward-compatible aliases (G5): single source of truth is
+# utils/emotion_track.py.
+_EMOTION_ENERGY = EMOTION_ENERGY
+_EMOTION_BGM_GAIN = EMOTION_BGM_GAIN_DB
 
 logger = logging.getLogger(__name__)
 
@@ -91,34 +96,19 @@ def ensure_final_audio(ctx: Context) -> Context:
 def _compute_emotion_profile(beats_meta: list) -> dict[str, float] | None:
     """Compute the emotion distribution as normalised weights.
 
+    Retained as a thin wrapper for backward compatibility; the logic now
+    lives on :class:`~movie_narrator.utils.emotion_track.EmotionTrack`.
+
     Returns:
         A dict mapping emotion -> fraction (0.0-1.0), or ``None``
         when no usable emotions are present. The distribution considers
         ALL emotions, not just the dominant one, enabling better BGM matching.
     """
-    counts: Dict[str, int] = {}
-    for bm in beats_meta:
-        if not isinstance(bm, dict):
-            continue
-        emotion = bm.get("emotion")
-        if emotion is None:
-            continue
-        counts[emotion] = counts.get(emotion, 0) + 1
-    if not counts:
-        return None
-    total = sum(counts.values())
-    return {e: c / total for e, c in counts.items()}
+    return EmotionTrack.from_beats(beats_meta).distribution()
 
 
-# Emotion energy mapping: approximate perceived energy level per emotion.
-# Used to match BGM energy to the narration's emotional intensity.
-_EMOTION_ENERGY: dict[str, float] = {
-    "intense": 0.9,
-    "suspense": 0.7,
-    "twist": 0.6,
-    "laughter": 0.5,
-    "calm": 0.2,
-}
+# Emotion energy mapping (G5): lives in utils/emotion_track.py as
+# ``_EMOTION_ENERGY`` (see import alias above).
 
 
 def _score_bgm_candidate(sample: dict, emotion_profile: dict[str, float]) -> float:
@@ -152,7 +142,7 @@ def _score_bgm_candidate(sample: dict, emotion_profile: dict[str, float]) -> flo
 
     # Energy alignment: compute the narration's weighted average energy
     # and compare it to the BGM's energy field. Closer = better.
-    narration_energy = sum(_EMOTION_ENERGY.get(e, 0.5) * f for e, f in emotion_profile.items())
+    narration_energy = sum(EmotionTrack.energy(e) * f for e, f in emotion_profile.items())
     bgm_energy = sample.get("energy")
     if isinstance(bgm_energy, (int, float)) and 0.0 <= bgm_energy <= 1.0:
         energy_diff = abs(narration_energy - float(bgm_energy))
@@ -255,13 +245,8 @@ def select_bgm_by_emotion(ctx: Context) -> Optional[str]:
 # Emotion → BGM gain adjustment (dB).  Positive = louder, negative = quieter.
 # Applied as a per-zone envelope on top of the ducking curve so the BGM
 # subtly responds to emotional shifts in the narration.
-_EMOTION_BGM_GAIN: dict[str, float] = {
-    "intense": +2.0,
-    "suspense": -1.0,
-    "calm": -3.0,
-    "twist": +1.0,
-    "laughter": +1.5,
-}
+# _EMOTION_BGM_GAIN (G5): lives in utils/emotion_track.py as
+# ``_EMOTION_BGM_GAIN_DB`` (see import alias above).
 
 
 def _detect_emotion_zones(
@@ -490,8 +475,9 @@ def mix_bgm(ctx: Context) -> Context:
 
         # v0.5.9: BGM dynamic transition — adjust BGM gain per emotion zone
         # with smooth ramps at zone boundaries to avoid abrupt mood changes.
-        beats_meta = ctx.metadata.get("beats_meta") or []
-        segment_emotions = map_segment_emotions(len(ctx.timed_segments), beats_meta)
+        segment_emotions = EmotionTrack.from_metadata(ctx.metadata).segment_emotions(
+            len(ctx.timed_segments)
+        )
         zones = _detect_emotion_zones(ctx.timed_segments, segment_emotions)
         if zones and len(zones) > 1:
             bgm_raw, transitions = _apply_emotion_transitions(bgm_raw, zones)
@@ -503,6 +489,7 @@ def mix_bgm(ctx: Context) -> Context:
             bgm_raw,
             bgm_gain_db=gain_db,
             duck_db=duck_db,
+            backend=ctx.metadata.get("bgm_ducking_backend", "envelope"),
         )
         do_norm = ctx.metadata.get("bgm_normalize", True)
         if do_norm:

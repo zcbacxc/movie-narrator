@@ -6,7 +6,7 @@
 # History:
 #   v0.9.5 — 80% (initial gate)
 #   v1.0.0 — 82% (measured ~83% after type-debt cleanup; raised from 80%)
-#   v1.1.0 — target 88%
+#   v1.1.0 — 90% (measured 90.63% after L2 + coverage-boost suites; raised from 82%)
 #   v1.2.0 — target 95%
 
 [run]
@@ -14,10 +14,10 @@
 source = src/movie_narrator
 omit = src/movie_narrator/__main__.py
 
-# 82% absolute line coverage. Network-bound modules (TTS, LLM) are excluded
+# 90% absolute line coverage. Network-bound modules (TTS, LLM) are excluded
 # from practical unit-test coverage; integration tests cover them instead.
 [report]
-fail_under = 82
+fail_under = 90
 
 show_missing = True
 skip_covered = True

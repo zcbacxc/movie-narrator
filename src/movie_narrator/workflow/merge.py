@@ -115,11 +115,13 @@ def merge_job(
             "match_act_weights",
             "match_topk",
             "match_topk_reuse_penalty",
+            "match_visual_features",
             "embedding_model_name",
             # BGM
             "bgm_gain_db",
             "bgm_duck_db",
             "bgm_normalize",
+            "bgm_ducking_backend",
             "audio_target_dbfs",
             # TTS pacing
             "tts_pause_ms",
@@ -167,6 +169,8 @@ def merge_job(
             "qa_max_silence_db",
             "qa_min_duration_ratio",
             "qa_max_duration_ratio",
+            "qa_max_slideshow_risk",
+            "qa_max_black_ratio",
             # Prompt shaping (preset-driven, but also YAML-configurable)
             "prompt_target_sentences",
             "prompt_target_segment_duration",

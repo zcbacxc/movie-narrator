@@ -95,7 +95,10 @@ def _print_first_run_notice(env_path: Path) -> None:
         f"    MN_LLM_API_KEY   — LLM API 密钥\n"
         f"    MN_LLM_MODEL     — LLM 模型名称\n"
         f"    MN_DEFAULT_VOICE — TTS 语音 (如 zh-CN-YunxiNeural)\n"
-        f"  配置完成后重新运行即可。\n",
+        f"  配置完成后重新运行即可。\n"
+        f"\n"
+        f"  ⚠ 合规提示：默认 TTS 通道 edge 基于逆向非官方接口，仅供个人/非商用\n"
+        f"    免费测试；商用部署请将 MN_TTS_PROVIDER 切换为 openai 或 mimo。\n",
         file=sys.stderr,
     )
 
