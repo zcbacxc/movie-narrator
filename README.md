@@ -1,3 +1,5 @@
+
+
 [![English](https://img.shields.io/badge/English-README-blue)](README.md)
 [![简体中文](https://img.shields.io/badge/简体中文-README-green)](README.zh-CN.md)
 
@@ -146,7 +148,7 @@ mn create --movie "飞驰人生" --voice "zh-CN-XiaoxiaoNeural" --format "9:16"
 ### More Commands
 
 ```bash
-mn create --config examples/job.example.yaml     # Drive from YAML config
+mn create --config examples/ci-test.yaml     # Drive from YAML config
 mn create --subtitle-lang en --subtitle-mode bilingual  # Multi-language subtitles
 mn race --movie "飞驰人生" --video movie.mp4 --candidates 3  # Multi-candidate horse race
 mn imitate --reference viral_ref.mp4 --movie "飞驰人生"  # Reference video imitation
