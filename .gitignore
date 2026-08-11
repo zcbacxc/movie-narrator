@@ -46,3 +46,4 @@ docs-nocommit/
 # Stale webui/ ghost entry (NTFS MFT artifact; dir deleted, split to movie-narrator-web)
 webui/
 .git-broken
+/site/
