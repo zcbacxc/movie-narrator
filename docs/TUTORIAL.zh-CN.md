@@ -129,7 +129,7 @@ duration: 60
 style: "mainstream-dry"
 video_format: "16:9"
 subtitle_lang: "zh"
-subtitle_mode: "burned"
+subtitle_mode: "original"
 ```
 
 ### 让 `mn` 指向你的配置
