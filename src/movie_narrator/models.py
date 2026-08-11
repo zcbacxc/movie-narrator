@@ -51,6 +51,7 @@ class MetadataDict(TypedDict, total=False):
     bgm_metadata_path: str
     bgm_ambient_path: str
     bgm_ambient_gain_db: float
+    bgm_ducking_backend: str
     audio_target_dbfs: float
     # Scene detection
     scene_threshold: float
@@ -142,6 +143,8 @@ class MetadataDict(TypedDict, total=False):
     whisperx_language: str
     whisperx_device: str
     embedding_model_name: str
+    funasr_model: str
+    funasr_hotword: str
     # Vision / captioning
     vision_captioner: str
     # TTS step
@@ -159,6 +162,8 @@ class MetadataDict(TypedDict, total=False):
     match_captions_fake: bool
     match_quality: dict
     match_summary: dict
+    match_visual_features_available: bool
+    match_visual_features_samples: list
     # BGM step
     bgm_selection: dict
     bgm_transitions: list
@@ -210,6 +215,8 @@ class MetadataDict(TypedDict, total=False):
     qa_max_silence_db: float
     qa_min_duration_ratio: float
     qa_max_duration_ratio: float
+    qa_max_slideshow_risk: float
+    qa_max_black_ratio: float
     qa_baseline_path: str
     # Runner / CLI / infra
     narration_preset: str

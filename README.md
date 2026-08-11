@@ -106,7 +106,7 @@ pip install -e .
 # Scene detection (PySceneDetect)
 pip install "movie-narrator[media]"
 
-# WhisperX + semantic search (requires PyTorch; Python < 3.14)
+# WhisperX + faster-whisper + FunASR + semantic search (requires PyTorch; Python < 3.14)
 pip install "movie-narrator[ml]"
 
 # Web UI (FastAPI + React) — separate package
@@ -116,7 +116,7 @@ pip install movie-narrator-web
 pip install "movie-narrator[full]"
 ```
 
-> **Note on Python 3.14+**: The `[ml]` extra (WhisperX + sentence-transformers) is currently gated to Python < 3.14 due to upstream dependency wheel availability. On Python 3.14+, `pip install "movie-narrator[full]"` will install all other extras and **silently skip** the ML components. The `align` and `match` pipeline steps will soft-degrade (see [Soft steps](#pipeline)) instead of failing.
+> **Note on Python 3.14+**: The `[ml]` extra (WhisperX + faster-whisper + FunASR + sentence-transformers) is currently gated to Python < 3.14 due to upstream dependency wheel availability. On Python 3.14+, `pip install "movie-narrator[full]"` will install all other extras and **silently skip** the ML components. The `align` and `match` pipeline steps will soft-degrade (see [Soft steps](#pipeline)) instead of failing.
 
 For development:
 
@@ -203,7 +203,7 @@ mn create --movie "飞驰人生" --duration 60
 
 ### Full reference
 
-See [`.env.example`](.env.example) for the complete list of all environment variables (LLM + TTS infrastructure only). All pipeline behavior is configured via [`examples/job.example.yaml`](examples/job.example.yaml) — params keys covering scene detection, match, render, translate, BGM, WhisperX, async, and video sizes.
+See [`.env.example`](.env.example) for the complete list of all environment variables (LLM + TTS infrastructure only). All pipeline behavior is configured via [`examples/job.example.yaml`](examples/job.example.yaml) — params keys covering scene detection, match, render, translate, BGM, WhisperX/FunASR align, async, and video sizes.
 
 ### LLM Provider Guides
 
@@ -282,6 +282,13 @@ movie-narrator/
 - [LLM Provider Guides](docs/LLM_PROVIDERS.md)
 - [Contributing](docs/CONTRIBUTING.md)
 - [AI Coding Assistant Guide](docs/AI_GUIDE.md)
+
+---
+
+## Compliance Notices
+
+- **Edge-TTS**: the default TTS channel (`edge`) is built on a reverse-engineered, unofficial interface. It is provided for **personal / non-commercial free testing only**. For commercial deployment, switch `MN_TTS_PROVIDER` to `openai` or `mimo` (both built-in).
+- **TMDB**: movie research data is sourced from [TMDB](https://www.themoviedb.org/) (The Movie Database). When TMDB data is used, the source attribution is recorded in `research.json` as required, as a courtesy.
 
 ---
 

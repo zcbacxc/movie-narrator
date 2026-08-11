@@ -50,7 +50,7 @@ docker build -t movie-narrator:local .
 
 ### 为什么选 Python 3.12
 
-`ml` 附加依赖（`whisperx`、`faster-whisper`、`sentence-transformers`）被固定为
+`ml` 附加依赖（`whisperx`、`faster-whisper`、`funasr`、`sentence-transformers`）被固定为
 `python_version < "3.14"`，而 3.12 在 PyTorch / CTranslate2 的二进制 wheel
 矩阵中覆盖最完整。这些包对 3.13 的 wheel 支持仍不齐全，3.14 则被版本约束直接排除。
 
@@ -202,7 +202,7 @@ CUDA 基础镜像自带 Ubuntu 的解释器，虚拟环境无法跨解释器版�
 依赖会针对该解释器重新解析——`requires-python >= 3.10` 满足，
 `ml` 的 `< 3.14` 约束同样成立。
 
-没有 GPU 时，`whisperx` / `faster-whisper` 会回退到 CPU，速度慢但结果正确。
+没有 GPU 时，`whisperx` / `faster-whisper` / `funasr` 会回退到 CPU，速度慢但结果正确。
 
 ---
 

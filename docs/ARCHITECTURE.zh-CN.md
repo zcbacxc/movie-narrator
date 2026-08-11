@@ -75,7 +75,7 @@ run_qa_gate → render_video → validate_deliverable → export_clips
 | generate_script | 硬 | LLM 返回 JSON → `List[ScriptSegment]` | 脚本数据 |
 | export_script_md | 硬 | 将 segments 渲染为可读 Markdown | `script.md` |
 | generate_voice | 硬 | TTS 异步合成 + sha256 内容寻址缓存（7 维键、两级扇出）；CI 使用静音回退 | `narration.mp3` + `TimedSegment[]` |
-| align_audio | 软 | WhisperX 词级对齐；失败时回退到 faster-whisper 段级 | 词级时间戳 |
+| align_audio | 软 | WhisperX 词级对齐；三后端链回退：WhisperX → faster-whisper → FunASR（中文 ASR），段级 | 词级时间戳 |
 | detect_scenes | 软 | PySceneDetect 将源视频切分为 `Scene` 列表 | 场景列表 |
 | match_clips | 软 | 将场景映射到台词段：embedding 重排（`[ml]` 已安装时）或比例启发式；探测/模型失败时回退 | `matches.json` |
 | mix_bgm | 软 | 为旁白叠加背景音乐；duck 曲线随旁白能量缩放深度 | `mixed.mp3` |
@@ -124,7 +124,7 @@ run_pipeline(...) # STEPS 顺序不变
 
 - 模块所在：`movie_narrator.workflow`（`load_job_config`, `merge_job`, `JobConfigError`）
 - 软步骤遵守 `metadata["workflow_steps"][<field>] is False` → `status.<field> = "disabled"`
-- 在 `ctx.metadata` 中通过 `build_context` 拷贝循环注入的参数白名单（77 个键，完整列表见 `examples/job.example.yaml` 注释：场景检测、匹配、视觉、BGM、TTS 速率、翻译、调研、WhisperX 对齐、渲染、质检、文案塑形、异步、视频分辨率、平台、视角）
+- 在 `ctx.metadata` 中通过 `build_context` 拷贝循环注入的参数白名单（90 个键，完整列表见 `examples/job.example.yaml` 注释：场景检测、匹配、视觉、BGM、TTS 速率、翻译、调研、WhisperX/FunASR 对齐、渲染、质检、文案塑形、异步、视频分辨率、平台、视角）
 - 多语言字幕顶层键：`subtitle_lang`、`subtitle_mode`（在 `JobConfig` 中校验 —— 设置 `subtitle_mode ∈ {translated, bilingual}` 但缺 `subtitle_lang` 时会在 merge 阶段抛 `JobConfigError`）
 - `STEPS` 仍是步骤顺序的唯一来源；自 v0.5 起，可通过 `@register_step` 插件 API 添加自定义步骤（见下方插件系统章节）
 - YAML 自动发现：未传 `--config` 时按 `cwd/job.yaml` → 随包 `examples/job.example.yaml` → 缺省 顺序查找
@@ -435,7 +435,7 @@ movie-narrator-web  →  contract.py  →  pipeline/runner.py (build_context, ru
                                 →  utils/sanitize.py (sanitize_filename)
 ```
 
-`contract.py` 是**唯一导入面** —— web 包不得直接导入任何内部模块。`CONTRACT_VERSION = (0, 6, 1)` 在 import 时校验，拒绝不匹配的引擎版本。完整符号表见 [docs/sdk/contract.md](sdk/contract.md)。
+`contract.py` 是**唯一导入面** —— web 包不得直接导入任何内部模块。`CONTRACT_VERSION = (1, 0, 0)` 在 import 时校验，拒绝不匹配的引擎版本。完整符号表见 [docs/sdk/contract.md](sdk/contract.md)。
 
 ### 关键设计规则
 

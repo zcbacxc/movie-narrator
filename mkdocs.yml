@@ -68,6 +68,15 @@ markdown_extensions:
   - codehilite
   - toc:
       permalink: true
+      # Preserve CJK characters in anchor slugs. mkdocs' default slugify
+      # strips non-ASCII, so Chinese headings (e.g. `## 环境要求`) would
+      # generate `_2` instead of `#环境要求`, breaking both the TOC links
+      # and any `docs/`-internal cross-references. pymdownx.slugs keeps the
+      # unicode text intact (matching the anchors GitHub already generates)
+      # and lowercases latin headings to match hand-written `#...` links.
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
   - pymdownx.tabbed:
       alternate_style: true
   - pymdownx.superfences

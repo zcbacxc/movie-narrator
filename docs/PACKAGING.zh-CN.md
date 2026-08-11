@@ -36,13 +36,13 @@
 
 ```python
 from movie_narrator.contract import check_version
-check_version((0, 6, 1))
+check_version((1, 0, 0))
 ```
 
 ## 入口点 (Entry Points)
 
 插件通过 `movie_narrator.plugins` 入口点组被发现。
-权威入口点格式和示例见[插件开发指南](PLUGIN_DEVELOPMENT.zh-CN.md#entry-points)。
+权威入口点格式和示例见[插件开发指南](PLUGIN_DEVELOPMENT.zh-CN.md#入口点-entry-points)。
 
 ## CLI 插件命令
 

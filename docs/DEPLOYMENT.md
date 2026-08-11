@@ -50,7 +50,7 @@ docker build -t movie-narrator:local .
 
 ### Why Python 3.12
 
-The `ml` extras (`whisperx`, `faster-whisper`, `sentence-transformers`) are
+The `ml` extras (`whisperx`, `faster-whisper`, `funasr`, `sentence-transformers`) are
 pinned `python_version < "3.14"`, and 3.12 has the most complete binary-wheel
 coverage across the PyTorch / CTranslate2 matrix. 3.13 wheels are still patchy
 for those packages, and 3.14 is excluded by the pins outright.
@@ -210,7 +210,7 @@ a venv cannot be copied across interpreter versions. Dependencies are resolved
 fresh for that interpreter — `requires-python >= 3.10` is satisfied and the
 `ml` pins (`< 3.14`) still hold.
 
-Without a GPU, `whisperx` / `faster-whisper` fall back to CPU, which is slow but
+Without a GPU, `whisperx` / `faster-whisper` / `funasr` fall back to CPU, which is slow but
 correct.
 
 ---

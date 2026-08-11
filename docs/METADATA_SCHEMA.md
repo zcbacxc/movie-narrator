@@ -107,7 +107,7 @@ Composite match quality aggregation across embedding, rhythm, and diversity dime
 | `success` | Alignment succeeded (word-level or segment-level). Check `align_fallback` to distinguish. | Word-level or segment-level | No |
 | `failed` | WhisperX forced alignment raised — fell back to transcript-level timestamps. | Segment-level | Yes |
 | `skipped` | ASR returned empty or single-segment drift too large. | TTS-estimated | Yes |
-| `disabled` | Neither whisperx nor faster_whisper importable. | TTS-estimated | No (uses `skipped` step result) |
+| `disabled` | None of whisperx / faster_whisper / funasr importable. | TTS-estimated | No (uses `skipped` step result) |
 
 ### Align diagnostic fields
 
@@ -117,7 +117,7 @@ Composite match quality aggregation across embedding, rhythm, and diversity dime
 | `align_degraded` | bool | True if alignment is degraded (fallback, empty ASR, or single-segment drift) |
 | `align_segments` | int | Number of ASR segments returned by the backend |
 | `align_backward_skipped` | int | Segments that kept TTS estimates because monotonic clamp would have crushed them to 100ms |
-| `align_backend_used` | str | Actual backend: `"whisperx"` / `"faster_whisper"` / `"none"` |
+| `align_backend_used` | str | Actual backend: `"whisperx"` / `"faster_whisper"` / `"funasr"` / `"none"` |
 | `align_backend_reason` | str | Why this backend was selected |
 | `align_backend_attempted` | list | Failed backend attempts before fallback |
 

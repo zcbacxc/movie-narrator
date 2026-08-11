@@ -396,6 +396,51 @@ We added language-aware script generation and matching, with the default languag
 
 ---
 
+## ADR-011: Licensing Red Lines and FFmpeg Bundling Policy
+
+- **Status:** Accepted
+- **Version:** Recorded at v1.0.0
+
+**Context**
+
+The engine surfaces compliance risks when adding third-party components or packaging binaries. An internal compliance review identified two forward-looking risks: (R4) some recommended dependencies have license terms incompatible with AGPL-3.0-or-later or platform ToS, and (R3) bundling an FFmpeg binary would introduce redistribution obligations that a plain CLI invocation does not.
+
+**Decision Drivers**
+
+- Some third-party options carry license terms incompatible with AGPL-3.0-or-later or with platform ToS (e.g. custom-priced or undefined licenses).
+- The project must not absorb obligations it cannot honor (e.g. all-rights-reserved code, paid-restricted licenses, platform-rule-violating scrapers).
+- Bundling an FFmpeg binary changes the redistribution obligations vs. invoking an external `ffmpeg`.
+- The policy must be machine-and-doc enforced so contributors do not accidentally reintroduce a red-line dependency.
+
+**Considered Options**
+
+- Adopting the recommended-but-restricted components (rejected: license/platform ToS conflict).
+- Copying undefined-license reference code (rejected: all rights reserved by default; would be infringement).
+- Bundling a GPL/LGPL FFmpeg binary into a Windows distribution (rejected at present: raises source/binary redistribution duties; deferred to a documented packaging decision).
+
+**Decision Outcome**
+
+We adopt an explicit **red-line list** that must never be introduced into the core or bundled distribution:
+
+- **Remotion** (custom license; paid for companies >3 people) — use MIT alternatives (e.g. revideo) or HTML + headless screenshot instead.
+- **TypeTale source code** (license undefined) — do not copy; self-implement or use clearly MIT-licensed references with attribution.
+- **Material crawling scrapers** (yt-dlp/Bilibili/Playwright against streaming platforms) — platform ToS + copyright; keep the "user-provided material" route. B-roll may only come from public-domain sources (Archive.org, NASA, Wikimedia, Pexels).
+- **Voice cloning** (IndexTTS/CosyVoice for arbitrary voices) — voice-rights legal exposure; only clone the user's own/authorized voice if ever added.
+
+For **FFmpeg**: the engine keeps invoking an external `ffmpeg` found on `PATH` via `shutil.which` (aggregation, not derivative work — no obligation spillover). If a future Windows distribution ever bundles an FFmpeg binary, it must (a) prefer an LGPL build, (b) include a `THIRD_PARTY_NOTICES` file (license text + source URL + build config), and (c) record the decision here before shipping. A `mn doctor` command is the intended vehicle for detecting and guiding FFmpeg installation rather than bundling it.
+
+**Consequences**
+
+- Positive: the red-line list prevents accidental license/platform-ToS violations; FFmpeg stays an external dependency with no redistribution duty; the compliance posture is documented and reviewable.
+- Negative: contributors must check the red-line list before adding dependencies; the FFmpeg bundling policy remains documentation-only — no bundling currently happens, so the `THIRD_PARTY_NOTICES` file is a future conditional artifact. The `mn doctor` command (which guides FFmpeg installation rather than bundling) is implemented.
+
+**References**
+
+- `docs/PACKAGING.md`
+- `pyproject.toml`
+
+---
+
 ## Decision Index
 
 | # | ADR | Status | Version | Summary |
@@ -410,3 +455,4 @@ We added language-aware script generation and matching, with the default languag
 | ADR-008 | Configuration Boundary | Accepted | — | `.env` (`MN_`, infra) vs `job.yaml` (behavior); CLI > job.yaml > defaults |
 | ADR-009 | Input Sanitization and Security | Accepted | v0.9.5 | Field validation; HTTP 400/413; Bandit + pip-audit; 80% coverage gate |
 | ADR-010 | i18n and Localized Voice | Accepted | v0.9.6 | Language-aware generation (lang default `zh`); `voice_map`/`resolve_voice` priority resolution |
+| ADR-011 | Licensing Red Lines and FFmpeg Bundling Policy | Accepted | v1.0.0 | Red-line list (Remotion/TypeTale code/scrapers/voice cloning); FFmpeg stays external, bundling deferred to documented decision |

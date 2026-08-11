@@ -9,7 +9,7 @@
 
 Zhipu AI is a Tsinghua-origin large model team. The GLM series ranks among China's top-tier models in coding and reasoning capabilities. Its open platform BigModel provides an OpenAI-compatible interface. New users receive **20 million free Tokens** upon registration, and the GLM-4-Flash model is **free forever with unlimited calls**.
 
-## Registration Process
+## Registration
 
 ### 1. Visit the Platform
 
@@ -37,7 +37,7 @@ Search for and enable the desired models in "Model Square" (the free quota cover
 
 > `glm-4-flash` is recommended — free forever and unlimited, extremely fast, and well-suited for Movie Narrator's script generation scenarios.
 
-## Configure Movie Narrator
+## Configuration
 
 Edit `~/.movie-narrator/.env`:
 
@@ -47,7 +47,7 @@ MN_LLM_API_KEY=你的API Key
 MN_LLM_MODEL=glm-4-flash
 ```
 
-## Free Quota Details
+## Free Quota
 
 | Model | Free Quota | Validity |
 |------|---------|--------|

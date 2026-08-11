@@ -11,7 +11,7 @@ Ollama is a local large model runtime framework that supports one-click download
 
 Suitable for users with a GPU (≥8GB VRAM) or a powerful CPU. Movie Narrator uses Ollama as the default LLM backend.
 
-## Registration Process
+## Registration
 
 ### 1. Download and Install
 
@@ -47,7 +47,7 @@ ollama list
 
 You should see the list of pulled models.
 
-## Configure Movie Narrator
+## Configuration
 
 Edit `~/.movie-narrator/.env`:
 

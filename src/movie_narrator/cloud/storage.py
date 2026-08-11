@@ -336,7 +336,7 @@ class TaskStorage:
         placeholders = ",".join("?" for _ in self._TERMINAL_VALUES)
         with self._lock:
             cur = self._conn.execute(
-                f"DELETE FROM tasks WHERE status IN ({placeholders})",
+                f"DELETE FROM tasks WHERE status IN ({placeholders})",  # nosec B608 — placeholders are "?", values parameterized
                 tuple(self._TERMINAL_VALUES),
             )
             self._conn.commit()

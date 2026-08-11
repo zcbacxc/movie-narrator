@@ -74,6 +74,7 @@ narration_preset: ""        # douyin-fast | mainstream-dry | bilibili-long
 #          match_timeline_mode / match_act_weights
 #          match_topk / match_topk_reuse_penalty
 #          match_skip_intro_sec / match_drop_dark_luma / match_source_window
+#          match_visual_features
 #   视觉: vision_captioner
 #   BGM:  bgm_gain_db / bgm_duck_db / bgm_normalize / audio_target_dbfs
 #          bgm_loudnorm / bgm_metadata_path
@@ -94,6 +95,7 @@ narration_preset: ""        # douyin-fast | mainstream-dry | bilibili-long
 #          render_text_animation (v0.7.1+) / render_preview_mode (v0.7.2+)
 #          render_template
 #   质检: qa_enabled / qa_max_silence_db / qa_min_duration_ratio / qa_max_duration_ratio
+#          qa_max_slideshow_risk / qa_max_black_ratio
 #   文案: prompt_target_sentences / prompt_target_segment_duration
 #         prompt_max_chars_per_sentence / prompt_hook_seconds
 #         hook_templates / set_pieces
@@ -126,6 +128,7 @@ params:
   # ---- BGM / 音频 ----
   # bgm_gain_db: -18          # BGM 基础增益（dB）
   # bgm_duck_db: -10          # 旁白在场时额外衰减（dB）
+  # bgm_ducking_backend: envelope   # ducking 实现: envelope(默认) | sidechaincompress
   # bgm_normalize: true       # 混音后峰值归一化到 audio_target_dbfs
   # audio_target_dbfs: -14.0  # 归一化目标响度（dBFS）
 
@@ -154,7 +157,7 @@ params:
   # whisperx_device: cpu      # cpu | cuda
   # whisperx_model: medium    # tiny|base|small|medium|large
   # whisperx_language: zh     # 转录语言
-  # align_backend: auto       # auto | whisperx | faster_whisper（auto=按环境自动选择）
+  # align_backend: auto       # auto | whisperx | faster_whisper | funasr（auto=按环境自动选择）
 
   # ---- 渲染 ----
   # render_fps: 24            # 输出帧率

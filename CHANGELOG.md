@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-08-10
+
+### Added
+
+- **Final-video QA completion** — slideshow-risk score + black-frame detection in `deliverable_qa` / `video_qa`; shared `utils/ffmpeg_bin.ffmpeg_bin()` with imageio-ffmpeg fallback.
+- **AI Agent Skill distribution surface** — `docs/skill/SKILL.md` CLI capability listing + environment diagnostics.
+- **`mn doctor` environment precheck** — new `mn doctor` command; optional-dependency probes with three-state distinction (not-installed / dep-missing / ok).
+- **EmotionTrack unified modeling** — unified `EmotionTrack` value object converging prosody / bgm / tts emotion consumption.
+- **FunASR Chinese ASR optional backend** — `providers/asr/funasr.py`; three-backend alignment chain (WhisperX → faster-whisper → FunASR).
+- **sidechaincompress ducking optional backend** — envelope / sidechain dispatch with automatic fallback.
+- **SQLite task storage (WAL)** — idempotent JSON→SQLite migration, contract-compatible.
+- **Visual-embedding match backend (phase 1)** — pure-FFmpeg visual feature skeleton, default-off (phase 2 not pursued — covered by VLMCaptioner).
+- **timeline_export plugin** — Jianying + OTIO timeline export plugin (out-of-tree), CI-wired via `plugin-timeline-export` job.
+- **Compliance completion** — edge-tts commercial-use warning on first run + README notice; TMDB source attribution written to `research.json`.
+
+### Changed
+
+- **Coverage gate raised to 90%** — `.coveragerc` `fail_under` and CI `--cov-fail-under` raised from 82% to 90% (measured ~90.6% after L2 + coverage-boost suites).
+- **align_backend** — now supports a third backend value `funasr`; `align_backend_used` metadata may report `"funasr"`.
+- **`load.py` params whitelist** — aligned with `JobParams` schema (90 keys); removed stray top-level `align_backend`; added 12 missing match / BGM / render params.
+- **`tts.py` v2 speedup logic** — fixed direction bug (`actual_duration / target_duration`) so acceleration now takes effect.
+- **`mn doctor`** — guides FFmpeg installation rather than bundling (see ADR-011).
+- **Unified ffmpeg resolution** — `utils/ffmpeg_bin.ffmpeg_bin()` now prefers the bundled imageio-ffmpeg build (full-featured, immune to a crippled/minimal system ffmpeg shadowing PATH) over the system binary, with a new `MN_FFMPEG_BIN` env override. All render / clip-export / scene-filter / vision / audio-mix ffmpeg call sites resolve through this single policy instead of ad-hoc `shutil.which("ffmpeg")`.
+- `CONTRACT_VERSION` remains (1, 0, 0). All 2471 tests pass (33 skipped in CI, 0 failures). +335 new tests vs v1.0.0.
+
+### Fixed
+
+- **FFmpeg fallback** — `ffmpeg_bin()` prefers the bundled imageio-ffmpeg build, falls back to system `PATH`, then `"ffmpeg"`.
+- **Config whitelist bugs** — `_ALLOWED_TOP` no longer accepts top-level `align_backend`; missing `JobParams` fields accepted.
+
 ## [1.0.0] - 2026-08-04
 
 ### Added
@@ -246,7 +276,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- **L2 directory restructure**: extracted operational knowledge from `examples/l2/RUNBOOK.md` into `docs/BEST_PRACTICES.md` (EN) + `docs/BEST_PRACTICES.zh-CN.md` (ZH) with internal terminology removed. Promoted 4 helper tools (`source_check.py`, `bgm_analyze.py`, `genre_advisor.py`, `llm_check.py`) from `examples/l2/tools/` to `scripts/` with SPDX headers added. Removed internal QA scaffolding (`README.md`, `samples.yaml`, `job.l2.douyin.yaml`, `run_g1.example.*`) from the repository (backed up locally to `docs-nocommit/l2-scaffolding/`). Deleted `examples/l2/` directory entirely.
+- **L2 directory restructure**: extracted operational knowledge from `examples/l2/RUNBOOK.md` into `docs/BEST_PRACTICES.md` (EN) + `docs/BEST_PRACTICES.zh-CN.md` (ZH) with internal terminology removed. Promoted 4 helper tools (`source_check.py`, `bgm_analyze.py`, `genre_advisor.py`, `llm_check.py`) from `examples/l2/tools/` to `scripts/` with SPDX headers added. Removed internal QA scaffolding (`README.md`, `samples.yaml`, `job.l2.douyin.yaml`, `run_g1.example.*`) from the repository (backed up locally). Deleted `examples/l2/` directory entirely.
 - `mkdocs.yml`: added "Best Practices" navigation entry.
 - **Internal terminology cleanup**: replaced all "L2 hand-test" / "L2+" / "Q-X" internal QA references with community-friendly terms ("manual QA verification") across documentation (`ROADMAP`, `ARCHITECTURE`, `METADATA_SCHEMA` — EN/ZH), source code comments (`align.py`, `match.py`, `scene_filter.py`, `_align_backend.py`, `metadata_export.py`, `scenes.py`, `deliverable_qa.py`), test files (`test_audit_integration.py`, `test_e2e_smoke.py`, `test_match.py`), and scripts (`compare_runs.py`). CHANGELOG historical entries preserved as immutable records.
 - Extracted `resolve_log_level()` to `utils/log.py`, eliminating duplicated `_LEVEL_MAP` / `log_level_map` blocks in `cli.py` (3 occurrences) and `cloud/worker.py` (1 occurrence).
@@ -520,7 +550,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `examples/l2/README.md`: updated WP1 limitations (short keys now effective).
 - `examples/l2/job.l2.douyin.no_align.yaml`: deleted (temporary diagnostic, v0.4.27 issue resolved).
 - `examples/l2/tools/llm_check.py`: fixed dependency description.
-- `.gitignore`: replaced `docs/planning/` with `docs-nocommit/` for local-only docs.
+- `.gitignore`: replaced `docs/planning/` with a local-only docs directory for internal notes.
 
 - `CONTRACT_VERSION` remains `(0, 5, 1)`. All 779 tests pass (23 skipped in CI, 0 failures).
 
@@ -1214,7 +1244,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `workflow_steps` and `params` metadata injection.
 - Console log refactoring design.
 
-[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v0.9.7...HEAD
+[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/zcbacxc/movie-narrator/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/zcbacxc/movie-narrator/compare/v0.9.7...v1.0.0
 [0.9.7]: https://github.com/zcbacxc/movie-narrator/compare/v0.9.6...v0.9.7
 [0.9.6]: https://github.com/zcbacxc/movie-narrator/compare/v0.9.5...v0.9.6
 [0.9.5]: https://github.com/zcbacxc/movie-narrator/compare/v0.9.4...v0.9.5

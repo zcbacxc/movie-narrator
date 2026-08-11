@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """PLUGIN_NAME — template plugin for movie-narrator.
 
 This template demonstrates the standard structure for a movie-narrator
@@ -16,7 +19,8 @@ Available registration methods on PluginContext:
 
 from __future__ import annotations
 
-from movie_narrator import Context, PluginContext, register_step
+from movie_narrator import Context, PluginContext
+from movie_narrator.models import StepResult
 
 
 class TemplatePlugin:
@@ -48,6 +52,6 @@ def _template_step(ctx: Context) -> Context:
     if console and hasattr(console, "info"):
         console.info(f"TemplatePlugin: video_path={ctx.video_path}")
 
-    ctx.step_state.result = ctx.step_state.result.__class__("success")
+    ctx.step_state.result = StepResult.SUCCESS
     ctx.step_state.message = "template step executed"
     return ctx

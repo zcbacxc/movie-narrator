@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """WatermarkPlugin — reference implementation of the Plugin protocol.
 
 Registers a soft pipeline step ``add_watermark`` that runs immediately
@@ -14,7 +17,8 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from movie_narrator import Context, PluginContext, register_step
+from movie_narrator import Context, PluginContext
+from movie_narrator.models import StepResult
 
 
 class WatermarkPlugin:
@@ -45,24 +49,24 @@ def _add_watermark_step(ctx: Context) -> Context:
     """
     watermark_path = ctx.assets.watermark
     if not watermark_path:
-        ctx.step_state.result = ctx.step_state.result.__class__("skipped")
+        ctx.step_state.result = StepResult.SKIPPED
         ctx.step_state.message = "no watermark asset configured"
         return ctx
 
     if not ctx.video_path:
-        ctx.step_state.result = ctx.step_state.result.__class__("skipped")
+        ctx.step_state.result = StepResult.SKIPPED
         ctx.step_state.message = "no video to watermark"
         return ctx
 
     video_path = Path(ctx.video_path)
     if not video_path.exists():
-        ctx.step_state.result = ctx.step_state.result.__class__("skipped")
+        ctx.step_state.result = StepResult.SKIPPED
         ctx.step_state.message = f"video not found: {video_path}"
         return ctx
 
     wm_path = Path(watermark_path)
     if not wm_path.exists():
-        ctx.step_state.result = ctx.step_state.result.__class__("skipped")
+        ctx.step_state.result = StepResult.SKIPPED
         ctx.step_state.message = f"watermark not found: {wm_path}"
         return ctx
 
@@ -96,7 +100,7 @@ def _add_watermark_step(ctx: Context) -> Context:
     shutil.move(str(video_path), str(backup))
     shutil.move(str(output_path), str(video_path))
 
-    ctx.step_state.result = ctx.step_state.result.__class__("success")
+    ctx.step_state.result = StepResult.SUCCESS
     ctx.step_state.message = f"watermark applied from {wm_path.name}"
 
     # Log via services.logger if available

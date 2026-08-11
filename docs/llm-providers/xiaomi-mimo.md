@@ -11,7 +11,7 @@ Xiaomi MiMo is Xiaomi's AI open platform, offering both LLM (large language mode
 
 Movie Narrator has natively integrated MiMo TTS (three modes: named voice / voice cloning / voice design).
 
-## Registration Process
+## Registration
 
 ### 1. Visit the Platform
 
@@ -42,7 +42,7 @@ The MiMo platform offers the following models (all limited-time free):
 - `mimo-v2.5-tts-voiceclone` — voice cloning (upload audio to generate a matching voice)
 - `mimo-v2.5-tts-voicedesign` — voice design (generate a voice from a text description)
 
-## Configure Movie Narrator
+## Configuration
 
 ### As an LLM
 
@@ -87,7 +87,7 @@ MN_MIMO_TTS_MODEL=mimo-v2.5-tts-voicedesign
 
 Pass a voice description as text to the `--voice` argument (e.g., "gentle female voice, slower pace"), and MiMo will generate a corresponding voice based on the description.
 
-## Free Quota Details
+## Free Quota
 
 | Service | Free Quota | Validity |
 |------|---------|--------|

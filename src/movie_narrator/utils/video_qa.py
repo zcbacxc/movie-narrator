@@ -410,7 +410,7 @@ def _extract_luma_frames(video_path: str, sample_sec: float, max_frames: int) ->
                 pixels = list(img.getdata())
                 if pixels:
                     lumas.append(sum(pixels) / len(pixels))
-            except Exception:  # noqa: BLE001
+            except Exception:  # noqa: BLE001  # nosec B112 — skip corrupted frames
                 continue
         return lumas
 

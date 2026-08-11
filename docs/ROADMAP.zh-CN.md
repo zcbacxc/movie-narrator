@@ -19,8 +19,9 @@
 | v0.8.x | 服务化基础 / API Key 鉴权 / video_format 重命名 / 渲染模板 / 异常收窄 / 代码检查工具链 / 队列死锁修复 |
 | v0.9.x | 可靠 / 批量 / 文档 / 熔断器 / 检查点 / 优雅关闭 / 重试策略 / 批量任务 / cron / 死信队列 / 分布式渲染 / 输入净化 / SAST / 覆盖率门禁 / 集成测试 / i18n / 语音映射 / 教程 / ADR / 迁移指南 |
 | v1.0.x | **稳定发布** / API 冻结 / 稳定性保障 / 发布清单 / 最终文档审查 / 长期支持策略 |
+| v1.1.x | FunASR 中文 ASR / `mn doctor` / QA 幻灯片与黑场检测 / EmotionTrack / SQLite 任务存储 / 视觉嵌入 match 骨架 / timeline_export 插件 / 合规（edge-tts + TMDB）/ 90% 覆盖率门禁 |
 
-`CONTRACT_VERSION`（当前）：`(1, 0, 0)`
+`CONTRACT_VERSION`（当前）：`(1, 0, 0)`（v1.1 未变——无新增契约导出）
 
 ---
 
@@ -42,15 +43,24 @@
 
 ---
 
-### v1.1.0 — 社区与打磨（规划中）
+### v1.1.0 — 社区与打磨
 
 > **目标**：社区驱动的改进、插件生态增长、提升使用体验的特性。
+> **状态**：已发布（v1.1.0，2026-08-10）。
+> **说明**：以下各项均已实现并发布于 v1.1。逐项细节见 [CHANGELOG.md](../CHANGELOG.md)。
 
-- [ ] 社区预设分享机制
-- [ ] 插件市场 / 索引
-- [ ] 增强的错误消息和诊断
-- [ ] 性能优化（增量渲染缓存）
-- [ ] 更多解说语言支持
+- [x] **成片质检补全** — `deliverable_qa`/`video_qa` 增加幻灯片风险分 + 黑场检测；共享 `ffmpeg_bin()` 回退
+- [x] **AI Agent Skill 分发面** — `docs/skill/SKILL.md` CLI 能力清单 + 环境诊断章节
+- [x] **`mn doctor` 环境预检** — 环境预检命令，`probe()` 三态区分（未安装 / 依赖缺失 / 正常）
+- [x] **EmotionTrack 统一建模** — 统一 `EmotionTrack` 值对象，收敛 prosody/bgm/tts 情绪消费
+- [x] **FunASR 中文 ASR 可选后端** — `providers/asr/funasr.py` 三后端对齐链（whisperx → faster-whisper → funasr）
+- [x] **sidechaincompress ducking 可选后端** — envelope/sidechain 分派 + 自动回退
+- [x] **SQLite 任务存储（WAL）** — JSON→SQLite 幂等迁移，契约兼容
+- [x] **视觉嵌入 match 后端（阶段 1）** — 纯 FFmpeg 视觉特征骨架，默认关闭（阶段 2 判定不做——已被 VLMCaptioner 覆盖）
+- [x] **timeline_export 插件** — 剪映 + OTIO 时间线导出插件（out-of-tree），经 `plugin-timeline-export` job 接入 CI
+- [x] **合规补全** — edge-tts 商用警示 + TMDB 署名写入 `research.json`
+
+> **已在 v1.1.0（2026-08-10）发布。** CONTRACT_VERSION 保持 `(1, 0, 0)`——无新增契约导出。
 
 ---
 

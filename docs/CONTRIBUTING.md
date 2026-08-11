@@ -36,12 +36,12 @@ movie-narrator/
 │   ├── utils/           # llm.py, errors.py, shared helpers
 │   ├── plugin_loader.py # Plugin discovery via entry_points, StepRegistry, Plugin protocol
 │   ├── models.py        # Context, PipelineStatus, StepState, Services, ...
-│   ├── contract.py      # Stable API boundary (CONTRACT_VERSION = (0, 6, 1))
+│   ├── contract.py      # Stable API boundary (CONTRACT_VERSION = (1, 0, 0))
 │   ├── cli.py           # `mn` Typer entry points (create, version, plugin, ...)
 │   └── workflow/        # job.yaml load/merge (schema.py, load.py, merge.py, errors.py)
 ├── tests/               # pytest suite (unit + smoke)
-├── docs/                # ARCHITECTURE, ROADMAP, CONTRIBUTING, PACKAGING, specs/
-└── examples/            # job.example.yaml, plugins/watermark/, plugins/template/
+├── docs/                # ARCHITECTURE, ROADMAP, CONTRIBUTING, PACKAGING, ADR, sdk/, llm-providers/
+└── examples/            # job.example.yaml, ci-test.yaml, plugins/ (watermark, template, timeline_export, research-wiki)
 ```
 
 The Web UI is developed in a separate repository ([`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web)); it consumes the core engine only through the contract surface defined in `contract.py`. There is no `web_api/` or `webui/` tree in this repo.
@@ -56,6 +56,17 @@ The Web UI (FastAPI + React 18 SPA, launched via the standalone `mn-web` command
 - Add tests for new pipeline steps
 - Update `docs/ROADMAP.md` when adding features
 - Do not introduce internal tracking codes (e.g., EP*, WP*, NA-*) in code comments or docstrings. Use plain technical descriptions instead.
+
+## License Red Lines
+
+Before adding any dependency or copying reference code, check the red-line list below. These are never to be introduced into the core or a bundled distribution — see [ADR-011](ADR.md#adr-011-licensing-red-lines-and-ffmpeg-bundling-policy) for the full rationale.
+
+- **Remotion** — custom license (paid for companies >3 people). Use MIT alternatives (e.g. revideo) or HTML + headless screenshot instead.
+- **TypeTale source code** — license undefined; do not copy. Self-implement, or use clearly MIT-licensed references with attribution in a `NOTICE` file.
+- **Material crawling scrapers** (yt-dlp / Bilibili / Playwright against streaming platforms) — platform ToS + copyright. Keep the "user-provided material" route; B-roll may only come from public-domain sources (Archive.org, NASA, Wikimedia, Pexels).
+- **Voice cloning** (IndexTTS / CosyVoice for arbitrary voices) — voice-rights legal exposure. Only clone the user's own/authorized voice if ever added.
+
+**FFmpeg**: do not bundle an FFmpeg binary into a distribution. Keep resolving it externally on `PATH` via `shutil.which`. If bundling is ever required, it must first be decided in [ADR-011](ADR.md#adr-011-licensing-red-lines-and-ffmpeg-bundling-policy) and include a `THIRD_PARTY_NOTICES` file (LGPL build preferred).
 
 ## Commit Convention
 

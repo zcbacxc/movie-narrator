@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "movie-narrator-timeline-export"
+version = "0.1.0"
+description = "Movie-narrator plugin: export a timeline draft (OTIO or Jianying draft) for manual fine-tuning in an NLE."
+readme = "README.md"
+license = "AGPL-3.0-or-later"
+requires-python = ">=3.10"
+dependencies = [
+    "movie-narrator>=0.5.1",
+]
+
+[project.optional-dependencies]
+otio = ["opentimelineio>=0.6.0"]
+
+[project.entry-points."movie_narrator.plugins"]
+timeline-export = "movie_narrator_timeline_export:TimelineExportPlugin"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["movie_narrator_timeline_export*"]

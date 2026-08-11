@@ -107,7 +107,7 @@
 | `success` | 对齐成功（词级或片段级）。检查 `align_fallback` 以区分。 | 词级或片段级 | 否 |
 | `failed` | WhisperX 强制对齐抛出异常 — 回退到字幕级时间戳。 | 片段级 | 是 |
 | `skipped` | ASR 返回空结果或单片段漂移过大。 | TTS 估算 | 是 |
-| `disabled` | whisperx 和 faster_whisper 均无法导入。 | TTS 估算 | 否（使用 `skipped` 步骤结果） |
+| `disabled` | whisperx / faster_whisper / funasr 均无法导入。 | TTS 估算 | 否（使用 `skipped` 步骤结果） |
 
 ### 对齐诊断字段
 
@@ -117,7 +117,7 @@
 | `align_degraded` | bool | 若对齐已降级（回退、ASR 为空或单片段漂移）则为 True |
 | `align_segments` | int | 后端返回的 ASR 片段数 |
 | `align_backward_skipped` | int | 因单调性钳制会将其压缩到 100ms 而保留 TTS 估算的片段数 |
-| `align_backend_used` | str | 实际使用的后端：`"whisperx"` / `"faster_whisper"` / `"none"` |
+| `align_backend_used` | str | 实际使用的后端：`"whisperx"` / `"faster_whisper"` / `"funasr"` / `"none"` |
 | `align_backend_reason` | str | 选择该后端的原因 |
 | `align_backend_attempted` | list | 回退前尝试失败的后端列表 |
 

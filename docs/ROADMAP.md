@@ -19,8 +19,9 @@
 | v0.8.x | Service Deployment Basics / API key auth / video_format rename / render templates / exception narrowing / lint toolchain / queue deadlock fix |
 | v0.9.x | Reliability / Batch / Docs / circuit breaker / checkpoints / graceful shutdown / retry policy / batch jobs / cron / DLQ / distributed rendering / sanitization / SAST / coverage gate / integration tests / i18n / voice map / tutorial / ADR / migration guide |
 | v1.0.x | **Stable Release** / API freeze / stability guarantees / release checklist / final documentation pass / long-term support policy |
+| v1.1.x | FunASR Chinese ASR / `mn doctor` / QA slideshow & black-frame detection / EmotionTrack / SQLite task store / visual-embedding match skeleton / timeline_export plugin / compliance (edge-tts + TMDB) / 90% coverage gate |
 
-`CONTRACT_VERSION` (current): `(1, 0, 0)`
+`CONTRACT_VERSION` (current): `(1, 0, 0)` (unchanged in v1.1 — no new contract exports)
 
 ---
 
@@ -42,15 +43,24 @@
 
 ---
 
-### v1.1.0 — Community & Polish (planning)
+### v1.1.0 — Community & Polish
 
 > **Goal**: Community-driven improvements, plugin ecosystem growth, quality-of-life features.
+> **Status**: Released (v1.1.0, 2026-08-10).
+> **Note**: The items below were implemented and released in v1.1. See [CHANGELOG.md](../CHANGELOG.md) for per-item detail.
 
-- [ ] Community preset sharing mechanism
-- [ ] Plugin marketplace / index
-- [ ] Enhanced error messages and diagnostics
-- [ ] Performance optimizations (incremental render cache)
-- [ ] Additional language support for narration
+- [x] **Final-video QA completion** — slideshow-risk score + black-frame detection in `deliverable_qa`/`video_qa`; shared `ffmpeg_bin()` fallback
+- [x] **AI Agent Skill distribution surface** — `docs/skill/SKILL.md` CLI capability listing + environment diagnostics
+- [x] **`mn doctor` environment precheck** — environment pre-check command with `probe()` three-state distinction (not-installed / dep-missing / ok)
+- [x] **EmotionTrack unified modeling** — unified `EmotionTrack` value object converging prosody/bgm/tts emotion consumption
+- [x] **FunASR Chinese ASR optional backend** — `providers/asr/funasr.py` three-backend alignment chain (whisperx → faster-whisper → funasr)
+- [x] **sidechaincompress ducking optional backend** — envelope/sidechain dispatch with automatic fallback
+- [x] **SQLite task storage (WAL)** — idempotent JSON→SQLite migration, contract-compatible
+- [x] **Visual-embedding match backend (phase 1)** — pure-FFmpeg visual feature skeleton, default-off (phase 2 decision: not doing — covered by VLMCaptioner)
+- [x] **timeline_export plugin** — Jianying + OTIO timeline export plugin (out-of-tree), CI-wired via `plugin-timeline-export` job
+- [x] **Compliance completion** — edge-tts commercial warning + TMDB attribution in `research.json`
+
+> **Released in v1.1.0 (2026-08-10).** CONTRACT_VERSION remains `(1, 0, 0)` — no new contract exports.
 
 ---
 

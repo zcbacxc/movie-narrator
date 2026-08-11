@@ -36,12 +36,12 @@ movie-narrator/
 │   ├── utils/           # llm.py、errors.py、共享辅助
 │   ├── plugin_loader.py # 插件发现（entry_points）、StepRegistry、Plugin protocol
 │   ├── models.py        # Context、PipelineStatus、StepState、Services 等
-│   ├── contract.py      # 稳定 API 边界（CONTRACT_VERSION = (0, 6, 1)）
+│   ├── contract.py      # 稳定 API 边界（CONTRACT_VERSION = (1, 0, 0)）
 │   ├── cli.py           # `mn` Typer 入口（create、version 等）
 │   └── workflow/        # job.yaml 加载与合并（schema.py、load.py、merge.py、errors.py）
 ├── tests/               # pytest 套件（单元 + 烟雾测试）
-├── docs/                # ARCHITECTURE、ROADMAP、CONTRIBUTING、PACKAGING、specs/
-└── examples/            # job.example.yaml、plugins/watermark/、plugins/template/
+├── docs/                # ARCHITECTURE、ROADMAP、CONTRIBUTING、PACKAGING、ADR、sdk/、llm-providers/
+└── examples/            # job.example.yaml、ci-test.yaml、plugins/（watermark、template、timeline_export、research-wiki）
 ```
 
 Web UI 在独立仓库 [`movie-narrator-web`](https://github.com/zcbacxc/movie-narrator-web) 中开发；它只通过 `contract.py` 定义的契约面消费核心引擎。本 repo 不含 `web_api/` 或 `webui/` 目录树。
@@ -56,6 +56,17 @@ Web UI（FastAPI + React 18 SPA，安装 `pip install movie-narrator-web` 后通
 - 新增的 pipeline 步骤请补齐测试
 - 新增功能时同步更新 `docs/ROADMAP.md`
 - 禁止在代码注释或文档字符串中引入内部追踪代号（如 EP*、WP*、NA-*）。请使用简明的技术说明。
+
+## 许可禁区
+
+在添加任何依赖或复制参考代码之前，请核对下面的禁区清单。以下内容**不得**引入核心或捆绑发行包 —— 完整理由见 [ADR-011](ADR.zh-CN.md#adr-011许可禁区与-ffmpeg-捆绑策略)。
+
+- **Remotion** —— 自定义许可（公司超 3 人需付费）。请改用 MIT 替代方案（如 revideo）或 HTML + 无头截图。
+- **TypeTale 源码** —— 许可未声明，不得复制。请自行实现，或使用明确 MIT 许可的参考并在 `NOTICE` 文件中声明。
+- **素材爬取爬虫**（针对流媒体平台的 yt-dlp / Bilibili / Playwright）—— 平台服务条款 + 版权。请坚持"用户自备素材"路线；空镜素材仅可来自公有领域来源（Archive.org、NASA、Wikimedia、Pexels）。
+- **声音克隆**（针对任意声音的 IndexTTS / CosyVoice）—— 声音权法律风险。若未来接入，仅可克隆用户本人/已授权声音。
+
+**FFmpeg**：请勿将 FFmpeg 二进制捆绑进发行包。请保持通过 `shutil.which` 在 `PATH` 上解析外部 `ffmpeg`。若确需捆绑，必须先经 [ADR-011](ADR.zh-CN.md#adr-011许可禁区与-ffmpeg-捆绑策略) 决策，并附带 `THIRD_PARTY_NOTICES` 文件（优先 LGPL 构建）。
 
 ## 提交规范
 

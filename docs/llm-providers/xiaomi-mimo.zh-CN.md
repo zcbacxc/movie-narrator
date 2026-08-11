@@ -11,7 +11,7 @@
 
 Movie Narrator 已原生集成 MiMo TTS（三种模式：命名音色 / 声音克隆 / 声音设计）。
 
-## 注册流程
+## 注册
 
 ### 1. 访问平台
 
@@ -42,7 +42,7 @@ MiMo 平台提供以下模型（均为限时免费）：
 - `mimo-v2.5-tts-voiceclone` — 声音克隆（上传音频生成同款声音）
 - `mimo-v2.5-tts-voicedesign` — 声音设计（文字描述生成音色）
 
-## 配置 Movie Narrator
+## 配置
 
 ### 作为 LLM
 
@@ -87,7 +87,7 @@ MN_MIMO_TTS_MODEL=mimo-v2.5-tts-voicedesign
 
 在 `--voice` 参数中传入声音描述文字（如 "温柔女声，语速偏慢"），MiMo 会根据描述生成对应音色。
 
-## 免费额度说明
+## 免费额度
 
 | 服务 | 免费额度 | 有效期 |
 |------|---------|--------|
@@ -108,6 +108,6 @@ MN_MIMO_TTS_MODEL=mimo-v2.5-tts-voicedesign
 | OpenAI 兼容接口 | 平台较新，稳定性待验证 |
 | 中文 TTS 效果优秀 | — |
 
-## TTS 额外说明
+## TTS 说明
 
 MiMo 同时提供 LLM 和 TTS 服务。如需搭配其他 LLM 使用，推荐组合请参考 [LLM 服务商导航](../LLM_PROVIDERS.zh-CN.md#推荐组合)。

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Example out-of-tree plugin: watermark step.
 
 This plugin demonstrates the v0.5 SDK by registering a custom pipeline

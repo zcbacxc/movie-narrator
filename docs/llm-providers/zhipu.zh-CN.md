@@ -9,7 +9,7 @@
 
 智谱 AI 是清华系大模型团队，GLM 系列是国内编码和推理能力第一梯队的模型。开放平台 BigModel 提供 OpenAI 兼容接口，新用户注册即送 **2000 万免费 Tokens**，且 GLM-4-Flash 模型**永久免费、不限量调用**。
 
-## 注册流程
+## 注册
 
 ### 1. 访问平台
 
@@ -37,7 +37,7 @@
 
 > 推荐 `glm-4-flash`，永久免费且不限量，速度极快，适合 Movie Narrator 的剧本生成场景。
 
-## 配置 Movie Narrator
+## 配置
 
 编辑 `~/.movie-narrator/.env`：
 
@@ -47,7 +47,7 @@ MN_LLM_API_KEY=你的API Key
 MN_LLM_MODEL=glm-4-flash
 ```
 
-## 免费额度说明
+## 免费额度
 
 | 模型 | 免费额度 | 有效期 |
 |------|---------|--------|
@@ -66,6 +66,6 @@ MN_LLM_MODEL=glm-4-flash
 | OpenAI 兼容接口 | — |
 | 中文能力强 | — |
 
-## TTS 额外说明
+## TTS 说明
 
 智谱目前不提供 TTS 服务。如需 TTS，请搭配 Edge TTS（免费）或 MiMo TTS 使用。

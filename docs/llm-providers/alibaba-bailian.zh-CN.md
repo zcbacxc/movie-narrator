@@ -9,7 +9,7 @@
 
 阿里云百炼是阿里旗下 MaaS（模型即服务）平台，集成了通义千问全系列模型，完全兼容 OpenAI 接口协议。新用户每个模型可领取 **100 万 Tokens 免费额度**，有效期 3 个月，适合项目孵化。
 
-## 注册流程
+## 注册
 
 ### 1. 访问平台
 
@@ -37,7 +37,7 @@
 2. 点击「创建 API Key」
 3. 复制生成的 Key（格式形如 `sk-xxxxxxxx`）
 
-## 配置 Movie Narrator
+## 配置
 
 编辑 `~/.movie-narrator/.env`：
 
@@ -49,7 +49,7 @@ MN_LLM_MODEL=qwen-plus
 
 > 注意 Base URL 路径包含 `/compatible-mode/v1`，这是百炼的 OpenAI 兼容端点。
 
-## 免费额度说明
+## 免费额度
 
 | 模型 | 免费额度 | 有效期 |
 |------|---------|--------|
@@ -68,6 +68,6 @@ MN_LLM_MODEL=qwen-plus
 | 阿里云生态稳定可靠 | 需要阿里云账号 |
 | 模型选择丰富 | — |
 
-## TTS 额外说明
+## TTS 说明
 
 阿里云百炼也提供 CosyVoice 语音合成服务，但 Movie Narrator 目前未集成。TTS 请使用 Edge TTS（免费）或 MiMo TTS。

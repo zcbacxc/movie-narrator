@@ -9,7 +9,7 @@
 
 Alibaba Cloud Bailian is Alibaba's MaaS (Model-as-a-Service) platform, integrating the full Tongyi Qianwen (Qwen) model series and fully compatible with the OpenAI interface protocol. New users can claim **1 million Tokens of free quota per model**, valid for 3 months — suitable for project incubation.
 
-## Registration Process
+## Registration
 
 ### 1. Visit the Platform
 
@@ -37,7 +37,7 @@ Find the desired model in "Model Square" and click "Claim Free Quota":
 2. Click "Create API Key"
 3. Copy the generated Key (format like `sk-xxxxxxxx`)
 
-## Configure Movie Narrator
+## Configuration
 
 Edit `~/.movie-narrator/.env`:
 
@@ -49,7 +49,7 @@ MN_LLM_MODEL=qwen-plus
 
 > Note that the Base URL path includes `/compatible-mode/v1`; this is Bailian's OpenAI-compatible endpoint.
 
-## Free Quota Details
+## Free Quota
 
 | Model | Free Quota | Validity |
 |------|---------|--------|

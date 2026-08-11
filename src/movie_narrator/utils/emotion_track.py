@@ -15,7 +15,7 @@ default behaviour change.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Mapping, Optional
 
 # Canonical emotion vocabulary (v1.0.0). Produced by the script step and
 # consumed by prosody / BGM / transitions. Kept here as documentation of the
@@ -79,7 +79,7 @@ class EmotionTrack:
         return cls(emotions=emotions)
 
     @classmethod
-    def from_metadata(cls, metadata: Optional[dict]) -> "EmotionTrack":
+    def from_metadata(cls, metadata: Optional[Mapping[str, Any]]) -> "EmotionTrack":
         """Build a track from a ``Context.metadata`` mapping."""
         return cls.from_beats(metadata.get("beats_meta") if metadata else None)
 

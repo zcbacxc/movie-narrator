@@ -36,7 +36,7 @@ including the core engine, the web package, and third-party plugins.
 
 ```python
 from movie_narrator.contract import check_version
-check_version((0, 6, 1))
+check_version((1, 0, 0))
 ```
 
 ## Entry Points

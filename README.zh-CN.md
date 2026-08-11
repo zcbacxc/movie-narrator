@@ -106,7 +106,7 @@ pip install -e .
 # 场景检测（PySceneDetect）
 pip install "movie-narrator[media]"
 
-# WhisperX + 语义搜索（需要 PyTorch，Python < 3.14）
+# WhisperX + faster-whisper + FunASR + 语义搜索（需要 PyTorch，Python < 3.14）
 pip install "movie-narrator[ml]"
 
 # Web UI（FastAPI + React）— 独立包
@@ -116,7 +116,7 @@ pip install movie-narrator-web
 pip install "movie-narrator[full]"
 ```
 
-> **Python 3.14+ 注意**：`[ml]` 扩展（WhisperX + sentence-transformers）因上游依赖 wheel 可用性限制，目前仅支持 Python < 3.14。在 Python 3.14+ 上，`pip install "movie-narrator[full]"` 会安装其他所有扩展并**静默跳过** ML 组件。`align` 和 `match` 步骤会软降级（见[软步骤](#流水线)）而非报错。
+> **Python 3.14+ 注意**：`[ml]` 扩展（WhisperX + faster-whisper + FunASR + sentence-transformers）因上游依赖 wheel 可用性限制，目前仅支持 Python < 3.14。在 Python 3.14+ 上，`pip install "movie-narrator[full]"` 会安装其他所有扩展并**静默跳过** ML 组件。`align` 和 `match` 步骤会软降级（见[软步骤](#流水线)）而非报错。
 
 开发模式安装：
 
@@ -203,7 +203,7 @@ mn create --movie "飞驰人生" --duration 60
 
 ### 完整配置项
 
-完整环境变量列表（仅 LLM + TTS 基础配置）及默认值和说明，请查看 [`.env.example`](.env.example)。所有流水线行为参数通过 [`examples/job.example.yaml`](examples/job.example.yaml) 配置，涵盖场景检测、匹配、渲染、翻译、BGM、WhisperX、异步、视频分辨率等。
+完整环境变量列表（仅 LLM + TTS 基础配置）及默认值和说明，请查看 [`.env.example`](.env.example)。所有流水线行为参数通过 [`examples/job.example.yaml`](examples/job.example.yaml) 配置，涵盖场景检测、匹配、渲染、翻译、BGM、WhisperX/FunASR 对齐、异步、视频分辨率等。
 
 ### LLM 服务商导航
 
@@ -285,6 +285,13 @@ movie-narrator/
 
 ---
 
+## 合规声明
+
+- **Edge-TTS**：默认 TTS 通道（`edge`）基于逆向非官方接口，仅供**个人/非商用免费测试**。商用部署请将 `MN_TTS_PROVIDER` 切换为 `openai` 或 `mimo`（均为内置）。
+- **TMDB**：剧情调研数据来源为 [TMDB](https://www.themoviedb.org/)（The Movie Database）。使用 TMDB 数据时，会按要求在 `research.json` 中记录来源署名，以示致谢。
+
+---
+
 ## 许可证
 
-基于 [AGPL-3.0](LICENSE) 许可证发布。
+基于 [AGPL-3.0-or-later](LICENSE) 许可证发布。

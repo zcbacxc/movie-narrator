@@ -75,7 +75,7 @@ run_qa_gate → render_video → validate_deliverable → export_clips
 | generate_script | hard | LLM returns JSON → `List[ScriptSegment]` | script data |
 | export_script_md | hard | Render segments to human-readable Markdown | `script.md` |
 | generate_voice | hard | TTS async synthesis + sha256 content-addressable cache (7-dim key, two-level fan-out); CI uses silent fallback | `narration.mp3` + `TimedSegment[]` |
-| align_audio | soft | WhisperX word-level alignment; fallback to segment-level via faster-whisper | word timestamps |
+| align_audio | soft | Word-level alignment via WhisperX; three-backend chain fallback: WhisperX → faster-whisper → FunASR (Chinese ASR), segment-level | word timestamps |
 | detect_scenes | soft | PySceneDetect splits source video into `Scene` list | scene list |
 | match_clips | soft | Map scenes to script segments: embedding re-rank (when `[ml]` installed) or proportional heuristic; falls back on probe/model failure | `matches.json` |
 | mix_bgm | soft | Mix background music under narration; the duck curve scales depth with narration energy | `mixed.mp3` |
@@ -126,7 +126,7 @@ run_pipeline(...) # STEPS order unchanged
 
 - Module: `movie_narrator.workflow` (`load_job_config`, `merge_job`, `JobConfigError`)
 - Soft steps honor `metadata["workflow_steps"][<field>] is False` → `status.<field> = "disabled"`
-- Params whitelist (77 keys — full list in `examples/job.example.yaml` comments: scene detection, match, vision, BGM, TTS pacing, translate, research, WhisperX align, render, QA, prompt shaping, async, video sizes, platform, perspective) land in `ctx.metadata` via `build_context` copy loop
+- Params whitelist (90 keys — full list in `examples/job.example.yaml` comments: scene detection, match, vision, BGM, TTS pacing, translate, research, WhisperX/FunASR align, render, QA, prompt shaping, async, video sizes, platform, perspective) land in `ctx.metadata` via `build_context` copy loop
 - Multi-language subtitle top-level keys: `subtitle_lang`, `subtitle_mode` (validated in `JobConfig` — `subtitle_mode ∈ {translated, bilingual}` without `subtitle_lang` raises `JobConfigError` at merge time)
 - `STEPS` remains the single source of step order; since v0.5, custom steps can be added via `@register_step` plugin API (see Plugin System section below)
 - YAML auto-discovery: `--config` not passed → `cwd/job.yaml` → packaged `examples/job.example.yaml` → none
@@ -441,7 +441,7 @@ movie-narrator-web  →  contract.py  →  pipeline/runner.py (build_context, ru
                                 →  utils/sanitize.py (sanitize_filename)
 ```
 
-`contract.py` is the **single import surface** — the web package must not import any internal module directly. `CONTRACT_VERSION = (0, 6, 1)` is checked at import time to refuse mismatched engine versions. The full symbol table is documented in [docs/sdk/contract.md](sdk/contract.md).
+`contract.py` is the **single import surface** — the web package must not import any internal module directly. `CONTRACT_VERSION = (1, 0, 0)` is checked at import time to refuse mismatched engine versions. The full symbol table is documented in [docs/sdk/contract.md](sdk/contract.md).
 
 ### Key design rules
 

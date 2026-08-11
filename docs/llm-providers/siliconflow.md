@@ -9,7 +9,7 @@
 
 SiliconFlow is a leading Chinese AI model aggregation platform. A single API Key lets you call dozens of open-source large models (DeepSeek, Qwen, GLM, etc.). It is fully OpenAI-compatible. New users receive **voucher credits** after registration and real-name verification, and some models are completely free. Suitable for users who need to flexibly switch between different models.
 
-## Registration Process
+## Registration
 
 ### 1. Visit the Platform
 
@@ -40,7 +40,7 @@ SiliconFlow aggregates dozens of models. The following free or low-cost models a
 
 > Free models do not consume credits and can be used long-term. Paid models can be tried using the bonus voucher credits. The model list is continuously updated; refer to [cloud.siliconflow.cn/models](https://cloud.siliconflow.cn/models) for the latest.
 
-## Configure Movie Narrator
+## Configuration
 
 Edit `~/.movie-narrator/.env`:
 
@@ -52,7 +52,7 @@ MN_LLM_MODEL=Qwen/Qwen2.5-7B-Instruct
 
 > Model names must include the organization prefix (e.g., `Qwen/Qwen2.5-7B-Instruct`); this is SiliconFlow's naming convention.
 
-## Free Quota Details
+## Free Quota
 
 | Type | Quota | Validity |
 |------|------|--------|

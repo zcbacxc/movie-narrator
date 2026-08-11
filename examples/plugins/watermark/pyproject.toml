@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "movie-narrator-watermark"
 version = "0.1.0"
 description = "Example plugin for movie-narrator: adds a watermark overlay step."
+license = "AGPL-3.0-or-later"
 requires-python = ">=3.10"
 dependencies = [
     "movie-narrator>=0.5.1",

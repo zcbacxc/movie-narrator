@@ -9,7 +9,7 @@
 
 硅基流动是国内领先的 AI 模型聚合平台，一个 API Key 即可调用数十个开源大模型（DeepSeek、Qwen、GLM 等）。完全兼容 OpenAI 接口，新用户注册并完成实名认证后赠送**代金券额度**，部分模型完全免费。适合需要灵活切换不同模型的用户。
 
-## 注册流程
+## 注册
 
 ### 1. 访问平台
 
@@ -40,7 +40,7 @@
 
 > 免费模型不消耗额度，可长期使用。付费模型用赠送的代金券额度体验。模型列表会持续更新，以 [cloud.siliconflow.cn/models](https://cloud.siliconflow.cn/models) 为准。
 
-## 配置 Movie Narrator
+## 配置
 
 编辑 `~/.movie-narrator/.env`：
 
@@ -52,7 +52,7 @@ MN_LLM_MODEL=Qwen/Qwen2.5-7B-Instruct
 
 > 模型名需要带组织前缀（如 `Qwen/Qwen2.5-7B-Instruct`），这是硅基流动的命名规范。
 
-## 免费额度说明
+## 免费额度
 
 | 类型 | 额度 | 有效期 |
 |------|------|--------|
@@ -69,6 +69,6 @@ MN_LLM_MODEL=Qwen/Qwen2.5-7B-Instruct
 | OpenAI 兼容接口 | 模型名需带组织前缀 |
 | 无需分别注册各家平台 | — |
 
-## TTS 额外说明
+## TTS 说明
 
 硅基流动目前不提供 TTS 服务。如需 TTS，请搭配 Edge TTS（免费）或 MiMo TTS 使用。

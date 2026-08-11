@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """WikiResearchPlugin — example research provider plugin.
 
 Registers a custom research provider ``wiki`` that fetches movie
@@ -15,7 +18,7 @@ import urllib.parse
 import urllib.request
 from typing import Any
 
-from movie_narrator import Context, PluginContext, ResearchInfo, register_research
+from movie_narrator import Context, PluginContext, ResearchInfo
 
 WIKI_API = "https://en.wikipedia.org/api/rest_v1/page/summary/{title}"
 WIKI_SEARCH = "https://en.wikipedia.org/w/api.php"
