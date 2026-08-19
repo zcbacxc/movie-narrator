@@ -397,7 +397,7 @@ def _write_execution_manifest(
     config: Dict[str, Any] = {}
     for key in PARAM_WHITELIST:
         if key in ctx.metadata:
-            config[key] = ctx.metadata[key]
+            config[key] = ctx.metadata.get(key)
     if config:
         manifest["config"] = config
 
@@ -414,7 +414,7 @@ def _write_execution_manifest(
     qa: Dict[str, Any] = {}
     for key in ("qa_report", "video_qa", "qa_gate"):
         if ctx.metadata.get(key) is not None:
-            qa[key] = ctx.metadata[key]
+            qa[key] = ctx.metadata.get(key)
     if qa:
         manifest["qa"] = qa
 

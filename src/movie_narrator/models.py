@@ -155,6 +155,7 @@ class MetadataDict(TypedDict, total=False):
     tts_audio_bitrate: str
     tts_max_concurrent: int
     tts_pause_ms: int
+    tts_cache_stats: dict
     # Match step
     wp6_intro_dropped: int
     wp6_dark_dropped: int

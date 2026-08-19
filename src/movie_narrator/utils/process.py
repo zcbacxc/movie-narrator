@@ -120,7 +120,7 @@ def _signal_single(pid: int, sig: int) -> None:
 def _process_group_alive(pid: int) -> bool:
     """Return ``True`` if the process group (or bare process) still exists."""
     try:
-        os.killpg(pid, 0)
+        os.killpg(pid, 0)  # type: ignore[attr-defined]  # POSIX-only
         return True
     except ProcessLookupError:
         pass
@@ -139,7 +139,7 @@ def _process_group_alive(pid: int) -> bool:
 def _terminate_posix_tree(pid: int, grace: float) -> None:
     """SIGTERM a process group, wait up to ``grace``, then SIGKILL."""
     try:
-        os.killpg(pid, _SIGTERM)
+        os.killpg(pid, _SIGTERM)  # type: ignore[attr-defined]  # POSIX-only
     except ProcessLookupError:
         _signal_single(pid, _SIGTERM)
     except PermissionError:
@@ -155,7 +155,7 @@ def _terminate_posix_tree(pid: int, grace: float) -> None:
         return
 
     try:
-        os.killpg(pid, _SIGKILL)
+        os.killpg(pid, _SIGKILL)  # type: ignore[attr-defined]  # POSIX-only
     except ProcessLookupError:
         _signal_single(pid, _SIGKILL)
     except PermissionError:
@@ -197,23 +197,25 @@ def run_ffmpeg_subprocess(
         OSError: If the binary cannot be started.
     """
     start = time.monotonic()
-    popen_kwargs: dict[str, object] = {}
-    if os.name != "nt":
-        # Detach the child into its own session/process group so
-        # ``terminate_process_tree`` can signal every descendant at once.
-        popen_kwargs["start_new_session"] = True
-
+    # Detach the child into its own session/process group on POSIX so
+    # ``terminate_process_tree`` can signal every descendant at once.
+    # Windows uses its own process-tree kill path and does not need it.
+    # ``capture_output`` is a subprocess.run() convenience; Popen needs the
+    # explicit stdout/stderr pipes.
+    stdout_pipe = subprocess.PIPE if capture_output else None
+    stderr_pipe = subprocess.PIPE if capture_output else None
     proc = subprocess.Popen(  # nosec B607  # cmd[0] is an ffmpeg path resolved by ffmpeg_bin
         list(cmd),
-        capture_output=capture_output,
+        stdout=stdout_pipe,
+        stderr=stderr_pipe,
         text=text,
         encoding=encoding,
         errors=errors,
-        **popen_kwargs,
+        start_new_session=(os.name != "nt"),
     )
 
     try:
-        stdout, stderr = proc.communicate(timeout=timeout)
+        out, err = proc.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
         logger.error(
             "subprocess timed out after %.1fs (pid=%d): %s",
@@ -228,7 +230,7 @@ def run_ffmpeg_subprocess(
             logger.warning("subprocess pid=%d not reaped after tree kill", proc.pid)
         raise SubprocessTimeoutError(cmd, timeout, proc.pid) from None
 
-    return subprocess.CompletedProcess(list(cmd), proc.returncode, stdout, stderr)
+    return subprocess.CompletedProcess(list(cmd), proc.returncode, out, err)
 
 
 def _find_processes_posix(substring: str) -> list[int]:

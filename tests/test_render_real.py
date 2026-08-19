@@ -76,6 +76,20 @@ def _make_ctx(tmp_path, matched=False, include_fallback=False):
     return ctx
 
 
+def _fake_mux(proc, cmd, **kwargs):
+    """Simulate ffmpeg writing the stage-2 muxed artifact to the ``.part`` path.
+
+    v1.2 atomic publication validates that the partial output is non-empty
+    before ``os.replace``; the mocked ``subprocess.run`` must therefore
+    materialise the ``.part`` file the way a real ffmpeg would.
+    """
+    out = Path(cmd[-1])
+    if out.name.endswith(".part"):
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(b"moov-muxed-bytes")
+    return proc
+
+
 def _chainable_clip(end: float = 2.0):
     """MoviePy-style chainable clip mock used only for write path."""
     clip = MagicMock(name="clip")
@@ -133,7 +147,10 @@ def test_render_without_matched_clips(tmp_path):
         patch("movie_narrator.pipeline.render.ImageClip", return_value=img),
         patch("movie_narrator.pipeline.render.AudioFileClip", return_value=audio),
         patch("movie_narrator.pipeline.render._create_text_image", return_value=MagicMock()),
-        patch("movie_narrator.pipeline.render.subprocess.run", return_value=fake_proc),
+        patch(
+            "movie_narrator.pipeline.render.subprocess.run",
+            side_effect=lambda cmd, **kw: _fake_mux(fake_proc, cmd, **kw),
+        ),
     ):
         render_video(ctx)
 
@@ -180,7 +197,10 @@ def test_render_with_matched_clips(tmp_path):
         patch("movie_narrator.pipeline.render.ImageClip", return_value=img),
         patch("movie_narrator.pipeline.render.AudioFileClip", return_value=audio),
         patch("movie_narrator.pipeline.render._create_text_image", return_value=MagicMock()),
-        patch("movie_narrator.pipeline.render.subprocess.run", return_value=fake_proc),
+        patch(
+            "movie_narrator.pipeline.render.subprocess.run",
+            side_effect=lambda cmd, **kw: _fake_mux(fake_proc, cmd, **kw),
+        ),
     ):
         render_video(ctx)
 
