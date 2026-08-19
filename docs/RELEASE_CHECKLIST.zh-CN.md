@@ -11,43 +11,43 @@
 
 ## 代码质量
 
-- [ ] **mypy：零错误**
+- [x] **mypy：零错误**
   - 命令：`mypy src/movie_narrator`
   - 预期结果：`Success: no issues found in 121 source files`
   - 说明：必须在 Python 3.10 目标下通过（如 `pyproject.toml` 中配置）；必须与 CI 的 `mypy` 调用完全一致
 
-- [ ] **ruff：零错误**
+- [x] **ruff：零错误**
   - 命令：`ruff check src/`
   - 预期结果：无输出（退出码 0）
   - 说明：所有 `E`、`F`、`W`、`BLE`、`A` 规则必须通过（详见 `pyproject.toml`）；CI 仅检查 `src/`
 
-> **代码格式化（非阻塞，v1.0 范围外）**：`ruff format` 未通过 CI 或 pre-commit 强制（未配置 `.pre-commit-config.yaml`）。`src/` 下约 80 个文件（含 `tests/` 共约 150 个）目前未格式化。作为独立 `chore/ruff-format` 清理项跟踪，使 diff 与 v1.0 的 docstring/稳定性改动隔离。
+> **代码格式化（非阻塞，v1.2 范围外）**：`ruff format` 未通过 CI 或 pre-commit 强制（未配置 `.pre-commit-config.yaml`）。`src/` 下约 80 个文件（含 `tests/` 共约 150 个）目前未格式化。作为独立 `chore/ruff-format` 清理项跟踪，使 diff 与 v1.2 的改动隔离。
 
-- [ ] **测试覆盖率达标**
+- [x] **测试覆盖率达标**
   - 命令：`pytest --cov=movie_narrator --cov-report=term-missing --cov-fail-under=90`
   - 预期结果：`Required test coverage of 90% reached. Total coverage: XX%`
-  - 说明：阈值在 CI 配置中定义（`.coveragerc` + `ci.yml`，在 3.11 矩阵分支上强制执行）；v1.2 实测 90.77%（95% 目标记录在 `.coveragerc` 中）；不得低于 v1.1 基线
+  - 说明：阈值在 CI 配置中定义（`.coveragerc` + `ci.yml`，在 3.11 矩阵分支上强制执行）；v1.2 实测 90.74%（95% 目标记录在 `.coveragerc` 中）；不得低于 v1.1 基线
 
 ---
 
 ## 测试
 
-- [ ] **单元测试：全部通过**
+- [x] **单元测试：全部通过**
   - 命令：`pytest -v -m "not integration"`
   - 预期结果：`XX passed`（0 失败，0 错误）
   - 说明：`tests/` 下除标记为 `integration` 之外的所有测试
 
-- [ ] **集成测试：全部通过**
+- [x] **集成测试：全部通过**
   - 命令：`pytest -v -m integration`
   - 预期结果：所有集成测试通过（若 scenedetect/ffmpeg 不可用可能被跳过）
   - 说明：需要 `scenedetect`（安装 `[media]` 额外依赖）；ffmpeg 已捆绑
 
-- [ ] **E2E 冒烟测试通过**
+- [x] **E2E 冒烟测试通过**
   - 命令：`pytest -v tests/test_e2e_smoke.py`
   - 预期结果：测试无错误通过
   - 说明：验证完整流水线以最小输入执行
 
-- [ ] **契约测试通过**
+- [x] **契约测试通过**
   - 命令：`pytest -v tests/test_contract.py`
   - 预期结果：所有契约重新导出、协议和版本测试通过
   - 说明：验证 `CONTRACT_VERSION` 值和 `__all__` 完整性
@@ -61,12 +61,12 @@
 
 ## 安全
 
-- [ ] **SAST (bandit) 通过，零高/严重级别发现**
+- [x] **SAST (bandit) 通过，零高/严重级别发现**
   - 命令：`bandit -r src/movie_narrator -c pyproject.toml`
   - 预期结果：`No issues identified`（或仅有带文档化例外的低/中级别）
   - 说明：根据 `pyproject.toml` bandit 配置排除 tests、examples、docs
 
-- [ ] **依赖审计（pip-audit）通过**
+- [x] **依赖审计（pip-audit）通过**
   - 命令：`pip-audit`
   - 预期结果：`No known vulnerabilities found`
   - 说明：在干净的 `pip install -e ".[dev]"` 环境中运行
@@ -81,7 +81,7 @@
   - 验证：审阅 `SECURITY.md` 和 `SECURITY.zh-CN.md`
   - 预期结果：漏洞报告流程是最新的，联系方式有效
 
-- [ ] **ADR-011 禁区依赖检查通过（机器可检测子集）**
+- [x] **ADR-011 禁区依赖检查通过（机器可检测子集）**
   - 命令：`python scripts/check_forbidden_deps.py`
   - 预期结果：未发现禁区 pip 可安装包（Remotion、TypeTale、yt-dlp、Bilibili API、Playwright、IndexTTS、CosyVoice）
   - 说明：仅检查 ADR-011 禁区清单的机器可检测子集（见 `docs/ADR.md` ADR-011 与 `docs/CONTRIBUTING.md` 许可禁区）。非包类禁区（如复制 TypeTale 源码、行为上使用爬虫）仍需人工代码审查。
@@ -141,11 +141,11 @@
 
 - [ ] **版本号已对齐**
   - 验证：
-    - `pyproject.toml` → `version = "1.1.0"`
+    - `pyproject.toml` → `version = "1.2.0"`
     - `src/movie_narrator/contract.py` → `CONTRACT_VERSION = (1, 0, 0)`（未变）
     - `docs/ROADMAP.zh-CN.md` → CONTRACT_VERSION 行显示 `(1, 0, 0)`（v1.2 未变）
     - `docs/MIGRATION.zh-CN.md` → 当前/目标版本引用已更新
-  - 预期结果：包版本 1.1.0；契约版本保持 (1, 0, 0)
+  - 预期结果：包版本 1.2.0；契约版本保持 (1, 0, 0)
 
 - [ ] **标签命名遵循约定**
   - 格式：`v1.2.0`（小写 `v`、语义化版本、无前缀/后缀）
@@ -164,18 +164,18 @@
     ```bash
     python -m build
     twine check dist/*
-    pip install dist/movie_narrator-1.1.0-py3-none-any.whl
-    mn version  # 应显示 1.1.0
+    pip install dist/movie_narrator-1.2.0-py3-none-any.whl
+    mn version  # 应显示 1.2.0
     ```
 
 - [ ] **PyPI 发布已验证**
   - 验证：
     ```bash
-    pip install movie-narrator==1.1.0
+    pip install movie-narrator==1.2.0
     python -c "from movie_narrator.contract import CONTRACT_VERSION; print(CONTRACT_VERSION)"
     # 预期结果：(1, 0, 0)
     ```
-  - 预期结果：包干净地安装，导入正常，包版本 1.1.0
+  - 预期结果：包干净地安装，导入正常，包版本 1.2.0
 
 - [ ] **Git 标签已推送**
   - 命令：`git push origin v1.2.0`

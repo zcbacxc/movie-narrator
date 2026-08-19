@@ -28,16 +28,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Codec config clarified** — the final video codec is decided by `render_encoder` only; `render_video_codec` is the clip-export-only encoder (documented at both call sites).
 - **GPU detection unifies on the shared ffmpeg policy** — `detect_gpu_encoder` now resolves the binary via `ffmpeg_bin()` (the same `MN_FFMPEG_BIN` → imageio-ffmpeg → PATH chain used by render), so detection and execution never disagree on which ffmpeg is used.
 - **`mn create` dry-run flag** — new `--dry-run` CLI option (see Added).
+- `CONTRACT_VERSION` remains (1, 0, 0). All 2547 tests pass (1 skipped in CI, 0 failures). +76 new tests vs v1.1.0.
 
 ### Fixed
 
 - **Portrait QA false positive** — `1080x1920` vertical output is no longer misreported as "below minimum 1280x720"; the resolution check now transposes thresholds for portrait orientation.
 - **Silently dropped job params in `merge.py`** — the merge loop was missing `render_encoder`, `render_transition`, `render_text_animation`, `render_preview_mode`, `bgm_ambient_path`, `bgm_metadata_path`, `match_skip_intro_sec`, `vision_captioner`, and several other schema-defined keys. Users configuring these via `job.yaml` had them silently ignored; the merge tuple now mirrors the schema.
 - **`render_video_codec` dead config path** — final render no longer consults `render_video_codec` (previously shadowed by `render_encoder`), and `export_clips` now documents its ownership of that key.
-
-### Notes
-
-- `CONTRACT_VERSION` remains `(1, 0, 0)` — no new contract exports in v1.2.
 
 ## [1.1.0] - 2026-08-10
 
