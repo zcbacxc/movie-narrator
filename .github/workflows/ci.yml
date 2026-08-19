@@ -68,8 +68,11 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg fonts-noto-cjk
+          # ForceIPv4 + bounded HTTP + retries: GitHub-hosted runners
+          # intermittently hang on the Ubuntu mirrors (IPv6 routing), which
+          # otherwise stalls apt-get update until the job timeout.
+          sudo apt-get update -o Acquire::ForceIPv4=true -o Acquire::Retries=3 -o Acquire::http::Timeout=60
+          sudo apt-get install -y --no-install-recommends ffmpeg fonts-noto-cjk
 
       - run: pip install -e ".[dev]"
       - name: Run unit tests
@@ -173,8 +176,11 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg fonts-noto-cjk
+          # ForceIPv4 + bounded HTTP + retries: GitHub-hosted runners
+          # intermittently hang on the Ubuntu mirrors (IPv6 routing), which
+          # otherwise stalls apt-get update until the job timeout.
+          sudo apt-get update -o Acquire::ForceIPv4=true -o Acquire::Retries=3 -o Acquire::http::Timeout=60
+          sudo apt-get install -y --no-install-recommends ffmpeg fonts-noto-cjk
 
       - name: Install with media extras
         run: pip install -e ".[media,dev]"
@@ -255,8 +261,11 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg fonts-noto-cjk
+          # ForceIPv4 + bounded HTTP + retries: GitHub-hosted runners
+          # intermittently hang on the Ubuntu mirrors (IPv6 routing), which
+          # otherwise stalls apt-get update until the job timeout.
+          sudo apt-get update -o Acquire::ForceIPv4=true -o Acquire::Retries=3 -o Acquire::http::Timeout=60
+          sudo apt-get install -y --no-install-recommends ffmpeg fonts-noto-cjk
 
       - run: pip install -e ".[media,dev]"
       - name: Run integration tests
