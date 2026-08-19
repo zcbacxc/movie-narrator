@@ -68,10 +68,16 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          # ForceIPv4 + bounded HTTP + retries: GitHub-hosted runners
-          # intermittently hang on the Ubuntu mirrors (IPv6 routing), which
-          # otherwise stalls apt-get update until the job timeout.
-          sudo apt-get update -o Acquire::ForceIPv4=true -o Acquire::Retries=3 -o Acquire::http::Timeout=60
+          # GitHub-hosted runners intermittently stall on the Ubuntu mirrors
+          # (stalled connections that Acquire::http::Timeout does not bound),
+          # so wrap the whole update in `timeout` and retry before giving up.
+          for i in 1 2 3; do
+            if timeout 180 sudo apt-get update -o Acquire::ForceIPv4=true -o Acquire::Retries=3; then
+              break
+            fi
+            echo "apt-get update attempt $i failed/timed out, retrying..."
+            sleep 5
+          done
           sudo apt-get install -y --no-install-recommends ffmpeg fonts-noto-cjk
 
       - run: pip install -e ".[dev]"
@@ -176,10 +182,16 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          # ForceIPv4 + bounded HTTP + retries: GitHub-hosted runners
-          # intermittently hang on the Ubuntu mirrors (IPv6 routing), which
-          # otherwise stalls apt-get update until the job timeout.
-          sudo apt-get update -o Acquire::ForceIPv4=true -o Acquire::Retries=3 -o Acquire::http::Timeout=60
+          # GitHub-hosted runners intermittently stall on the Ubuntu mirrors
+          # (stalled connections that Acquire::http::Timeout does not bound),
+          # so wrap the whole update in `timeout` and retry before giving up.
+          for i in 1 2 3; do
+            if timeout 180 sudo apt-get update -o Acquire::ForceIPv4=true -o Acquire::Retries=3; then
+              break
+            fi
+            echo "apt-get update attempt $i failed/timed out, retrying..."
+            sleep 5
+          done
           sudo apt-get install -y --no-install-recommends ffmpeg fonts-noto-cjk
 
       - name: Install with media extras
@@ -261,10 +273,16 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          # ForceIPv4 + bounded HTTP + retries: GitHub-hosted runners
-          # intermittently hang on the Ubuntu mirrors (IPv6 routing), which
-          # otherwise stalls apt-get update until the job timeout.
-          sudo apt-get update -o Acquire::ForceIPv4=true -o Acquire::Retries=3 -o Acquire::http::Timeout=60
+          # GitHub-hosted runners intermittently stall on the Ubuntu mirrors
+          # (stalled connections that Acquire::http::Timeout does not bound),
+          # so wrap the whole update in `timeout` and retry before giving up.
+          for i in 1 2 3; do
+            if timeout 180 sudo apt-get update -o Acquire::ForceIPv4=true -o Acquire::Retries=3; then
+              break
+            fi
+            echo "apt-get update attempt $i failed/timed out, retrying..."
+            sleep 5
+          done
           sudo apt-get install -y --no-install-recommends ffmpeg fonts-noto-cjk
 
       - run: pip install -e ".[media,dev]"
