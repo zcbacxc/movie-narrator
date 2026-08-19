@@ -1,9 +1,9 @@
 [![English](https://img.shields.io/badge/English-Release_Checklist-blue)](RELEASE_CHECKLIST.md)
 [![简体中文](https://img.shields.io/badge/简体中文-发布清单-green)](RELEASE_CHECKLIST.zh-CN.md)
 
-# v1.1 发布清单
+# v1.2 发布清单
 
-> **v1.1 版本的完成定义（Definition of Done）。** 在创建 v1.1.0 标签
+> **v1.2 版本的完成定义（Definition of Done）。** 在创建 v1.2.0 标签
 > 并发布到 PyPI 之前，必须逐项核实并勾选本清单中的所有项目。
 > 项目按类别分组；每项均附有验证命令或方法。
 
@@ -13,7 +13,7 @@
 
 - [ ] **mypy：零错误**
   - 命令：`mypy src/movie_narrator`
-  - 预期结果：`Success: no issues found in 120 source files`
+  - 预期结果：`Success: no issues found in 121 source files`
   - 说明：必须在 Python 3.10 目标下通过（如 `pyproject.toml` 中配置）；必须与 CI 的 `mypy` 调用完全一致
 
 - [ ] **ruff：零错误**
@@ -26,7 +26,7 @@
 - [ ] **测试覆盖率达标**
   - 命令：`pytest --cov=movie_narrator --cov-report=term-missing --cov-fail-under=90`
   - 预期结果：`Required test coverage of 90% reached. Total coverage: XX%`
-  - 说明：阈值在 CI 配置中定义（`.coveragerc` + `ci.yml`，在 3.11 矩阵分支上强制执行）；不得低于 v1.0 基线
+  - 说明：阈值在 CI 配置中定义（`.coveragerc` + `ci.yml`，在 3.11 矩阵分支上强制执行）；v1.2 实测 90.77%（95% 目标记录在 `.coveragerc` 中）；不得低于 v1.1 基线
 
 ---
 
@@ -125,9 +125,9 @@
 - [ ] **CHANGELOG.md 已定稿**
   - 验证：审阅 `CHANGELOG.md`
   - 预期结果：
-    - `[Unreleased]` 部分已移至 `[1.1.0]`
+    - `[Unreleased]` 部分已移至 `[1.2.0]`
     - 所有 Keep a Changelog 分类均存在（Added、Changed、Deprecated、Removed、Fixed、Security）
-    - `CONTRACT_VERSION` 行保持 `(1, 0, 0)`（v1.1 无新增契约导出）
+    - `CONTRACT_VERSION` 行保持 `(1, 0, 0)`（v1.2 无新增契约导出）
     - 底部的版本比较链接完整
 
 - [ ] **mkdocs 构建成功**
@@ -143,17 +143,17 @@
   - 验证：
     - `pyproject.toml` → `version = "1.1.0"`
     - `src/movie_narrator/contract.py` → `CONTRACT_VERSION = (1, 0, 0)`（未变）
-    - `docs/ROADMAP.zh-CN.md` → CONTRACT_VERSION 行显示 `(1, 0, 0)`（v1.1 未变）
+    - `docs/ROADMAP.zh-CN.md` → CONTRACT_VERSION 行显示 `(1, 0, 0)`（v1.2 未变）
     - `docs/MIGRATION.zh-CN.md` → 当前/目标版本引用已更新
   - 预期结果：包版本 1.1.0；契约版本保持 (1, 0, 0)
 
 - [ ] **标签命名遵循约定**
-  - 格式：`v1.1.0`（小写 `v`、语义化版本、无前缀/后缀）
-  - 命令：`git tag -a v1.1.0 -m "v1.1.0 - 社区与打磨"`
+  - 格式：`v1.2.0`（小写 `v`、语义化版本、无前缀/后缀）
+  - 命令：`git tag -a v1.2.0 -m "v1.2.0 - 可靠性与可观测性"`
   - 说明：使用注解标签，非轻量标签
 
 - [ ] **发布分支已合并到 main**
-  - 验证：`release/v1.1` 分支已通过 PR 合并到 `main`
+  - 验证：`release/v1.2` 分支已通过 PR 合并到 `main`
   - 预期结果：合并提交上所有 CI 检查通过
   - 说明：禁止直接推送到 `main`
 
@@ -178,14 +178,14 @@
   - 预期结果：包干净地安装，导入正常，包版本 1.1.0
 
 - [ ] **Git 标签已推送**
-  - 命令：`git push origin v1.1.0`
+  - 命令：`git push origin v1.2.0`
   - 预期结果：标签出现在 GitHub 上，发布工作流启动
   - 说明：仅在所有清单项确认后推送标签
 
 - [ ] **GitHub Release 已创建**
-  - 验证：在 GitHub 上创建了标签为 `v1.1.0` 的 Release 页面
+  - 验证：在 GitHub 上创建了标签为 `v1.2.0` 的 Release 页面
   - 预期结果：
-    - 标题：`v1.1.0 - 社区与打磨`
+    - 标题：`v1.2.0 - 可靠性与可观测性`
     - 正文：关键特性摘要、迁移指南和稳定性文档链接
     - 包含 CHANGELOG 条目
     - **未勾选** Pre-release 复选框
@@ -198,15 +198,15 @@
   - 渠道：GitHub Release 页面、讨论区、社交媒体（如适用）
   - 内容：关键特性、稳定性承诺、迁移指南链接
 
-- [ ] **v1.1.x 维护分支已创建**
-  - 命令：`git checkout -b v1.1.x v1.1.0 && git push -u origin v1.1.x`
+- [ ] **v1.2.x 维护分支已创建**
+  - 命令：`git checkout -b v1.2.x v1.2.0 && git push -u origin v1.2.x`
   - 用途：为 v1.x 用户回溯安全和关键 Bug 修复
 
-- [ ] **ROADMAP 已更新以规划 v1.2**
-  - 验证：`docs/ROADMAP.zh-CN.md` 中 v1.1.0 已移至已完成表
-  - 预期结果：在"当前与规划"下添加 v1.2.0 规划部分
+- [ ] **ROADMAP 已更新以规划 v1.3**
+  - 验证：`docs/ROADMAP.zh-CN.md` 中 v1.2.0 已移至已完成表
+  - 预期结果：在"当前与规划"下添加 v1.3.0 规划部分
 
 ---
 
 *请在发布候选（RC）阶段使用本清单。每个 RC 都应经过完整清单检查。
-通过所有项的最终 RC 即成为 v1.1.0 正式版。*
+通过所有项的最终 RC 即成为 v1.2.0 正式版。*
