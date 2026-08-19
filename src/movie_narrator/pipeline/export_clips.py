@@ -3,6 +3,7 @@
 
 """Clip export step — export matched scenes as individual files."""
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -55,14 +56,23 @@ def export_clips(ctx: Context) -> Context:
     output_dir = Path(ctx.output_dir)
     clips_dir = output_dir / "clips"
     clips_dir.mkdir(parents=True, exist_ok=True)
+    # v1.2: partial clips are staged under .tmp and atomically published into
+    # clips/, so a failed/truncated export never leaves a broken scene_*.mp4.
+    tmp_dir = output_dir / ".tmp"
+    tmp_dir.mkdir(parents=True, exist_ok=True)
 
+    # NOTE (v1.2): ``render_video_codec`` is the CLIP-EXPORT-ONLY encoder.
+    # The final rendered video's codec is controlled separately by
+    # ``render_encoder`` in pipeline/render.py — these knobs are not
+    # interchangeable.
     video_codec = ctx.metadata.get("render_video_codec", "libx264")
     audio_codec = ctx.metadata.get("render_audio_codec", "aac")
     ffmpeg_timeout = ctx.metadata.get("render_ffmpeg_timeout", 300)
     failed = 0
     for scene in tqdm(ctx.scenes, desc="Exporting clips", unit="clip"):
+        clip_path = clips_dir / f"scene_{scene.index:04d}.mp4"
+        partial_path = tmp_dir / f"scene_{scene.index:04d}.mp4.part"
         try:
-            clip_path = clips_dir / f"scene_{scene.index:04d}.mp4"
             # Direct ffmpeg invocation — export_clips only does seek+cut+encode,
             # so MoviePy adds unnecessary overhead.  Direct subprocess gives
             # precise control over codec params, timeout, and error handling.
@@ -81,7 +91,7 @@ def export_clips(ctx: Context) -> Context:
                 audio_codec,
                 "-movflags",
                 "+faststart",
-                str(clip_path),
+                str(partial_path),
             ]
             result = subprocess.run(
                 cmd,
@@ -91,8 +101,12 @@ def export_clips(ctx: Context) -> Context:
             if result.returncode != 0:
                 stderr_tail = result.stderr.decode(errors="replace")[-300:]
                 raise RuntimeError(f"ffmpeg exited {result.returncode}: {stderr_tail}")
+            if not partial_path.exists() or partial_path.stat().st_size == 0:
+                raise RuntimeError("ffmpeg produced an empty clip output")
+            os.replace(partial_path, clip_path)
             scene.clip_path = str(clip_path)
         except Exception as e:
+            partial_path.unlink(missing_ok=True)
             failed += 1
             tqdm.write(f"  ⚠ skip scene {scene.index}: {e}")
 

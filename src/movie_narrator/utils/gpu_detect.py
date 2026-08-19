@@ -16,10 +16,11 @@ from __future__ import annotations
 import os
 import platform
 import re
-import shutil
 import subprocess
 from functools import lru_cache
 from typing import Optional
+
+from .ffmpeg_bin import ffmpeg_bin
 
 # Canonical ffmpeg encoder names for each GPU backend.
 _NVENC = "h264_nvenc"
@@ -91,16 +92,34 @@ def _parse_encoder_names(stdout: str) -> set[str]:
     return names
 
 
+def _resolve_ffmpeg() -> Optional[str]:
+    """Return a concrete ffmpeg binary path, or ``None`` when unavailable.
+
+    Delegates to the shared :func:`ffmpeg_bin` resolution so GPU detection
+    probes the *same* binary the render pipeline actually invokes
+    (``MN_FFMPEG_BIN`` override → imageio-ffmpeg bundled build → system
+    ``PATH``).  The bare ``"ffmpeg"`` last-resort string is mapped to
+    ``None`` — the same convention as ``audio_mix._ffmpeg_bin`` — because
+    it means no concrete binary could be resolved.
+    """
+    resolved = ffmpeg_bin()
+    if resolved and resolved != "ffmpeg":
+        return resolved
+    return None
+
+
 @lru_cache(maxsize=1)
 def detect_gpu_encoder() -> Optional[str]:
     """Detect the best available GPU H.264 encoder.
 
-    Runs ``ffmpeg -hide_banner -encoders`` once and returns the first
-    available encoder in platform-aware priority order.  Returns
-    ``None`` when ffmpeg is missing, the probe fails, or no GPU encoder
-    is registered.
+    Runs ``<ffmpeg> -hide_banner -encoders`` once (resolving ffmpeg via
+    the shared :func:`ffmpeg_bin` policy so detection matches the binary
+    the render pipeline really uses) and returns the first available
+    encoder in platform-aware priority order.  Returns ``None`` when
+    ffmpeg is missing, the probe fails, or no GPU encoder is registered.
     """
-    if shutil.which("ffmpeg") is None:
+    ffmpeg = _resolve_ffmpeg()
+    if not ffmpeg:
         return None
 
     # CI environments (GitHub Actions, etc.) list GPU encoders in
@@ -112,7 +131,7 @@ def detect_gpu_encoder() -> Optional[str]:
 
     try:
         proc = subprocess.run(  # nosec B607  # ffmpeg is a system binary we rely on PATH resolving
-            ["ffmpeg", "-hide_banner", "-encoders"],
+            [ffmpeg, "-hide_banner", "-encoders"],
             capture_output=True,
             text=True,
             encoding="utf-8",

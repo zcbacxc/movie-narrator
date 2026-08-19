@@ -43,6 +43,7 @@ Typical usage::
 from __future__ import annotations
 
 import hmac
+import ipaddress
 import json
 import logging
 import os
@@ -51,7 +52,7 @@ import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from .. import __version__
 from ..utils.logging_config import (
@@ -193,6 +194,125 @@ def _metrics_public() -> bool:
         "yes",
         "on",
     }
+
+
+# ── Loopback detection (v1.2) ──────────────────────────────
+
+
+def _is_loopback_host(host: str) -> bool:
+    """Return True when *host* binds only to the loopback interface.
+
+    ``0.0.0.0`` / ``::`` bind *every* interface, so they are deliberately
+    treated as non-loopback: a server listening there is reachable from
+    the network and must require authentication. ``localhost`` is a name,
+    not an IP literal, so it is special-cased.
+
+    Args:
+        host: The bind address passed to :class:`TaskAPIServer`.
+
+    Returns:
+        True for ``127.0.0.1``, ``localhost``, ``::1`` and equivalent
+        loopback literals; False for a public/external bind, ``0.0.0.0``,
+        ``::`` and any other host name.
+    """
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        # Not an IP literal — treat "localhost" as loopback and every
+        # other name as potentially remote (needs auth).
+        return host.strip().lower() == "localhost"
+
+
+# ── Submission admission limits (v1.2) ─────────────────────
+
+
+#: Env var capping the number of concurrently active tasks accepted by
+#: ``POST /tasks`` / ``POST /tasks/batch``. Unset (or <= 0) disables the
+#: cap, preserving the pre-v1.2 unlimited behaviour.
+_ENV_MAX_CONCURRENT_TASKS = "MN_MAX_CONCURRENT_TASKS"
+
+#: Env var capping the estimated output size of a single submission.
+#: Unset (or <= 0) disables the cap.
+_ENV_MAX_ESTIMATED_ARTIFACT_BYTES = "MN_MAX_ESTIMATED_ARTIFACT_BYTES"
+
+#: Fixed non-video bytes (script, subtitle, metadata, cache) always added
+#: on top of the A/V estimate. Keeps the estimate simple yet safe.
+_ARTIFACT_FIXED_OVERHEAD_BYTES = 8 * 1024 * 1024  # 8 MiB
+
+#: Rough per-``video_format`` video bitrate in bits/second for admission
+#: estimation (v1.2). A generous over-estimate, so a request is refused
+#: only when its output would clearly exceed the configured cap.
+_ESTIMATED_VIDEO_BITRATE_BPS = {
+    "16:9": 4_000_000,  # ≈ 4 Mbps (1080p-ish horizontal)
+    "9:16": 3_000_000,  # ≈ 3 Mbps portrait
+}
+_ESTIMATED_AUDIO_BITRATE_BPS = 192_000
+
+
+def _env_positive_int(name: str) -> Optional[int]:
+    """Parse a positive integer from environment variable *name* (v1.2).
+
+    An unset, empty, non-integer or non-positive value yields None, which
+    callers interpret as "limit disabled" for backwards compatibility.
+
+    Args:
+        name: The environment variable name.
+
+    Returns:
+        The positive integer, or None when it is absent/invalid.
+    """
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return None
+    try:
+        value = int(raw)
+    except ValueError:
+        logger.warning("Ignoring invalid %s=%r", name, raw)
+        return None
+    if value <= 0:
+        return None
+    return value
+
+
+def _concurrency_limit() -> Optional[int]:
+    """Active-task admission cap from ``MN_MAX_CONCURRENT_TASKS``.
+
+    Returns:
+        The cap, or None to disable the concurrency admission check.
+    """
+    return _env_positive_int(_ENV_MAX_CONCURRENT_TASKS)
+
+
+def _artifact_size_limit() -> Optional[int]:
+    """Estimated-artifact-size cap, in bytes (v1.2).
+
+    Returns:
+        The cap, or None to disable the artifact-size admission check.
+    """
+    return _env_positive_int(_ENV_MAX_ESTIMATED_ARTIFACT_BYTES)
+
+
+def _estimate_artifact_bytes(request: TaskRequest) -> int:
+    """Roughly estimate the total output bytes for *request* (v1.2).
+
+    Render output is dominated by the encoded video stream, so this uses
+    a per-``video_format`` A/V bitrate multiplied by ``duration`` plus a
+    fixed allowance for the script/subtitle/metadata artifacts. It is
+    intentionally approximate and exists only to refuse submissions whose
+    output would clearly exceed the configured cap.
+
+    Args:
+        request: The validated task request.
+
+    Returns:
+        The estimated number of output bytes.
+    """
+    video_bps = _ESTIMATED_VIDEO_BITRATE_BPS.get(
+        request.video_format,
+        _ESTIMATED_VIDEO_BITRATE_BPS["16:9"],
+    )
+    media_bytes = (video_bps + _ESTIMATED_AUDIO_BITRATE_BPS) * request.duration // 8
+    return media_bytes + _ARTIFACT_FIXED_OVERHEAD_BYTES
 
 
 # ── Route registry (v1.0 refactor) ─────────────────────────
@@ -424,12 +544,17 @@ class _APIHandler(BaseHTTPRequestHandler):
     def _check_auth(self) -> bool:
         """Check ``X-API-Key`` authentication.
 
-        When the server has no ``api_key`` configured, all requests are
-        allowed — this keeps the local default (loopback) frictionless
-        and backwards compatible. When an ``api_key`` is configured, the
-        request's ``X-API-Key`` header is compared to it using a
+        Loopback binds keep the pre-v1.2 behaviour: with no ``api_key``
+        configured every request is anonymous but allowed. A non-loopback
+        bind is reachable from the network, so anonymous access is
+        refused with 401 when no ``api_key`` is configured — a key must
+        be set (``MN_API_KEY``). When an ``api_key`` *is* configured, the
+        request's ``X-API-Key`` header is compared against it using a
         constant-time comparison (:func:`hmac.compare_digest`) to
         mitigate timing attacks.
+
+        ``self.server.host`` is read defensively (defaulting to loopback)
+        so mock server objects in tests never crash this method.
 
         Returns:
             True if the request is authorized (and routing should
@@ -437,13 +562,69 @@ class _APIHandler(BaseHTTPRequestHandler):
             been sent and the handler should return immediately).
         """
         api_key: Optional[str] = getattr(self.server, "api_key", None)
+        host: str = getattr(self.server, "host", "127.0.0.1")
         if api_key is None:
-            return True
+            if _is_loopback_host(host):
+                return True
+            self._send_error(
+                HTTPStatus.UNAUTHORIZED,
+                "unauthenticated access denied: non-loopback bind requires MN_API_KEY",
+            )
+            return False
         provided = self.headers.get("X-API-Key", "")
         if hmac.compare_digest(provided, api_key):
             return True
         self._send_error(HTTPStatus.UNAUTHORIZED, "unauthorized")
         return False
+
+    # ── Submission admission (v1.2) ────────────────────────
+
+    def _admission_rejection(
+        self,
+        requests: List[TaskRequest],
+    ) -> Optional[Tuple[int, str]]:
+        """Evaluate admission limits for *requests* before submission.
+
+        Two opt-in limits protect the server from a single tenant/anon
+        blowing through resources. Both are disabled when their env var
+        is unset, so the pre-v1.2 unlimited behaviour is preserved.
+
+        - Concurrency: when ``MN_MAX_CONCURRENT_TASKS`` is set, a
+          submission that would push the active task count (pending/
+          running/retrying) over the cap is refused with 429.
+        - Estimated artifact size: each request's output is estimated
+          from its ``duration`` and ``video_format``; when
+          ``MN_MAX_ESTIMATED_ARTIFACT_BYTES`` is set, an over-budget
+          request is refused with 413.
+
+        Args:
+            requests: The validated task requests about to be submitted
+                (one for ``POST /tasks``, many for ``POST /tasks/batch``).
+
+        Returns:
+            A ``(status, message)`` pair to send as the rejection, or
+            None when the submission is admissible.
+        """
+        limit = _concurrency_limit()
+        if limit is not None and self.queue.active_count + len(requests) > limit:
+            return (
+                HTTPStatus.TOO_MANY_REQUESTS,
+                f"too many active tasks: {self.queue.active_count} active "
+                f"+ {len(requests)} new would exceed limit {limit} "
+                f"(MN_MAX_CONCURRENT_TASKS)",
+            )
+
+        max_bytes = _artifact_size_limit()
+        if max_bytes is not None:
+            for request in requests:
+                estimate = _estimate_artifact_bytes(request)
+                if estimate > max_bytes:
+                    return (
+                        HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
+                        f"estimated artifact size {estimate} bytes exceeds "
+                        f"limit {max_bytes} (MN_MAX_ESTIMATED_ARTIFACT_BYTES)",
+                    )
+        return None
 
     # ── GET route handlers ──────────────────────────────────
     #
@@ -644,6 +825,12 @@ class _APIHandler(BaseHTTPRequestHandler):
             self._send_error(HTTPStatus.BAD_REQUEST, f"Invalid task request: {e}")
             return
 
+        rejection = self._admission_rejection([request])
+        if rejection is not None:
+            status, message = rejection
+            self._send_error(status, message)
+            return
+
         task_id = self.queue.submit(request)
         self._send_json(
             {"task_id": task_id, "status": "pending"},
@@ -666,6 +853,13 @@ class _APIHandler(BaseHTTPRequestHandler):
             logger.debug("POST /tasks/batch rejected: invalid BatchRequest: %s", e)
             self._send_error(HTTPStatus.BAD_REQUEST, f"Invalid batch request: {e}")
             return
+
+        rejection = self._admission_rejection(request.requests)
+        if rejection is not None:
+            status, message = rejection
+            self._send_error(status, message)
+            return
+
         batch = self.queue.submit_batch(request)
         self._send_json(
             {
@@ -921,9 +1115,12 @@ class TaskAPIServer:
             new one is created.
         storage_dir: Storage directory for the queue (if creating).
         max_workers: Max worker threads for the queue (if creating).
-        api_key: Optional X-API-Key for authenticating requests. When
-            None (default), the server runs unauthenticated — safe only
-            on loopback. Required when binding to a public interface.
+        api_key: Optional X-API-Key for authenticating requests. On a
+            loopback bind (default) the server runs unauthenticated when
+            this is None. On a non-loopback bind a None value makes the
+            handler reject *anonymous* requests with 401, so a key (e.g.
+            ``MN_API_KEY``) is effectively required to serve the
+            network.
         artifact_store: Backend swept by the artifact lifecycle thread
             (v0.8.3). Defaults to the store resolved from the
             ``MN_STORAGE_*`` environment variables.
@@ -1045,6 +1242,9 @@ class TaskAPIServer:
         )
         self._server.queue = self._queue  # type: ignore[attr-defined]
         self._server.api_key = self.api_key  # type: ignore[attr-defined]
+        # v1.2: the handler inspects this to decide whether anonymous
+        # access is allowed on this bind address (loopback vs public).
+        self._server.host = self.host  # type: ignore[attr-defined]
         self._server.shutting_down = self._shutting_down  # type: ignore[attr-defined]
         self._server.scheduler = self._scheduler  # type: ignore[attr-defined]
 

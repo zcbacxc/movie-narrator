@@ -54,6 +54,21 @@ def _chainable_clip(end: float = 6.0) -> MagicMock:
     return clip
 
 
+def _fake_run_writing_partial(fake_proc):
+    """``subprocess.run`` side-effect that stages the atomic-publish ``.part``.
+
+    Mirrors what a real ffmpeg mux does: write the output file that the
+    command's last argument names, then return the completed process.
+    """
+
+    def _run(cmd, **kw):
+        if str(cmd[-1]).endswith(".part"):
+            Path(cmd[-1]).write_bytes(b"final-moov-fake-bytes")
+        return fake_proc
+
+    return _run
+
+
 def _make_ctx(tmp_path, *, with_source=True, matched=True, n_segments=1):
     """Build a minimal Context for render_video tests."""
     ctx = Context(
@@ -154,7 +169,7 @@ def _run_render(
         apply_text_animation if apply_text_animation is not None else (lambda c, t, d: c),
     )
     monkeypatch.setattr(render_mod, "get_animation_duration", MagicMock(return_value=0.2))
-    monkeypatch.setattr("subprocess.run", MagicMock(return_value=fake_proc))
+    monkeypatch.setattr("subprocess.run", MagicMock(side_effect=_fake_run_writing_partial(fake_proc)))
     monkeypatch.setattr("shutil.which", MagicMock(return_value="/fake/ffmpeg"))
 
     render_video(ctx)
@@ -578,7 +593,7 @@ class TestRenderVideo:
         monkeypatch.setattr(render_mod, "_create_text_image", MagicMock(return_value=MagicMock()))
         monkeypatch.setattr(render_mod, "build_metadata_json", MagicMock(return_value={}))
         monkeypatch.setattr(render_mod, "get_encoder_info", MagicMock(return_value={}))
-        monkeypatch.setattr("subprocess.run", MagicMock(return_value=fake_proc))
+        monkeypatch.setattr("subprocess.run", MagicMock(side_effect=_fake_run_writing_partial(fake_proc)))
         monkeypatch.setattr("shutil.which", MagicMock(return_value="/fake/ffmpeg"))
 
         render_video(ctx)
@@ -616,7 +631,7 @@ class TestRenderVideo:
         monkeypatch.setattr(render_mod, "VideoFileClip", MagicMock(return_value=source))
         monkeypatch.setattr(render_mod, "_create_text_image", MagicMock(return_value=MagicMock()))
         monkeypatch.setattr(render_mod, "build_metadata_json", MagicMock(return_value={}))
-        monkeypatch.setattr("subprocess.run", MagicMock(return_value=fake_proc))
+        monkeypatch.setattr("subprocess.run", MagicMock(side_effect=_fake_run_writing_partial(fake_proc)))
         monkeypatch.setattr("shutil.which", MagicMock(return_value="/fake/ffmpeg"))
 
         render_video(ctx)

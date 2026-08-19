@@ -152,7 +152,7 @@ def test_duck_bgm_sidechain_builds_output(monkeypatch):
 
     monkeypatch.setattr("movie_narrator.utils.audio_mix._ffmpeg_bin", lambda: "ffmpeg")
     monkeypatch.setattr(
-        "movie_narrator.utils.audio_mix.subprocess.run", fake_run
+        "movie_narrator.utils.audio_mix.run_ffmpeg_subprocess", fake_run
     )
     monkeypatch.setattr(
         "movie_narrator.utils.audio_mix.AudioSegment.from_file",

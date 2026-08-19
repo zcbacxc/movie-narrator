@@ -27,18 +27,24 @@ import json
 import os
 import subprocess
 import tempfile
-import time
 import urllib.request
 import urllib.error
 from pathlib import Path
 from typing import List, Optional
 
 from ..models import Scene
-from ..reliability import CIRCUIT_REGISTRY, CircuitOpenError
+from ..reliability import CIRCUIT_REGISTRY, CircuitOpenError, RetryPolicy, with_retry
 from ..utils.ffmpeg_bin import ffmpeg_bin
 from .protocol import VisionCaptioner
 
 logger = logging.getLogger(__name__)
+
+
+class _VLMEmptyResponse(Exception):
+    """Internal signal: the VLM returned no caption text — retryable."""
+
+    def __init__(self) -> None:
+        super().__init__("VLM API returned empty caption content")
 
 
 class VLMCaptioner(VisionCaptioner):
@@ -72,6 +78,15 @@ class VLMCaptioner(VisionCaptioner):
         self._language = language or os.environ.get("MN_VLM_LANGUAGE", "en")
         self._max_retries = max_retries
         self._frame_cache: dict[str, str] = {}
+        self._retry_policy = RetryPolicy(
+            max_attempts=self._max_retries + 1,
+            base_delay=1.0,
+            max_delay=4.0,
+            multiplier=2.0,
+            jitter=0.0,
+            should_retry=self._should_retry,
+            delay_from_exception=self._retry_delay,
+        )
 
     # ── Public API ───────────────────────────────────────────
 
@@ -218,7 +233,14 @@ class VLMCaptioner(VisionCaptioner):
         breaker = CIRCUIT_REGISTRY["vlm"]
         try:
             with breaker.guard():
-                return self._caption_frame_send(url, data, scene)
+                send = with_retry(self._retry_policy)(self._caption_frame_send)
+                try:
+                    return send(url, data, scene)
+                except Exception as e:  # noqa: BLE001 — re-read policy translation
+                    raise RuntimeError(
+                        f"VLM API failed after {self._max_retries + 1} attempts: "
+                        f"{self._vlm_last_error(e)}"
+                    ) from e
         except CircuitOpenError as e:
             # Circuit open — fail fast, no network attempt. Retryable;
             # caption_scenes degrades this scene to a fallback label.
@@ -226,47 +248,58 @@ class VLMCaptioner(VisionCaptioner):
             raise
 
     def _caption_frame_send(self, url: str, data: bytes, scene: Scene) -> str:
-        """POST *data* to *url* with per-attempt retry (no breaker).
+        """POST *data* to *url* — a single, uncached network attempt.
 
-        Extracted from ``_caption_frame`` so the circuit breaker wraps a
-        single, uncached network round-trip. Retries transient HTTP
-        errors (429 / 5xx) up to ``self._max_retries`` times.
+        No retry loop here: :meth:`_caption_frame` wraps this with
+        ``with_retry(self._retry_policy)`` so the circuit breaker guards
+        exactly one retry-managed call. Raises transient errors (429 /
+        5xx / network) so the policy can retry, and
+        :class:`_VLMEmptyResponse` when the API returns no caption text.
         """
-        last_error: Optional[str] = None
-        for attempt in range(self._max_retries + 1):
-            try:
-                req = urllib.request.Request(
-                    url,
-                    data=data,
-                    headers={
-                        "Content-Type": "application/json",
-                        "Authorization": f"Bearer {self._api_key}",
-                    },
-                    method="POST",
-                )
-                with urllib.request.urlopen(req, timeout=self._timeout) as resp:  # nosec B310  # VLM API call to configured endpoint
-                    result = json.loads(resp.read().decode("utf-8"))
+        req = urllib.request.Request(
+            url,
+            data=data,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self._api_key}",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=self._timeout) as resp:  # nosec B310  # VLM API call to configured endpoint
+            result = json.loads(resp.read().decode("utf-8"))
 
-                content = (
-                    result.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-                )
-                if content:
-                    return content
-                last_error = "empty response"
+        content = (
+            result.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+        )
+        if content:
+            return content
+        raise _VLMEmptyResponse()
 
-            except urllib.error.HTTPError as e:
-                last_error = f"HTTP {e.code}: {e.reason}"
-                if e.code == 429:  # Rate limit — wait and retry
-                    time.sleep(2**attempt)
-                elif e.code >= 500:  # Server error — retry
-                    time.sleep(1)
-                else:  # Client error — don't retry
-                    break
-            except Exception as e:
-                last_error = str(e)
-                time.sleep(1)
+    @staticmethod
+    def _should_retry(exc: BaseException) -> bool:
+        """Decide whether a VLM call failure warrants another attempt."""
+        if isinstance(exc, _VLMEmptyResponse):
+            return True
+        if isinstance(exc, urllib.error.HTTPError):
+            return exc.code == 429 or exc.code >= 500
+        return isinstance(exc, OSError)
 
-        raise RuntimeError(f"VLM API failed after {self._max_retries + 1} attempts: {last_error}")
+    def _retry_delay(self, exc: BaseException, attempt: int) -> float:
+        """Backoff for a VLM retry: 1/2s on 429, 1s otherwise, 0s for empty."""
+        if isinstance(exc, _VLMEmptyResponse):
+            return 0.0
+        if isinstance(exc, urllib.error.HTTPError) and exc.code == 429:
+            return float(2 ** (attempt - 1))
+        return 1.0
+
+    @staticmethod
+    def _vlm_last_error(exc: BaseException) -> str:
+        """Render the final error message for the retry-exhaustion error."""
+        if isinstance(exc, urllib.error.HTTPError):
+            return f"HTTP {exc.code}: {exc.reason}"
+        if isinstance(exc, _VLMEmptyResponse):
+            return "empty response"
+        return str(exc)
 
     def _build_prompt(self, scene: Scene) -> str:
         """Build the VLM prompt for scene captioning."""

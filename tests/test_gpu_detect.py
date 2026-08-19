@@ -3,7 +3,7 @@
 
 """Tests for the v0.7.0 GPU encoder auto-detection utility.
 
-All external calls (``shutil.which``, ``subprocess.run``) are mocked so
+All external calls (``ffmpeg_bin``, ``subprocess.run``) are mocked so
 the suite passes in a ffmpeg-less CI environment.
 """
 
@@ -34,8 +34,8 @@ def _fake_proc(stdout: str = "", returncode: int = 0, stderr: str = "") -> Magic
 
 
 def test_detect_returns_none_when_ffmpeg_missing():
-    """No ffmpeg on PATH -> detection short-circuits to None."""
-    with patch(f"{_GPU_DETECT_MOD}.shutil.which", return_value=None):
+    """ffmpeg_bin returning the bare 'ffmpeg' fallback -> detection short-circuits to None."""
+    with patch(f"{_GPU_DETECT_MOD}.ffmpeg_bin", return_value="ffmpeg"):
         assert detect_gpu_encoder() is None
 
 
@@ -44,7 +44,7 @@ def test_detect_returns_none_in_ci_environment(monkeypatch):
     monkeypatch.setenv("CI", "1")
     fake_stdout = " V..... h264_nvenc            NVIDIA NVENC H.264 encoder (codec h264)\n"
     with (
-        patch(f"{_GPU_DETECT_MOD}.shutil.which", return_value="/usr/bin/ffmpeg"),
+        patch(f"{_GPU_DETECT_MOD}.ffmpeg_bin", return_value="/usr/bin/ffmpeg"),
         patch(
             f"{_GPU_DETECT_MOD}.subprocess.run",
             return_value=_fake_proc(stdout=fake_stdout),
@@ -62,7 +62,7 @@ def test_detect_returns_nvenc_when_available():
         " V....D libx264               libx264 H.264 / AVC (codec h264)\n"
     )
     with (
-        patch(f"{_GPU_DETECT_MOD}.shutil.which", return_value="/usr/bin/ffmpeg"),
+        patch(f"{_GPU_DETECT_MOD}.ffmpeg_bin", return_value="/usr/bin/ffmpeg"),
         patch(
             f"{_GPU_DETECT_MOD}.subprocess.run",
             return_value=_fake_proc(stdout=fake_stdout),

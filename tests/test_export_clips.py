@@ -3,6 +3,7 @@
 
 """Tests for the clip-export pipeline step."""
 
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -83,10 +84,18 @@ def _fake_proc(returncode=0, stderr=b""):
 
 def test_success_exports_all_scenes(tmp_path):
     ctx = _ctx(tmp_path, scenes=[_scene(0, 0, 5), _scene(1, 5, 10)])
+
+    def _run(cmd, **kwargs):
+        # Simulate ffmpeg writing the staged .part artifact.
+        out = Path(cmd[-1])
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(b"clip-bytes")
+        return _fake_proc()
+
     with (
         patch("movie_narrator.pipeline.export_clips.probe", return_value=(True, "")),
         patch("movie_narrator.pipeline.export_clips.ffmpeg_bin", return_value="/usr/bin/ffmpeg"),
-        patch("movie_narrator.pipeline.export_clips.subprocess.run", return_value=_fake_proc()) as run,
+        patch("movie_narrator.pipeline.export_clips.subprocess.run", side_effect=_run) as run,
     ):
         export_clips(ctx)
     assert ctx.status.export == "success"
@@ -101,11 +110,19 @@ def test_success_exports_all_scenes(tmp_path):
 
 def test_partial_when_one_scene_fails(tmp_path):
     ctx = _ctx(tmp_path, scenes=[_scene(0, 0, 5), _scene(1, 5, 10)])
-    results = [_fake_proc(returncode=1, stderr=b"boom"), _fake_proc()]
+
+    def _run(cmd, **kwargs):
+        out = Path(cmd[-1])
+        if out.name.startswith("scene_0000"):
+            return _fake_proc(returncode=1, stderr=b"boom")
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(b"clip-bytes")
+        return _fake_proc()
+
     with (
         patch("movie_narrator.pipeline.export_clips.probe", return_value=(True, "")),
         patch("movie_narrator.pipeline.export_clips.ffmpeg_bin", return_value="/usr/bin/ffmpeg"),
-        patch("movie_narrator.pipeline.export_clips.subprocess.run", side_effect=results),
+        patch("movie_narrator.pipeline.export_clips.subprocess.run", side_effect=_run),
         patch("movie_narrator.pipeline.export_clips.append_warning") as warn,
     ):
         export_clips(ctx)

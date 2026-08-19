@@ -13,7 +13,7 @@ from . import __version__
 from .models import Context
 from .pipeline.resolve import resolve_video
 from .pipeline.research import research_plot
-from .pipeline.runner import build_context, common_build_kwargs, run_pipeline
+from .pipeline.runner import apply_dry_run_steps, build_context, common_build_kwargs, run_pipeline
 from .utils.log import resolve_log_level
 
 
@@ -185,8 +185,14 @@ def create(
         "--retry",
         help="硬步骤失败时交互重试 / Enable interactive retry on hard step failure",
     ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="生成前预览：仅产出研究/分镜/脚本，不调用 TTS 与 FFmpeg "
+        "(不生成 final.mp4) / Dry-run: script/storyboard only, no TTS or render",
+    ),
     config: Optional[str] = typer.Option(
-        None, "--config", help="job YAML ��置路径 / Path to job YAML config"
+        None, "--config", help="job YAML ...置路径 / Path to job YAML config"
     ),
     # Multi-language subtitle (v0.3).
     subtitle_lang: Optional[str] = typer.Option(
@@ -334,6 +340,18 @@ def create(
 
     _resolved_level = resolve_log_level(log_level)
 
+    # --dry-run: keep planning steps only. Heavy steps (TTS / FFmpeg /
+    # render / QA) are disabled via the existing workflow_steps mechanism,
+    # never by a second hardcoded pipeline. User step flags are applied
+    # first, then dry-run disables its authoritative step set.
+    workflow_steps = resolved.workflow_steps or None
+    if dry_run:
+        workflow_steps = apply_dry_run_steps(resolved.workflow_steps)
+        typer.echo(
+            "Dry-run mode: generating research/script/storyboard only — "
+            "skipping TTS, alignment, rendering and QA. No final.mp4 will be produced."
+        )
+
     ctx = build_context(
         **common_build_kwargs(
             movie=resolved.movie,
@@ -350,7 +368,7 @@ def create(
             no_bgm=resolved.no_bgm,
             no_clips=resolved.no_clips,
             strict=resolved.strict,
-            workflow_steps=resolved.workflow_steps or None,
+            workflow_steps=workflow_steps,
             params=resolved.params or None,
             config_path=resolved.config_path,
             subtitle_lang=resolved.subtitle_lang,
@@ -366,6 +384,8 @@ def create(
     # Store pause-at request in context metadata
     if pause_at:
         ctx.metadata["pause_at"] = pause_at
+    if dry_run:
+        ctx.metadata["dry_run"] = True
 
     try:
         ctx = run_pipeline(ctx, controller=controller)
@@ -400,7 +420,13 @@ def create(
         typer.echo(f"  {match_line}", err=True)
     for hint in _format_degradation_hints(ctx):
         typer.echo(f"  ⚠ {hint}", err=True)
-    typer.echo(f"{ctx.video_path}")
+    if dry_run:
+        if ctx.script_md_path:
+            typer.echo(f"Dry-run complete — script written to: {ctx.script_md_path}")
+        else:
+            typer.echo("Dry-run complete — no final.mp4 produced.")
+    else:
+        typer.echo(f"{ctx.video_path}")
 
 
 @app.command()

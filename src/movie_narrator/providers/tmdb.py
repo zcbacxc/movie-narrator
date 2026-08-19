@@ -39,7 +39,6 @@ from __future__ import annotations
 
 import json
 import logging
-import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -47,7 +46,7 @@ from typing import Any, Dict, List, Optional
 
 from ..config import Settings
 from ..models import Context, MovieCard, ResearchInfo
-from ..reliability import CIRCUIT_REGISTRY, CircuitOpenError
+from ..reliability import CIRCUIT_REGISTRY, CircuitOpenError, RetryPolicy, with_retry
 from .registry import register_research
 
 logger = logging.getLogger(__name__)
@@ -94,6 +93,45 @@ def _parse_retry_after(headers: Any) -> Optional[float]:
         return None
 
 
+class _TMDBRateLimitError(Exception):
+    """Internal signal: TMDB responded with HTTP 429.
+
+    Carries the parsed ``Retry-After`` wait time (seconds) when the server
+    supplied one, so :func:`_tmdb_retry_delay` can honor it instead of the
+    default 1/2/4s schedule.
+    """
+
+    def __init__(self, retry_after: Optional[float] = None) -> None:
+        super().__init__("TMDB API rate-limited (429)")
+        self.retryable = True
+        self.retry_after = retry_after
+
+
+def _tmdb_retry_delay(exc: BaseException, attempt: int) -> float:
+    """Backoff for a TMDB 429 retry: ``Retry-After`` if present, else 1/2/4s.
+
+    ``attempt`` is the 1-based retry index (1 → first retry, etc.).
+    """
+    retry_after = getattr(exc, "retry_after", None)
+    if retry_after is not None:
+        return float(retry_after)
+    idx = max(0, min(attempt - 1, len(_TMDB_RETRY_BACKOFF) - 1))
+    return float(_TMDB_RETRY_BACKOFF[idx])
+
+
+# v1.2: the 429 backoff is expressed as a shared RetryPolicy rather than a
+# hand-rolled loop. max_attempts = initial + _TMDB_MAX_RETRIES retries.
+_TMDB_RETRY_POLICY = RetryPolicy(
+    max_attempts=_TMDB_MAX_RETRIES + 1,
+    base_delay=1.0,
+    max_delay=4.0,
+    multiplier=2.0,
+    jitter=0.0,
+    should_retry=lambda exc: isinstance(exc, _TMDBRateLimitError),
+    delay_from_exception=_tmdb_retry_delay,
+)
+
+
 def _tmdb_get(
     base_url: str,
     path: str,
@@ -111,10 +149,12 @@ def _tmdb_get(
       - **Cache**: the response for each URL is memoized in the
         process-level ``_TMDB_CACHE``. A cache hit returns immediately
         without issuing a network request.
-      - **HTTP 429 retry**: rate-limited responses are retried up to
-        ``_TMDB_MAX_RETRIES`` (3) times. The wait time is taken from the
+      - **HTTP 429 retry (v1.2)**: rate-limited responses are retried via
+        :data:`_TMDB_RETRY_POLICY`. The wait time is taken from the
         ``Retry-After`` header when present, otherwise from
-        ``_TMDB_RETRY_BACKOFF`` (1s, 2s, 4s).
+        ``_TMDB_RETRY_BACKOFF`` (1s, 2s, 4s). After the retries are
+        exhausted the call degrades to ``None`` (no network error is
+        raised for rate limiting alone).
       - **Error handling**: returns ``None`` on non-429 HTTP errors and
         JSON parse errors (logged at DEBUG). Network errors
         (``URLError`` / ``OSError``) are propagated so callers can apply
@@ -132,7 +172,14 @@ def _tmdb_get(
     breaker = CIRCUIT_REGISTRY["tmdb"]
     try:
         with breaker.guard():
-            return _tmdb_get_network(url, path, params, timeout)
+            try:
+                return _tmdb_get_network(url, path, params, timeout)
+            except _TMDBRateLimitError:
+                logger.debug(
+                    f"TMDB API rate-limited (429) for {path}; "
+                    f"giving up after {_TMDB_MAX_RETRIES + 1} attempt(s)"
+                )
+                return None
     except CircuitOpenError as e:
         # Circuit is open — fail fast without a network attempt. The
         # exception is retryable so the pipeline can retry later.
@@ -140,78 +187,53 @@ def _tmdb_get(
         raise
 
 
+@with_retry(_TMDB_RETRY_POLICY)
 def _tmdb_get_network(
     url: str,
     path: str,
     params: Dict[str, str],
     timeout: int,
 ) -> Optional[Dict[str, Any]]:
-    """Execute the TMDB GET request with HTTP 429 retry (no cache/breaker).
+    """Execute a single TMDB GET round-trip (no cache, no breaker).
 
-    Extracted from ``_tmdb_get`` so the circuit breaker wraps a single,
-    uncached network round-trip. Returns parsed JSON, ``None`` for
-    non-429 HTTP errors / JSON parse failures, and propagates
-    ``URLError`` / ``OSError``.
+    The HTTP 429 retry loop is applied by the :func:`with_retry` decorator
+    using :data:`_TMDB_RETRY_POLICY`; this function performs exactly one
+    network attempt and signals a 429 outcome by raising
+    :class:`_TMDBRateLimitError`.
+
+    Returns parsed JSON, ``None`` for non-429 HTTP errors / JSON parse
+    failures, and propagates ``URLError`` / ``OSError``.
     """
     req = urllib.request.Request(url, headers={"Accept": "application/json"})
-    for attempt in range(_TMDB_MAX_RETRIES + 1):  # initial attempt + retries
-        try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310  # TMDB API call with https URL
-                status = resp.status
-                if status == 429:
-                    # Defensive: urlopen normally raises HTTPError for 4xx,
-                    # but handle a 429 response object just in case.
-                    if attempt >= _TMDB_MAX_RETRIES:
-                        logger.debug(
-                            f"TMDB API rate-limited (429) for {path}; "
-                            f"giving up after {attempt + 1} attempt(s)"
-                        )
-                        return None
-                    wait = _parse_retry_after(resp.headers)
-                    if wait is None:
-                        wait = _TMDB_RETRY_BACKOFF[attempt]
-                    logger.debug(
-                        f"TMDB API rate-limited (429) for {path}; "
-                        f"retrying in {wait}s (attempt {attempt + 1}/{_TMDB_MAX_RETRIES})"
-                    )
-                    time.sleep(wait)
-                    continue
-                if status != 200:
-                    logger.debug(f"TMDB API returned status {status} for {path}")
-                    return None
-                body = resp.read().decode("utf-8")
-                data = json.loads(body)
-                _TMDB_CACHE[url] = data
-                return data
-        except urllib.error.HTTPError as e:
-            if e.code == 429:
-                if attempt >= _TMDB_MAX_RETRIES:
-                    logger.debug(
-                        f"TMDB API rate-limited (429) for {path}; "
-                        f"giving up after {attempt + 1} attempt(s)"
-                    )
-                    return None
-                wait = _parse_retry_after(e.headers)
-                if wait is None:
-                    wait = _TMDB_RETRY_BACKOFF[attempt]
-                logger.debug(
-                    f"TMDB API rate-limited (429) for {path}; "
-                    f"retrying in {wait}s (attempt {attempt + 1}/{_TMDB_MAX_RETRIES})"
-                )
-                time.sleep(wait)
-                continue
-            logger.debug(f"TMDB API returned HTTP {e.code} for {path}: {e}")
-            return None
-        except (urllib.error.URLError, OSError) as e:
-            # Network-level error — propagate so callers (e.g. card
-            # enrichment) can log and degrade gracefully.
-            logger.debug(f"TMDB network error for {path}: {e}")
-            raise
-        except Exception as e:
-            logger.debug(f"TMDB API request failed for {path}: {e}")
-            return None
-
-    return None
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310  # TMDB API call with https URL
+            status = resp.status
+            if status == 429:
+                # Defensive: urlopen normally raises HTTPError for 4xx,
+                # but handle a 429 response object just in case.
+                raise _TMDBRateLimitError(_parse_retry_after(resp.headers))
+            if status != 200:
+                logger.debug(f"TMDB API returned status {status} for {path}")
+                return None
+            body = resp.read().decode("utf-8")
+            data = json.loads(body)
+            _TMDB_CACHE[url] = data
+            return data
+    except _TMDBRateLimitError:
+        raise
+    except urllib.error.HTTPError as e:
+        if e.code == 429:
+            raise _TMDBRateLimitError(_parse_retry_after(e.headers)) from e
+        logger.debug(f"TMDB API returned HTTP {e.code} for {path}: {e}")
+        return None
+    except (urllib.error.URLError, OSError) as e:
+        # Network-level error — propagate so callers (e.g. card
+        # enrichment) can log and degrade gracefully.
+        logger.debug(f"TMDB network error for {path}: {e}")
+        raise
+    except Exception as e:
+        logger.debug(f"TMDB API request failed for {path}: {e}")
+        return None
 
 
 def _search_movie(

@@ -108,7 +108,15 @@ def _run_render_with_mocks(ctx, monkeypatch):
     monkeypatch.setattr(render_mod, "_create_text_image", _capture_text_image)
     monkeypatch.setattr(render_mod, "_create_watermark_image", _capture_watermark_image)
     monkeypatch.setattr(render_mod, "build_metadata_json", MagicMock(return_value={}))
-    monkeypatch.setattr("subprocess.run", MagicMock(return_value=fake_proc))
+
+    def _fake_run(cmd, **kw):
+        # Stage the atomic-publish .part file the mux writes into, mirroring
+        # what a real ffmpeg mux invocation would produce.
+        if str(cmd[-1]).endswith(".part"):
+            Path(cmd[-1]).write_bytes(b"final-moov-fake-bytes")
+        return fake_proc
+
+    monkeypatch.setattr("subprocess.run", MagicMock(side_effect=_fake_run))
     monkeypatch.setattr("shutil.which", MagicMock(return_value="/fake/ffmpeg"))
 
     render_video(ctx)

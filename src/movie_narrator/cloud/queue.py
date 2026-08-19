@@ -50,6 +50,10 @@ logger = logging.getLogger(__name__)
 # Default polling interval for ``wait()``
 _POLL_INTERVAL: float = 0.5
 
+# Upper bound on tasks scanned by crash recovery at startup. Active tasks
+# are bounded by the queue depth in practice; this only caps the SQL scan.
+_RECOVERY_SCAN_LIMIT: int = 100_000
+
 
 class QueueShutdownError(RuntimeError):
     """Raised by ``submit()`` after the queue has been shut down.
@@ -215,9 +219,10 @@ class LocalTaskQueue:
     def start(self) -> None:
         """Start the executor if not already started.
 
-        Also initializes the active task counter by scanning storage
-        for pre-existing active tasks (handles process restart with
-        leftover RUNNING/PENDING/RETRYING tasks).
+        Also performs crash recovery (re-enqueue / fail orphaned
+        RUNNING/RETRYING tasks) and initializes the active task counter by
+        scanning storage for pre-existing active tasks (handles process
+        restart with leftover RUNNING/PENDING/RETRYING tasks).
         """
         if self._started:
             return
@@ -228,9 +233,15 @@ class LocalTaskQueue:
         self._started = True
         # v0.9.2: a restarted queue accepts new submissions again.
         self._shutting_down = False
-        # Initialize active_count from storage (handles process restart
-        # with leftover RUNNING/PENDING/RETRYING tasks)
+        # Initialize active_count from storage first (handles process
+        # restart with leftover RUNNING/PENDING/RETRYING tasks). This runs
+        # before any worker thread is submitted, so the write below cannot
+        # race a concurrent decrement.
         self._init_active_count()
+        # v1.2: recover tasks orphaned by a previous process crash. Recovered
+        # tasks are re-enqueued without bumping ``_active_count`` (already
+        # counted as RUNNING above); orphans marked FAILED decrement it.
+        self._recover_orphaned_tasks()
 
     def shutdown(self, wait: bool = True, timeout: Optional[float] = None) -> None:
         """Shut down the executor, optionally draining in-flight tasks.
@@ -318,25 +329,10 @@ class LocalTaskQueue:
         task = Task(request=request, correlation_id=get_correlation_id())
         self._storage.save(task)
 
-        # Create cancellation controller and completion event
-        controller = CancelController()
-        event = threading.Event()
-        with self._lock:
-            self._controllers[task.id] = controller
-            self._completion_events[task.id] = event
-            self._active_count += 1
+        self._enqueue_task(task, count_active=True)
 
         record_task_submitted()
         self._publish_queue_metrics()
-
-        # Submit to executor
-        future = self._executor.submit(
-            self._run_task_threadsafe,
-            task.id,
-            controller,
-        )
-        with self._lock:
-            self._futures[task.id] = future
 
         return task.id
 
@@ -825,6 +821,119 @@ class LocalTaskQueue:
             return self._active_count
 
     # ── Internal helpers ─────────────────────────────────────
+
+    def _enqueue_task(self, task: Task, *, count_active: bool = True) -> None:
+        """Register ``task`` with the executor and schedule its worker thread.
+
+        Shared by ``submit()`` and crash recovery. Callers must have
+        already persisted ``task`` via ``_storage.save``.
+
+        Args:
+            task: The persisted task to enqueue.
+            count_active: When True, ``_active_count`` is incremented for
+                the newly scheduled work. Crash recovery passes False
+                because the orphaned task is still RUNNING/RETRYING in
+                storage and is counted once by ``_init_active_count``; a
+                second increment would double count it.
+        """
+        controller = CancelController()
+        event = threading.Event()
+        with self._lock:
+            self._controllers[task.id] = controller
+            self._completion_events[task.id] = event
+            if count_active:
+                self._active_count += 1
+
+        executor = self._executor
+        assert executor is not None  # start() always precedes enqueue
+        future = executor.submit(
+            self._run_task_threadsafe,
+            task.id,
+            controller,
+        )
+        with self._lock:
+            self._futures[task.id] = future
+
+    def _recover_orphaned_tasks(self) -> None:
+        """Recover tasks left RUNNING/RETRYING by a previous process crash.
+
+        A task is "orphaned" only when it was mid-flight at crash time, i.e.
+        its persisted status is ``RUNNING`` or ``RETRYING``. ``PENDING``
+        tasks are deliberately untouched: they were accepted but never
+        started, so this freshly created executor has no claim on them.
+        They stay counted by ``_init_active_count`` but are not re-enqueued
+        here (submission is the caller's contract, and auto-re-running
+        unbilled pending work is out of scope).
+
+        Recovery decision per orphaned task:
+
+        - Has a valid, fingerprint-matching checkpoint → re-enqueue it so
+          ``run_task`` resumes from the checkpoint.
+        - No checkpoint, corrupt checkpoint, or fingerprint mismatch →
+          mark it ``FAILED`` with an explanatory ``last_error``, because
+          silently re-running from scratch could double-charge an expensive
+          generation.
+
+        Best-effort: a failure on any single task (or a storage error) is
+        logged and must never block queue startup.
+        """
+        try:
+            orphans = self._storage.list_tasks(
+                status=TaskStatus.RUNNING,
+                limit=_RECOVERY_SCAN_LIMIT,
+            ) + self._storage.list_tasks(
+                status=TaskStatus.RETRYING,
+                limit=_RECOVERY_SCAN_LIMIT,
+            )
+        except Exception:  # noqa: BLE001 — recovery must never block startup
+            logger.exception("Failed to scan storage for orphaned tasks")
+            return
+
+        for task in orphans:
+            try:
+                self._recover_orphan(task)
+            except Exception:  # noqa: BLE001 — one bad task must not abort the rest
+                logger.exception(
+                    "Failed to recover orphaned task %s; leaving it in storage",
+                    task.id,
+                )
+
+    def _recover_orphan(self, task: Task) -> None:
+        """Re-enqueue or fail a single orphaned task based on its checkpoint.
+
+        Args:
+            task: An orphaned task whose status is RUNNING or RETRYING.
+        """
+        try:
+            resume = self._checkpoint_store.resolve_resume(task.id, task.request)
+        except Exception:  # noqa: BLE001 — resolution failure means "not resumable"
+            logger.warning(
+                "Checkpoint resolution failed for orphaned task %s",
+                task.id,
+                exc_info=True,
+            )
+            resume = None
+
+        if resume is not None:
+            logger.info(
+                "Recovering orphaned task %s from checkpoint (resume at '%s')",
+                task.id,
+                resume.start_step or resume.completed_step,
+            )
+            self._enqueue_task(task, count_active=False)
+            return
+
+        logger.warning(
+            "Marking orphaned task %s as FAILED: no resumable checkpoint",
+            task.id,
+        )
+        task.status = TaskStatus.FAILED
+        task.last_error = "orphaned after crash: no resumable checkpoint"
+        task.completed_at = datetime.now(timezone.utc).isoformat()
+        self._storage.save(task)
+        with self._lock:
+            self._active_count = max(0, self._active_count - 1)
+        self._publish_queue_metrics()
 
     def _init_active_count(self) -> None:
         """Initialize ``_active_count`` by scanning storage.

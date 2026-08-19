@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-08-18
+
+### Added
+
+- **Render subprocess governance** — new `utils/process.py` with cross-platform process-tree termination; the MoviePy main encode now runs under a wall-clock deadline (`render_main_encode_timeout`, default 1800s) and the sidechain BGM mix gained a 300s timeout, so a runaway ffmpeg can no longer pin CPU/GPU/disk indefinitely.
+- **Atomic artifact publication** — `final.mp4`/`preview.mp4` and per-scene `clips/*.mp4` are staged under `.tmp` and `os.replace`d into place only after a non-empty successful encode; failed/partial outputs are cleaned up.
+- **Checkpoint input fingerprint** — `CheckpointStore` now stores `schema_version` + `input_fingerprint` (a stable SHA-256 of the task's semantic inputs) and skips resume when the fingerprint no longer matches, preventing stale checkpoints from restoring wrong output.
+- **Orphan task recovery** — `LocalTaskQueue.start()` now scans leftover `RUNNING`/`RETRYING` tasks after a crash: tasks with a valid matching checkpoint are re-enqueued; those without are marked `FAILED` with a clear reason instead of hanging forever.
+- **Non-loopback auth enforcement** — binding the API server to a non-loopback interface without `MN_API_KEY` now refuses anonymous submission/download (401); loopback keeps the frictionless pre-v1.2 behaviour.
+- **Task admission limits** — opt-in `MN_MAX_CONCURRENT_TASKS` (429) and `MN_MAX_ESTIMATED_ARTIFACT_BYTES` (413) caps protect the server from runaway submissions.
+- **Structured step logging** — every pipeline step emits a structured `pipeline_step` log record (`step`/`attempt`/`duration_s`/`pid`/`task_id`/`result` + optional `provider`/`cache_hit`/`artifact_size`/`error_class`) while leaving the console output unchanged.
+- **Execution manifest** — `execution_manifest.json` is written next to the deliverable, recording inputs, providers, per-step timing, config, checksum, and QA results for audit.
+- **Generation dry-run** — `mn create --dry-run` generates the script/storyboard only, skipping TTS and FFmpeg (reuses the existing `workflow_steps` short-circuit mechanism).
+- **Provider retry governance** — LLM / VLM / TTS / TMDB external calls now route through the shared `RetryPolicy`/`with_retry`/`with_async_retry` framework (with per-provider backoff and a `delay_from_exception` escape hatch for `Retry-After`), eliminating scattered ad-hoc retry loops.
+- **TTS cache statistics** — `tts/cache.py` now tracks cross-task hit/miss counts and exposes `get_cache_stats()` (hits, misses, hit rate, entry count, bytes), surfaced in `metadata.json` as `tts_cache_stats`.
+
+### Changed
+
+- **Codec config clarified** — the final video codec is decided by `render_encoder` only; `render_video_codec` is the clip-export-only encoder (documented at both call sites).
+- **GPU detection unifies on the shared ffmpeg policy** — `detect_gpu_encoder` now resolves the binary via `ffmpeg_bin()` (the same `MN_FFMPEG_BIN` → imageio-ffmpeg → PATH chain used by render), so detection and execution never disagree on which ffmpeg is used.
+- **`mn create` dry-run flag** — new `--dry-run` CLI option (see Added).
+
+### Fixed
+
+- **Portrait QA false positive** — `1080x1920` vertical output is no longer misreported as "below minimum 1280x720"; the resolution check now transposes thresholds for portrait orientation.
+- **Silently dropped job params in `merge.py`** — the merge loop was missing `render_encoder`, `render_transition`, `render_text_animation`, `render_preview_mode`, `bgm_ambient_path`, `bgm_metadata_path`, `match_skip_intro_sec`, `vision_captioner`, and several other schema-defined keys. Users configuring these via `job.yaml` had them silently ignored; the merge tuple now mirrors the schema.
+- **`render_video_codec` dead config path** — final render no longer consults `render_video_codec` (previously shadowed by `render_encoder`), and `export_clips` now documents its ownership of that key.
+
+### Notes
+
+- `CONTRACT_VERSION` remains `(1, 0, 0)` — no new contract exports in v1.2.
+
 ## [1.1.0] - 2026-08-10
 
 ### Added
@@ -1244,7 +1276,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `workflow_steps` and `params` metadata injection.
 - Console log refactoring design.
 
-[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/zcbacxc/movie-narrator/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/zcbacxc/movie-narrator/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/zcbacxc/movie-narrator/compare/v0.9.7...v1.0.0
 [0.9.7]: https://github.com/zcbacxc/movie-narrator/compare/v0.9.6...v0.9.7

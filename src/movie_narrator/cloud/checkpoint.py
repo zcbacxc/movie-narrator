@@ -29,6 +29,7 @@ Design notes:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -41,6 +42,7 @@ from typing import Any, Dict, Optional
 from pydantic import BaseModel, Field
 
 from ..pipeline.runner import STEPS, _next_step_after
+from .models import TaskRequest
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +61,77 @@ def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+#: ``TaskRequest`` fields hashed into a checkpoint's input fingerprint.
+#: These are the *semantic* inputs that determine the rendered output.
+#: Scheduling / operational fields (``output_dir``, ``priority``,
+#: ``max_retries``, ``retry_delay``, ``keep_cache``, ``log_level``,
+#: ``verbose``, ``enable_dlq``, ``config_path``) are deliberately excluded
+#: so re-queuing the same creative request does not invalidate a valid
+#: checkpoint, nor does bumping a retry budget force a full rebuild.
+_FINGERPRINT_FIELDS: tuple[str, ...] = (
+    "movie_name",
+    "style",
+    "duration",
+    "voice",
+    "video_format",
+    "video",
+    "library_dir",
+    "research",
+    "bgm",
+    "no_bgm",
+    "no_clips",
+    "strict",
+    "subtitle_lang",
+    "subtitle_mode",
+    "narration_preset",
+    "lang",
+    "workflow_steps",
+    "params",
+)
+
+#: Number of leading SHA-256 hex characters kept in a fingerprint. 128 bits
+#: makes accidental collisions practically impossible while keeping the
+#: on-disk JSON and log lines short.
+_FINGERPRINT_HEX_LEN = 32
+
+
+def _stable_json(value: Any) -> str:
+    """Serialize ``value`` to a canonical, ordering-independent JSON string.
+
+    ``sort_keys`` collapses ``dict`` key-ordering differences, ``separators``
+    strips irrelevant whitespace, and ``default=str`` keeps the function
+    total even if a nested value is not natively JSON-serializable.
+    """
+    return json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        default=str,
+    )
+
+
+def compute_request_fingerprint(request: TaskRequest) -> str:
+    """Return a stable SHA-256 fingerprint of a task's semantic inputs.
+
+    Only :data:`_FINGERPRINT_FIELDS` are hashed. Scheduling fields such as
+    ``output_dir``, ``priority`` or ``retry_delay`` are excluded, so moving
+    a task between output locations or bumping its retry budget does not
+    invalidate an otherwise-valid checkpoint. Nested mappings (for example
+    ``workflow_steps`` and ``params``) are normalized by key before hashing.
+
+    Args:
+        request: The task request to fingerprint.
+
+    Returns:
+        The first :data:`_FINGERPRINT_HEX_LEN` hex characters of the
+        SHA-256 digest, deterministic across dictionary key orderings.
+    """
+    payload = {field: getattr(request, field, None) for field in _FINGERPRINT_FIELDS}
+    digest = hashlib.sha256(_stable_json(payload).encode("utf-8")).hexdigest()
+    return digest[:_FINGERPRINT_HEX_LEN]
+
+
 class TaskCheckpoint(BaseModel):
     """A snapshot of pipeline progress for a single task.
 
@@ -72,6 +145,17 @@ class TaskCheckpoint(BaseModel):
         saved_at: UTC timestamp of when the checkpoint was written.
         attempt: Retry attempt number that produced this checkpoint
             (0 for the first attempt).
+        schema_version: Checkpoint schema version (1 for all v1.2
+            checkpoints). Kept for future migrations; pre-v1.2 files on
+            disk lack the key and default to 1 when loaded.
+        input_fingerprint: SHA-256 fingerprint of the task's semantic
+            ``TaskRequest`` fields (see
+            :func:`compute_request_fingerprint`). ``None`` for checkpoints
+            written before v1.2; such checkpoints are treated as *not
+            resumable* (conservative — never resume onto input we cannot
+            verify matches the current request).
+        artifact_manifest: Reserved placeholder for a future artifact
+            manifest. Not populated yet.
     """
 
     task_id: str
@@ -79,6 +163,9 @@ class TaskCheckpoint(BaseModel):
     context_dump: Dict[str, Any] = Field(default_factory=dict)
     saved_at: str = Field(default_factory=_utc_now_iso)
     attempt: int = 0
+    schema_version: int = 1
+    input_fingerprint: Optional[str] = None
+    artifact_manifest: Optional[Dict[str, Any]] = None
 
 
 class ResumePlan(BaseModel):
@@ -185,18 +272,47 @@ class CheckpointStore:
             path.unlink(missing_ok=True)
             return True
 
-    def resolve_resume(self, task_id: str) -> Optional[ResumePlan]:
+    def resolve_resume(
+        self,
+        task_id: str,
+        request: Optional[TaskRequest] = None,
+    ) -> Optional[ResumePlan]:
         """Turn the checkpoint for ``task_id`` into a :class:`ResumePlan`.
 
+        Args:
+            task_id: The task whose checkpoint should be resolved.
+            request: The task's current ``TaskRequest``. When provided, the
+                checkpoint's ``input_fingerprint`` must equal the
+                fingerprint of ``request``; otherwise the checkpoint is
+                treated as absent (``None``) so the task rebuilds from
+                scratch. Omitted (``None``) for backward compatibility with
+                callers that resolve without a live request — in that case
+                no fingerprint check is performed.
+
         Returns:
-            None when there is no checkpoint (a fresh task). The
-            returned plan's ``done`` flag is True only when the completed
-            step was the final pipeline step — everything already ran, so
-            the caller must not invoke the pipeline again.
+            None when there is no checkpoint (a fresh task), when the
+            checkpoint is corrupt, or — when ``request`` is supplied — when
+            the stored fingerprint does not match (this also covers
+            pre-v1.2 checkpoints whose fingerprint is ``None``: they are
+            conservatively considered stale). The returned plan's ``done``
+            flag is True only when the completed step was the final
+            pipeline step — everything already ran, so the caller must not
+            invoke the pipeline again.
         """
         checkpoint = self.load(task_id)
         if checkpoint is None:
             return None
+        if request is not None:
+            current = compute_request_fingerprint(request)
+            if checkpoint.input_fingerprint != current:
+                logger.warning(
+                    "Ignoring checkpoint for task %s: input fingerprint "
+                    "mismatch (stored=%r, current=%r)",
+                    task_id,
+                    checkpoint.input_fingerprint,
+                    current,
+                )
+                return None
         if checkpoint.completed_step == STEPS[-1].__name__:
             return ResumePlan(
                 completed_step=checkpoint.completed_step,
@@ -217,4 +333,5 @@ __all__ = [
     "CheckpointStore",
     "ResumePlan",
     "TaskCheckpoint",
+    "compute_request_fingerprint",
 ]

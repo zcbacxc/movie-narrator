@@ -101,6 +101,9 @@ class JobParams(BaseModel):
     render_font_size: Optional[int] = None
     render_output_name: Optional[str] = None
     render_ffmpeg_timeout: Optional[int] = None
+    # v1.2: wall-clock deadline (seconds) for the MoviePy main encode. On
+    # expiry the runaway ffmpeg worker is terminated and the step fails fast.
+    render_main_encode_timeout: Optional[float] = None
     # ── Render: production quality ──
     render_fit_mode: Optional[str] = None
     render_crf: Optional[int] = None

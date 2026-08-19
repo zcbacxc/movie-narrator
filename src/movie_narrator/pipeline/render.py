@@ -5,8 +5,10 @@
 
 import json
 import logging
+import os
 import shutil
 import subprocess
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -19,6 +21,7 @@ from ..utils.console import step_timing
 from ..utils.ffmpeg_bin import ffmpeg_bin
 from ..utils.gpu_detect import get_encoder_info, resolve_encoder
 from ..utils.metadata_export import build_metadata_json
+from ..utils.process import terminate_processes_matching
 from ..utils.text_image import create_text_image as _create_text_image
 from ..utils.video_layout import compute_fit_box
 from ..utils.transitions import apply_transition, get_transition_duration
@@ -36,6 +39,12 @@ _SEG_DURATION_FLOOR = 0.1
 # Default ffmpeg mux timeout (seconds) when render_ffmpeg_timeout
 # is not specified in job params. 10 min is generous for 4K + slow preset.
 _DEFAULT_MUX_TIMEOUT = 600
+
+# Default deadline (seconds) for the blocking MoviePy main encode when
+# render_main_encode_timeout is not specified. 30 min covers slow CPU presets
+# + long-form output; on expiry the ffmpeg worker tree is killed and the step
+# fails with a TimeoutError instead of blocking forever.
+_DEFAULT_MAIN_ENCODE_TIMEOUT = 1800.0
 
 # Vertical (9:16) safe area defaults.
 # On vertical video, platform UI (TikTok/Douyin caption area, like/share
@@ -259,6 +268,68 @@ def _create_watermark_image(text: str, size: tuple, fontsize: int = 36):
         stroke_fill=(0, 0, 0, 120),
     )
     return np.array(img)
+
+
+def _write_videofile_with_deadline(
+    final_video,
+    video_only_path: Path,
+    video_write_kwargs: dict,
+    timeout: float,
+) -> None:
+    """Run MoviePy ``write_videofile`` with a wall-clock deadline.
+
+    MoviePy's ``write_videofile`` blocks without a deadline and launches
+    ffmpeg outside our direct control. To bound it, the encode runs in a
+    background thread while the caller ``join``s with ``timeout``. On expiry
+    the ffmpeg process tree writing to ``video_only_path`` is terminated and
+    a :class:`TimeoutError` is raised.
+
+    Args:
+        final_video: The composite clip to encode.
+        video_only_path: Path MoviePy writes to; used to identify the runaway
+            ffmpeg worker via its command line.
+        video_write_kwargs: Keyword args forwarded to ``write_videofile``.
+        timeout: Deadline in seconds. Values ``<= 0`` (or ``None``) disable
+            the deadline and call ``write_videofile`` synchronously.
+
+    Raises:
+        TimeoutError: If encoding exceeds ``timeout`` (the ffmpeg worker has
+            been terminated).
+        Exception: Any exception raised by ``write_videofile`` is re-raised
+            unchanged on the calling thread, preserving codec-failure
+            semantics for the GPU→CPU fallback.
+    """
+    if timeout is None or timeout <= 0:
+        final_video.write_videofile(str(video_only_path), **video_write_kwargs)
+        return
+
+    result: dict = {}
+
+    def _encode() -> None:
+        try:
+            final_video.write_videofile(str(video_only_path), **video_write_kwargs)
+        except BaseException as exc:  # noqa: BLE001 — re-raise on the calling thread
+            result["exc"] = exc
+
+    worker = threading.Thread(target=_encode, name="moviepy-main-encode", daemon=True)
+    worker.start()
+    worker.join(timeout)
+    if worker.is_alive():
+        logger.error(
+            "main encode exceeded %.1fs deadline — terminating ffmpeg writing to %s",
+            timeout,
+            video_only_path,
+        )
+        terminate_processes_matching(str(video_only_path))
+        # Give the worker a moment to observe EOF/termination; it is a daemon
+        # thread, so it will not block process shutdown either way.
+        worker.join(10.0)
+        raise TimeoutError(
+            f"Main video encode exceeded {timeout:.0f}s deadline "
+            f"(output={video_only_path}); runaway ffmpeg worker terminated."
+        )
+    if "exc" in result:
+        raise result["exc"]
 
 
 def render_video(ctx: Context) -> Context:
@@ -593,6 +664,20 @@ def render_video(ctx: Context) -> Context:
     preset = ctx.metadata.get("render_preset", "slow")
     faststart = ctx.metadata.get("render_faststart", True)
 
+    # v1.2: wall-clock deadline for the blocking MoviePy main encode below.
+    # A runaway ffmpeg would otherwise hold CPU/GPU indefinitely; on expiry
+    # the worker process tree is terminated and the step fails fast.
+    main_encode_timeout = ctx.metadata.get(
+        "render_main_encode_timeout", _DEFAULT_MAIN_ENCODE_TIMEOUT
+    )
+
+    # ── Codec ownership (v1.2) ──────────────────────────────────────
+    # The FINAL video's codec is decided entirely by ``render_encoder`` via
+    # ``resolve_encoder`` below. The ``render_video_codec`` metadata key is
+    # deliberately NOT consulted here — it is the clip-export-only encoder
+    # used by ``export_clips``. These two knobs were historically conflated;
+    # do not treat them as interchangeable.
+    #
     # v0.7.0: GPU encoder resolution. ``render_encoder`` accepts "auto"
     # (default, probe + fall back to libx264), "cpu", or an explicit backend
     # ("nvenc" / "vaapi" / "videotoolbox"). ``resolve_encoder`` returns a
@@ -634,7 +719,14 @@ def render_video(ctx: Context) -> Context:
     )
     try:
         try:
-            final_video.write_videofile(str(video_only_path), **video_write_kwargs)
+            _write_videofile_with_deadline(
+                final_video, video_only_path, video_write_kwargs, main_encode_timeout
+            )
+        except TimeoutError:
+            # Deadline exceeded — the ffmpeg worker was already terminated.
+            # This is NOT a codec failure, so never trigger the GPU→CPU
+            # fallback (a hung GPU encode would just time out again).
+            raise
         except (OSError, subprocess.SubprocessError, RuntimeError) as gpu_err:
             if gpu_codec != "libx264":
                 # v0.7.0: GPU encoding failed (no hardware, driver issue,
@@ -647,7 +739,9 @@ def render_video(ctx: Context) -> Context:
                 gpu_codec = "libx264"
                 video_write_kwargs["codec"] = "libx264"
                 video_write_kwargs["ffmpeg_params"] = ["-crf", str(crf), "-preset", str(preset)]
-                final_video.write_videofile(str(video_only_path), **video_write_kwargs)
+                _write_videofile_with_deadline(
+                    final_video, video_only_path, video_write_kwargs, main_encode_timeout
+                )
             else:
                 raise
     finally:
@@ -689,6 +783,12 @@ def render_video(ctx: Context) -> Context:
         )
     assert ffmpeg is not None
 
+    # v1.2: write the muxed output to a ``.part`` sibling inside .tmp first,
+    # then atomically ``os.replace`` it into place only after a successful,
+    # non-empty result is validated. This prevents consumers (QA, publish,
+    # export-clips) from ever observing a truncated ``final.mp4``.
+    partial_path = tmp_dir / f"{video_path.name}.part"
+
     mux_cmd = [
         ffmpeg,
         "-y",
@@ -709,7 +809,7 @@ def render_video(ctx: Context) -> Context:
     ]
     if faststart:
         mux_cmd += ["-movflags", "+faststart"]
-    mux_cmd.append(str(video_path))
+    mux_cmd.append(str(partial_path))
 
     try:
         with step_timing(ctx.services.console, "ffmpeg_mux"):
@@ -723,9 +823,14 @@ def render_video(ctx: Context) -> Context:
             )
         if proc.returncode != 0:
             raise RuntimeError(f"ffmpeg mux failed (exit={proc.returncode}): {proc.stderr}")
+        # Validate a real, non-empty artifact before atomically publishing it.
+        if not partial_path.exists() or partial_path.stat().st_size == 0:
+            raise RuntimeError("ffmpeg mux produced no output — refusing to publish an empty file")
+        os.replace(partial_path, video_path)
     finally:
-        # Clean up the .tmp directory (video_only.mp4 and any
-        # other intermediates) to keep the output dir tidy.
+        # Remove any leftover partial (it is already gone after a successful
+        # replace) and clean the .tmp directory (video_only.mp4 + intermediates).
+        partial_path.unlink(missing_ok=True)
         try:
             shutil.rmtree(tmp_dir, ignore_errors=True)
         except OSError:

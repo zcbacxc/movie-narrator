@@ -146,6 +146,7 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
             "render_font_size",
             "render_output_name",
             "render_ffmpeg_timeout",
+            "render_main_encode_timeout",
             # Render production quality
             "render_fit_mode",
             "render_crf",

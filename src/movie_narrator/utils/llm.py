@@ -22,11 +22,12 @@ from contextlib import contextmanager
 from typing import Iterator
 
 import httpx
-from openai import OpenAI
+from openai import APIStatusError, OpenAI
 
 from ..config import get_settings
 from ..providers import llm_registry, register_llm
-from ..reliability import CIRCUIT_REGISTRY
+from ..reliability import CIRCUIT_REGISTRY, RetryPolicy, with_retry
+from ..workflow.errors import is_network_error
 
 
 @dataclass
@@ -35,6 +36,46 @@ class LLMClient:
 
     client: OpenAI
     model: str
+
+
+def _llm_should_retry(exc: BaseException) -> bool:
+    """Decide whether an LLM chat-completion failure warrants a retry.
+
+    Retries transient failures only: exceptions flagged ``retryable``,
+    network/timeout errors, OpenAI rate-limit errors (429) and server
+    errors (5xx). Configuration and logic errors fail fast.
+    """
+    if getattr(exc, "retryable", False) or is_network_error(exc):
+        return True
+    return isinstance(exc, APIStatusError) and getattr(exc, "status_code", 0) >= 500
+
+
+# v1.2: LLM chat-completion calls share one retry policy. The OpenAI SDK's
+# internal retries are disabled (``max_retries=0``) so this policy is the
+# single source of truth for backoff. The "llm" circuit breaker in
+# ``get_llm_client`` remains the OUTER guard; this retry loop is INNER
+# (per ``create`` call).
+LLM_RETRY_POLICY = RetryPolicy(
+    max_attempts=3,
+    base_delay=1.0,
+    max_delay=8.0,
+    multiplier=2.0,
+    jitter=0.1,
+    should_retry=_llm_should_retry,
+)
+
+
+def _wrap_llm_retry(client: OpenAI) -> OpenAI:
+    """Wrap the chat-completion ``create`` method in the shared retry policy.
+
+    Only ``client.chat.completions.create`` is wrapped — research / script /
+    judge all go through it. Other OpenAI client surfaces are untouched.
+    Does not introduce any idempotency/short-circuit cache: every call is
+    forwarded to the model (LLM outputs are non-deterministic, so caching
+    concrete responses would risk stale reuse).
+    """
+    client.chat.completions.create = with_retry(LLM_RETRY_POLICY)(client.chat.completions.create)
+    return client
 
 
 # ── Built-in "openai" provider ───────────────────────────
@@ -58,8 +99,9 @@ def _make_openai_llm():
                 base_url=settings.llm_base_url,
                 api_key=settings.llm_api_key,
                 http_client=http_client,
+                max_retries=0,  # the shared RetryPolicy is the single retry source
             )
-            yield LLMClient(client=client, model=settings.llm_model)
+            yield LLMClient(client=_wrap_llm_retry(client), model=settings.llm_model)
         finally:
             http_client.close()
 

@@ -86,6 +86,7 @@ narration_preset: ""        # douyin-fast | mainstream-dry | bilibili-long
 #   对齐: whisperx_device / whisperx_model / whisperx_language / align_backend
 #   渲染: render_fps / render_video_codec / render_audio_codec / render_threads
 #          render_bg_color / render_font_size / render_output_name / render_ffmpeg_timeout
+#          render_main_encode_timeout (v1.2+)
 #          render_fit_mode / render_crf / render_preset / render_faststart
 #          render_subtitle_position / render_subtitle_max_width_ratio
 #          render_subtitle_bottom_margin_ratio
@@ -168,6 +169,7 @@ params:
   # render_font_size: 100     # 文字叠加字体大小
   # render_output_name: final.mp4  # 最终视频文件名
   # render_ffmpeg_timeout: 300  # export_clips ffmpeg 超时（秒）
+  # render_main_encode_timeout: 1800  # v1.2+: MoviePy 主编码兜底超时（秒），超时终止 ffmpeg 并快速失败
   # ---- 渲染生产质量（v0.4.13 起的默认值，按需覆盖）----
   # render_fit_mode: cover        # cover = 裁剪填充画布 | contain = 信箱模式
   # render_crf: 18                # 质量（越小越高，18≈视觉无损）

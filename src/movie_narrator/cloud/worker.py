@@ -31,7 +31,7 @@ from ..utils.console import (
     build_console,
 )
 from ..utils.log import resolve_log_level
-from .checkpoint import CheckpointStore, ResumePlan, TaskCheckpoint
+from .checkpoint import CheckpointStore, ResumePlan, TaskCheckpoint, compute_request_fingerprint
 from .dlq import DeadLetterRecord, DeadLetterStore
 from .metrics import observe_render_duration
 from .models import Task, TaskProgress, TaskRequest, TaskResult, TaskStatus
@@ -497,6 +497,7 @@ def _execute_task(
                     completed_step=step_name,
                     context_dump=ctx.model_dump(mode="json", exclude={"services", "cost_tracker"}),
                     attempt=attempt,
+                    input_fingerprint=compute_request_fingerprint(request),
                 )
             )
             progress.latest_checkpoint_step = step_name
@@ -627,7 +628,7 @@ def run_task(
         resume = None
         if checkpoint_store is not None:
             try:
-                resume = checkpoint_store.resolve_resume(task.id)
+                resume = checkpoint_store.resolve_resume(task.id, task.request)
             except Exception:  # noqa: BLE001 — checkpointing must never block a run
                 logger.debug("Failed to resolve checkpoint for task %s", task.id, exc_info=True)
             if resume is not None and not resume.done:

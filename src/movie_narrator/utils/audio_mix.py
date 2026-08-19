@@ -13,7 +13,6 @@ window with linear attack/release.
 from __future__ import annotations
 
 import logging
-import subprocess
 from enum import Enum
 from typing import Any, Optional
 
@@ -22,8 +21,14 @@ from pydub import AudioSegment
 from pydub.utils import db_to_float
 
 from ..utils.ffmpeg_bin import ffmpeg_bin as _resolve_ffmpeg
+from ..utils.process import run_ffmpeg_subprocess
 
 logger = logging.getLogger(__name__)
+
+#: Deadline for the FFmpeg ``sidechaincompress`` mix (seconds). The default
+#: 5 min is generous for a <1 min narration track; on timeout the ffmpeg tree
+#: is terminated and the caller falls back to the envelope backend.
+_SIDECHAIN_TIMEOUT = 300.0
 
 
 class DuckingBackend(str, Enum):
@@ -430,12 +435,11 @@ def duck_bgm_sidechain(
         ]
 
         try:
-            proc = subprocess.run(
+            # Deadline + process-tree kill: on timeout the child is terminated
+            # so a hung ffmpeg cannot leak CPU or leave a zombie process.
+            proc = run_ffmpeg_subprocess(
                 cmd,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
+                timeout=_SIDECHAIN_TIMEOUT,
             )
         except Exception:  # noqa: BLE001
             return None

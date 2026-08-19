@@ -238,12 +238,21 @@ def check_encoding_quality(
 
     # ── Resolution check ──
     if metrics.width > 0 and metrics.height > 0:
-        if metrics.width < min_width or metrics.height < min_height:
+        # Portrait (vertical) video transposes the landscape minimums:
+        # 720p landscape requires ≥1280×720, so a 9:16 portrait requires
+        # ≥720×1280 — the same pixel budget in the rotated orientation.
+        # Without this, a compliant 1080×1920 vertical video would be
+        # falsely flagged as "below minimum 1280×720".
+        is_portrait = metrics.height >= metrics.width
+        min_w = min_height if is_portrait else min_width
+        min_h = min_width if is_portrait else min_height
+
+        if metrics.width < min_w or metrics.height < min_h:
             issues.append(
                 f"resolution {metrics.width}x{metrics.height} is below "
-                f"minimum {min_width}x{min_height}"
+                f"minimum {min_w}x{min_h}"
             )
-            recommendations.append(f"Re-render at {min_width}x{min_height} or higher")
+            recommendations.append(f"Re-render at {min_w}x{min_h} or higher")
 
         # Aspect ratio check
         actual_ratio = metrics.width / metrics.height

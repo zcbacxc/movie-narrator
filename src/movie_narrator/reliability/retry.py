@@ -59,6 +59,12 @@ class RetryPolicy:
         should_retry: Optional callable ``(exc) -> bool`` giving full
             control over retryability. When set, it overrides both
             ``retryable_exceptions`` and the default retryability check.
+        delay_from_exception: Optional callable ``(exc, attempt) -> float``
+            returning the sleep before retry *attempt* (1-based). When set,
+            it fully controls the backoff for a given exception (e.g. the
+            ``Retry-After`` header on HTTP 429). When ``None``, the
+            exponential backoff from :func:`compute_delay` (plus jitter) is
+            used instead.
     """
 
     max_attempts: int = 3
@@ -68,6 +74,7 @@ class RetryPolicy:
     jitter: float = 0.1
     retryable_exceptions: Optional[Tuple[Type[BaseException], ...]] = None
     should_retry: Optional[Callable[[BaseException], bool]] = None
+    delay_from_exception: Optional[Callable[[BaseException, int], float]] = None
 
     def is_retryable(self, exc: BaseException) -> bool:
         """
@@ -122,6 +129,18 @@ def _sleep_delay(attempt: int, policy: RetryPolicy) -> float:
     return max(0.0, base * factor)
 
 
+def _delay_for_attempt(policy: RetryPolicy, exc: BaseException, attempt: int) -> float:
+    """Return the sleep before retry *attempt* (1-based).
+
+    When ``policy.delay_from_exception`` is set it wins and fully controls
+    the backoff for this specific exception; otherwise the standard
+    exponential backoff (+ jitter) from :func:`_sleep_delay` applies.
+    """
+    if policy.delay_from_exception is not None:
+        return float(policy.delay_from_exception(exc, attempt))
+    return _sleep_delay(attempt, policy)
+
+
 def _validate_policy(policy: RetryPolicy) -> None:
     """Validate a RetryPolicy and raise ValueError for bad values."""
     if policy.max_attempts < 1:
@@ -171,7 +190,7 @@ def with_retry(policy: RetryPolicy) -> Callable[[Callable[..., _T]], Callable[..
                     is_last = attempt == policy.max_attempts - 1
                     if is_last or not policy.is_retryable(exc):
                         raise
-                    delay = _sleep_delay(attempt + 1, policy)
+                    delay = _delay_for_attempt(policy, exc, attempt + 1)
                     logger.debug(
                         "retry[%s]: attempt %d/%d failed with %s: %s; retrying in %.3fs",
                         getattr(fn, "__name__", fn),
@@ -226,7 +245,7 @@ def with_async_retry(
                     is_last = attempt == policy.max_attempts - 1
                     if is_last or not policy.is_retryable(exc):
                         raise
-                    delay = _sleep_delay(attempt + 1, policy)
+                    delay = _delay_for_attempt(policy, exc, attempt + 1)
                     logger.debug(
                         "async_retry[%s]: attempt %d/%d failed with %s: %s; retrying in %.3fs",
                         getattr(fn, "__name__", fn),

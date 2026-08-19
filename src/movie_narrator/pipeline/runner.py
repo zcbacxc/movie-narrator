@@ -4,9 +4,10 @@
 """Pipeline runner — orchestrates step execution."""
 
 import logging
+import os
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional, cast
+from typing import Any, Dict, List, Optional, cast
 
 from .. import __version__
 from ..models import Assets, Context, MetadataDict, Services, StepResult, StepState
@@ -39,6 +40,8 @@ from .qa_gate import run_qa_gate
 from .render import render_video
 from .qa import validate_deliverable
 from ..workflow.schema import JobParams
+
+_logger = logging.getLogger(__name__)
 
 # ── Unified parameter schema (single source of truth) ──────
 # PARAM_WHITELIST is derived from JobParams model fields, eliminating
@@ -178,6 +181,251 @@ def _step_enabled(workflow_steps: Optional[Dict[str, bool]], step_name: str) -> 
         if full == step_name and workflow_steps.get(short) is False:
             return False
     return True
+
+
+# ── Structured step observability (v1.2 Wave 3A) ───────────
+
+#: Metadata key carrying the provider a step used, when one applies.
+_STEP_PROVIDER_KEY: Dict[str, str] = {
+    "research_plot": "research_provider",
+    "translate_subtitles": "translate_provider",
+    "detect_scenes": "vision_captioner",
+    "match_clips": "vision_captioner",
+    "generate_voice": "tts_provider",
+}
+
+#: Metadata keys that record a step-level cache hit (True/False).
+_STEP_CACHE_HIT_KEY: Dict[str, str] = {
+    "match_clips": "match_transcript_cached",
+}
+
+#: Context attribute holding the path of a step's primary artifact.
+_STEP_ARTIFACT_ATTR: Dict[str, str] = {
+    "export_script_md": "script_md_path",
+    "generate_voice": "audio_path",
+    "generate_subtitle": "subtitle_path",
+    "render_video": "video_path",
+}
+
+#: Log-level label for each terminal step result.
+_STEP_RESULT_LOG_NAME: Dict[StepResult, str] = {
+    StepResult.SUCCESS: "success",
+    StepResult.SKIPPED: "skipped",
+    StepResult.WARNING: "warning",
+}
+
+#: Steps that a generation dry-run must never execute (TTS / FFmpeg /
+#: render / QA side effects). Kept beside ``STEPS`` so the names cannot
+#: drift from the step registry.
+DRY_RUN_DISABLED_STEPS: tuple[str, ...] = (
+    "generate_voice",
+    "align_audio",
+    "detect_scenes",
+    "match_clips",
+    "mix_bgm",
+    "translate_subtitles",
+    "generate_subtitle",
+    "run_qa_gate",
+    "render_video",
+    "validate_deliverable",
+    "export_clips",
+)
+
+
+def apply_dry_run_steps(workflow_steps: Optional[Dict[str, bool]]) -> Dict[str, bool]:
+    """Return a workflow_steps mapping with dry-run heavy steps disabled.
+
+    Dry-run disables every step in :data:`DRY_RUN_DISABLED_STEPS`.
+    These disables are authoritative — an explicit ``True`` from the
+    user for one of these steps is overridden, because ``--dry-run`` is
+    a hard "no TTS / no FFmpeg" guarantee. Steps outside that set
+    (research, script generation, …) keep whatever the user requested.
+
+    Args:
+        workflow_steps: The user's workflow_steps (possibly None).
+
+    Returns:
+        A merged dict suitable for ``build_context(workflow_steps=...)``.
+    """
+    merged = dict(workflow_steps or {})
+    for step in DRY_RUN_DISABLED_STEPS:
+        merged[step] = False
+    return merged
+
+
+def _step_provider(ctx: Context, name: str) -> Optional[Any]:
+    """Return the provider recorded for *name*, if one applies."""
+    key = _STEP_PROVIDER_KEY.get(name)
+    if key is None:
+        return None
+    return ctx.metadata.get(key)
+
+
+def _step_cache_hit(ctx: Context, name: str) -> Optional[bool]:
+    """Return the cache-hit flag for *name*, or None when not tracked."""
+    key = _STEP_CACHE_HIT_KEY.get(name)
+    if key is None:
+        return None
+    value = ctx.metadata.get(key)
+    return bool(value) if value is not None else None
+
+
+def _step_artifact_size(ctx: Context, name: str) -> Optional[int]:
+    """Return the byte size of *name*'s artifact, or None if unavailable."""
+    attr = _STEP_ARTIFACT_ATTR.get(name)
+    if attr is None:
+        return None
+    artifact = getattr(ctx, attr, None)
+    if not artifact:
+        return None
+    try:
+        return Path(artifact).stat().st_size
+    except OSError:
+        return None
+
+
+def _emit_step_log(
+    ctx: Context,
+    name: str,
+    attempt: int,
+    elapsed: float,
+    result: str,
+    error_class: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Emit one structured step record and return its manifest entry.
+
+    Emitted at DEBUG so a busy run does not double every step in the
+    console/JSON stream — the console already reports ``STEP_OK`` at
+    INFO. The record carries its machine-readable fields through
+    ``extra=``, which
+    :class:`movie_narrator.utils.logging_config.JsonFormatter` serialises
+    when JSON logging is enabled.
+
+    Args:
+        ctx: Pipeline context (for metadata/artifact lookup).
+        name: Step name.
+        attempt: 1-based attempt number (0 when skipped).
+        elapsed: Seconds the step took.
+        result: Terminal result label (success/warning/skipped/failed/disabled).
+        error_class: Exception class name when the step failed.
+
+    Returns:
+        A manifest-ready dict describing this step.
+    """
+    entry: Dict[str, Any] = {
+        "step": name,
+        "attempt": attempt,
+        "duration_s": round(float(elapsed), 4),
+        "result": result,
+    }
+    if error_class is not None:
+        entry["error_class"] = error_class
+
+    provider = _step_provider(ctx, name)
+    if provider is not None:
+        entry["provider"] = provider
+    cache_hit = _step_cache_hit(ctx, name)
+    if cache_hit is not None:
+        entry["cache_hit"] = cache_hit
+    artifact_size = _step_artifact_size(ctx, name)
+    if artifact_size is not None:
+        entry["artifact_size"] = artifact_size
+
+    extra: Dict[str, Any] = {
+        "event": "step",
+        "task_id": ctx.metadata.get("run_id"),
+        "pid": os.getpid(),
+    }
+    extra.update(entry)
+    _logger.debug("pipeline_step", extra=extra)
+    return entry
+
+
+def _write_execution_manifest(
+    ctx: Context,
+    steps: List[Dict[str, Any]],
+    total_elapsed: float,
+) -> None:
+    """Write ``execution_manifest.json`` — an execution audit log.
+
+    Distinct from ``metadata.json`` (a field/artifact snapshot written
+    by :mod:`movie_narrator.utils.metadata_export`): the manifest records
+    *how* the run executed — per-step timing, attempts, providers, cache
+    hits and a best-effort checksum of the final video — rather than
+    *what* it produced. Best-effort: any failure degrades to a debug log
+    and never fails the pipeline.
+
+    Args:
+        ctx: Pipeline context.
+        steps: Per-step records accumulated by the runner.
+        total_elapsed: Total pipeline wall-clock time in seconds.
+    """
+    import hashlib
+    import json
+
+    try:
+        from ..contract import CONTRACT_VERSION
+
+        contract_version = ".".join(str(v) for v in CONTRACT_VERSION)
+    except Exception:  # noqa: BLE001 — contract is optional metadata
+        contract_version = None
+
+    manifest: Dict[str, Any] = {
+        "version": __version__,
+        "contract_version": contract_version,
+        "run_id": ctx.metadata.get("run_id"),
+        "input": {
+            "movie": ctx.movie_name,
+            "style": ctx.style,
+            "duration": ctx.duration,
+            "voice": ctx.metadata.get("voice"),
+            "video_format": ctx.metadata.get("video_format"),
+            "lang": ctx.metadata.get("lang"),
+        },
+        "providers": {
+            "research_provider": ctx.metadata.get("research_provider"),
+            "translate_provider": ctx.metadata.get("translate_provider"),
+            "vision_captioner": ctx.metadata.get("vision_captioner"),
+            "tts_provider": ctx.metadata.get("tts_provider"),
+        },
+        "workflow_steps": ctx.metadata.get("workflow_steps"),
+        "steps": steps,
+        "total_duration_s": round(float(total_elapsed), 4),
+        "dry_run": bool(ctx.metadata.get("dry_run")),
+    }
+
+    config: Dict[str, Any] = {}
+    for key in PARAM_WHITELIST:
+        if key in ctx.metadata:
+            config[key] = ctx.metadata[key]
+    if config:
+        manifest["config"] = config
+
+    if ctx.video_path:
+        try:
+            digest = hashlib.sha256()
+            with open(ctx.video_path, "rb") as fh:
+                for chunk in iter(lambda: fh.read(65536), b""):
+                    digest.update(chunk)
+            manifest["checksum"] = {"path": ctx.video_path, "sha256": digest.hexdigest()}
+        except OSError:
+            pass
+
+    qa: Dict[str, Any] = {}
+    for key in ("qa_report", "video_qa", "qa_gate"):
+        if ctx.metadata.get(key) is not None:
+            qa[key] = ctx.metadata[key]
+    if qa:
+        manifest["qa"] = qa
+
+    try:
+        path = Path(ctx.output_dir) / "execution_manifest.json"
+        path.write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2, default=str),
+            encoding="utf-8",
+        )
+    except Exception as e:  # noqa: BLE001 — manifest is best-effort
+        ctx.services.console.debug(f"execution_manifest.json write failed: {e}")
 
 
 # ── Context construction (shared by CLI and Web) ───────────
@@ -509,6 +757,10 @@ def run_pipeline(
 
     total_start = time.time()
 
+    # Per-step execution records — appended as steps run and folded into
+    # the execution manifest at the end (v1.2 observability).
+    step_records: List[Dict[str, Any]] = []
+
     # When resuming, skip steps before start_step
     _resume_started = start_step is None
 
@@ -535,6 +787,7 @@ def run_pipeline(
             _set_pipeline_status_disabled(ctx, name)
             console.step_skip(name, ctx.step_state.message or "")
             _check_strict(ctx, name)
+            step_records.append(_emit_step_log(ctx, name, 0, 0.0, "disabled"))
             continue
 
         check_cancelled(controller)
@@ -551,6 +804,7 @@ def run_pipeline(
                     result=StepResult.SKIPPED, message="skipped in preview mode"
                 )
                 console.debug(f"  Preview: skipping {name}")
+                step_records.append(_emit_step_log(ctx, name, 0, 0.0, "skipped"))
                 continue
 
         # ── Execute step with soft/hard exception fork ───────
@@ -562,6 +816,7 @@ def run_pipeline(
         console.step(name)
 
         attempt = 0
+        step_error_cls: Optional[str] = None
         while True:
             attempt += 1
             try:
@@ -596,6 +851,7 @@ def run_pipeline(
                     if name == "mix_bgm":
                         ctx.metadata["bgm_error"] = str(e)
                     _check_strict(ctx, name)
+                    step_error_cls = type(e).__name__
                     break  # exit retry loop, continue to next step
 
                 # Hard step failure — check for interactive retry.
@@ -603,6 +859,7 @@ def run_pipeline(
                 if action is StepAction.RETRY:
                     console.debug(f"  retrying {name} (attempt {attempt + 1})...")
                     ctx.step_state = StepState()
+                    step_error_cls = None
                     continue
                 elif action is StepAction.SKIP:
                     console.step_warn(name, f"skipped after {attempt} attempt(s): {e}")
@@ -611,8 +868,14 @@ def run_pipeline(
                         message=f"skipped: {e}",
                         step_retryable=is_retryable,
                     )
+                    step_error_cls = type(e).__name__
                     break  # exit retry loop, continue to next step
 
+                step_records.append(
+                    _emit_step_log(
+                        ctx, name, attempt, elapsed, "failed", error_class=type(e).__name__
+                    )
+                )
                 console.step_err(name, e, elapsed)
                 raise
 
@@ -641,6 +904,10 @@ def run_pipeline(
 
         # ── Render step result ───────────────────────────────
         _render_step_result(ctx, name, elapsed, console)
+        result_name = _STEP_RESULT_LOG_NAME.get(ctx.step_state.result, "success")
+        step_records.append(
+            _emit_step_log(ctx, name, attempt, elapsed, result_name, error_class=step_error_cls)
+        )
         _check_strict(ctx, name)
 
         # ── Pause-at check ─────────────────────────────────
@@ -692,6 +959,12 @@ def run_pipeline(
             # B5 fix: leave a debug trace so disk-full / readonly paths
             # are visible in verbose logs (not silently swallowed).
             console.debug(f"metadata.json re-export failed: {e}")
+
+    # ── Execution manifest (v1.2 observability) ──────────
+    # Written alongside metadata.json but with an execution-audit view:
+    # per-step timing/attempts/providers and the final video checksum.
+    if ctx.video_path:
+        _write_execution_manifest(ctx, step_records, total_elapsed)
 
     return ctx
 

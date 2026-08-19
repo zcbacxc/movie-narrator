@@ -382,7 +382,13 @@ def test_aspect_safe_area_consumed_in_render(tmp_path, monkeypatch):
     monkeypatch.setattr(render_mod, "_create_text_image", _capture_text_image)
     monkeypatch.setattr(render_mod, "_create_watermark_image", MagicMock(return_value=MagicMock()))
     monkeypatch.setattr(render_mod, "build_metadata_json", MagicMock(return_value={}))
-    monkeypatch.setattr("subprocess.run", MagicMock(return_value=fake_proc))
+
+    def _fake_run(cmd, **kw):
+        if str(cmd[-1]).endswith(".part"):
+            Path(cmd[-1]).write_bytes(b"final-moov-fake-bytes")
+        return fake_proc
+
+    monkeypatch.setattr("subprocess.run", MagicMock(side_effect=_fake_run))
     monkeypatch.setattr("shutil.which", MagicMock(return_value="/fake/ffmpeg"))
 
     render_mod.render_video(ctx)

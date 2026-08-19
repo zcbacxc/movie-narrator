@@ -300,7 +300,7 @@ class TestTmdbRetry:
                 "movie_narrator.providers.tmdb.urllib.request.urlopen",
                 side_effect=[_make_http_error(429), ok_resp],
             ) as mock_open,
-            patch("movie_narrator.providers.tmdb.time.sleep") as mock_sleep,
+            patch("movie_narrator.reliability.retry.time.sleep") as mock_sleep,
         ):
             result = _tmdb_get(
                 "https://api.themoviedb.org/3",
@@ -321,7 +321,7 @@ class TestTmdbRetry:
                 "movie_narrator.providers.tmdb.urllib.request.urlopen",
                 side_effect=[err, err, err, err],
             ) as mock_open,
-            patch("movie_narrator.providers.tmdb.time.sleep") as mock_sleep,
+            patch("movie_narrator.reliability.retry.time.sleep") as mock_sleep,
         ):
             result = _tmdb_get(
                 "https://api.themoviedb.org/3",
@@ -342,7 +342,7 @@ class TestTmdbRetry:
                 "movie_narrator.providers.tmdb.urllib.request.urlopen",
                 side_effect=err,
             ) as mock_open,
-            patch("movie_narrator.providers.tmdb.time.sleep") as mock_sleep,
+            patch("movie_narrator.reliability.retry.time.sleep") as mock_sleep,
         ):
             result = _tmdb_get(
                 "https://api.themoviedb.org/3",
@@ -445,7 +445,7 @@ class TestTmdbRateLimitWithRetryAfter:
                 "movie_narrator.providers.tmdb.urllib.request.urlopen",
                 side_effect=[err, ok_resp],
             ),
-            patch("movie_narrator.providers.tmdb.time.sleep") as mock_sleep,
+            patch("movie_narrator.reliability.retry.time.sleep") as mock_sleep,
         ):
             result = _tmdb_get(
                 "https://api.themoviedb.org/3",
@@ -467,7 +467,7 @@ class TestTmdbRateLimitWithRetryAfter:
                 "movie_narrator.providers.tmdb.urllib.request.urlopen",
                 side_effect=[err, err, ok_resp],
             ),
-            patch("movie_narrator.providers.tmdb.time.sleep") as mock_sleep,
+            patch("movie_narrator.reliability.retry.time.sleep") as mock_sleep,
         ):
             result = _tmdb_get(
                 "https://api.themoviedb.org/3",
@@ -487,7 +487,7 @@ class TestTmdbRateLimitWithRetryAfter:
                 "movie_narrator.providers.tmdb.urllib.request.urlopen",
                 side_effect=[_make_http_error(429), ok_resp],
             ),
-            patch("movie_narrator.providers.tmdb.time.sleep") as mock_sleep,
+            patch("movie_narrator.reliability.retry.time.sleep") as mock_sleep,
         ):
             result = _tmdb_get(
                 "https://api.themoviedb.org/3",
@@ -509,7 +509,7 @@ class TestTmdbRateLimitWithRetryAfter:
                 "movie_narrator.providers.tmdb.urllib.request.urlopen",
                 side_effect=[err, ok_resp],
             ),
-            patch("movie_narrator.providers.tmdb.time.sleep") as mock_sleep,
+            patch("movie_narrator.reliability.retry.time.sleep") as mock_sleep,
         ):
             result = _tmdb_get(
                 "https://api.themoviedb.org/3",

@@ -33,6 +33,7 @@ from movie_narrator.cloud import (
     QueueShutdownError,
     TaskCheckpoint,
 )
+from movie_narrator.cloud.checkpoint import compute_request_fingerprint
 from movie_narrator.cloud.api import TaskAPIServer
 from movie_narrator.cloud.models import (
     Task,
@@ -262,6 +263,7 @@ class TestWorkerCheckpointing:
                 completed_step="generate_script",
                 context_dump=_context_dump(tmp_path, "ResumeTest"),
                 attempt=0,
+                input_fingerprint=compute_request_fingerprint(req),
             )
         )
 
@@ -297,6 +299,7 @@ class TestWorkerCheckpointing:
                 completed_step=STEPS[-1].__name__,
                 context_dump=dump,
                 attempt=0,
+                input_fingerprint=compute_request_fingerprint(req),
             )
         )
 

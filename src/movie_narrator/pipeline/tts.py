@@ -12,6 +12,7 @@ from tqdm.asyncio import tqdm_asyncio
 
 from ..config import get_settings, TTSProviderType
 from ..models import Context, TimedSegment
+from ..reliability import RetryPolicy, with_async_retry
 from ..utils.async_utils import run_async
 from ..utils.audio_qa import analyze_segment, aggregate_metrics
 from ..utils.console import step_timing
@@ -23,6 +24,9 @@ from ..tts.cache import (
     cache_path_for,
     CACHE_SCHEMA_VERSION,
     PROVIDER_CACHE_VERSIONS,
+    get_cache_stats,
+    record_cache_hit,
+    record_cache_miss,
 )
 
 __all__ = ["generate_voice"]
@@ -30,6 +34,50 @@ __all__ = ["generate_voice"]
 # Per-segment TTS retry: network hiccups shouldn't kill the entire batch.
 _TTS_SEGMENT_RETRIES = 3
 _TTS_RETRY_DELAY = 1.0  # seconds
+
+
+def _tts_retry_policy() -> RetryPolicy:
+    """Return the per-segment TTS retry policy.
+
+    Built on demand so tests patching ``_TTS_SEGMENT_RETRIES`` /
+    ``_TTS_RETRY_DELAY`` still take effect. Delay is constant (matching the
+    previous fixed ``_TTS_RETRY_DELAY`` sleep) rather than exponential.
+    """
+    return RetryPolicy(
+        max_attempts=_TTS_SEGMENT_RETRIES,
+        base_delay=_TTS_RETRY_DELAY,
+        max_delay=max(_TTS_RETRY_DELAY, 1.0),
+        multiplier=1.0,
+        jitter=0.0,
+    )
+
+
+async def _synthesize_with_retry(provider, seg_text: str, voice: str, cached, console) -> None:
+    """Synthesize one segment to *cached* via the shared retry policy.
+
+    The atomic-write (``.partial`` → ``os.replace``) semantics and the
+    per-segment retry count are unchanged; only the retry loop now runs on
+    :func:`with_async_retry` instead of being hand-rolled.
+    """
+    policy = _tts_retry_policy()
+
+    async def _attempt() -> None:
+        partial = cached.with_suffix(".partial")
+        try:
+            await provider.synthesize(seg_text, voice, partial)
+            os.replace(str(partial), str(cached))
+        except Exception:
+            partial.unlink(missing_ok=True)
+            raise
+
+    try:
+        await with_async_retry(policy)(_attempt)()
+    except Exception as e:  # noqa: BLE001 — warn then propagate unchanged
+        console.inline_warn(
+            f"TTS failed for segment after {_TTS_SEGMENT_RETRIES} attempts: {e}"
+        )
+        raise
+
 
 # v0.5.9: V2 duration feedback — speed adjustment for overflow segments.
 _MAX_SPEEDUP = 1.15  # cap at 15% faster to avoid chipmunk effect
@@ -135,32 +183,8 @@ def generate_voice(ctx: Context) -> Context:
                     cached_flag = False
                 else:
                     cached_flag = cached.exists()
-                    if not cached.exists():
-                        # Per-segment retry: a single network hiccup shouldn't
-                        # kill the entire batch.  Retry up to _TTS_SEGMENT_RETRIES
-                        # times with a short delay before giving up.
-                        last_err = None
-                        for attempt in range(_TTS_SEGMENT_RETRIES):
-                            try:
-                                # ST-07: atomic write — synthesize to .partial
-                                # then os.replace to final path. Prevents
-                                # corrupt cache files from interrupted writes.
-                                partial = cached.with_suffix(".partial")
-                                await provider.synthesize(seg.text, voice, partial)
-                                os.replace(str(partial), str(cached))
-                                last_err = None
-                                break
-                            except Exception as e:
-                                last_err = e
-                                partial.unlink(missing_ok=True)
-                                if attempt < _TTS_SEGMENT_RETRIES - 1:
-                                    await asyncio.sleep(_TTS_RETRY_DELAY)
-                                else:
-                                    console.inline_warn(
-                                        f"TTS failed for segment after {_TTS_SEGMENT_RETRIES} attempts: {e}"
-                                    )
-                        if last_err is not None:
-                            raise last_err
+                    if not cached_flag:
+                        await _synthesize_with_retry(provider, seg.text, voice, cached, console)
                     # ST-07: if cached file is corrupt (from a previous
                     # interrupted write before the fix), delete and retry once.
                     try:
@@ -173,6 +197,13 @@ def generate_voice(ctx: Context) -> Context:
                         await provider.synthesize(seg.text, voice, cached)
                         audio = AudioSegment.from_mp3(cached)
                         cached_flag = False
+                    # Cache accounting (v1.2): record the *effective* outcome —
+                    # a corrupt file that got re-synthesized counts as a miss,
+                    # mirroring the cost tracker's cached flag.
+                    if cached_flag:
+                        record_cache_hit(cache_root)
+                    else:
+                        record_cache_miss(cache_root)
                 return audio, round(len(audio) / 1000.0, 3), cached_flag
 
         # gather preserves input order: triplets[i] matches ctx.segments[i].
@@ -379,5 +410,10 @@ def generate_voice(ctx: Context) -> Context:
                     break
                 total -= oldest.stat().st_size
                 oldest.unlink(missing_ok=True)
+
+    # v1.2: cache accounting — expose hit/miss statistics in metadata.json
+    # for observability/audit. Written after eviction so the entry count and
+    # total bytes reflect the final on-disk state.
+    ctx.metadata["tts_cache_stats"] = get_cache_stats()
 
     return ctx

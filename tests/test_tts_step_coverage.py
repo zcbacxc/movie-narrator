@@ -30,6 +30,7 @@ from movie_narrator.config import Settings
 from movie_narrator.models import Context, ScriptSegment
 from movie_narrator.pipeline import tts as tts_module
 from movie_narrator.utils.cost_tracker import CostTracker
+from movie_narrator.workflow.errors import ProviderError
 
 
 class FakeAudio:
@@ -222,7 +223,7 @@ def test_retry_succeeds_after_transient_failure(monkeypatch, tmp_path):
     def _synth(text, voice, path):
         state["calls"] += 1
         if state["calls"] == 1:
-            raise RuntimeError("network")
+            raise ProviderError("network", retryable=True)
         return _write_audio(text, voice, path)
 
     provider.synthesize = AsyncMock(side_effect=_synth)
@@ -237,9 +238,9 @@ def test_retry_exhausted_raises(monkeypatch, tmp_path):
     provider, _, _ = _install_patches(monkeypatch)
     monkeypatch.setattr(tts_module, "_TTS_RETRY_DELAY", 0)
 
-    provider.synthesize = AsyncMock(side_effect=RuntimeError("always fails"))
+    provider.synthesize = AsyncMock(side_effect=ProviderError("always fails", retryable=True))
     ctx = _make_ctx(tmp_path)
-    with pytest.raises(RuntimeError, match="always fails"):
+    with pytest.raises(ProviderError, match="always fails"):
         tts_module.generate_voice(ctx)
     # both segments retried _TTS_SEGMENT_RETRIES times each
     assert provider.synthesize.call_count == tts_module._TTS_SEGMENT_RETRIES * len(ctx.segments)
