@@ -3,9 +3,9 @@
 
 # 教程
 
-这是 **movie-narrator** 从零到进阶的完整上手指南。movie-narrator 是一个 Python 引擎，可将单个电影片名转化为一段带旁白解说的回顾视频。本教程面向**内容创作者**——你无需具备开发经验即可跟随学习。如果你是插件作者，请阅读 [QUICKSTART.md](QUICKSTART.md)。
+这是 **movie-narrator** 从零到进阶的完整上手指南。movie-narrator 是一个 Python 引擎，可将单个电影片名转化为一段带旁白解说的回顾视频。本教程面向**内容创作者**——你无需具备开发经验即可跟随学习。如果你是插件作者，请阅读 [QUICKSTART.zh-CN.md](QUICKSTART.zh-CN.md)。
 
-> **兼容性说明。** 本文档描述的是 **1.0.0** 版本的治理（governance）机制。引擎本身为 **1.0.0** 版本，`CONTRACT_VERSION=(1,0,0)`。运行 `mn version` 可查看你当前安装的构建版本。
+> **兼容性说明。** 本文档描述的是 **1.2.0** 版本的治理（governance）机制。引擎本身为 **1.2.0** 版本，`CONTRACT_VERSION=(1,0,0)`。运行 `mn version` 可查看你当前安装的构建版本。
 
 ---
 
@@ -53,7 +53,7 @@ mn version
 cp .env.example .env
 ```
 
-参见 `docs/llm-providers/` 中的 provider 文档（例如 `alibaba-bailian.md`、`zhipu.md`、`ollama.md`），选择你使用的 provider。
+参见 `docs/llm-providers/` 中的 provider 文档（例如 `alibaba-bailian.zh-CN.md`、`zhipu.zh-CN.md`、`ollama.zh-CN.md`），选择你使用的 provider。
 
 ---
 
@@ -484,7 +484,7 @@ mn plugin registries
 mn plugin version
 ```
 
-如需深入编写你自己的插件，请阅读 [QUICKSTART.md](QUICKSTART.md)。
+如需深入编写你自己的插件，请阅读 [QUICKSTART.zh-CN.md](QUICKSTART.zh-CN.md)。
 
 ### 产物（Artifacts）
 
@@ -502,11 +502,11 @@ mn artifacts cleanup
 
 ## 下一步
 
-- 阅读 [QUICKSTART.md](QUICKSTART.md)，了解如何构建插件。
+- 阅读 [QUICKSTART.zh-CN.md](QUICKSTART.zh-CN.md)，了解如何构建插件。
 - 探索 `docs/llm-providers/` 中的 provider 文档，调优你的 LLM 配置。
-- 查看 [BEST_PRACTICES.md](BEST_PRACTICES.md)，获取生产环境建议。
-- 当你希望规模化地将引擎作为服务运行时，参考 [DEPLOYMENT.md](DEPLOYMENT.md)。
-- 查看 [ROADMAP.md](ROADMAP.md)，了解接下来会提供什么。
+- 查看 [BEST_PRACTICES.zh-CN.md](BEST_PRACTICES.zh-CN.md)，获取生产环境建议。
+- 当你希望规模化地将引擎作为服务运行时，参考 [DEPLOYMENT.zh-CN.md](DEPLOYMENT.zh-CN.md)。
+- 查看 [ROADMAP.zh-CN.md](ROADMAP.zh-CN.md)，了解接下来会提供什么。
 
 现在，去创造一些很棒的内容吧。运行你的第一条命令：
 

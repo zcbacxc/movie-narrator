@@ -3,8 +3,9 @@
 
 # 部署指南
 
-`movie-narrator` 的容器镜像与本地集群（v0.8.4）。
+`movie-narrator` 的容器镜像与本地集群（v1.2.0）。
 
+- [部署模式](#部署模式)
 - [环境要求](#环境要求)
 - [构建镜像](#构建镜像)
 - [运行单个容器](#运行单个容器)
@@ -16,6 +17,24 @@
 - [数据卷与备份](#数据卷与备份)
 - [架构说明与限制](#架构说明与限制)
 - [故障排查](#故障排查)
+
+---
+
+## 部署模式
+
+`movie-narrator` 支持从单个本地进程到横向扩展集群的多种部署模式：
+
+| 模式 | 说明 | 适用场景 |
+|------|------|----------|
+| **本地** | 直接在主机上运行 `mn create` / `mn serve` | 单机、交互式使用 |
+| **单容器** | 单个 `api` 容器运行完整流水线 | 简单的服务器部署 |
+| **本地集群** | 通过 Docker Compose 运行 `api` + `worker` 副本 | 并行渲染、更高吞吐 |
+| **GPU worker** | 使用 NVIDIA Container Toolkit 的 `worker-gpu` 配置 | GPU 加速渲染 / `[ml]` 扩展 |
+| **云端** | 远程推理、批量调度、分布式渲染 | 托管 / 多节点部署 |
+
+这些模式背后的组件架构（任务生命周期、REST API、设计规则）见
+[ARCHITECTURE.zh-CN.md](ARCHITECTURE.zh-CN.md)；监控与指标见
+[OBSERVABILITY.zh-CN.md](OBSERVABILITY.zh-CN.md)。
 
 ---
 
@@ -316,7 +335,8 @@ mkdir -p ./output && sudo chown -R 10001:10001 ./output
 4. **产物是共享的。** 所有服务都把 `mn-output` 挂载到 `/app/output`，
    因此无论由哪个容器生成，渲染文件都汇集在同一处。
 
-真正的共享消息代理（Redis / Celery / SQS）属于路线图工作，不在 v0.8.4 范围内。
+真正的共享消息代理（Redis / Celery / SQS）属于路线图工作，不在 v1.2.0 范围内。
+这些限制背后的任务队列设计见 [ARCHITECTURE.zh-CN.md](ARCHITECTURE.zh-CN.md)。
 
 **其它说明**
 

@@ -6,6 +6,9 @@
 > Structured logging and Prometheus metrics for the `mn serve` API server.
 > No new third-party dependencies — the JSON formatter and the metrics
 > renderer are implemented with the Python standard library only.
+>
+> For component boundaries, see [ARCHITECTURE.md](ARCHITECTURE.md); for
+> deployment setup, see [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## 1. Structured logging
 

@@ -60,7 +60,7 @@ run_qa_gate → render_video → validate_deliverable → export_clips
 
 | Category | Steps | Status |
 |----------|-------|--------|
-| **Hard** (always run) | resolve_video, prepare_assets, generate_script, export_script_md, generate_voice, render_video, validate_deliverable | Must succeed |
+| **Hard** (always run) | resolve_video, prepare_assets, generate_script, export_script_md, generate_voice, generate_subtitle, render_video, validate_deliverable | Must succeed |
 | **Soft** (skip on missing deps) | research_plot, align_audio, detect_scenes, match_clips, mix_bgm, translate_subtitles, run_qa_gate, export_clips | Skip gracefully / soft-degrade; `--strict` to abort |
 
 ### Step Responsibilities
@@ -88,7 +88,7 @@ run_qa_gate → render_video → validate_deliverable → export_clips
 
 ### Pipeline Status Model
 
-Each soft step writes to `PipelineStatus` — one of `disabled | skipped | success | failed`:
+Each soft step writes to `PipelineStatus` — one of `disabled | skipped | success | failed | partial`:
 
 ```python
 class PipelineStatus(BaseModel):
@@ -126,12 +126,12 @@ run_pipeline(...) # STEPS order unchanged
 
 - Module: `movie_narrator.workflow` (`load_job_config`, `merge_job`, `JobConfigError`)
 - Soft steps honor `metadata["workflow_steps"][<field>] is False` → `status.<field> = "disabled"`
-- Params whitelist (90 keys — full list in `examples/job.example.yaml` comments: scene detection, match, vision, BGM, TTS pacing, translate, research, WhisperX/FunASR align, render, QA, prompt shaping, async, video sizes, platform, perspective) land in `ctx.metadata` via `build_context` copy loop
+- Params whitelist (91 keys — full list in `examples/job.example.yaml` comments: scene detection, match, vision, BGM, TTS pacing, translate, research, WhisperX/FunASR align, render, QA, prompt shaping, async, video sizes, platform, perspective) land in `ctx.metadata` via `build_context` copy loop
 - Multi-language subtitle top-level keys: `subtitle_lang`, `subtitle_mode` (validated in `JobConfig` — `subtitle_mode ∈ {translated, bilingual}` without `subtitle_lang` raises `JobConfigError` at merge time)
 - `STEPS` remains the single source of step order; since v0.5, custom steps can be added via `@register_step` plugin API (see Plugin System section below)
 - YAML auto-discovery: `--config` not passed → `cwd/job.yaml` → packaged `examples/job.example.yaml` → none
 - `.env.example` is the single source of truth for first-run config (read by `ensure_user_config()`, not a divergent inline template)
-- Strict env/yaml boundary: `.env` (Settings) = 32 LLM + TTS infrastructure fields only; `job.yaml` (params) = 77 pipeline behavior keys; no code constants module — inline literals match example files
+- Strict env/yaml boundary: `.env` (Settings) = 41 infrastructure fields only; `job.yaml` (params) = 91 pipeline behavior keys; no code constants module — inline literals match example files
 
 ## Cloud Architecture (v0.9.x)
 

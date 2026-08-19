@@ -3,8 +3,9 @@
 
 # Deployment
 
-Container images and a local cluster for `movie-narrator` (v0.8.4).
+Container images and a local cluster for `movie-narrator` (v1.2.0).
 
+- [Deployment modes](#deployment-modes)
 - [Requirements](#requirements)
 - [Building the image](#building-the-image)
 - [Running a single container](#running-a-single-container)
@@ -16,6 +17,25 @@ Container images and a local cluster for `movie-narrator` (v0.8.4).
 - [Volumes and backup](#volumes-and-backup)
 - [Architecture notes and limitations](#architecture-notes-and-limitations)
 - [Troubleshooting](#troubleshooting)
+
+---
+
+## Deployment modes
+
+`movie-narrator` can be deployed in several modes, from a single local process
+to a horizontally scaled cluster:
+
+| Mode | Description | When to use |
+|------|-------------|-------------|
+| **Local** | `mn create` / `mn serve` directly on a host | Single-machine, interactive use |
+| **Single container** | One `api` container running the full pipeline | Simple server deployment |
+| **Local cluster** | `api` + `worker` replicas via Docker Compose | Parallel rendering, higher throughput |
+| **GPU workers** | `worker-gpu` profile with NVIDIA Container Toolkit | GPU-accelerated render / `[ml]` extras |
+| **Cloud** | Remote inference, batch scheduling, distributed rendering | Managed / multi-node setups |
+
+For the component architecture behind these modes (task lifecycle, REST API,
+design rules), see [ARCHITECTURE.md](ARCHITECTURE.md); for monitoring and
+metrics, see [OBSERVABILITY.md](OBSERVABILITY.md).
 
 ---
 
@@ -331,7 +351,9 @@ There is no broker and no shared queue. Consequences:
    `/app/output`, so rendered files land in one place regardless of which
    container produced them.
 
-A real shared broker (Redis / Celery / SQS) is roadmap work, not part of v0.8.4.
+A real shared broker (Redis / Celery / SQS) is roadmap work, not part of v1.2.0.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the task-queue design that motivates
+these limitations.
 
 **Other notes**
 

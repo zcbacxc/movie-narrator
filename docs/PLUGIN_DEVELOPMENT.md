@@ -262,10 +262,9 @@ group. Declare in `pyproject.toml`:
 my-plugin = "my_package:MyPlugin"
 ```
 
-The entry point value can be:
-
-- A class path (`my_package:MyPlugin`) — instantiated with no args
-- A module path (`my_package`) — must have a top-level `plugin` or `Plugin` attribute
+The entry point value is a class path (`my_package:MyPlugin`) — the loader
+instantiates it with no arguments and validates it against the `Plugin`
+protocol.
 
 ## Compatibility Strategy
 

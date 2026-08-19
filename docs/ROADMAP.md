@@ -42,6 +42,8 @@
 - Resource-aware admission — temp-disk / CPU / GPU / resolution checks and GPU-vs-CPU queue separation.
 - Provider idempotency keys — v1.2 decided against strong idempotency for non-deterministic LLM output (documented); revisit only if duplicate-billing becomes measurable.
 
+#### v1.3 scope
+
 - Selective rerun — rerun only `generate_voice` or `render_video`; downstream steps invalidated automatically, no re-research.
 - Linear-compatible DAG contract — explicit step inputs / outputs / artifact keys / dependency declarations with a linear adapter (no parallelism yet).
 - Versioned deliverable manifest — `deliverable_manifest.json` declaring MP4 / audio / SRT / script / clips / timeline / checksums / compatibility version.

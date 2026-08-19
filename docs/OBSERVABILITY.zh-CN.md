@@ -5,6 +5,8 @@
 
 > 面向 `mn serve` API 服务的结构化日志与 Prometheus 指标。
 > 不引入任何新的第三方依赖——JSON 格式化器与指标渲染器仅使用 Python 标准库实现。
+>
+> 组件边界见 [ARCHITECTURE.zh-CN.md](ARCHITECTURE.zh-CN.md)；部署配置见 [DEPLOYMENT.zh-CN.md](DEPLOYMENT.zh-CN.md)。
 
 ## 1. 结构化日志
 

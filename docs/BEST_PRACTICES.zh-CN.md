@@ -305,13 +305,13 @@ params:
 ### 工具
 
 - `scripts/compare_runs.py` — 对比两份 `metadata.json`（基线 vs 新版）用于人工 QA。
-- `scripts/match_trend.py` — 扫描全部 `output/l2-runs/*/metadata.json`，输出 `heuristic_ratio` / `embedding_ratio` / `score.avg` / `speed_factor.avg` 趋势表；相邻运行间 `heuristic_ratio` 回升超过 `0.1` 时告警。
+- `scripts/match_trend.py` — 扫描全部 `output/l2-runs/*/metadata.json`，输出 `heuristic_ratio` / `embedding_ratio` / `score.avg` / `speed_factor.avg` 趋势表；相邻运行间 `heuristic_ratio` 升高超过 `0.1` 时告警。
 
 ```bash
 python scripts/match_trend.py --root output/l2-runs --warn-delta 0.1
 ```
 
-任何把 `heuristic_ratio` 推过阈值（或较上一版本回升 > 0.1）的运行，必须在发版前排查清楚。
+任何把 `heuristic_ratio` 推过阈值（或较上一版本升高 > 0.1）的运行，必须在发版前排查清楚。
 
 ---
 
@@ -337,6 +337,7 @@ python scripts/match_trend.py --root output/l2-runs --warn-delta 0.1
 | `scripts/llm_check.py` | 检查 LLM 连通性和响应质量 | LLM 选择 |
 | `scripts/bgm_analyze.py` | 分析 BGM 特征（BPM/能量/时长） | BGM 选择 |
 | `scripts/genre_advisor.py` | 按片种推荐 preset 和参数 | 片种分流 |
+| `scripts/compare_runs.py` | 对比两份 `metadata.json`（基线 vs 新版）用于人工 QA | 黄金样片回归 |
 | `scripts/match_trend.py` | 回归样片趋势分析（heuristic_ratio / embedding_ratio） | 黄金样片回归 |
 
 所有工具均为独立脚本，不依赖 movie_narrator 包安装，可直接运行：

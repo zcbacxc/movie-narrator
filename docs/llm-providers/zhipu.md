@@ -43,7 +43,7 @@ Edit `~/.movie-narrator/.env`:
 
 ```env
 MN_LLM_BASE_URL=https://open.bigmodel.cn/api/paas/v4
-MN_LLM_API_KEY=你的API Key
+MN_LLM_API_KEY=your-api-key
 MN_LLM_MODEL=glm-4-flash
 ```
 

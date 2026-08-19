@@ -1,15 +1,6 @@
 # SDK API Reference
 
-This section is auto-generated from the source code docstrings using
-[mkdocstrings](https://mkdocstrings.github.io/). To build the docs
-locally:
-
-```bash
-pip install mkdocs mkdocstrings[python]
-mkdocs serve
-```
-
-Then open <http://localhost:8000>.
+Auto-generated from source docstrings using [mkdocstrings](https://mkdocstrings.github.io/). Build locally with `mkdocs serve`.
 
 ## Contract module
 

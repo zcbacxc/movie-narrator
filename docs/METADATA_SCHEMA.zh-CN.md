@@ -3,7 +3,7 @@
 
 # Metadata Schema 参考
 
-> `metadata.json` 是每次流水线运行时生成的审计与诊断文件。本文档按功能域描述其 schema 结构。如需了解架构背景，请参阅 [ARCHITECTURE.md](ARCHITECTURE.md)。
+> 本文档描述流水线的元数据 schema——各步骤间维护的内存 `ctx.metadata` 字典，以及 `metadata.json` 导出文件（其子集）。按功能域组织。如需了解架构背景，请参阅 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
 ## 顶层结构
 
@@ -17,7 +17,7 @@
   "script_truncated": { ... },
   "match_summary": { ... },
   "footage_coverage": { ... },
-  "align_word_segments": [...],
+  "align_word_segments": 0,
   "alignment_qa": { ... },
   "match_quality": { ... },
   "subtitle_qa": { ... },
@@ -28,6 +28,7 @@
   "quality_dashboard": { ... },
   "qa_report": { ... },
   "render_template": { ... },
+  "render_profile": { ... },
   "beats_meta": [...],
   "warnings": [...],
   "bgm_error": "string (absent on success)"
@@ -235,17 +236,24 @@
 | `render_text_animation` | str\|absent | 文字动画效果：`none`/`fade`/`slide_up`/`slide_left`（v0.7.1+） |
 | `render_preview_mode` | bool\|absent | 是否使用了预览模式（v0.7.2+） |
 
-### `cost_summary`
+### `cost`
 
-单次运行成本追踪（LLM token 用量 + TTS 调用）（v0.7.0+）。
+单次运行成本追踪（LLM token 用量 + TTS 调用）（v0.7.0+）。写入 `metadata.json` 的 `cost` 键；所有数值均为粗略估算，非精确计费值。
 
 | 字段 | 类型 | 描述 |
 |-------|------|-------------|
-| `llm_tokens` | object | token 用量：`{prompt, completion, total}` |
-| `llm_calls` | int | LLM API 调用次数 |
-| `tts_chars` | int | TTS 合成总字符数 |
-| `tts_calls` | int | TTS 合成调用次数 |
-| `cached_calls` | int | 缓存命中次数（不计入成本） |
+| `llm.total_calls` | int | LLM API 调用次数 |
+| `llm.total_prompt_tokens` | int | prompt token 总数 |
+| `llm.total_completion_tokens` | int | completion token 总数 |
+| `llm.total_tokens` | int | token 总数（prompt + completion） |
+| `llm.by_step` | object | 按步骤拆分的调用次数与 token 用量 |
+| `llm.estimated_cost_usd` | float | LLM 预估成本（USD） |
+| `tts.total_calls` | int | TTS 合成调用次数 |
+| `tts.total_segments` | int | TTS 合成片段总数 |
+| `tts.total_characters` | int | TTS 合成总字符数 |
+| `tts.cached_segments` | int | 缓存命中片段数（不计入成本） |
+| `tts.by_provider` | object | 按服务商拆分的调用/片段/字符数 |
+| `tts.estimated_cost_usd` | float | TTS 预估成本（USD） |
 
 ---
 

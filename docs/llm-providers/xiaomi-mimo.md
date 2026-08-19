@@ -50,7 +50,7 @@ Edit `~/.movie-narrator/.env`:
 
 ```env
 MN_LLM_BASE_URL=https://api.xiaomimimo.com/v1
-MN_LLM_API_KEY=你的API Key
+MN_LLM_API_KEY=your-api-key
 MN_LLM_MODEL=mimo-v2.5-7b
 ```
 
@@ -59,7 +59,7 @@ MN_LLM_MODEL=mimo-v2.5-7b
 ```env
 MN_TTS_PROVIDER=mimo
 MN_MIMO_TTS_MODEL=mimo-v2.5-tts
-MN_MIMO_API_KEY=你的API Key
+MN_MIMO_API_KEY=your-api-key
 MN_MIMO_BASE_URL=https://api.xiaomimimo.com/v1
 MN_MIMO_STYLE_PROMPT=Bright, bouncy, slightly sing-song tone.
 MN_DEFAULT_VOICE=Chloe

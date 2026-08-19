@@ -3,7 +3,7 @@
 
 # Metadata Schema Reference
 
-> `metadata.json` is the audit and diagnostics file written by every pipeline run. This document describes the schema, organized by functional domain. For architecture context, see [ARCHITECTURE.md](ARCHITECTURE.md).
+> This document describes the pipeline's metadata schema — the in-memory `ctx.metadata` dict maintained across steps, plus the `metadata.json` export (a subset). It is organized by functional domain. For architecture context, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Top-level structure
 
@@ -17,7 +17,7 @@
   "script_truncated": { ... },
   "match_summary": { ... },
   "footage_coverage": { ... },
-  "align_word_segments": [...],
+  "align_word_segments": 0,
   "alignment_qa": { ... },
   "match_quality": { ... },
   "subtitle_qa": { ... },
@@ -28,6 +28,7 @@
   "quality_dashboard": { ... },
   "qa_report": { ... },
   "render_template": { ... },
+  "render_profile": { ... },
   "beats_meta": [...],
   "warnings": [...],
   "bgm_error": "string (absent on success)"
@@ -235,17 +236,24 @@ Video encoding quality validation results.
 | `render_text_animation` | str\|absent | Text animation effect: `none`/`fade`/`slide_up`/`slide_left` (v0.7.1+) |
 | `render_preview_mode` | bool\|absent | Whether preview mode was used (v0.7.2+) |
 
-### `cost_summary`
+### `cost`
 
-Per-run cost tracking for LLM token usage and TTS calls (v0.7.0+).
+Per-run cost tracking for LLM token usage and TTS calls (v0.7.0+). Written to `metadata.json` under the `cost` key; all figures are coarse estimates, not billing values.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `llm_tokens` | object | Token usage: `{prompt, completion, total}` |
-| `llm_calls` | int | Number of LLM API calls |
-| `tts_chars` | int | Total TTS characters synthesized |
-| `tts_calls` | int | Number of TTS synthesis calls |
-| `cached_calls` | int | Calls served from cache (excluded from cost) |
+| `llm.total_calls` | int | Number of LLM API calls |
+| `llm.total_prompt_tokens` | int | Total prompt tokens |
+| `llm.total_completion_tokens` | int | Total completion tokens |
+| `llm.total_tokens` | int | Total tokens (prompt + completion) |
+| `llm.by_step` | object | Per-step breakdown of calls and tokens |
+| `llm.estimated_cost_usd` | float | Estimated LLM cost (USD) |
+| `tts.total_calls` | int | Number of TTS synthesis calls |
+| `tts.total_segments` | int | Total TTS segments synthesized |
+| `tts.total_characters` | int | Total TTS characters synthesized |
+| `tts.cached_segments` | int | Segments served from cache (excluded from cost) |
+| `tts.by_provider` | object | Per-provider breakdown of calls/segments/characters |
+| `tts.estimated_cost_usd` | float | Estimated TTS cost (USD) |
 
 ---
 

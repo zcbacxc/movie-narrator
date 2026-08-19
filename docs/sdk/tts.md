@@ -10,3 +10,8 @@ The TTS provider abstraction, protocol, built-in implementations, factory, conte
 ::: movie_narrator.tts.factory
 ::: movie_narrator.tts.cache
 ::: movie_narrator.tts.voice_map
+
+## Related modules
+
+- [Provider registries](registries.md) — `ProviderRegistry`, `register_tts`
+- [Contract](contract.md) — `CONTRACT_VERSION` and public API surface

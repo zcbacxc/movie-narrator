@@ -42,7 +42,7 @@ See [Step-by-Step Upgrade Procedure](#step-by-step-upgrade-procedure) below for 
 
 ## Overview
 
-movie-narrator v1.0 is the first stable release with long-term API and behavior guarantees. Most v0.9.x configurations and plugins will work with minimal changes, but some breaking changes require explicit updates.
+movie-narrator v1.0 is the first stable release with long-term API and behavior guarantees. Most v0.9.x configurations and plugins will work with minimal changes, but some breaking changes require explicit updates. For the full per-version change list, see [CHANGELOG.md](../CHANGELOG.md).
 
 | Original Version | Target Version | Migration Effort | Notes |
 |------------------|----------------|------------------|-------|
@@ -214,7 +214,7 @@ Plugins use decorators to register custom components with the engine:
 |--------------------|------------------------------|
 | `@register_step`   | Register a pipeline step     |
 | `@register_tts`    | Register a TTS provider      |
-| `@register_vision`| Register a VLM provider      |
+| `@register_vision`| Register a Vision captioner provider |
 | `@register_llm`    | Register an LLM provider     |
 | `@register_research` | Register a research provider |
 
@@ -222,11 +222,10 @@ Example:
 
 ```python
 from movie_narrator import register_tts
-from movie_narrator.tts import TTSProvider
 
 @register_tts("my_tts")
-class MyCustomTTS(TTSProvider):
-    # implementation here
+def make_my_tts(settings):
+    # return a TTS provider instance satisfying the TTSProvider protocol
     ...
 ```
 
@@ -284,7 +283,7 @@ v1.0 formalizes the `CONTRACT_VERSION` semantic versioning rules for the public 
 
 The version is bumped **only** when the public API surface changes. Internal refactoring that doesn't affect exported symbols doesn't require a version bump.
 
-**Current version (v1.0.0):** `(1, 0, 0)`
+**Current version (v1.2.0):** `CONTRACT_VERSION` remains `(1, 0, 0)`.
 **First stable release — contract frozen.** All v1.x releases will maintain backward compatibility within the v1.x major series. See [STABILITY.md](STABILITY.md) for the full stability promise.
 
 ### Checking Contract Version in Your Code

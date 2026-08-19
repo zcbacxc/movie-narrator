@@ -259,10 +259,8 @@ def my_step(ctx: Context) -> Context:
 my-plugin = "my_package:MyPlugin"
 ```
 
-入口点值可以是：
-
-- 类路径 (`my_package:MyPlugin`) — 无参数实例化
-- 模块路径 (`my_package`) — 必须有顶层 `plugin` 或 `Plugin` 属性
+入口点值是类路径 (`my_package:MyPlugin`) —— 加载器无参数实例化该类，
+并校验其符合 `Plugin` 协议。
 
 ## 兼容性策略 (Compatibility Strategy)
 

@@ -42,7 +42,7 @@ v1.0.0 是 movie-narrator 的首个**稳定版**。公共 API——由 `CONTRACT
 
 ## 概述
 
-movie-narrator v1.0 是首个提供长期 API 与行为保障的稳定版。大多数 v0.9.x 配置与插件仅需少量改动即可工作，但部分 breaking change 需要显式更新。
+movie-narrator v1.0 是首个提供长期 API 与行为保障的稳定版。大多数 v0.9.x 配置与插件仅需少量改动即可工作，但部分 breaking change 需要显式更新。完整的逐版本变更列表见 [CHANGELOG.md](../CHANGELOG.md)。
 
 | 原版本            | 目标版本 | 迁移工作量 | 说明                                   |
 |------------------|----------|------------|----------------------------------------|
@@ -214,7 +214,7 @@ my_plugin = "my_plugin_module:MyPlugin"
 |------------------|-------------------------------|
 | `@register_step`   | 注册一个流水线步骤            |
 | `@register_tts`    | 注册一个 TTS 提供者          |
-| `@register_vision`| 注册一个 VLM 提供者          |
+| `@register_vision`| 注册一个 Vision captioner 提供者 |
 | `@register_llm`    | 注册一个 LLM 提供者          |
 | `@register_research` | 注册一个研究提供者          |
 
@@ -222,11 +222,10 @@ my_plugin = "my_plugin_module:MyPlugin"
 
 ```python
 from movie_narrator import register_tts
-from movie_narrator.tts import TTSProvider
 
 @register_tts("my_tts")
-class MyCustomTTS(TTSProvider):
-    # implementation here
+def make_my_tts(settings):
+    # 返回满足 TTSProvider 协议的 TTS 提供者实例
     ...
 ```
 
@@ -284,7 +283,7 @@ v1.0 正式确立了公共 API 契约的 `CONTRACT_VERSION` 语义化版本规�
 
 版本**仅**在公共 API 表面发生变化时递增。不影响导出符号的内部重构无需递增版本。
 
-**当前版本（v1.0.0）：** `(1, 0, 0)`
+**当前版本（v1.2.0）：** `CONTRACT_VERSION` 仍为 `(1, 0, 0)`
 **首个稳定版——契约已冻结。** 所有 v1.x 版本都将在 v1.x 主系列内保持向后兼容。完整稳定性承诺请参见 [STABILITY.zh-CN.md](STABILITY.zh-CN.md)。
 
 ### 在代码中检查契约版本

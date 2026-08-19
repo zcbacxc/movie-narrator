@@ -46,7 +46,7 @@ Edit `~/.movie-narrator/.env`:
 
 ```env
 MN_LLM_BASE_URL=https://api.siliconflow.cn/v1
-MN_LLM_API_KEY=你的API Key
+MN_LLM_API_KEY=your-api-key
 MN_LLM_MODEL=Qwen/Qwen2.5-7B-Instruct
 ```
 

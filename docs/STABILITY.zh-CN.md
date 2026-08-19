@@ -44,30 +44,9 @@
 
 `movie-narrator` 遵循 [语义化版本 2.0.0](https://semver.org/lang/zh-CN/)。
 `pyproject.toml` 中的包版本与 `contract.py` 中的 `CONTRACT_VERSION`
-元组始终在同一版本发布中一起升级。
-
-### 包版本（pyproject.toml）
-
-| 组件     | 含义 |
-|----------|------|
-| **MAJOR** | 公共 API 的破坏性变更。用户和插件需要更新代码。 |
-| **MINOR** | 以向后兼容的方式添加新功能。现有代码无需改动即可继续工作。 |
-| **PATCH** | Bug 修复、安全补丁和文档更新。不涉及 API 表面变化。 |
-
-### CONTRACT_VERSION（contract.py）
-
-`CONTRACT_VERSION` 是一个 `(major, minor, patch)` 元组，独立于发布
-营销版本来追踪公共 API 表面。它遵循相同的 semver 规则：
-
-| 组件     | 含义 |
-|----------|------|
-| **MAJOR** | 导出符号的破坏性移除或签名变更。 |
-| **MINOR** | 新增导出（向后兼容）。旧代码继续工作。 |
-| **PATCH** | Bug 修复、文档变更——API 表面无变化。 |
-
-> **注意**：`CONTRACT_VERSION` 仅在公共 API 表面发生变化时才递增。
-> 不影响导出符号的内部重构、Bug 修复和性能改进不需要递增
-> CONTRACT_VERSION。
+元组始终在同一版本发布中一起升级。包版本与 `CONTRACT_VERSION` 的完整
+MAJOR/MINOR/PATCH 语义见 [PACKAGING.zh-CN.md](PACKAGING.zh-CN.md#版本化)；
+本节仅复述与稳定性相关的保证。
 
 ### 版本兼容性规则
 

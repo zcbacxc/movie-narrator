@@ -60,7 +60,7 @@ run_qa_gate → render_video → validate_deliverable → export_clips
 
 | 类别 | 步骤 | 失败处理 |
 |------|------|----------|
-| **硬步骤**（始终运行） | resolve_video, prepare_assets, generate_script, export_script_md, generate_voice, render_video, validate_deliverable | 必须成功 |
+| **硬步骤**（始终运行） | resolve_video, prepare_assets, generate_script, export_script_md, generate_voice, generate_subtitle, render_video, validate_deliverable | 必须成功 |
 | **软步骤**（依赖缺失可跳过） | research_plot, align_audio, detect_scenes, match_clips, mix_bgm, translate_subtitles, run_qa_gate, export_clips | 优雅跳过 / 软降级；可通过 `--strict` 强制中止 |
 
 ### 步骤职责
@@ -88,7 +88,7 @@ run_qa_gate → render_video → validate_deliverable → export_clips
 
 ### 流水线状态模型
 
-每个软步骤将执行结果写入 `PipelineStatus` —— 取值为 `disabled | skipped | success | failed` 其中之一：
+每个软步骤将执行结果写入 `PipelineStatus` —— 取值为 `disabled | skipped | success | failed | partial` 其中之一：
 
 ```python
 class PipelineStatus(BaseModel):
@@ -124,12 +124,12 @@ run_pipeline(...) # STEPS 顺序不变
 
 - 模块所在：`movie_narrator.workflow`（`load_job_config`, `merge_job`, `JobConfigError`）
 - 软步骤遵守 `metadata["workflow_steps"][<field>] is False` → `status.<field> = "disabled"`
-- 在 `ctx.metadata` 中通过 `build_context` 拷贝循环注入的参数白名单（90 个键，完整列表见 `examples/job.example.yaml` 注释：场景检测、匹配、视觉、BGM、TTS 速率、翻译、调研、WhisperX/FunASR 对齐、渲染、质检、文案塑形、异步、视频分辨率、平台、视角）
+- 在 `ctx.metadata` 中通过 `build_context` 拷贝循环注入的参数白名单（91 个键，完整列表见 `examples/job.example.yaml` 注释：场景检测、匹配、视觉、BGM、TTS 速率、翻译、调研、WhisperX/FunASR 对齐、渲染、质检、文案塑形、异步、视频分辨率、平台、视角）
 - 多语言字幕顶层键：`subtitle_lang`、`subtitle_mode`（在 `JobConfig` 中校验 —— 设置 `subtitle_mode ∈ {translated, bilingual}` 但缺 `subtitle_lang` 时会在 merge 阶段抛 `JobConfigError`）
 - `STEPS` 仍是步骤顺序的唯一来源；自 v0.5 起，可通过 `@register_step` 插件 API 添加自定义步骤（见下方插件系统章节）
 - YAML 自动发现：未传 `--config` 时按 `cwd/job.yaml` → 随包 `examples/job.example.yaml` → 缺省 顺序查找
 - `.env.example` 是首次运行配置的真理源头（由 `ensure_user_config()` 读取，避免内联模板漂移）
-- 严格的 env/yaml 边界：`.env`（Settings）= 32 个 LLM + TTS 基础设施字段；`job.yaml`（params）= 77 个流水线行为键；无代码常量模块 —— 内联字面值与示例文件保持一致
+- 严格的 env/yaml 边界：`.env`（Settings）= 41 个基础设施字段；`job.yaml`（params）= 91 个流水线行为键；无代码常量模块 —— 内联字面值与示例文件保持一致
 
 ## 云端架构（v0.9.x）
 

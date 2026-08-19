@@ -337,6 +337,7 @@ Output not good enough?
 | `scripts/llm_check.py` | Check LLM connectivity and response quality | LLM Selection |
 | `scripts/bgm_analyze.py` | Analyze BGM characteristics (BPM / energy / duration) | BGM Selection |
 | `scripts/genre_advisor.py` | Recommend preset and parameters by genre | Genre Routing |
+| `scripts/compare_runs.py` | Diff two `metadata.json` files (baseline vs new) for manual QA | Golden Sample Regression |
 | `scripts/match_trend.py` | Trend analysis across regression runs (heuristic_ratio / embedding_ratio) | Golden Sample Regression |
 
 All tools are standalone scripts with no `movie_narrator` package dependency:

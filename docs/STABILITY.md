@@ -45,33 +45,12 @@ version.
 
 ## Versioning Policy
 
-`movie-narrator` follows [Semantic Versioning 2.0.0](https://semver.org/).
-The package version in `pyproject.toml` and the `CONTRACT_VERSION` tuple in
-`contract.py` are always bumped together in the same release.
-
-### Package Version (pyproject.toml)
-
-| Component | Meaning |
-|-----------|---------|
-| **MAJOR** | Breaking changes to the public API. Users and plugins will need to update their code. |
-| **MINOR** | New features added in a backward-compatible manner. Existing code continues to work without changes. |
-| **PATCH** | Bug fixes, security patches, and documentation updates. No API surface changes. |
-
-### CONTRACT_VERSION (contract.py)
-
-`CONTRACT_VERSION` is a `(major, minor, patch)` tuple that tracks the public
-API surface independently of release marketing. It follows the same semver
-rules:
-
-| Component | Meaning |
-|-----------|---------|
-| **MAJOR** | Breaking removals or signature changes to exported symbols. |
-| **MINOR** | New exports added (backward compatible). Old code continues to work. |
-| **PATCH** | Bug fixes, doc changes — no change to the API surface. |
-
-> **Note**: `CONTRACT_VERSION` is bumped only when the public API surface
-> changes. Internal refactoring, bug fixes, and performance improvements
-> that do not affect exported symbols do not require a CONTRACT_VERSION bump.
+`movie-narrator` follows [Semantic Versioning 2.0.0](https://semver.org/). The
+package version in `pyproject.toml` and the `CONTRACT_VERSION` tuple in
+`contract.py` are always bumped together in the same release. See
+[PACKAGING.md](PACKAGING.md#versioning) for the full MAJOR/MINOR/PATCH
+semantics of both the package version and `CONTRACT_VERSION`; this section
+only restates the stability-relevant guarantee.
 
 ### Version Compatibility Rule
 

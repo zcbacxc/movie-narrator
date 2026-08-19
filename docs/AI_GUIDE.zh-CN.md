@@ -10,9 +10,9 @@
 | 主题 | 文档 |
 |------|------|
 | 项目简介与安装 | [README](../README.md) / [README.zh-CN](../README.zh-CN.md) |
-| 5 分钟快速开始 | [QUICKSTART.md](QUICKSTART.md) |
+| 5 分钟快速开始 | [QUICKSTART.zh-CN.md](QUICKSTART.zh-CN.md) |
 | 从零到进阶完整走查 | [TUTORIAL.zh-CN.md](TUTORIAL.zh-CN.md) |
-| LLM 服务商配置 | [LLM_PROVIDERS.md](LLM_PROVIDERS.md) |
+| LLM 服务商配置 | [LLM_PROVIDERS.zh-CN.md](LLM_PROVIDERS.zh-CN.md) |
 
 ## 架构与设计
 
@@ -20,15 +20,15 @@
 |------|------|
 | 系统架构与组件关系 | [ARCHITECTURE.zh-CN.md](ARCHITECTURE.zh-CN.md) |
 | 架构决策记录 | [ADR.zh-CN.md](ADR.zh-CN.md) |
-| 元数据字段参考 | [METADATA_SCHEMA.md](METADATA_SCHEMA.md) |
+| 元数据字段参考 | [METADATA_SCHEMA.zh-CN.md](METADATA_SCHEMA.zh-CN.md) |
 | 16 步流水线与步骤职责 | [ARCHITECTURE.zh-CN.md § 流水线总览](ARCHITECTURE.zh-CN.md#流水线总览) |
 
 ## 插件与扩展
 
 | 主题 | 文档 |
 |------|------|
-| 插件开发完整指南 | [PLUGIN_DEVELOPMENT.md](PLUGIN_DEVELOPMENT.md) |
-| 打包与发布 | [PACKAGING.md](PACKAGING.md) |
+| 插件开发完整指南 | [PLUGIN_DEVELOPMENT.zh-CN.md](PLUGIN_DEVELOPMENT.zh-CN.md) |
+| 打包与发布 | [PACKAGING.zh-CN.md](PACKAGING.zh-CN.md) |
 | SDK API 参考 | [sdk/](sdk/contract.md) |
 
 ## 贡献与发布

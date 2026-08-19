@@ -78,3 +78,7 @@ A: Run `ollama pull <model-name>` to pull it, then change `MN_LLM_MODEL` in `.en
 
 **Q: How do I use GPU on Windows?**
 A: After installing Ollama, it auto-detects NVIDIA GPUs by default. To enable Vulkan (AMD/Intel GPU), add the environment variable `OLLAMA_VULKAN=1`.
+
+## TTS Note
+
+Ollama does not currently offer TTS services. For TTS, use Edge TTS (free) or MiMo TTS.

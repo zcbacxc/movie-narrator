@@ -1,8 +1,6 @@
 # Movie Narrator
 
-`movie-narrator` is a Python CLI (`mn`) that turns a single prompt into a
-narrated movie-recap video — LLM script generation, TTS narration, subtitles,
-and rendered output over a 16-step pipeline.
+`movie-narrator` is a Python CLI (`mn`) that turns a single prompt into a narrated movie-recap video — LLM script generation, TTS narration, subtitles, and rendered output over a 16-step pipeline.
 
 Use the navigation on the left, or start here:
 
@@ -14,10 +12,9 @@ Use the navigation on the left, or start here:
 - [Roadmap](ROADMAP.md) — version planning
 - [Migration Guide](MIGRATION.md) — v0.x → v1.0 upgrade path
 - [API Stability](STABILITY.md) — stability promise, versioning policy, contract compatibility
-- [Release Checklist](RELEASE_CHECKLIST.md) — v1.0 Definition of Done
+- [Release Checklist](RELEASE_CHECKLIST.md) — v1.2 Definition of Done
 - [Contributing](CONTRIBUTING.md) — development setup and conventions
 - [Deployment](DEPLOYMENT.md) — Docker image, local cluster, GPU, volumes
 - [Packaging](PACKAGING.md) — versioning and PyPI publishing
 - [LLM Providers](LLM_PROVIDERS.md) — LLM backend setup guides
-- SDK Reference — auto-generated API documentation (Contract, Models,
-  Registries, Pipeline, TTS, Presets, Cloud)
+- [SDK Reference](sdk/contract.md) — auto-generated API documentation

@@ -78,3 +78,7 @@ A: `ollama pull <模型名>` 拉取后，修改 `.env` 中的 `MN_LLM_MODEL` 即
 
 **Q: Windows 上如何用 GPU？**
 A: 安装 Ollama 后默认自动检测 NVIDIA GPU。如需启用 Vulkan（AMD/Intel GPU），添加环境变量 `OLLAMA_VULKAN=1`。
+
+## TTS 说明
+
+Ollama 目前不提供 TTS 服务。配音请使用 Edge TTS（免费）或 MiMo TTS。

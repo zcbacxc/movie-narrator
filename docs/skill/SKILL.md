@@ -146,9 +146,9 @@ mn resume --state output/<movie>/pipeline_state.json           # resume from che
 The pipeline is a flat sequence of steps over a shared `Context`. Eight steps
 are **soft** (optional): `research_plot`, `align_audio`, `detect_scenes`,
 `match_clips`, `mix_bgm`, `translate_subtitles`, `run_qa_gate`,
-`export_clips`. Each writes a 4-state outcome
-(`disabled`/`skipped`/`success`/`failed`). Use `--strict` to make soft
-failures fatal.
+`export_clips`. Each writes a 5-state outcome
+(`disabled`/`skipped`/`success`/`failed`/`partial`). Use `--strict` to make
+soft failures fatal.
 
 ## Conventions an Agent Must Follow
 

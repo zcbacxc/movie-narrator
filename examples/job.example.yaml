@@ -77,7 +77,7 @@ narration_preset: ""        # douyin-fast | mainstream-dry | bilibili-long
 #          match_visual_features
 #   视觉: vision_captioner
 #   BGM:  bgm_gain_db / bgm_duck_db / bgm_normalize / audio_target_dbfs
-#          bgm_loudnorm / bgm_metadata_path
+#          bgm_loudnorm / bgm_metadata_path / bgm_ducking_backend
 #          bgm_ambient_path (v0.7.1+) / bgm_ambient_gain_db (v0.7.1+)
 #   TTS:  tts_pause_ms / tts_max_concurrent / tts_audio_format / tts_audio_bitrate
 #   翻译: translate_source_lang / translate_provider / translate_retries
@@ -93,7 +93,9 @@ narration_preset: ""        # douyin-fast | mainstream-dry | bilibili-long
 #          render_require_footage / render_min_footage_coverage / render_profile
 #          render_title_card_sec / render_cover_export / render_vertical_safe_area
 #          render_encoder (v0.7.0+) / render_transition (v0.7.1+)
-#          render_text_animation (v0.7.1+) / render_preview_mode (v0.7.2+)
+#          render_transition_duration (v0.7.1+)
+#          render_text_animation (v0.7.1+) / render_text_animation_duration (v0.7.1+)
+#          render_preview_mode (v0.7.2+) / render_preview_sec (v0.7.2+)
 #          render_template
 #   质检: qa_enabled / qa_max_silence_db / qa_min_duration_ratio / qa_max_duration_ratio
 #          qa_max_slideshow_risk / qa_max_black_ratio
