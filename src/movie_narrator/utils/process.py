@@ -120,7 +120,7 @@ def _signal_single(pid: int, sig: int) -> None:
 def _process_group_alive(pid: int) -> bool:
     """Return ``True`` if the process group (or bare process) still exists."""
     try:
-        os.killpg(pid, 0)  # type: ignore[attr-defined]  # POSIX-only
+        os.killpg(pid, 0)  # type: ignore[attr-defined, unused-ignore]  # POSIX-only
         return True
     except ProcessLookupError:
         pass
@@ -139,7 +139,7 @@ def _process_group_alive(pid: int) -> bool:
 def _terminate_posix_tree(pid: int, grace: float) -> None:
     """SIGTERM a process group, wait up to ``grace``, then SIGKILL."""
     try:
-        os.killpg(pid, _SIGTERM)  # type: ignore[attr-defined]  # POSIX-only
+        os.killpg(pid, _SIGTERM)  # type: ignore[attr-defined, unused-ignore]  # POSIX-only
     except ProcessLookupError:
         _signal_single(pid, _SIGTERM)
     except PermissionError:
@@ -155,7 +155,7 @@ def _terminate_posix_tree(pid: int, grace: float) -> None:
         return
 
     try:
-        os.killpg(pid, _SIGKILL)  # type: ignore[attr-defined]  # POSIX-only
+        os.killpg(pid, _SIGKILL)  # type: ignore[attr-defined, unused-ignore]  # POSIX-only
     except ProcessLookupError:
         _signal_single(pid, _SIGKILL)
     except PermissionError:
