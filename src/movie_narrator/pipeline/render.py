@@ -811,6 +811,11 @@ def render_video(ctx: Context) -> Context:
     ]
     if faststart:
         mux_cmd += ["-movflags", "+faststart"]
+    # ffmpeg cannot infer the container from the ``.part`` staging suffix, so
+    # pass the format explicitly (derived from the final target extension).
+    target_format = video_path.suffix.lstrip(".")
+    if target_format:
+        mux_cmd += ["-f", target_format]
     mux_cmd.append(str(partial_path))
 
     try:
