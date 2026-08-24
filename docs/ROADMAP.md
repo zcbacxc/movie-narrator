@@ -21,6 +21,7 @@
 | v1.0.x | **Stable Release** / API freeze / stability guarantees / release checklist / final documentation pass / long-term support policy |
 | v1.1.x | FunASR Chinese ASR / `mn doctor` / QA slideshow & black-frame detection / EmotionTrack / SQLite task store / visual-embedding match skeleton / timeline_export plugin / compliance (edge-tts + TMDB) / 90% coverage gate |
 | v1.2.x | Render subprocess governance / atomic artifact publication / checkpoint fingerprint / orphan task recovery / non-loopback auth enforcement / task admission limits / structured step logging / execution manifest / generation dry-run / provider retry governance / TTS cache statistics / portrait QA fix |
+| v1.2.1 | Persistent GPU capability cache / encoder fallback-reason reporting (incl. runtime GPU→CPU fallback audit) |
 
 `CONTRACT_VERSION` (current): `(1, 0, 0)` (unchanged in v1.2 — no new contract exports)
 
@@ -37,7 +38,7 @@
 #### Carried over from v1.2 (deferred items)
 
 - OpenTelemetry tracing — v1.2 shipped structured step logging instead; real span-based tracing (task → step/provider/subprocess) remains open.
-- Hardware encoding productization — v1.2 unified ffmpeg detection; capability cache, fallback-reason reporting, and benchmark are still pending.
+- Hardware encoding productization — v1.2 unified ffmpeg detection; capability cache and fallback-reason reporting shipped as a v1.2.1 patch, benchmark remains open.
 - Prompt/script cache — keyed by normalized topic / style / language / prompt-template version / model, with hit-source attribution.
 - Resource-aware admission — temp-disk / CPU / GPU / resolution checks and GPU-vs-CPU queue separation.
 - Provider idempotency keys — v1.2 decided against strong idempotency for non-deterministic LLM output (documented); revisit only if duplicate-billing becomes measurable.

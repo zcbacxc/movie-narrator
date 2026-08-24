@@ -22,9 +22,11 @@ _GPU_DETECT_MOD = "movie_narrator.utils.gpu_detect"
 
 
 @pytest.fixture(autouse=True)
-def _clear_lru_cache(monkeypatch):
-    """Reset the ``detect_gpu_encoder`` cache and clear CI env between tests."""
+def _isolate_gpu_detect(monkeypatch, tmp_path):
+    """Reset the probe cache, clear CI env, and redirect the on-disk
+    capability cache to a temp file so tests never touch the real user dir."""
     monkeypatch.delenv("CI", raising=False)
+    monkeypatch.setattr(f"{_GPU_DETECT_MOD}._cache_path", lambda: tmp_path / "gpu_cache.json")
     detect_gpu_encoder.cache_clear()
     yield
     detect_gpu_encoder.cache_clear()
@@ -113,11 +115,18 @@ def test_resolve_encoder_hints_unchanged():
 
 
 def test_get_encoder_info_reports_no_gpu():
-    with patch(f"{_GPU_DETECT_MOD}.detect_gpu_encoder", return_value=None):
+    with (
+        patch(f"{_GPU_DETECT_MOD}.detect_gpu_encoder", return_value=None),
+        patch(
+            f"{_GPU_DETECT_MOD}._infer_auto_fallback_reason",
+            return_value="not_detected",
+        ),
+    ):
         info = get_encoder_info()
     assert info == {
         "requested": "auto",
         "detected": None,
         "active": "libx264",
         "gpu_available": False,
+        "fallback_reason": "not_detected",
     }

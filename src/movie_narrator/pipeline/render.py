@@ -20,7 +20,11 @@ from proglog import TqdmProgressBarLogger
 from ..models import Context, MatchedClip, TimedSegment
 from ..utils.console import step_timing
 from ..utils.ffmpeg_bin import ffmpeg_bin
-from ..utils.gpu_detect import get_encoder_info, resolve_encoder
+from ..utils.gpu_detect import (
+    REASON_GPU_RUNTIME_FALLBACK,
+    get_encoder_info,
+    resolve_encoder,
+)
 from ..utils.metadata_export import build_metadata_json
 from ..utils.process import terminate_processes_matching
 from ..utils.text_image import create_text_image as _create_text_image
@@ -688,6 +692,9 @@ def render_video(ctx: Context) -> Context:
     # is active. See ..utils.gpu_detect for the probe + caching logic.
     render_encoder_hint = ctx.metadata.get("render_encoder")
     gpu_codec, gpu_params = resolve_encoder(render_encoder_hint)
+    # v1.2.1: non-None when a runtime GPU→libx264 fallback fires below; used to
+    # override metadata.json so the actual encoder + reason are truthful.
+    runtime_fallback_reason = None
 
     # TWO-STAGE ENCODE: write a video-only mp4 via MoviePy (which is
     # stable in isolation), then mux audio with ffmpeg in a second pass.
@@ -736,6 +743,21 @@ def render_video(ctx: Context) -> Context:
                 # pipeline degrades gracefully instead of aborting.
                 ctx.services.console.inline_warn(
                     f"GPU encoding ({gpu_codec}) failed: {gpu_err}. Retrying with libx264 (CPU)."
+                )
+                # v1.2.1: record the runtime fallback so metadata.json reflects
+                # the encoder actually used (see encoder_info below).
+                runtime_fallback_reason = REASON_GPU_RUNTIME_FALLBACK
+                logger.debug(
+                    "GpuEncoderFallback",
+                    extra={
+                        "event": "encoder_fallback",
+                        "task_id": ctx.metadata.get("run_id"),
+                        "pid": os.getpid(),
+                        "from_codec": gpu_codec,
+                        "to_codec": "libx264",
+                        "reason": REASON_GPU_RUNTIME_FALLBACK,
+                        "error": str(gpu_err),
+                    },
                 )
                 logger.debug("GPU encoding failed, falling back to CPU", exc_info=True)
                 gpu_codec = "libx264"
@@ -846,7 +868,13 @@ def render_video(ctx: Context) -> Context:
     # v0.7.0: Record which encoder was actually used (requested vs detected
     # vs active) so renders are reproducible/auditable. Stored before
     # build_metadata_json so it is included in metadata.json.
-    ctx.metadata["encoder_info"] = get_encoder_info(render_encoder_hint)
+    encoder_info = get_encoder_info(render_encoder_hint)
+    if runtime_fallback_reason is not None:
+        # v1.2.1: a runtime GPU→libx264 fallback fired, so the encoder we ended
+        # up using differs from the probe's detection — make it truthful.
+        encoder_info["active"] = "libx264"
+        encoder_info["fallback_reason"] = runtime_fallback_reason
+    ctx.metadata["encoder_info"] = encoder_info
 
     metadata = build_metadata_json(ctx)
     with open(output_dir / "metadata.json", "w", encoding="utf-8") as f:
