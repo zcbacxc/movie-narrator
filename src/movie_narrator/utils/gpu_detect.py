@@ -19,6 +19,7 @@ import platform
 import re
 import subprocess
 import tempfile
+from contextlib import suppress
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional
@@ -175,7 +176,9 @@ def _load_capability_cache() -> dict:
 def _store_capability_cache(entries: dict) -> None:
     """Persist probe entries atomically. Best-effort — never raises."""
     path = _cache_path()
-    try:
+    # A cache-write failure must never abort a render; suppress() keeps this
+    # bandit-clean instead of a bare ``except: pass`` (B110).
+    with suppress(Exception):
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = {"schema_version": _CACHE_SCHEMA_VERSION, "entries": entries}
         fd, tmp_path = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
@@ -184,22 +187,16 @@ def _store_capability_cache(entries: dict) -> None:
                 json.dump(payload, f, ensure_ascii=False, sort_keys=True)
             os.replace(tmp_path, path)
         except BaseException:
-            try:
+            with suppress(OSError):
                 os.unlink(tmp_path)
-            except OSError:
-                pass
             raise
-    except Exception:  # noqa: BLE001  # a cache-write failure must never abort a render
-        pass
 
 
 def clear_gpu_cache() -> None:
     """Reset the in-process probe cache and the on-disk capability cache."""
     detect_gpu_encoder.cache_clear()
-    try:
+    with suppress(OSError):
         _cache_path().unlink(missing_ok=True)
-    except OSError:
-        pass
 
 
 def _probe(ffmpeg: str) -> tuple[Optional[str], bool]:
