@@ -102,9 +102,9 @@
   - 预期结果：已完成表中含 v1.2.1 行；延后项（硬件编码）标注 v1.2.1 交付哪些、仍待推进哪些
 
 - [x] **当前版本对齐**
-  - 方法：用上个版本号（`v1.2.0`）作为"当前"声明检索文档
-  - 预期结果：`docs/DEPLOYMENT.zh-CN.md`/`.md`、`docs/MIGRATION.zh-CN.md`/`.md`（当前版本注记）、`docs/TUTORIAL.zh-CN.md`/`.md`（兼容性说明）、`docs/index.md`（发布清单标签）、`README.md` 及本清单均指向 **v1.2.1**
-  - 说明：同时更新本地 `CLAUDE.md` 的"当前版本"行（gitignored，仅本地）
+  - 方法：扫描**所有**公开文档（`docs/**/*.md` + `README.md`）——**不要依赖固定文件清单**——逐个 grep 上个版本号（`v1.2.0`）作为"当前"版本声明的使用
+  - 预期结果：无任何公开文档仍将旧版本当作当前版本；将每一处过期戳（`DEPLOYMENT`/`MIGRATION`/`TUTORIAL` 中的兼容性说明、`QUICKSTART` 中 `mn version` 输出、`index.md` 发布清单标签）更新为 **v1.2.1**。合理的历史引用保持不动（历史记录、比较基线、示例性表述）。重跑扫描确认。
+  - 说明：同时更新本地 `CLAUDE.md` 的"当前版本"行（gitignored，仅本地）。此检查与文件无关，后续新增文档也无需调整本清单
 
 - [ ] **mkdocs 构建成功**
   - 命令：`mkdocs build`

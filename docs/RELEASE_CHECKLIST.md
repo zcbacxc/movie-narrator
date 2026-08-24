@@ -103,9 +103,9 @@
   - Expected: v1.2.1 row in the Completed table; deferred items (hardware encoding) note what shipped in v1.2.1 and what remains open
 
 - [x] **Current-version alignment**
-  - Method: Grep the docs for the previous version number (`v1.2.0`) as a "current" claim
-  - Expected: `docs/DEPLOYMENT.md`/`.zh-CN`, `docs/MIGRATION.md`/`.zh-CN` (current-version note), `docs/TUTORIAL.md`/`.zh-CN` (compatibility note), `docs/index.md` (checklist label), `README.md` and this checklist all point to **v1.2.1**
-  - Note: Also update the local `CLAUDE.md` "Current version" line (gitignored, local-only)
+  - Method: Scan **all** public docs (`docs/**/*.md` + `README.md`) — do **not** rely on a fixed file list — and grep each for the previous version string (`v1.2.0`) used as a "current"-version claim
+  - Expected: No public doc still claims the old version as current; update every stale stamp (compatibility notes in `DEPLOYMENT`/`MIGRATION`/`TUTORIAL`, `mn version` output in `QUICKSTART`, `index.md` checklist label) to **v1.2.1**. Leave legitimate references intact (historical records, comparison baselines, illustrative examples). Re-run the scan to confirm.
+  - Note: Also update the local `CLAUDE.md` "Current version" line (gitignored, local-only). File-agnostic, so this item never needs a new file list
 
 - [ ] **mkdocs build succeeds**
   - Command: `mkdocs build`
