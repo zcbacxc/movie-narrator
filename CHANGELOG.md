@@ -5,17 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [1.2.1] - Unreleased
+## [1.2.1] - 2026-08-24
 
 ### Added
 
-- **Persistent GPU capability cache** — `detect_gpu_encoder` now persists successful probe results to `~/.movie-narrator/gpu_cache.json`, keyed to the resolved ffmpeg binary (path + size + mtime), platform, and CI flag. Fresh processes / worker restarts reuse a previous detection instead of re-running `ffmpeg -encoders`. Clean negative (no-GPU) results are cached too; probe failures never are. Writes are atomic, and any cache read/write failure silently falls back to a live probe.
-- **Encoder fallback-reason reporting** — `encoder_info` in `metadata.json` now includes a `fallback_reason` field (`no_ffmpeg` / `ci_skipped` / `probe_failed` / `not_detected` / `unknown_hint` / `gpu_runtime_fallback`) so it is visible at a glance why a GPU encoder was not used.
-- **Runtime GPU→CPU fallback auditable** — when a hardware encode throws mid-render and the pipeline retries with `libx264`, `metadata.json` now reports the encoder actually used (`active: libx264`) plus reason `gpu_runtime_fallback`, and a structured `encoder_fallback` log record (event / from/to codec / reason / error) is emitted for observability.
+- **Persistent GPU capability cache** — `detect_gpu_encoder` now persists successful probe results on disk (keyed to the resolved ffmpeg binary, platform, and CI flag), so fresh processes and worker restarts reuse a previous detection instead of re-running `ffmpeg -encoders`. Clean negative (no-GPU) results are cached too; probe failures never are; writes are atomic and any cache failure silently falls back to a live probe.
+- **Encoder fallback-reason reporting** — `encoder_info` in `metadata.json` now includes a `fallback_reason` field so it is visible at a glance why a GPU encoder was not used (no ffmpeg, CI skip, probe failure, no GPU detected, unknown hint, or an in-render GPU→CPU downgrade).
+- **Runtime GPU→CPU fallback auditable** — when a hardware encode throws mid-render and the pipeline retries with `libx264`, `metadata.json` reports the encoder actually used plus the reason, and a structured `encoder_fallback` log record is emitted for observability.
+- **Tests** (`tests/test_v121_gpu_cache.py` + `tests/test_render.py`): +18 tests covering the capability-cache hit/miss/invalidation paths and encoder fallback-reason reporting.
 
 ### Changed
-
-- `CONTRACT_VERSION` remains `(1, 0, 0)` — no new contract exports. The public `resolve_encoder` / `get_encoder_info` signatures are unchanged (internal `_resolve_encoder_with_reason` returns the extra reason).
+- `CONTRACT_VERSION` remains (1, 0, 0). All 2565 tests pass (1 skipped in CI, 0 failures). +18 new tests vs v1.2.0.
 
 ## [1.2.0] - 2026-08-18
 
@@ -1283,7 +1283,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `workflow_steps` and `params` metadata injection.
 - Console log refactoring design.
 
-[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/zcbacxc/movie-narrator/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/zcbacxc/movie-narrator/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/zcbacxc/movie-narrator/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/zcbacxc/movie-narrator/compare/v0.9.7...v1.0.0

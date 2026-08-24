@@ -23,7 +23,7 @@
 | v1.2.x | Render subprocess governance / atomic artifact publication / checkpoint fingerprint / orphan task recovery / non-loopback auth enforcement / task admission limits / structured step logging / execution manifest / generation dry-run / provider retry governance / TTS cache statistics / portrait QA fix |
 | v1.2.1 | Persistent GPU capability cache / encoder fallback-reason reporting (incl. runtime GPU→CPU fallback audit) |
 
-`CONTRACT_VERSION` (current): `(1, 0, 0)` (unchanged in v1.2 — no new contract exports)
+`CONTRACT_VERSION` (current): `(1, 0, 0)` (unchanged in v1.2 and v1.2.1 — no new contract exports)
 
 ---
 
