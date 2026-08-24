@@ -1,10 +1,10 @@
 [![English](https://img.shields.io/badge/English-Release_Checklist-blue)](RELEASE_CHECKLIST.md)
 [![简体中文](https://img.shields.io/badge/简体中文-发布清单-green)](RELEASE_CHECKLIST.zh-CN.md)
 
-# v1.2 Release Checklist
+# v1.2.1 Release Checklist
 
-> **Definition of Done for the v1.2 release.** Every item on this list
-> must be verified and checked off before the v1.2.0 tag is created and the
+> **Definition of Done for the v1.2.1 release.** Every item on this list
+> must be verified and checked off before the v1.2.1 tag is created and the
 > release is published to PyPI. Items are grouped by category; each has a
 > verification command or method.
 
@@ -14,7 +14,7 @@
 
 - [x] **mypy: zero errors**
   - Command: `mypy src/movie_narrator`
-  - Expected: `Success: no issues found in 121 source files`
+  - Expected: `Success: no issues found in ... source files`
   - Note: Must pass on Python 3.10 target (as configured in `pyproject.toml`); must match the CI `mypy` invocation exactly
 
 - [x] **ruff: zero errors**
@@ -22,12 +22,12 @@
   - Expected: No output (exit code 0)
   - Note: All `E`, `F`, `W`, `BLE`, `A` rules must pass (see `pyproject.toml`); CI lints `src/` only
 
-> **Code formatting (non-blocking, out of scope for v1.2)**: `ruff format` is not enforced by CI or pre-commit (no `.pre-commit-config.yaml` configured). ~80 files under `src/` (150 incl. `tests/`) are currently unformatted. Track as a separate `chore/ruff-format` cleanup so the diff stays isolated from the v1.2 changes.
+> **Code formatting (non-blocking)**: `ruff format` is not enforced by CI or pre-commit (no `.pre-commit-config.yaml` configured). Tracked as a separate `chore/ruff-format` cleanup so the diff stays isolated from the release changes.
 
 - [x] **Test coverage meets threshold**
   - Command: `pytest --cov=movie_narrator --cov-report=term-missing --cov-fail-under=90`
   - Expected: `Required test coverage of 90% reached. Total coverage: XX%`
-  - Note: Threshold defined in CI config (`.coveragerc` + `ci.yml`, enforced on the 3.11 matrix leg); v1.2 measured 90.74% (95% target tracked in `.coveragerc`); must not regress from the v1.1 baseline
+  - Note: Threshold defined in CI config (`.coveragerc` + `ci.yml`); v1.2.1 measured 90.75%; must not regress from the v1.1 baseline
 
 ---
 
@@ -41,7 +41,7 @@
 - [x] **Integration tests: all pass**
   - Command: `pytest -v -m integration`
   - Expected: All integration tests pass (may be skipped if scenedetect/ffmpeg not available)
-  - Note: Requires `scenedetect` (install `[media]` extra); ffmpeg is bundled
+  - Note: Requires `scenedetect` (install `[media]` extra); ffmpeg is resolved via `ffmpeg_bin()`
 
 - [x] **E2E smoke test passes**
   - Command: `pytest -v tests/test_e2e_smoke.py`
@@ -53,88 +53,63 @@
   - Expected: All contract re-export, protocol, and version tests pass
   - Note: Verifies `CONTRACT_VERSION` value and `__all__` completeness
 
-- [ ] **No flaky tests**
-  - Command: `pytest -v --count=3`
-  - Expected: Same tests pass consistently across 3 runs
-  - Note: Run on CI matrix (Python 3.10, 3.11, 3.12, 3.13)
+- [ ] **New v1.2.1 cache/fallback tests pass**
+  - Command: `pytest -v tests/test_gpu_detect.py tests/test_v120_gpu_detect.py tests/test_v121_gpu_cache.py`
+  - Expected: All pass (capability-cache hit/miss/invalidation + fallback-reason branches)
+  - Note: Adds +18 tests total vs v1.2.0
 
 ---
 
 ## Security
 
-- [x] **SAST (bandit) passes with zero high/critical findings**
+- [x] **SAST (bandit) passes with zero high-confidence findings**
   - Command: `bandit -r src/movie_narrator -c pyproject.toml`
-  - Expected: `No issues identified` (or only low/medium with documented exceptions)
-  - Note: Excludes tests, examples, docs per `pyproject.toml` bandit config
+  - Expected: No issues identified (or only low/medium with documented exceptions)
+  - Note: v1.2.1 fixed the earlier B110 (`try_except_pass`) finding in `gpu_detect.py` by using `contextlib.suppress`
 
 - [x] **Dependency audit (pip-audit) passes**
   - Command: `pip-audit`
   - Expected: `No known vulnerabilities found`
-  - Note: Run in a clean `pip install -e ".[dev]"` environment
-  - Note: Documented ignore-list entries (e.g., pillow 11.x) must be re-evaluated
+  - Note: Run in a clean `pip install -e ".[dev]"` environment; documented ignore-list entries must be re-evaluated
 
 - [ ] **No hardcoded secrets in code**
   - Method: Manual review + CI secret scanning (GitHub secret scanning)
   - Expected: No API keys, tokens, or credentials committed to source
-  - Note: Verify with `git diff main --name-only | xargs grep -l "sk-\|api_key\|secret"`
-
-- [ ] **SECURITY.md is up to date**
-  - Verification: Review `SECURITY.md` and `SECURITY.zh-CN.md`
-  - Expected: Vulnerability reporting process is current, contact info is valid
 
 - [x] **ADR-011 forbidden dependency check passes (machine-enforceable subset)**
   - Command: `python scripts/check_forbidden_deps.py`
   - Expected: No forbidden pip-installable packages found (Remotion, TypeTale, yt-dlp, Bilibili API, Playwright, IndexTTS, CosyVoice)
-  - Note: This checks the machine-detectable subset of ADR-011's red-line list (see `docs/ADR.md` ADR-011 and `docs/CONTRIBUTING.md` License Red Lines). Non-package red lines (e.g. copying TypeTale source, using scrapers behaviorally) still require manual code review.
+  - Note: Non-package red lines (e.g. copying TypeTale source, using scrapers behaviorally) still require manual code review
 
 - [ ] **FFmpeg bundle check passes**
   - Command: `python scripts/check_no_ffmpeg_bundle.py`
   - Expected: No `ffmpeg` or `ffprobe` binary found in built wheel
-  - Note: Confirms the ADR-011 FFmpeg policy; also runs automatically in `.github/workflows/publish.yml` after `twine check`.
+  - Note: Confirms the ADR-011 FFmpeg policy; also runs automatically in `.github/workflows/publish.yml` after `twine check`
 
 ---
 
 ## Documentation
 
-- [ ] **All bilingual docs are structurally aligned**
-  - Method: Compare EN and ZH versions of each document pair
-  - Expected: Same chapter count, same section hierarchy, same tables
-  - Files to verify: `README`, `ARCHITECTURE`, `ROADMAP`, `CONTRIBUTING`,
-    `BEST_PRACTICES`, `LLM_PROVIDERS`, `METADATA_SCHEMA`, `PACKAGING`,
-    `PLUGIN_DEVELOPMENT`, `QUICKSTART`, `AI_GUIDE`, `ADR`, `MIGRATION`,
-    `TUTORIAL`, `DEPLOYMENT`, `OBSERVABILITY`, `STABILITY`, `RELEASE_CHECKLIST`
-
-- [ ] **Migration Guide is complete and reviewed**
-  - Verification: Read `docs/MIGRATION.md` end-to-end
-  - Expected:
-    - v0.x → v1.0 upgrade steps are clear and accurate
-    - All breaking changes are documented
-    - Rollback procedure is included
-    - FAQ covers common upgrade scenarios
-
-- [ ] **API Reference (SDK docs) is complete**
-  - Verification: Run `mkdocs build` and inspect SDK reference pages
-  - Expected: All `movie_narrator.contract` exports are documented
-  - Note: `docs/sdk/` pages list all modules: contract, models, pipeline,
-    step_registry, errors, registries, tts, vision, presets, cloud, reliability
-
-- [ ] **Stability document is published**
-  - Verification: `docs/STABILITY.md` and `docs/STABILITY.zh-CN.md` exist and are linked from `mkdocs.yml` nav
-  - Expected: API stability promise, versioning policy, deprecation policy,
-    upgrade guarantees, Python version support, contract compatibility matrix
-
-- [ ] **CHANGELOG.md is finalized**
+- [x] **CHANGELOG.md is finalized**
   - Verification: Review `CHANGELOG.md`
   - Expected:
-    - `[Unreleased]` section moved to `[1.2.0]`
-    - All Keep a Changelog categories present (Added, Changed, Deprecated, Removed, Fixed, Security)
-    - `CONTRACT_VERSION` line remains `(1, 0, 0)` (no new contract exports in v1.2)
-    - Version comparison links at bottom are complete
+    - New `## [1.2.1] - <date>` heading (was `[Unreleased]`)
+    - `CONTRACT_VERSION` line uses the mandated format: `- `CONTRACT_VERSION` remains (1, 0, 0). All NNN tests pass (N skipped in CI, 0 failures). +M new tests vs v1.2.0.`
+    - Version comparison links at bottom updated (`[Unreleased]` → `.../compare/v1.2.1...HEAD`, new `[1.2.1]` link)
+    - Historical entries unchanged (no codename or terminology edits to old releases)
+
+- [x] **ROADMAP reflects v1.2.1**
+  - Verification: `docs/ROADMAP.md` (+ `.zh-CN.md`)
+  - Expected: v1.2.1 row in the Completed table; deferred items (hardware encoding) note what shipped in v1.2.1 and what remains open
+
+- [x] **Current-version alignment**
+  - Method: Grep the docs for the previous version number (`v1.2.0`) as a "current" claim
+  - Expected: `docs/DEPLOYMENT.md`/`.zh-CN`, `docs/MIGRATION.md`/`.zh-CN` (current-version note), `docs/TUTORIAL.md`/`.zh-CN` (compatibility note), `docs/index.md` (checklist label), `README.md` and this checklist all point to **v1.2.1**
+  - Note: Also update the local `CLAUDE.md` "Current version" line (gitignored, local-only)
 
 - [ ] **mkdocs build succeeds**
   - Command: `mkdocs build`
   - Expected: Build completes with no warnings or errors
-  - Note: All navigation links resolve, all images load, all code blocks render
 
 ---
 
@@ -142,73 +117,58 @@
 
 - [ ] **Version numbers are aligned**
   - Verification:
-    - `pyproject.toml` → `version = "1.2.0"`
-    - `src/movie_narrator/contract.py` → `CONTRACT_VERSION = (1, 0, 0)` (unchanged)
-    - `docs/ROADMAP.md` → CONTRACT_VERSION line shows `(1, 0, 0)` (unchanged in v1.2)
-    - `docs/MIGRATION.md` → current/target version references updated
-  - Expected: Package version 1.2.0; contract version remains (1, 0, 0)
+    - `pyproject.toml` → `version = "1.2.1"`
+    - `src/movie_narrator/contract.py` → `CONTRACT_VERSION = (1, 0, 0)` (unchanged — API surface unchanged, do **not** bump)
+    - `docs/ROADMAP.md` → CONTRACT_VERSION line shows `(1, 0, 0)` (unchanged in v1.2.1)
+    - `docs/MIGRATION.md` → current-version note updated
+  - Expected: Package version 1.2.1; contract version remains (1, 0, 0)
 
 - [ ] **Tag naming follows convention**
-  - Format: `v1.2.0` (lowercase `v`, semver, no prefix/suffix)
-  - Command: `git tag -a v1.2.0 -m "v1.2.0 - Reliability & Observability"`
-  - Note: Annotated tag, not lightweight
+  - Format: `v1.2.1` (lowercase `v`, semver, no prefix/suffix)
+  - Command: `git tag -a v1.2.1 -m "v1.2.1 - GPU Capability Cache & Encoder Fallback Observability"`
+  - Note: Annotated tag, not lightweight; tag push MUST be separate from branch push
 
-- [ ] **Release branch is merged to main**
-  - Verification: `release/v1.2` branch is merged into `main` via PR
-  - Expected: All CI checks pass on the merge commit
-  - Note: No direct pushes to `main`
+- [ ] **Release branch merged to main**
+  - Verification: feature branch merged into `main` via PR (all CI checks pass on the merge commit)
+  - Note: No direct pushes to `main`; squash or rebase merge per branch protection
 
 - [ ] **PyPI publish workflow is ready**
   - Verification: `.github/workflows/publish.yml` exists and is configured
   - Expected: Trusted Publisher configured, tag push triggers publish
   - Manual verification:
     ```bash
-    python -m build
-    twine check dist/*
-    pip install dist/movie_narrator-1.2.0-py3-none-any.whl
-    mn version  # should show 1.2.0
+    pip install dist/movie_narrator-1.2.1-py3-none-any.whl
+    mn version  # should show 1.2.1
     ```
 
-- [ ] **PyPI release verified**
-  - Verification:
-    ```bash
-    pip install movie-narrator==1.2.0
-    python -c "from movie_narrator.contract import CONTRACT_VERSION; print(CONTRACT_VERSION)"
-    # Expected: (1, 0, 0)
-    ```
-  - Expected: Package installs cleanly, import works, package version 1.2.0
+- [ ] **GitHub Release follows the release.md spec**
+  - Title: `v1.2.1 - GPU Capability Cache & Encoder Fallback Observability`
+  - Body: the `## [v1.2.1]` section of `CHANGELOG.md` copied verbatim (per `.claude/rules/release.md`), plus a link to the full CHANGELOG
+  - Exactly one **non-draft** release per tag — delete any empty draft left by `publish.yml`
 
 - [ ] **Git tag pushed**
-  - Command: `git push origin v1.2.0`
-  - Expected: Tag appears on GitHub, publish workflow starts
+  - Command: `git push origin v1.2.1`
+  - Expected: Tag appears on GitHub, publish workflow starts, PyPI `movie-narrator==1.2.1` published
   - Note: Push tag only after all checklist items are confirmed
-
-- [ ] **GitHub Release created**
-  - Verification: Release page created on GitHub with tag `v1.2.0`
-  - Expected:
-    - Title: `v1.2.0 - Reliability & Observability`
-    - Body: Summary of key features, links to migration guide and stability doc
-    - CHANGELOG entry included
-    - Pre-release checkbox is **unchecked**
 
 ---
 
 ## Post-Release
 
-- [ ] **Announcement posted**
-  - Channels: GitHub release page, discussion forum, social media (if applicable)
-  - Content: Key features, stability promise, migration guide link
+- [ ] **PyPI release verified**
+  - Verification:
+    ```bash
+    pip install movie-narrator==1.2.1
+    python -c "from movie_narrator.contract import CONTRACT_VERSION; print(CONTRACT_VERSION)"
+    # Expected: (1, 0, 0)
+    ```
+  - Expected: Package installs cleanly, import works, package version 1.2.1
 
-- [ ] **v1.2.x maintenance branch created**
-  - Command: `git checkout -b v1.2.x v1.2.0 && git push -u origin v1.2.x`
+- [ ] **Maintenance branch exists**
+  - Verification: `v1.2.x` branch present on origin (created at v1.2.0)
   - Purpose: Backport security and critical bug fixes for v1.x users
-
-- [ ] **ROADMAP updated for v1.3 planning**
-  - Verification: `docs/ROADMAP.md` v1.2.0 moved to Completed table
-  - Expected: v1.3.0 planning section added under Current & Planned
 
 ---
 
-*Use this checklist during the release candidate (RC) phase. Each RC should
-go through the full checklist. The final RC that passes all items becomes
-the v1.2.0 release.*
+*Use this checklist for each release candidate (RC). The final RC that passes
+all items becomes the v1.2.1 release.*
