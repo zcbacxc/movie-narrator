@@ -251,6 +251,19 @@
 | `render_text_animation` | str\|absent | 文字动画效果：`none`/`fade`/`slide_up`/`slide_left`（v0.7.1+） |
 | `render_preview_mode` | bool\|absent | 是否使用了预览模式（v0.7.2+） |
 
+### 字幕交付 (v1.4.1)
+
+字幕抵达观众的方式。通过 `subtitle_delivery` 作业参数配置（`burned` —
+默认，历史烧录行为；`sidecar` — 仅 SRT 文件，不烧录；`muxed` — SRT 以
+软字幕 `mov_text` 轨道混流进 mp4）。不可用的 muxed 请求降级为 burned，
+不会导致渲染失败。
+
+| 字段 | 类型 | 描述 |
+|-------|------|-------------|
+| `subtitle_delivery_used` | str | 降级后的实际交付模式：`burned`/`sidecar`/`muxed`（渲染步骤始终记录） |
+| `subtitle_mux_language` | str\|absent | 混流软字幕轨道的语言标签（ISO 639-2，如 `zho`；仅 muxed 模式）。翻译/双语轨道取 `subtitle_lang`，原版轨道取解说语言 `lang` |
+| `subtitle_delivery_fallback_reason` | str\|absent | 请求的 `muxed` 降级为 `burned` 的原因：`missing_srt` / `non_mp4_container` / `invalid_mode` |
+
 ### `cost`
 
 单次运行成本追踪（LLM token 用量 + TTS 调用）（v0.7.0+）。写入 `metadata.json` 的 `cost` 键；所有数值均为粗略估算，非精确计费值。

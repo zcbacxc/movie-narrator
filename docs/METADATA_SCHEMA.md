@@ -251,6 +251,20 @@ Video encoding quality validation results.
 | `render_text_animation` | str\|absent | Text animation effect: `none`/`fade`/`slide_up`/`slide_left` (v0.7.1+) |
 | `render_preview_mode` | bool\|absent | Whether preview mode was used (v0.7.2+) |
 
+### Subtitle delivery (v1.4.1)
+
+How subtitles reach the viewer. Requested via the `subtitle_delivery` job
+param (`burned` — default, historical hard-burn behaviour; `sidecar` — SRT
+files only, no burn-in; `muxed` — SRT muxed as a soft `mov_text` track into
+the mp4). Unavailable muxed requests degrade to burned without failing the
+render.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `subtitle_delivery_used` | str | Effective delivery mode after fallbacks: `burned`/`sidecar`/`muxed` (always recorded by the render step) |
+| `subtitle_mux_language` | str\|absent | Language tag of the muxed soft subtitle track (ISO 639-2, e.g. `zho`; muxed only). Translated/bilingual tracks carry `subtitle_lang`; the original track carries the narration `lang` |
+| `subtitle_delivery_fallback_reason` | str\|absent | Why a requested `muxed` degraded to `burned`: `missing_srt` / `non_mp4_container` / `invalid_mode` |
+
 ### `cost`
 
 Per-run cost tracking for LLM token usage and TTS calls (v0.7.0+). Written to `metadata.json` under the `cost` key; all figures are coarse estimates, not billing values.
