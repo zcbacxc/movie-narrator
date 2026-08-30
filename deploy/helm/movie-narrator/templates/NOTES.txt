@@ -1,0 +1,40 @@
+{{/* SPDX-FileCopyrightText: 2026 zcbacxc */}}
+{{/* SPDX-License-Identifier: AGPL-3.0-or-later */}}
+
+{{ include "movie-narrator.fullname" . }} has been deployed.
+
+1. Read the API key (generated when auth.apiKey was empty):
+
+   kubectl get secret {{ include "movie-narrator.secretName" . }} \
+     -o jsonpath='{.data.{{ .Values.auth.existingSecretKey }}}' | base64 -d
+
+   NOTE: a chart-generated key is re-generated on every `helm upgrade` —
+   set auth.apiKey or auth.existingSecret for production stability.
+
+2. Verify the deployment:
+
+   kubectl port-forward svc/{{ include "movie-narrator.fullname" . }} 8765:{{ .Values.service.port }}
+   curl http://127.0.0.1:8765/health      # {"status": "ok"} — no auth required
+   curl -H "X-API-Key: <key>" http://127.0.0.1:8765/info
+
+3. Non-loopback authentication (v1.2): the container binds 0.0.0.0 to be
+   reachable, and `mn serve` refuses an unauthenticated public bind. The
+   chart therefore always injects MN_API_KEY from the Secret above — do
+   NOT add --insecure to mn.serveArgs on a shared cluster.
+
+4. Persistence (when persistence.enabled=true, the default): one PVC with
+   three subPath mounts — user-home (/home/app/.movie-narrator: media
+   cache, prompt cache, user .env), output (/app/output: rendered
+   artifacts), tasks (/app/.mn_tasks: the task index). The default
+   ReadWriteOnce access mode suits replicaCount=1; scaling beyond one
+   replica requires ReadWriteMany storage and is NOT the supported
+   topology today (single-node is the product positioning, ADR-019).
+
+5. Configuration changes: the job.yaml ConfigMap is not rolled
+   automatically — apply edits, then:
+
+   kubectl rollout restart deployment/{{ include "movie-narrator.fullname" . }}
+
+6. Not included in v0.1.0 of this chart (future work, see
+   docs/DEPLOYMENT.md): ingress + TLS certificate management, HPA
+   autoscaling, GPU node pools / device plugins.

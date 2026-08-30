@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# movie-narrator Helm chart (v1.5.2, ADR-019).
+#
+# Status: structurally tested only — the chart is validated by
+# tests/test_v152_helm.py (YAML parse + values/template drift tripwire +
+# naive render) and was NOT exercised against a live cluster or
+# `helm lint` at authoring time (no helm binary in the dev environment).
+# See docs/DEPLOYMENT.md — "Kubernetes (Helm)" — and docs/ADR.md ADR-019.
+apiVersion: v2
+name: movie-narrator
+description: >-
+  movie-narrator — a production-grade automation platform that turns one
+  prompt into a narrated movie-recap video. This chart runs the `mn serve`
+  REST API + pipeline executor as a single Kubernetes Deployment (the
+  supported single-node topology; see docs/DEPLOYMENT.md).
+type: application
+version: 0.1.0
+appVersion: "1.5.2"
+home: https://github.com/zcbacxc/movie-narrator
+sources:
+  - https://github.com/zcbacxc/movie-narrator
+license: AGPL-3.0-or-later
+keywords:
+  - movie-narrator
+  - video
+  - narration
+  - tts

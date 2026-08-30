@@ -1,0 +1,151 @@
+# SPDX-FileCopyrightText: 2026 zcbacxc
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Default values for the movie-narrator chart (v1.5.2, ADR-019).
+# Every key here is referenced by at least one template; the drift
+# tripwire in tests/test_v152_helm.py fails when a template references a
+# key that this file does not define.
+#
+# Image assumption: the project does NOT publish an official registry
+# image (docs/DEPLOYMENT.md builds `movie-narrator:<tag>` locally). Build
+# it per docs/DEPLOYMENT.md ("Building the image"), then push it to your
+# own registry and point image.repository at it, e.g.
+#   docker tag movie-narrator:1.5.2 registry.example.com/ai/movie-narrator:1.5.2
+#   docker push registry.example.com/ai/movie-narrator:1.5.2
+
+replicaCount: 1
+
+image:
+  # No official upstream image yet — see the header comment above.
+  repository: movie-narrator
+  # Empty tag = chart appVersion (currently "1.5.2").
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # The app never talks to the Kubernetes API; the token mount is disabled
+  # in the deployment regardless.
+  create: true
+  annotations: {}
+  name: ""
+
+service:
+  type: ClusterIP
+  # The image EXPOSEs 8765 and `mn serve` listens there by default.
+  port: 8765
+
+auth:
+  # `mn serve` refuses to bind a non-loopback address without an API key
+  # (v1.2). The chart binds 0.0.0.0 and always injects MN_API_KEY:
+  # - auth.existingSecret set  -> use that Secret (key: existingSecretKey)
+  # - auth.apiKey set          -> chart creates a Secret holding it
+  # - both empty               -> chart creates a Secret with a generated
+  #   key (kubectl get secret ... to read it; NOTES.txt has the command).
+  #   NOTE: a generated key is re-generated on every `helm upgrade` — set
+  #   auth.apiKey or auth.existingSecret for production stability.
+  apiKey: ""
+  existingSecret: ""
+  existingSecretKey: api-key
+
+mn:
+  # The image ENTRYPOINT is ["mn"] (Dockerfile), so `args` selects the
+  # subcommand + flags — the same shape as the compose `command:` block.
+  serveArgs:
+    - serve
+    - --host
+    - 0.0.0.0
+    - --port
+    - "8765"
+    - --storage-dir
+    - /app/.mn_tasks
+  # Active-task admission cap (MN_MAX_CONCURRENT_TASKS, v1.3+). Empty =
+  # unlimited (the historical default).
+  maxConcurrentTasks: ""
+  # Queue pool layout (MN_WORKER_QUEUES, v1.4.0). Empty = single pool;
+  # "split" enables the GPU/CPU pool split.
+  workerQueues: ""
+  # OpenTelemetry tracing (v1.4.0) — OFF by default (zero-overhead no-op).
+  tracing:
+    enabled: "0"
+    exporter: "none"
+  # Extra container env entries (list of {name, value[, valueFrom ...]}),
+  # rendered verbatim after the fixed env block above. Use this for
+  # MN_LLM_*, MN_TTS_*, MN_TMDB_* … — or better, a Secret + valueFrom.
+  extraEnv: []
+
+resources:
+  # Sized for a render worker: rendering is CPU- and memory-hungry
+  # (moviepy/ffmpeg frames are held in memory). Start conservative and
+  # raise limits after observing real jobs.
+  requests:
+    cpu: "1"
+    memory: 2Gi
+  limits:
+    cpu: "4"
+    memory: 6Gi
+
+persistence:
+  # One PVC, three subPath mounts:
+  #   user-home -> /home/app/.movie-narrator  (~/.movie-narrator: media
+  #               cache, prompt cache, user .env)
+  #   output    -> /app/output                (rendered artifacts)
+  #   tasks     -> /app/.mn_tasks             (the task index tasks.json)
+  enabled: true
+  existingClaim: ""
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 10Gi
+
+config:
+  # Mount a job.yaml (extract of examples/job.example.yaml) into the pod
+  # at /app/job.yaml. One-shot `mn create` runs inside the pod (kubectl
+  # exec …) auto-discover it from the working directory; `mn serve` /
+  # `mn submit` API submissions do NOT read it. ConfigMap changes are not
+  # rolled automatically — restart the deployment after editing (NOTES.txt).
+  enabled: true
+  existingConfigmap: ""
+  jobYaml: |
+    # movie-narrator job configuration (mounted at /app/job.yaml).
+    # Full key reference: examples/job.example.yaml — all keys optional.
+    # Boundary: .env = credentials/endpoints/models; this file = pipeline
+    # behavior only. Priority: CLI > this file > inline defaults.
+    movie: ""
+    style: ""
+    duration: 60
+    video_format: "16:9"
+    keep_cache: false
+    strict: false
+    steps:
+      research: true
+      scene: true
+      match: true
+      bgm: true
+      export: true
+
+podAnnotations: {}
+
+podSecurityContext:
+  # The image runs as UID/GID 10001 (Dockerfile USER app:app); fsGroup
+  # lets most provisioners chown the mounted volumes to match.
+  fsGroup: 10001
+
+securityContext:
+  allowPrivilegeEscalation: false
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  capabilities:
+    drop:
+      - ALL
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

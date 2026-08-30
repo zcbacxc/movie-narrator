@@ -1,0 +1,17 @@
+{{/* SPDX-FileCopyrightText: 2026 zcbacxc */}}
+{{/* SPDX-License-Identifier: AGPL-3.0-or-later */}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "movie-narrator.fullname" . }}
+  labels:
+    {{- include "movie-narrator.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "movie-narrator.selectorLabels" . | nindent 4 }}

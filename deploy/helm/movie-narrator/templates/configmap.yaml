@@ -1,0 +1,16 @@
+{{/* SPDX-FileCopyrightText: 2026 zcbacxc */}}
+{{/* SPDX-License-Identifier: AGPL-3.0-or-later */}}
+{{- if .Values.config.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "movie-narrator.configName" . }}
+  labels:
+    {{- include "movie-narrator.labels" . | nindent 4 }}
+data:
+  # Mounted at /app/job.yaml (subPath). One-shot `mn create` runs inside
+  # the pod auto-discover it from the working directory; API submissions
+  # (`mn submit`) do not read it.
+  job.yaml: |
+    {{- .Values.config.jobYaml | nindent 4 }}
+{{- end }}

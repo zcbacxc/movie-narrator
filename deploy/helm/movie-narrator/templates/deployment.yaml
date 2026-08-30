@@ -1,0 +1,126 @@
+{{/* SPDX-FileCopyrightText: 2026 zcbacxc */}}
+{{/* SPDX-License-Identifier: AGPL-3.0-or-later */}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "movie-narrator.fullname" . }}
+  labels:
+    {{- include "movie-narrator.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "movie-narrator.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "movie-narrator.selectorLabels" . | nindent 8 }}
+      {{- if .Values.podAnnotations }}
+      annotations:
+        {{- toYaml .Values.podAnnotations | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- if .Values.serviceAccount.create }}
+      serviceAccountName: {{ include "movie-narrator.serviceAccountName" . }}
+      {{- end }}
+      # The app never talks to the Kubernetes API.
+      automountServiceAccountToken: false
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml .Values.imagePullSecrets | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # The image ENTRYPOINT is ["mn"] (Dockerfile), so `args` selects
+          # the subcommand + flags — mirrors the compose `command:` block.
+          args:
+            {{- toYaml .Values.mn.serveArgs | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          env:
+            # v1.2: `mn serve` refuses a non-loopback bind without an API
+            # key — the chart always injects MN_API_KEY (created or
+            # pre-existing Secret; never --insecure).
+            - name: MN_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "movie-narrator.secretName" . }}
+                  key: {{ .Values.auth.existingSecretKey }}
+            # Active-task admission cap (v1.3+); empty = unlimited.
+            - name: MN_MAX_CONCURRENT_TASKS
+              value: {{ .Values.mn.maxConcurrentTasks | quote }}
+            # Queue pool layout (v1.4.0); empty = single pool, "split" =
+            # GPU/CPU pools.
+            - name: MN_WORKER_QUEUES
+              value: {{ .Values.mn.workerQueues | quote }}
+            # OpenTelemetry tracing (v1.4.0) — off by default.
+            - name: MN_TRACING
+              value: {{ .Values.mn.tracing.enabled | quote }}
+            - name: MN_TRACING_EXPORTER
+              value: {{ .Values.mn.tracing.exporter | quote }}
+            {{- if .Values.mn.extraEnv }}
+            {{- toYaml .Values.mn.extraEnv | nindent 12 }}
+            {{- end }}
+          # Probe paths mirror the real routes in cloud/api.py:
+          # GET /health (public, v0.6.1) and GET /ready (public, v0.8.2).
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /home/app/.movie-narrator
+              subPath: user-home
+            - name: data
+              mountPath: /app/output
+              subPath: output
+            - name: data
+              mountPath: /app/.mn_tasks
+              subPath: tasks
+            {{- if .Values.config.enabled }}
+            - name: config
+              mountPath: /app/job.yaml
+              subPath: job.yaml
+            {{- end }}
+      volumes:
+        {{- if .Values.persistence.enabled }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim | default (include "movie-narrator.fullname" .) }}
+        {{- else }}
+        - name: data
+          emptyDir: {}
+        {{- end }}
+        {{- if .Values.config.enabled }}
+        - name: config
+          configMap:
+            name: {{ include "movie-narrator.configName" . }}
+        {{- end }}
+      nodeSelector:
+        {{- toYaml .Values.nodeSelector | nindent 8 }}
+      tolerations:
+        {{- toYaml .Values.tolerations | nindent 8 }}
+      affinity:
+        {{- toYaml .Values.affinity | nindent 8 }}
