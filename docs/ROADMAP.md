@@ -23,8 +23,9 @@
 | v1.2.x | Render subprocess governance / atomic artifact publication / checkpoint fingerprint / orphan task recovery / non-loopback auth enforcement / task admission limits / structured step logging / execution manifest / generation dry-run / provider retry governance / TTS cache statistics / portrait QA fix |
 | v1.2.1 | Persistent GPU capability cache / encoder fallback-reason reporting (incl. runtime GPU→CPU fallback audit) |
 | v1.3.0 | Workflow semantics — selective rerun (`mn rerun`) / linear-compatible DAG contract / versioned deliverable manifest |
+| v1.3.1 | Service semantics — tenant/principal foundation / plans & entitlements / webhook MVP / dashboard contract |
 
-`CONTRACT_VERSION` (current): `(1, 1, 0)` (bumped in v1.3.0 — workflow-semantics exports; unchanged in v1.2 and v1.2.1)
+`CONTRACT_VERSION` (current): `(1, 2, 0)` (bumped in v1.3.1 — service-semantics exports; bumped in v1.3.0 — workflow-semantics exports)
 
 ---
 
@@ -49,10 +50,10 @@
 - Selective rerun — rerun from any registered step via `mn rerun` with downstream invalidation, no re-research. **(shipped in v1.3.0)**
 - Linear-compatible DAG contract — explicit step inputs / outputs / artifact keys / dependency declarations with a linear adapter (no parallelism yet). **(shipped in v1.3.0)**
 - Versioned deliverable manifest — `deliverable_manifest.json` declaring MP4 / audio / SRT / script / clips / timeline / checksums / compatibility version. **(shipped in v1.3.0)**
-- Dashboard contract — stable manifest / API surface for the external `movie-narrator-web` UI.
-- Principal & tenant foundation — tenant/principal propagated through task, artifact, cache reference, audit, and lifecycle; every route authorized.
-- Plans & entitlements — max duration / resolution / watermark / GPU & provider access / output format / TTL modeling.
-- Webhook MVP — signed events, delivery retry, idempotent event IDs, delivery records (replaces pure polling).
+- Dashboard contract — stable manifest / API surface for the external `movie-narrator-web` UI. **(shipped in v1.3.1)**
+- Principal & tenant foundation — tenant/principal propagated through tasks, artifacts, and audit records with per-tenant artifact scoping (full lifecycle/row isolation long-term). **(shipped in v1.3.1)**
+- Plans & entitlements — max duration / resolution / artifact bytes / watermark / GPU-encoder permission / artifact TTL, enforced at submission + worker injection. **(shipped in v1.3.1)**
+- Webhook MVP — signed events, delivery retry, idempotent event IDs, delivery records (replaces pure polling). **(shipped in v1.3.1)**
 - Timeline export hardening — `timeline_export_backend` accepted by the core whitelist with integration tests.
 - Reference media input contract — `reference_media[]` entries with video/image kind, usage, license source, and style features; image-reference style hints via the VLM provider.
 

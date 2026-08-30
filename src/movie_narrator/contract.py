@@ -50,7 +50,7 @@ from typing import Callable, Optional, Protocol, runtime_checkable
 #   MAJOR — breaking changes to exported symbols or signatures
 #   MINOR — new exports added (backward compatible)
 #   PATCH — bug fixes, doc changes (no API surface change)
-CONTRACT_VERSION: tuple[int, int, int] = (1, 1, 0)
+CONTRACT_VERSION: tuple[int, int, int] = (1, 2, 0)
 
 
 def check_version(required: tuple[int, int, int]) -> None:
@@ -573,6 +573,8 @@ from .pipeline.deliverable import (  # noqa: E402
     DeliverableManifest,
     ManifestEntry,
     write_deliverable_manifest,
+)
+
 # ── Service & Product Semantics (v1.3.1) — new exports, backward
 # compatible. Plans/entitlements (cloud.entitlements), webhook push
 # notifications (cloud.webhooks) and the versioned dashboard summary
