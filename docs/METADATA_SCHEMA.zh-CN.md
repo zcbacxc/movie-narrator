@@ -334,3 +334,14 @@
 **核心与可选种类**：`video`、`audio`、`subtitle` 是核心种类——其条目始终出现，产物缺失时为 `present=false` 并使用约定路径（`final.mp4`、`narration.mp3`、`subtitle.srt`），消费者可以依赖清单结构。`script`、`clip`、`metadata`、`execution_manifest` 是可选种类——仅在存在时出现。
 
 **视频条目**：`final.mp4`，预览模式下为 `preview.mp4`（即渲染的 `ctx.video_path`）。**音频条目**：优先为 BGM 混音后的最终音频，否则为原始旁白音频。
+## 提示词缓存 (v1.3.2, 可选开启)
+
+`ctx.metadata["prompt_cache"]` — 逐阶段的缓存记录列表，仅在选择性开启提示词缓存（`MN_PROMPT_CACHE=1`；默认关闭，此时该键不存在）时写入。每个被缓存的原始 LLM 调用（调研、脚本节拍、脚本扩写）各一条记录；评判（judge）调用永不缓存。
+
+| 字段 | 类型 | 描述 |
+|-------|------|-------------|
+| `stage` | str | 逻辑调用标识：`research` / `script_beats` / `script_expand` |
+| `hit` | bool | `true` = 命中缓存（跳过 LLM 调用）；`false` = 实际调用 LLM 并存储响应 |
+| `key_prefix` | str | sha256 缓存键前 12 位（确定性输入元组） |
+
+缓存条目存放于 `~/.movie-narrator/prompts/`，TTL 7 天，LRU 上限 200 条。损坏条目按未命中处理并删除。开启开关见 `.env.example`。
