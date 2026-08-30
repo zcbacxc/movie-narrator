@@ -425,6 +425,12 @@ __all__ = [
     "WebhookEvent",
     "WebhookDispatcher",
     "build_dashboard_summary",
+    # Opt-in OpenTelemetry tracing (v1.4.0)
+    "SpanHandle",
+    "start_task_span",
+    "start_step_span",
+    "start_provider_span",
+    "start_subprocess_span",
 ]
 
 
@@ -585,4 +591,15 @@ from .cloud import (  # noqa: E402
     WebhookDispatcher,
     WebhookEvent,
     build_dashboard_summary,
+)
+
+# ── Opt-in OpenTelemetry tracing (v1.4.0) — new exports, backward
+# compatible. Span handles are no-ops unless ``MN_TRACING`` is enabled
+# and the optional ``[otel]`` extra is installed; see movie_narrator.tracing.
+from .tracing import (  # noqa: E402
+    SpanHandle,
+    start_provider_span,
+    start_step_span,
+    start_subprocess_span,
+    start_task_span,
 )

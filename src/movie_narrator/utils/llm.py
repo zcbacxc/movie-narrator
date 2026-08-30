@@ -27,6 +27,7 @@ from openai import APIStatusError, OpenAI
 from ..config import get_settings
 from ..providers import llm_registry, register_llm
 from ..reliability import CIRCUIT_REGISTRY, RetryPolicy, with_retry
+from ..tracing import wrap_provider_call  # v1.4.0 — opt-in provider spans
 from ..workflow.errors import is_network_error
 
 
@@ -73,8 +74,16 @@ def _wrap_llm_retry(client: OpenAI) -> OpenAI:
     Does not introduce any idempotency/short-circuit cache: every call is
     forwarded to the model (LLM outputs are non-deterministic, so caching
     concrete responses would risk stale reuse).
+
+    v1.4.0: each ``create`` call also runs inside one provider span
+    (retry attempts included). No-op unless ``MN_TRACING`` is enabled.
     """
-    client.chat.completions.create = with_retry(LLM_RETRY_POLICY)(client.chat.completions.create)
+    client.chat.completions.create = wrap_provider_call(
+        with_retry(LLM_RETRY_POLICY)(client.chat.completions.create),
+        "openai",
+        "llm",
+        model=get_settings().llm_model,
+    )
     return client
 
 

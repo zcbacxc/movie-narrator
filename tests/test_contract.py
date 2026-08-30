@@ -160,6 +160,12 @@ class TestAllCompleteness:
             "WebhookEvent",
             "WebhookDispatcher",
             "build_dashboard_summary",
+            # Opt-in OpenTelemetry tracing (v1.4.0)
+            "SpanHandle",
+            "start_task_span",
+            "start_step_span",
+            "start_provider_span",
+            "start_subprocess_span",
         }
         assert expected.issubset(set(contract.__all__))
 
@@ -409,3 +415,36 @@ class TestV130ContractExports:
         assert contract.DeliverableManifest is _DeliverableManifest
         assert contract.ManifestEntry is _ManifestEntry
         assert contract.write_deliverable_manifest is _write_deliverable_manifest
+
+
+# ── v1.4.0 contract exports (append-only section) ─────────
+
+
+class TestV140ContractExports:
+    """v1.4.0 tracing symbols are importable from the contract module."""
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "SpanHandle",
+            "start_task_span",
+            "start_step_span",
+            "start_provider_span",
+            "start_subprocess_span",
+        ],
+    )
+    def test_tracing_symbols_identity(self, name):
+        from movie_narrator import tracing as _tracing
+
+        assert hasattr(contract, name), f"{name!r} not exported from contract"
+        assert getattr(contract, name) is getattr(_tracing, name)
+
+    def test_span_handle_is_noop_when_disabled(self, monkeypatch):
+        """Contract-exported span factories yield no-op handles by default."""
+        monkeypatch.delenv("MN_TRACING", raising=False)
+        monkeypatch.delenv("MN_TRACING_EXPORTER", raising=False)
+        with contract.start_task_span("t1", "movie") as span:
+            assert isinstance(span, contract.SpanHandle)
+            span.set_attribute("k", "v")  # must not raise
+            span.record_exception(ValueError("x"))
+            span.set_status("error", "boom")

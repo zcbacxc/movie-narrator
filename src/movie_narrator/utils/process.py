@@ -26,6 +26,7 @@ import os
 import signal
 import subprocess
 import time
+from pathlib import Path
 from typing import Sequence
 
 logger = logging.getLogger(__name__)
@@ -197,6 +198,16 @@ def run_ffmpeg_subprocess(
         OSError: If the binary cannot be started.
     """
     start = time.monotonic()
+    # v1.4.0: wrap the child execution in a subprocess span. The tracing
+    # import stays inside this helper so this module's import surface
+    # remains stdlib-only (tracing.py itself loads OpenTelemetry lazily
+    # and everything is a no-op unless ``MN_TRACING`` is enabled).
+    from ..tracing import start_subprocess_span
+
+    parts = [str(part) for part in cmd]
+    cmd_head = Path(parts[0]).name if parts else "ffmpeg"
+    if len(parts) > 1:
+        cmd_head = f"{cmd_head} {parts[1]}"
     # Detach the child into its own session/process group on POSIX so
     # ``terminate_process_tree`` can signal every descendant at once.
     # Windows uses its own process-tree kill path and does not need it.
@@ -204,31 +215,32 @@ def run_ffmpeg_subprocess(
     # explicit stdout/stderr pipes.
     stdout_pipe = subprocess.PIPE if capture_output else None
     stderr_pipe = subprocess.PIPE if capture_output else None
-    proc = subprocess.Popen(  # nosec B607  # cmd[0] is an ffmpeg path resolved by ffmpeg_bin
-        list(cmd),
-        stdout=stdout_pipe,
-        stderr=stderr_pipe,
-        text=text,
-        encoding=encoding,
-        errors=errors,
-        start_new_session=(os.name != "nt"),
-    )
-
-    try:
-        out, err = proc.communicate(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        logger.error(
-            "subprocess timed out after %.1fs (pid=%d): %s",
-            time.monotonic() - start,
-            proc.pid,
-            _cmd_summary(cmd),
+    with start_subprocess_span(cmd_head, timeout):
+        proc = subprocess.Popen(  # nosec B607  # cmd[0] is an ffmpeg path resolved by ffmpeg_bin
+            list(cmd),
+            stdout=stdout_pipe,
+            stderr=stderr_pipe,
+            text=text,
+            encoding=encoding,
+            errors=errors,
+            start_new_session=(os.name != "nt"),
         )
-        terminate_process_tree(proc.pid, grace=grace)
+
         try:
-            proc.wait(timeout=max(1.0, grace))
+            out, err = proc.communicate(timeout=timeout)
         except subprocess.TimeoutExpired:
-            logger.warning("subprocess pid=%d not reaped after tree kill", proc.pid)
-        raise SubprocessTimeoutError(cmd, timeout, proc.pid) from None
+            logger.error(
+                "subprocess timed out after %.1fs (pid=%d): %s",
+                time.monotonic() - start,
+                proc.pid,
+                _cmd_summary(cmd),
+            )
+            terminate_process_tree(proc.pid, grace=grace)
+            try:
+                proc.wait(timeout=max(1.0, grace))
+            except subprocess.TimeoutExpired:
+                logger.warning("subprocess pid=%d not reaped after tree kill", proc.pid)
+            raise SubprocessTimeoutError(cmd, timeout, proc.pid) from None
 
     return subprocess.CompletedProcess(list(cmd), proc.returncode, out, err)
 

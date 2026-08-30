@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, cast
 
 from .. import __version__
 from ..models import Assets, Context, MetadataDict, PipelineStatus, Services, StepResult, StepState
+from ..tracing import start_step_span  # v1.4.0 — opt-in OpenTelemetry spans
 from ..utils.console import build_console
 from ..utils.environment import collect_environment
 from .align import align_audio
@@ -1014,100 +1015,115 @@ def run_pipeline(
         step_start = time.time()
         console.step(name)
 
-        attempt = 0
-        step_error_cls: Optional[str] = None
-        while True:
-            attempt += 1
-            try:
-                ctx = step(ctx)
-                break  # success — exit retry loop
-            except PipelineCancelled:
-                console.cancelled("Pipeline cancelled.")
-                raise
-            except Exception as e:  # noqa: BLE001 — pipeline step barrier: catch all for retry/degrade policy
-                elapsed = time.time() - step_start
-                # Retryable-error orchestration: detect retryable (transient) errors via the
-                # `retryable` attribute on ProviderError subclasses (and any
-                # wrapped exception that sets it). Network timeouts / rate
-                # limits / temporary-unavailable set it True; config and
-                # logic errors default to False (non-retryable).
-                is_retryable = bool(getattr(e, "retryable", False))
-                ctx.step_state.step_retryable = is_retryable
-                if name in SOFT_STATUS_STEPS:
-                    _set_pipeline_status_failed(ctx, name)
-                    consequence = SOFT_STEP_CONSEQUENCES.get(name, "")
-                    msg = str(e)
-                    if consequence:
-                        msg = f"{msg} — {consequence}"
-                    ctx.step_state = StepState(
-                        result=StepResult.WARNING,
-                        message=msg,
-                        step_retryable=is_retryable,
+        # v1.4.0: one tracing span around the step's execution (retries
+        # included). Strictly no-op unless ``MN_TRACING`` is enabled —
+        # see ``movie_narrator.tracing``.
+        with start_step_span(name, 0) as step_span:
+            attempt = 0
+            step_error_cls: Optional[str] = None
+            while True:
+                attempt += 1
+                try:
+                    ctx = step(ctx)
+                    break  # success — exit retry loop
+                except PipelineCancelled:
+                    console.cancelled("Pipeline cancelled.")
+                    raise
+                except Exception as e:  # noqa: BLE001 — pipeline step barrier: catch all for retry/degrade policy
+                    elapsed = time.time() - step_start
+                    # Retryable-error orchestration: detect retryable (transient) errors via the
+                    # `retryable` attribute on ProviderError subclasses (and any
+                    # wrapped exception that sets it). Network timeouts / rate
+                    # limits / temporary-unavailable set it True; config and
+                    # logic errors default to False (non-retryable).
+                    is_retryable = bool(getattr(e, "retryable", False))
+                    ctx.step_state.step_retryable = is_retryable
+                    if name in SOFT_STATUS_STEPS:
+                        _set_pipeline_status_failed(ctx, name)
+                        consequence = SOFT_STEP_CONSEQUENCES.get(name, "")
+                        msg = str(e)
+                        if consequence:
+                            msg = f"{msg} — {consequence}"
+                        ctx.step_state = StepState(
+                            result=StepResult.WARNING,
+                            message=msg,
+                            step_retryable=is_retryable,
+                        )
+                        console.step_warn(name, ctx.step_state.message or "")
+                        ctx.metadata.setdefault("_degraded_steps", []).append(name)
+                        # AQ-10: write per-step error to metadata for audit
+                        if name == "mix_bgm":
+                            ctx.metadata["bgm_error"] = str(e)
+                        _check_strict(ctx, name)
+                        step_error_cls = type(e).__name__
+                        break  # exit retry loop, continue to next step
+
+                    # Hard step failure — check for interactive retry.
+                    action = _handle_step_error(controller, name, e, attempt, console)
+                    if action is StepAction.RETRY:
+                        console.debug(f"  retrying {name} (attempt {attempt + 1})...")
+                        ctx.step_state = StepState()
+                        step_error_cls = None
+                        continue
+                    elif action is StepAction.SKIP:
+                        console.step_warn(name, f"skipped after {attempt} attempt(s): {e}")
+                        ctx.step_state = StepState(
+                            result=StepResult.WARNING,
+                            message=f"skipped: {e}",
+                            step_retryable=is_retryable,
+                        )
+                        step_error_cls = type(e).__name__
+                        break  # exit retry loop, continue to next step
+
+                    step_records.append(
+                        _emit_step_log(
+                            ctx, name, attempt, elapsed, "failed", error_class=type(e).__name__
+                        )
                     )
-                    console.step_warn(name, ctx.step_state.message or "")
-                    ctx.metadata.setdefault("_degraded_steps", []).append(name)
-                    # AQ-10: write per-step error to metadata for audit
-                    if name == "mix_bgm":
-                        ctx.metadata["bgm_error"] = str(e)
-                    _check_strict(ctx, name)
-                    step_error_cls = type(e).__name__
-                    break  # exit retry loop, continue to next step
+                    console.step_err(name, e, elapsed)
+                    # v1.4.0: the propagating exception is recorded on the
+                    # span by the context manager's exit; label it too.
+                    step_span.set_attribute("mn.step.attempt", attempt)
+                    step_span.set_attribute("mn.step.error_class", type(e).__name__)
+                    raise
 
-                # Hard step failure — check for interactive retry.
-                action = _handle_step_error(controller, name, e, attempt, console)
-                if action is StepAction.RETRY:
-                    console.debug(f"  retrying {name} (attempt {attempt + 1})...")
-                    ctx.step_state = StepState()
-                    step_error_cls = None
-                    continue
-                elif action is StepAction.SKIP:
-                    console.step_warn(name, f"skipped after {attempt} attempt(s): {e}")
-                    ctx.step_state = StepState(
-                        result=StepResult.WARNING,
-                        message=f"skipped: {e}",
-                        step_retryable=is_retryable,
-                    )
-                    step_error_cls = type(e).__name__
-                    break  # exit retry loop, continue to next step
+            elapsed = time.time() - step_start
 
-                step_records.append(
-                    _emit_step_log(
-                        ctx, name, attempt, elapsed, "failed", error_class=type(e).__name__
-                    )
-                )
-                console.step_err(name, e, elapsed)
-                raise
+            # ── Surface soft-step degradation from non-exception paths ──
+            # Some soft steps (e.g. align_audio in C1 fix) internally catch
+            # exceptions and set status.<field>='failed' + step_state.result
+            # = WARNING without re-raising. The runner's outer except block
+            # (line 336-348) only accumulates _degraded_steps for steps that
+            # raise; without this check, internal fallbacks stay invisible
+            # in the runner's degradation summary (even though metadata.json
+            # records them via align_degraded / scene_detection_degraded).
+            #
+            # Fix: after a step returns normally, if it's a soft step whose
+            # status field is 'failed' or 'skipped' AND step_state.result is
+            # WARNING, accumulate it into _degraded_steps (idempotent — the
+            # exception path may have already added it).
+            if name in SOFT_STATUS_STEPS and ctx.step_state.result is StepResult.WARNING:
+                field = STATUS_FIELD_FOR_STEP.get(name)
+                status_val = getattr(ctx.status, field, None) if field else None
+                if status_val in ("failed", "skipped"):
+                    degraded_list = ctx.metadata.setdefault("_degraded_steps", [])
+                    if name not in degraded_list:  # dedupe vs exception path
+                        degraded_list.append(name)
 
-        elapsed = time.time() - step_start
-
-        # ── Surface soft-step degradation from non-exception paths ──
-        # Some soft steps (e.g. align_audio in C1 fix) internally catch
-        # exceptions and set status.<field>='failed' + step_state.result
-        # = WARNING without re-raising. The runner's outer except block
-        # (line 336-348) only accumulates _degraded_steps for steps that
-        # raise; without this check, internal fallbacks stay invisible
-        # in the runner's degradation summary (even though metadata.json
-        # records them via align_degraded / scene_detection_degraded).
-        #
-        # Fix: after a step returns normally, if it's a soft step whose
-        # status field is 'failed' or 'skipped' AND step_state.result is
-        # WARNING, accumulate it into _degraded_steps (idempotent — the
-        # exception path may have already added it).
-        if name in SOFT_STATUS_STEPS and ctx.step_state.result is StepResult.WARNING:
-            field = STATUS_FIELD_FOR_STEP.get(name)
-            status_val = getattr(ctx.status, field, None) if field else None
-            if status_val in ("failed", "skipped"):
-                degraded_list = ctx.metadata.setdefault("_degraded_steps", [])
-                if name not in degraded_list:  # dedupe vs exception path
-                    degraded_list.append(name)
-
-        # ── Render step result ───────────────────────────────
-        _render_step_result(ctx, name, elapsed, console)
-        result_name = _STEP_RESULT_LOG_NAME.get(ctx.step_state.result, "success")
-        step_records.append(
-            _emit_step_log(ctx, name, attempt, elapsed, result_name, error_class=step_error_cls)
-        )
-        _check_strict(ctx, name)
+            # ── Render step result ───────────────────────────────
+            _render_step_result(ctx, name, elapsed, console)
+            result_name = _STEP_RESULT_LOG_NAME.get(ctx.step_state.result, "success")
+            step_records.append(
+                _emit_step_log(ctx, name, attempt, elapsed, result_name, error_class=step_error_cls)
+            )
+            # v1.4.0: span outcome attributes (name/attempt are set at open
+            # and updated once the retry loop settled).
+            step_span.set_attribute("mn.step.attempt", attempt)
+            step_span.set_attribute("mn.step.duration_s", round(float(elapsed), 4))
+            step_span.set_attribute("mn.step.result", result_name)
+            if step_error_cls is not None:
+                step_span.set_attribute("mn.step.error_class", step_error_cls)
+            _check_strict(ctx, name)
 
         # ── Pause-at check ─────────────────────────────────
         # If the user requested a pause after this step, serialize state

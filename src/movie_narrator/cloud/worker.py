@@ -25,6 +25,7 @@ from typing import Any, Callable, Dict, Optional, Tuple, cast
 from ..models import Context, Services
 from ..pipeline.errors import PipelineCancelled
 from ..pipeline.runner import STEPS, build_context, common_build_kwargs, run_pipeline
+from ..tracing import start_task_span  # v1.4.0 — opt-in OpenTelemetry spans
 from ..utils.console import (
     BaseConsole,
     Console,
@@ -758,6 +759,30 @@ def run_task(
     Returns:
         The updated task with result and final status.
     """
+    # v1.4.0: one tracing span around the whole task execution (all retry
+    # attempts). No-op unless ``MN_TRACING`` is enabled. Step/provider/
+    # subprocess spans opened inside the loop nest under this span via
+    # OpenTelemetry context propagation.
+    with start_task_span(task.id, task.request.movie_name) as task_span:
+        task_span.set_attribute("mn.task.tenant", task.tenant_id or "default")
+        task_span.set_attribute("mn.task.plan", task.plan or "default")
+        return _run_task_with_retry(
+            task,
+            controller,
+            on_progress=on_progress,
+            on_status_change=on_status_change,
+            checkpoint_store=checkpoint_store,
+        )
+
+
+def _run_task_with_retry(
+    task: Task,
+    controller: CancelController,
+    on_progress: Optional[Callable[..., Any]] = None,
+    on_status_change: Optional[Callable[..., Any]] = None,
+    checkpoint_store: Optional[CheckpointStore] = None,
+) -> Task:
+    """Retry loop behind :func:`run_task` (v1.4.0 split for the task span)."""
     max_retries = task.request.max_retries
 
     for attempt in range(max_retries + 1):

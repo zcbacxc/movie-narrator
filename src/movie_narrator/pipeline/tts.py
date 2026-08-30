@@ -20,6 +20,7 @@ from ..utils.emotion_track import EmotionTrack
 from ..utils.prosody import emotion_to_speed, apply_speed
 from ..tts import TTSCacheKey, get_tts_provider, is_ci
 from ..tts.voice_map import resolve_voice
+from ..tracing import start_provider_span  # v1.4.0 — opt-in provider spans
 from ..tts.cache import (
     cache_path_for,
     CACHE_SCHEMA_VERSION,
@@ -134,6 +135,14 @@ def generate_voice(ctx: Context) -> Context:
         or settings.default_voice
     )
     provider = get_tts_provider(settings)
+    # v1.4.0: model identifier for the per-segment provider span.
+    tts_model = (
+        settings.openai_tts_model
+        if settings.tts_provider is TTSProviderType.OPENAI
+        else settings.mimo_tts_model
+        if settings.tts_provider is TTSProviderType.MIMO
+        else ""
+    )
     pause_ms = ctx.metadata.get("tts_pause_ms", 300)
     max_concurrent = ctx.metadata.get("tts_max_concurrent", 3)
     audio_fmt = ctx.metadata.get("tts_audio_format", "mp3")
@@ -169,42 +178,49 @@ def generate_voice(ctx: Context) -> Context:
 
         async def _one(seg):
             async with sem:
-                key = _key(seg.text)
-                cached = cache_path_for(cache_root, key)
-                if is_ci():
-                    # CI bypasses cache: synthesize to a temp path, probe, then
-                    # delete. Silent-audio files must never enter the cache —
-                    # otherwise a subsequent non-CI run would hit the silent
-                    # cache and skip real synthesis.
-                    tmp = output_dir / f".ci_{cached.name}"
-                    await provider.synthesize(seg.text, voice, tmp)
-                    audio = AudioSegment.from_mp3(tmp)
-                    tmp.unlink(missing_ok=True)
-                    cached_flag = False
-                else:
-                    cached_flag = cached.exists()
-                    if not cached_flag:
-                        await _synthesize_with_retry(provider, seg.text, voice, cached, console)
-                    # ST-07: if cached file is corrupt (from a previous
-                    # interrupted write before the fix), delete and retry once.
-                    try:
-                        audio = AudioSegment.from_mp3(cached)
-                    except Exception:
-                        console.inline_warn(
-                            f"Corrupt TTS cache file detected, re-synthesizing: {cached.name}"
-                        )
-                        cached.unlink(missing_ok=True)
-                        await provider.synthesize(seg.text, voice, cached)
-                        audio = AudioSegment.from_mp3(cached)
+                # v1.4.0: one provider span per TTS segment call (no-op
+                # unless ``MN_TRACING`` is enabled); the cache-hit flag is
+                # stamped once known.
+                with start_provider_span(
+                    settings.tts_provider.value, "tts", model=tts_model
+                ) as span:
+                    key = _key(seg.text)
+                    cached = cache_path_for(cache_root, key)
+                    if is_ci():
+                        # CI bypasses cache: synthesize to a temp path, probe, then
+                        # delete. Silent-audio files must never enter the cache —
+                        # otherwise a subsequent non-CI run would hit the silent
+                        # cache and skip real synthesis.
+                        tmp = output_dir / f".ci_{cached.name}"
+                        await provider.synthesize(seg.text, voice, tmp)
+                        audio = AudioSegment.from_mp3(tmp)
+                        tmp.unlink(missing_ok=True)
                         cached_flag = False
-                    # Cache accounting (v1.2): record the *effective* outcome —
-                    # a corrupt file that got re-synthesized counts as a miss,
-                    # mirroring the cost tracker's cached flag.
-                    if cached_flag:
-                        record_cache_hit(cache_root)
                     else:
-                        record_cache_miss(cache_root)
-                return audio, round(len(audio) / 1000.0, 3), cached_flag
+                        cached_flag = cached.exists()
+                        if not cached_flag:
+                            await _synthesize_with_retry(provider, seg.text, voice, cached, console)
+                        # ST-07: if cached file is corrupt (from a previous
+                        # interrupted write before the fix), delete and retry once.
+                        try:
+                            audio = AudioSegment.from_mp3(cached)
+                        except Exception:
+                            console.inline_warn(
+                                f"Corrupt TTS cache file detected, re-synthesizing: {cached.name}"
+                            )
+                            cached.unlink(missing_ok=True)
+                            await provider.synthesize(seg.text, voice, cached)
+                            audio = AudioSegment.from_mp3(cached)
+                            cached_flag = False
+                        # Cache accounting (v1.2): record the *effective* outcome —
+                        # a corrupt file that got re-synthesized counts as a miss,
+                        # mirroring the cost tracker's cached flag.
+                        if cached_flag:
+                            record_cache_hit(cache_root)
+                        else:
+                            record_cache_miss(cache_root)
+                    span.set_attribute("mn.provider.cache_hit", bool(cached_flag))
+                    return audio, round(len(audio) / 1000.0, 3), cached_flag
 
         # gather preserves input order: triplets[i] matches ctx.segments[i].
         # Split the cache-hit flag out (aligned by construction) while
