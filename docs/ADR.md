@@ -555,6 +555,40 @@ The ROADMAP deferred item "real span-based tracing (task → step/provider/subpr
 - `src/movie_narrator/tracing.py`, `src/movie_narrator/pipeline/runner.py`, `src/movie_narrator/cloud/worker.py`, `src/movie_narrator/utils/llm.py`, `src/movie_narrator/pipeline/tts.py`, `src/movie_narrator/utils/process.py`
 - `docs/OBSERVABILITY.md` §4.2 (Distributed tracing)
 - `.env.example` (v1.4.0 variables)
+## ADR-015: Subtitle Delivery Modes & the Output Stability Promise
+
+**Status:** Accepted
+**Version:** Introduced in v1.4.1
+
+**Context**
+
+Subtitles have always been hard-burned (SRT → PIL images composited at render) with SRT sidecars written alongside — the ROADMAP's long-term item for selectable subtitle delivery was blocked on an output contract. v1.3.0's `deliverable_manifest.json` (schema_version + checksums) now enables one.
+
+**Decision Drivers**
+
+- Default (`burned`) must be byte-identical to v1.3.2; no contract surface changes.
+- A delivery mode must never fail the render — degradation over abort.
+- mov_text is an MP4-family codec: muxed is only representable in mp4-family containers.
+
+**Considered Options**
+
+- Always-muxed default (rejected: changes every existing render; mov_text player support varies; burn-in remains the only universally visible option).
+- External subtitle-burn step after render (rejected: duplicates the composite layout — position/safe-area logic would drift between the two burn paths).
+- Three-mode `subtitle_delivery` param with muxed→burned degradation (chosen).
+
+**Decision Outcome**
+
+`subtitle_delivery: burned | sidecar | muxed` (default dropped in merge, mirroring `timeline_export_backend`). sidecar/muxed skip all burn-in — including footage-fallback text cards, so no text is ever burned outside burned mode. muxed maps the mode-selected SRT as a soft `mov_text` track (`-metadata:s:s:0 language=`, ISO 639-2) and degrades to burned on missing SRT / non-mp4 container, recording `subtitle_delivery_used`, `subtitle_mux_language` and a fallback reason in metadata. STABILITY.md gains a narrow output promise: manifest schema v1 stable (additive-only), the default deliverable set compatible across 1.x patch/minor; checksums are informational, not contractual.
+
+**Consequences**
+
+- Positive: faster sidecar/muxed renders; players can toggle/style soft subtitles; the output promise is versioned and test-guarded.
+- Negative: sidecar/muxed renders of footage-less jobs show only background cards; mov_text styling/language support is player-dependent (provided-as-is).
+
+**References**
+
+- `src/movie_narrator/workflow/schema.py`, `src/movie_narrator/pipeline/render.py`
+- `docs/STABILITY.md` (Output Format Compatibility), `docs/METADATA_SCHEMA.md`, `examples/job.example.yaml`
 
 ---
 
@@ -576,3 +610,4 @@ The ROADMAP deferred item "real span-based tracing (task → step/provider/subpr
 | ADR-012 | Linear-compatible DAG Contract | Accepted | v1.3.0 | Steps declare `inputs`/`outputs`/`depends_on`; `pipeline/dag.py` validates linear compatibility (`topological_order` == linear order); runner stays linear |
 | ADR-013 | Service and Product Semantics — Tenants, Plans, and Webhooks | Accepted | v1.3.1 | Tenant/principal labelling MVP (not isolation); plans enforced at API validation + worker injection (pipeline untouched); webhooks = JSONL delivery log + HMAC signing, redelivery deferred |
 | ADR-014 | Opt-in OpenTelemetry Tracing | Accepted | v1.4.0 | `movie_narrator.tracing` span factories (task → step/provider/subprocess); `[otel]` extra = api+sdk only, OTLP not bundled; `MN_TRACING` off (default) = zero-overhead no-op; pre-registered global providers used unchanged |
+| ADR-015 | Subtitle Delivery Modes & the Output Stability Promise | Accepted | v1.4.1 | `subtitle_delivery` burned/sidecar/muxed with muxed→burned degradation (soft mov_text track, never fails render); narrow STABILITY promise on manifest schema v1 + default deliverable set |

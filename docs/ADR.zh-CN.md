@@ -555,6 +555,40 @@ ROADMAP 中的预留项“基于真实 Span 的追踪（task → step/provider/s
 - `src/movie_narrator/tracing.py`、`src/movie_narrator/pipeline/runner.py`、`src/movie_narrator/cloud/worker.py`、`src/movie_narrator/utils/llm.py`、`src/movie_narrator/pipeline/tts.py`、`src/movie_narrator/utils/process.py`
 - `docs/OBSERVABILITY.zh-CN.md` §4.2（分布式追踪）
 - `.env.example`（v1.4.0 变量）
+## ADR-015：字幕交付模式与输出稳定性承诺
+
+**状态：** Accepted
+**版本：** 于 v1.4.1 引入
+
+**背景**
+
+字幕一直以来都是硬烧录的（SRT → PIL 图像在渲染时合成），同时落盘 SRT 外挂文件——ROADMAP 中"可选字幕交付方式"的长期项一直被阻塞在缺少输出契约上。v1.3.0 的 `deliverable_manifest.json`（schema_version + 校验和）使其成为可能。
+
+**决策驱动因素**
+
+- 默认（`burned`）必须与 v1.3.2 字节级一致；不改契约表面。
+- 交付模式绝不能导致渲染失败——降级而非中止。
+- mov_text 是 MP4 系编码：muxed 只能在 mp4 系容器中表达。
+
+**备选方案**
+
+- 默认总是混流（否决：改变所有现有渲染；mov_text 播放器支持参差；烧录仍是唯一普遍可见的选项）。
+- 渲染后由独立步骤烧录字幕（否决：复制合成布局——位置/安全区逻辑会在两条烧录路径之间漂移）。
+- 三态 `subtitle_delivery` 参数 + muxed→burned 降级（采纳）。
+
+**决策结果**
+
+`subtitle_delivery: burned | sidecar | muxed`（默认值在合并时丢弃，镜像 `timeline_export_backend`）。sidecar/muxed 跳过全部烧录——包括素材缺失的文字回退卡，burned 之外绝不烧录任何文字。muxed 将模式选定的 SRT 映射为软字幕 `mov_text` 轨道（`-metadata:s:s:0 language=`，ISO 639-2），在 SRT 缺失 / 非 mp4 容器时降级为 burned，并在元数据中记录 `subtitle_delivery_used`、`subtitle_mux_language` 与降级原因。STABILITY.md 新增窄范围输出承诺：清单 schema v1 稳定（仅可新增），默认交付物集合在 1.x 的 patch/minor 间兼容；校验和仅是信息，不构成契约。
+
+**后果**
+
+- 正面：sidecar/muxed 渲染更快；播放器可开关/样式化软字幕；输出承诺有版本化并被测试守护。
+- 负面：无素材作业的 sidecar/muxed 渲染只显示背景色卡；mov_text 的样式/语言支持依赖播放器（按原样提供）。
+
+**参考资料**
+
+- `src/movie_narrator/workflow/schema.py`、`src/movie_narrator/pipeline/render.py`
+- `docs/STABILITY.zh-CN.md`（输出格式兼容性）、`docs/METADATA_SCHEMA.zh-CN.md`、`examples/job.example.yaml`
 
 ---
 
@@ -576,3 +610,4 @@ ROADMAP 中的预留项“基于真实 Span 的追踪（task → step/provider/s
 | ADR-012 | 线性兼容的 DAG 契约 | Accepted | v1.3.0 | 步骤声明 `inputs`/`outputs`/`depends_on`；`pipeline/dag.py` 验证线性兼容（`topological_order` == 线性顺序）；运行器保持线性 |
 | ADR-013 | 服务与产品语义——租户、套餐与 Webhook | Accepted | v1.3.1 | 租户/主体打标 MVP（非隔离）；套餐在 API 校验 + worker 注入两点执行（管线不动）；Webhook = JSONL 投递日志 + HMAC 签名，重发推迟 |
 | ADR-014 | 可选开启的 OpenTelemetry 追踪 | Accepted | v1.4.0 | `movie_narrator.tracing` Span 工厂（task → step/provider/subprocess）；`[otel]` extra 仅含 api+sdk，不捆绑 OTLP；`MN_TRACING` 关闭（默认）即零开销空操作；已注册的全局 Provider 原样使用 |
+| ADR-015 | 字幕交付模式与输出稳定性承诺 | Accepted | v1.4.1 | `subtitle_delivery` burned/sidecar/muxed，muxed→burned 降级（软字幕 mov_text 轨道，绝不导致渲染失败）；STABILITY 新增窄范围承诺（清单 schema v1 + 默认交付物集合） |
