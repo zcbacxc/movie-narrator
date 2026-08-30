@@ -688,6 +688,53 @@ ROADMAP 长期项要求在 OTIO + 剪映之外扩展时间线适配器；目标�
 
 ---
 
+## ADR-019：Kubernetes Helm Chart 与分布式工作流试点的推迟
+
+**状态：** Accepted
+**版本：** 记录于 v1.5.2
+
+**背景**
+
+v1.5.2 中两项 ROADMAP 事项同步成熟。社区与 SaaS 一节要求"Helm chart / K8s 部署模板——面向真正在 Kubernetes 上运行的团队"，而长期架构事项将 Temporal 试点（Celery 为备选）以真实运营指标为门槛。v1.4 的插桩（追踪 Span、用量台账、队列治理）让这些触发条件首次可度量。
+
+**决策驱动因素**
+
+- 部署对等：compose 的故事（单镜像、`mn serve`、`/health` + `/ready` 探针、非回环绑定的强制 API key）必须 1:1 迁移到 chart。
+- 诚实：CI 里没有 Kubernetes 集群；未经集群验证就宣称"生产就绪"是虚假信心。
+- 单节点是产品定位（ROADMAP）；编排机制必须用观测到的指标证明自身价值，而非靠预期。
+
+**备选方案**
+
+- *在 CI 中对真实集群验证 chart*（否决）：CI 无集群；kind/minikube e2e 等有维护者承接后再做。
+- *chart 不带测试直接发布*（否决）：values/模板漂移会让安装悄然失效。
+- *结构化测试 + 朴素渲染 + 如实记录验证缺口*（选定）：`tests/test_v152_helm.py` 解析 Chart/values YAML，对模板与 values.yaml 之间的任何 `.Values.*` 漂移报警，并用 helm 子集求值器把每个模板渲染为可解析的 YAML——CI 无需 helm 二进制；剩余缺口在 chart、DEPLOYMENT.md 与 NOTES.txt 中明示。
+- *现在就启动 Temporal/Celery 试点*（否决）：尚无多节点需求；在任何触发条件出现之前引入持久执行/中间件的运维成本得不偿失。
+- *仅为任务路由采用 Celery*（否决）：只有中间件运维、没有工作流语义（持久定时器、心跳、可重放历史）——而这些才是该事项的动机。
+
+**决策结果**
+
+1. chart 以**仅结构化测试**的状态发布——撰写时未在真实集群或 `helm lint` 上验证；请用户先运行 `helm template` / `helm lint` 并审阅清单后再上生产。
+2. 分布式工作流试点**以可度量的触发条件推迟**；单节点仍是受支持的拓扑。
+
+试点触发条件——任一持续成立即启动 Temporal 试点（均可由 v1.4 插桩读出）：
+
+- p95 任务队列延迟 > 15 分钟且持续 7 天，或渲染步骤 p95 > 30 分钟（追踪/任务 Span）；
+- 孤儿恢复率 > 2%/周（重启后停留在 RUNNING、需 `mn cleanup` 清理的任务占比）；
+- 重复提供方调用率 > 5%（用量台账：重试加上相同输入上的缓存未命中）；
+- 连续两周 ≥ 3 个 worker 分布在 ≥ 2 个节点（部署普查）；
+- ≥ 2 个集成方提出人工审批步骤或持久定时器需求。
+
+**后果**
+
+- 正面：Kubernetes 团队获得经过评审、有测试锚定的起点；推迟决策是可证伪的——任一触发条件都可从导出的指标核对，而非凭感觉。
+- 负面：首批安装者事实上是验证者（已如实记录）；若产品定位变化，触发条件清单需要重审。
+
+**参考资料**
+
+- `deploy/helm/movie-narrator/`、`tests/test_v152_helm.py`、`docs/DEPLOYMENT.zh-CN.md`（Kubernetes（Helm）；媒体缓存）、ROADMAP 长期事项 + 社区与 SaaS 一节
+
+---
+
 ## Decision Index
 
 | # | ADR | 状态 | 版本 | 摘要 |
@@ -710,3 +757,4 @@ ROADMAP 长期项要求在 OTIO + 剪映之外扩展时间线适配器；目标�
 | ADR-016 | 通过 FCP7 XML 交换格式对接 Premiere | Accepted | v1.4.2 | `timeline_export` 插件新增 `premiere` 后端：标准库 FCP7 XML（`xmeml`）写入器，Premiere 原生导入；核心仅白名单变更 |
 | ADR-017 | HDR/4K 管线：10-bit + 色彩元数据、仅 CPU 编码 | Accepted | v1.5.0 | `render_bit_depth` 8/10 + `render_color_space` sdr/hdr10：`yuv420p10le` / libx264 high10（仅 CPU，`10bit_gpu_unsupported` 回退），显式 bt709 / bt2020+smpte2084 混流标签，`render_pixel` 元数据；视频 QA 交叉校验 pix_fmt / 传递函数与 4K 级精确尺寸 |
 | ADR-018 | 社区预设是经过校验的数据，而非代码 | Accepted | v1.5.1 | `mn presets install` 存储白名单内的 YAML 数据（绝不执行代码），复用 `job.yaml` 白名单 + schema 进行校验；记录 sha256，加载时重新校验；内置优先 |
+| ADR-019 | Kubernetes Helm Chart 与分布式工作流试点的推迟 | Accepted | v1.5.2 | chart 以仅结构化测试的状态发布（values/模板漂移哨兵 + 朴素渲染；未在真实集群 / `helm lint` 验证——如实记录）；Temporal/Celery 试点以可度量触发条件推迟（队列延迟、孤儿恢复、重复提供方调用、多节点普查） |

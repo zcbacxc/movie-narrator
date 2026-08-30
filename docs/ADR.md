@@ -688,6 +688,53 @@ With the preset style layer stable, ROADMAP unblocks sharing narration presets a
 
 ---
 
+## ADR-019: Kubernetes Helm Chart & the Distributed-Workflow Pilot Deferral
+
+**Status:** Accepted
+**Version:** Recorded at v1.5.2
+
+**Context**
+
+Two ROADMAP items mature together in v1.5.2. The Community & SaaS item asks for "Helm chart / K8s deployment templates — for teams actually running on Kubernetes", while the Long-term item keeps a Temporal pilot (Celery as fallback) demand-gated on real operational metrics. v1.4's instrumentation (tracing spans, usage ledger, queue governance) now makes those triggers measurable.
+
+**Decision Drivers**
+
+- Deployment parity: the compose story (single image, `mn serve`, `/health` + `/ready` probes, mandatory API key on non-loopback binds) must transfer 1:1 to the chart.
+- Honesty: CI runs no Kubernetes cluster; shipping an "enterprise-ready" claim without cluster validation would be false confidence.
+- Single-node is the product positioning (ROADMAP); orchestration machinery must pay for itself in observed metrics, not anticipation.
+
+**Considered Options**
+
+- *Chart validated in CI against a live cluster* (rejected): no cluster in CI; kind/minikube e2e is future work once a maintainer commits to it.
+- *Chart shipped without tests* (rejected): silent values/template drift would break installs invisibly.
+- *Structural tests + naive render + documented validation gap* (chosen): `tests/test_v152_helm.py` parses Chart/values YAML, trips on any `.Values.*` drift between templates and values.yaml, and renders every template to parseable YAML via a helm-subset evaluator — no helm binary needed in CI; the remaining gap is stated in the chart, DEPLOYMENT.md, and NOTES.txt.
+- *Start the Temporal/Celery pilot now* (rejected): no multi-node demand exists; adds durable-execution/broker ops before any trigger fires.
+- *Adopt Celery for task routing only* (rejected): broker operations without the workflow semantics (durable timers, heartbeats, replayable history) that motivate the item.
+
+**Decision Outcome**
+
+1. The chart ships **structurally tested only** — no live-cluster or `helm lint` validation happened at authoring time; users are asked to run `helm template` / `helm lint` and review the manifests before production use.
+2. The distributed-workflow pilot is **deferred behind measurable triggers**; single-node remains the supported topology.
+
+Pilot triggers — start the Temporal pilot when ANY one holds sustained (all readable from v1.4 instrumentation):
+
+- p95 task queue latency > 15 min over 7 days, or render step p95 > 30 min (tracing/task spans);
+- orphan-recovery rate > 2%/week (tasks left RUNNING after a restart and cleaned by `mn cleanup`);
+- duplicate provider-call rate > 5% (usage ledger: retries plus cache misses on identical inputs);
+- ≥ 3 workers on ≥ 2 nodes for two consecutive weeks (deployment census);
+- manual approval steps or durable timers requested by ≥ 2 integrators.
+
+**Consequences**
+
+- Positive: Kubernetes teams get a reviewed, test-anchored starting point; the deferral is falsifiable — any trigger can be checked from exported metrics rather than taste.
+- Negative: first installers are the de facto validators (documented); the trigger list needs revisiting if the product positioning changes.
+
+**References**
+
+- `deploy/helm/movie-narrator/`, `tests/test_v152_helm.py`, `docs/DEPLOYMENT.md` (Kubernetes (Helm); Media cache), ROADMAP Long-term + Community & SaaS items
+
+---
+
 ## Decision Index
 
 | # | ADR | Status | Version | Summary |
@@ -710,3 +757,4 @@ With the preset style layer stable, ROADMAP unblocks sharing narration presets a
 | ADR-016 | Premiere via FCP7 XML Interchange | Accepted | v1.4.2 | `timeline_export` plugin gains a `premiere` backend: stdlib FCP7 XML (`xmeml`) writer, Premiere imports natively; whitelist-only core change |
 | ADR-017 | HDR/4K Pipeline: 10-bit + Color Metadata, CPU-only Encode | Accepted | v1.5.0 | `render_bit_depth` 8/10 + `render_color_space` sdr/hdr10: `yuv420p10le` / libx264 high10 (CPU-only, `10bit_gpu_unsupported` fallback), explicit bt709 / bt2020+smpte2084 mux tags, `render_pixel` metadata; video QA cross-checks pix_fmt / transfer and 4K-class exact size |
 | ADR-018 | Community Presets as Validated Data, not Code | Accepted | v1.5.1 | `mn presets install` stores whitelisted YAML data (no code execution, ever), reusing the `job.yaml` whitelist + schema for validation; sha256-registered, re-validated on load; built-ins win |
+| ADR-019 | Kubernetes Helm Chart & the Distributed-Workflow Pilot Deferral | Accepted | v1.5.2 | Chart ships structurally tested only (values/template drift tripwire + naive render; no live cluster / `helm lint` — documented); Temporal/Celery pilot deferred behind measurable triggers (queue latency, orphan recovery, duplicate provider calls, multi-node census) |
