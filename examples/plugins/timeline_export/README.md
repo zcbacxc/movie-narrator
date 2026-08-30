@@ -30,6 +30,7 @@ The step runs after `render_video` and writes a timeline draft under
 
 - `otio`    → `<movie>.otio`
 - `jianying` → `<movie>_jianying/draft_content.json` + `draft_meta_info.json`
+- `premiere` → `<movie>.xml` (Final Cut Pro 7 XML)
 
 ## Backends
 
@@ -37,6 +38,7 @@ The step runs after `render_video` and writes a timeline draft under
 |---------|-------------|---------|-------|
 | `jianying` (default) | Jianying draft JSON | self-authored | Best-effort; the format is unpublished and owned by ByteDance, may drift |
 | `otio`    | OpenTimelineIO `.otio` | Apache-2.0 | Professional standard; preferred for interoperability |
+| `premiere` | Final Cut Pro 7 XML `.xml` | self-authored | Imports natively into Adobe Premiere Pro (`File > Import`); stdlib-only, no extra dependency |
 
 > **License note**: the Jianying draft generator is written from scratch by
 > this project. It does **not** copy TypeTale or any other implementation.
@@ -46,7 +48,17 @@ The step runs after `render_video` and writes a timeline draft under
 
 ## Job parameter
 
-- `timeline_export_backend`: `otio` | `jianying` (default `jianying`)
+- `timeline_export_backend`: `otio` | `jianying` | `premiere` (default `jianying`)
+
+### Importing the Premiere XML
+
+```text
+Premiere Pro → File > Import… → output/<movie>/timeline/<movie>.xml
+```
+
+The file is a Final Cut Pro 7 XML sequence: video clips on track 1,
+subtitle/title overlays as text generators on track 2, and the
+narration stem (final mix when BGM ran) on an audio track.
 
 ## Development
 

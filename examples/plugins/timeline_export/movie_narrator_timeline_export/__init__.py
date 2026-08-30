@@ -15,6 +15,9 @@ Two backends are provided:
   standard. Requires the optional extra ``[otio]``.
 - ``jianying`` — a Jianying (CapCut domestic) draft JSON, generated
   entirely by this plugin (self-authored; no third-party code is copied).
+- ``premiere`` — Final Cut Pro 7 XML (``xmeml``), the interchange format
+  Adobe Premiere Pro imports natively (``File > Import``). Stdlib-only,
+  no optional dependency.
 
 Installation::
 
@@ -32,7 +35,8 @@ Usage in a pipeline::
     discover_plugins()
 
 Backend selection is driven by the ``timeline_export_backend`` job
-parameter (``otio`` | ``jianying``), defaulting to ``jianying``.
+parameter (``otio`` | ``jianying`` | ``premiere``), defaulting to
+``jianying``.
 """
 
 from .plugin import TimelineExportPlugin

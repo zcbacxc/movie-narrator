@@ -219,8 +219,8 @@ class JobParams(BaseModel):
     # behaviour byte-identical to jobs without reference media.
     reference_media: Tuple[ReferenceMediaItem, ...] = ()
     # v1.3.2: backend used by the out-of-tree timeline_export plugin.
-    # "none" (default) = not requested; "jianying" | "otio" are passed
-    # through to the plugin step via metadata.
+    # "none" (default) = not requested; "jianying" | "otio" | "premiere"
+    # are passed through to the plugin step via metadata.
     timeline_export_backend: str = "none"
     # v1.4.1: how subtitles reach the viewer — "burned" (default,
     # historical hard-burn behaviour), "sidecar" (SRT files only, no
@@ -244,9 +244,10 @@ VALID_SUBTITLE_MODES = frozenset({"original", "translated", "bilingual"})
 
 # v1.3.2: backends understood by the out-of-tree timeline_export plugin
 # (examples/plugins/timeline_export/). ``"none"`` means "no timeline
-# export requested"; ``"jianying"`` and ``"otio"`` map 1:1 to the
-# plugin's ``_timeline_export_step`` backend dispatch.
-VALID_TIMELINE_EXPORT_BACKENDS = frozenset({"none", "jianying", "otio"})
+# export requested"; ``"jianying"``, ``"otio"`` and (v1.4.2)
+# ``"premiere"`` map 1:1 to the plugin's ``_timeline_export_step``
+# backend dispatch.
+VALID_TIMELINE_EXPORT_BACKENDS = frozenset({"none", "jianying", "otio", "premiere"})
 
 
 class JobConfig(BaseModel):

@@ -4,10 +4,10 @@
 
 Runs against the source tree (not the installed package). Builds a mock
 ``Context`` with realistic matched clips / timed segments / render_template
-and exercises the full step flow for the ``jianying`` backend. For the
-``otio`` backend it verifies the soft-disable path when ``opentimelineio``
-is missing (the normal Post/PRE-3.14 environment), and the write path when
-it is available.
+and exercises the full step flow for the ``jianying`` and ``premiere``
+backends. For the ``otio`` backend it verifies the soft-disable path when
+``opentimelineio`` is missing (the normal Post/PRE-3.14 environment), and
+the write path when it is available.
 
 Run from the repo root::
 
@@ -16,6 +16,7 @@ Run from the repo root::
 
 import json
 import sys
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -34,6 +35,7 @@ from movie_narrator_timeline_export.plugin import (  # noqa: E402
     _timeline_export_step,
     _write_jianying,
     _write_otio,
+    _write_premiere,
 )
 
 # ── Mock data ────────────────────────────────────────────────────────
@@ -46,6 +48,8 @@ def make_context(out_dir: str) -> Context:
         duration=60,
         output_dir=out_dir,
         source_video_path=r"C:\mock\source.mp4",
+        audio_path=r"C:\mock\narration.mp3",
+        final_audio_path=r"C:\mock\narration_bgm.mp3",
     )
     # Three matched clips (video track) with narration + source times.
     ctx.matched_clips = [
@@ -137,6 +141,57 @@ def check_otio(ctx: Context, out_dir: Path) -> None:
         print(f"  ✓ otio soft-disabled (opentimelineio missing): {ctx2.step_state.message}")
 
 
+def check_premiere(ctx: Context, out_dir: Path) -> None:
+    tl = _build_timeline(ctx)
+    out = _write_premiere(tl, out_dir / "premiere")
+    assert out.suffix == ".xml" and out.exists(), f"premiere xml missing: {out}"
+    root = ET.parse(out).getroot()
+    assert root.tag == "xmeml", root.tag
+    seq = root.find("project/children/sequence")
+    assert seq is not None, "sequence element missing"
+    timebase = seq.find("rate/timebase")
+    assert timebase is not None and timebase.text == "24", \
+        f"unexpected timebase: {timebase.text if timebase is not None else None}"
+    clipitems = seq.findall("media/video/track/clipitem")
+    assert len(clipitems) == 3, f"expected 3 clipitems, got {len(clipitems)}"
+    # First clipitem defines the file; later ones reference it by id only.
+    first_file = clipitems[0].find("file")
+    assert first_file is not None and first_file.get("id") == "file-1"
+    assert first_file.find("pathurl") is not None
+    for ci in clipitems[1:]:
+        ref = ci.find("file")
+        assert ref is not None and ref.get("id") == "file-1" and len(ref) == 0, \
+            "subsequent file refs must be id-only"
+    # Text overlays → generatoritems on a second video track.
+    generators = seq.findall("media/video/track/generatoritem")
+    assert len(generators) == 7, f"expected 7 generatoritems, got {len(generators)}"
+    # Narration audio track with the source file ref.
+    audio_item = seq.find("media/audio/track/clipitem")
+    assert audio_item is not None, "narration audio clipitem missing"
+    assert (audio_item.findtext("file/pathurl") or "").startswith("file://")
+    print(f"  ✓ premiere xml written: {out.name} "
+          f"(clipitems={len(clipitems)}, generators={len(generators)}, "
+          f"timebase={timebase.text})")
+
+
+def check_premiere_step_flow(ctx: Context, out_dir: Path) -> None:
+    """End-to-end through the registered step with the premiere backend."""
+    ctx2 = Context.model_validate(ctx.model_dump())
+    ctx2.output_dir = str(out_dir)
+    ctx2.metadata["timeline_export_backend"] = "premiere"
+    ctx2.metadata["render_fps"] = 30
+    _timeline_export_step(ctx2)
+    assert ctx2.step_state.result.value == "success", ctx2.step_state
+    assert "premiere" in (ctx2.step_state.message or "")
+    out_path = Path(ctx2.metadata["timeline_export_path"])
+    assert out_path.suffix == ".xml" and out_path.exists()
+    seq = ET.parse(out_path).getroot().find("project/children/sequence")
+    assert seq is not None
+    timebase = seq.findtext("rate/timebase")
+    assert timebase == "30", f"render_fps metadata not honoured: {timebase}"
+    print(f"  ✓ premiere step flow success: {ctx2.step_state.message}")
+
+
 def check_step_flow(ctx: Context, out_dir: Path) -> None:
     """End-to-end through the registered step (jianying default)."""
     ctx2 = Context.model_validate(ctx.model_dump())
@@ -156,6 +211,9 @@ def main() -> None:
 
     print("== jianying backend ==")
     check_jianying(ctx, out_dir)
+    print("== premiere backend ==")
+    check_premiere(ctx, out_dir)
+    check_premiere_step_flow(ctx, out_dir)
     print("== otio backend ==")
     check_otio(ctx, out_dir)
     print("== full step flow (default jianying) ==")

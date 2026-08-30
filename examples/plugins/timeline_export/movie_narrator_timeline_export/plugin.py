@@ -12,6 +12,9 @@ Backends
 - ``jianying`` : Jianying (CapCut domestic) draft JSON, self-authored in
   this plugin. The format is an unpublished, byte-owned schema and may
   drift; treat it as best-effort and always prefer OTIO for interchange.
+- ``premiere`` : Final Cut Pro 7 XML (``xmeml``) — the interchange
+  format Adobe Premiere Pro imports natively (``File > Import``).
+  Stdlib-only writer (``premiere.py``), no optional dependency.
 
 All timeline values are expressed in seconds. The unified intermediate
 representation ``Timeline`` is deliberately backend-agnostic so new
@@ -28,6 +31,8 @@ from typing import List, Optional
 
 from movie_narrator import Context, PluginContext
 from movie_narrator.models import StepResult
+
+from .premiere import _write_premiere
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +72,14 @@ class Timeline:
 
     movie_name: str
     source_video_path: Optional[str] = None
+    # Sequence timebase (fps). Filled from the render metadata when
+    # available; backends that need a rate (FCP7 XML) fall back to the
+    # writer's own default when left at the dataclass default.
+    fps: int = 24
+    # Narration stem for the audio track: the final mix (narration +
+    # BGM) when the BGM step ran, else the raw TTS narration. Optional —
+    # backends that carry audio (FCP7 XML) omit the track when absent.
+    narration_audio_path: Optional[str] = None
     clips: List[TimelineClip] = field(default_factory=list)
     text_overlays: List[TextOverlay] = field(default_factory=list)
 
@@ -253,6 +266,9 @@ def _build_timeline(ctx: Context) -> Timeline:
     return Timeline(
         movie_name=movie,
         source_video_path=source,
+        # Same read path as the core render step (pipeline/render.py).
+        fps=int(ctx.metadata.get("render_fps", 24) or 24),
+        narration_audio_path=ctx.final_audio_path or ctx.audio_path,
         clips=clips,
         text_overlays=overlays,
     )
@@ -291,7 +307,7 @@ def _timeline_export_step(ctx: Context) -> Context:
         ctx.step_state.result = StepResult.SKIPPED
         ctx.step_state.message = 'opentimelineio missing — run: pip install -e ".[otio]"'
         return ctx
-    if backend not in ("otio", "jianying"):
+    if backend not in ("otio", "jianying", "premiere"):
         ctx.step_state.result = StepResult.SKIPPED
         ctx.step_state.message = f"unknown timeline_export_backend: {backend}"
         return ctx
@@ -301,7 +317,12 @@ def _timeline_export_step(ctx: Context) -> Context:
 
     tl = _build_timeline(ctx)
     try:
-        out_path = _write_otio(tl, out_dir) if backend == "otio" else _write_jianying(tl, out_dir)
+        if backend == "otio":
+            out_path = _write_otio(tl, out_dir)
+        elif backend == "premiere":
+            out_path = _write_premiere(tl, out_dir)
+        else:
+            out_path = _write_jianying(tl, out_dir)
     except Exception as e:  # noqa: BLE001
         logger.exception("timeline_export failed")
         ctx.step_state.result = StepResult.WARNING

@@ -41,8 +41,10 @@ class TestTimelineExportBackendSchema:
         assert JobParams().timeline_export_backend == "none"
 
     def test_invalid_backend_rejected(self):
+        # v1.4.2 note: "premiere" became a valid backend (FCP7 XML), so an
+        # out-of-whitelist example ("aaf") is used here instead.
         with pytest.raises(ValueError, match="timeline_export_backend"):
-            JobParams(timeline_export_backend="premiere")
+            JobParams(timeline_export_backend="aaf")
 
     def test_job_yaml_key_survives_load_and_merge(self, tmp_path):
         """The ROADMAP v1.3 item: the core whitelist accepts the key."""
