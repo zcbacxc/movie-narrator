@@ -469,6 +469,50 @@ Steps may declare coarse `inputs` / `outputs` (Context attribute or `ctx.metadat
 - `src/movie_narrator/pipeline/dag.py`
 - `src/movie_narrator/pipeline/registry.py`
 - `docs/PLUGIN_DEVELOPMENT.md`
+## ADR-013: Service and Product Semantics — Tenants, Plans, and Webhooks
+
+**Status:** Accepted
+**Version:** Recorded at v1.3.1
+
+**Context**
+
+v1.3.1 turns the engine from a single-user tool into a service surface: operators need an audit trail of *who* submitted what (principal/tenant), product limits per submission (plans/entitlements), and push notifications for terminal task transitions (webhooks). The ROADMAP explicitly keeps full multi-tenant isolation ("完整多租户隔离") out of scope for this release, and the local frictionless single-user path introduced in v1.2 must not change by default.
+
+**Decision Drivers**
+
+- Backward compatibility: with no new environment variables set, every v1.2 behaviour (unauthenticated loopback, unlimited submissions, no push notifications) is byte-for-byte unchanged.
+- No new dependencies (httpx is already a runtime dependency; the retry framework already exists).
+- The pipeline (`src/movie_narrator/pipeline/`) must stay service-agnostic — service policy belongs to the cloud layer.
+- Failure isolation: webhook delivery must never affect task outcomes.
+
+**Considered Options**
+
+- *Tenants — full row-level isolation now* (rejected): couples the storage schema and an auth model that is not yet defined; the actual isolation work is explicitly long-term.
+- *Tenants — per-tenant API keys* (rejected): introduces key management and distribution concerns unrelated to labelling; deferred.
+- *Tenants — labelling/scoping MVP* (chosen): `tenant_id`/`principal` are recorded on tasks (additive columns + JSON), surfaced in responses and audit records; a non-default tenant sees only its own tasks' artifacts while the `default` tenant keeps the full single-tenant view.
+- *Plans — enforcement inside the pipeline (e.g. `pipeline/render.py`)* (rejected): couples product policy into engine steps; a render-admission preflight lands there separately in v1.3.2.
+- *Plans — API-side validation + worker-side injection* (chosen): submissions are validated against the resolved `Plan` (403 `entitlement_denied` on violation); the worker injects the mandatory watermark via the existing `render_template.watermark_text` param and forces the CPU encoder hint when the plan disallows GPU encoding, recording a `plan`/`plan_policy` block in `ctx.metadata` and `metadata.json`.
+- *Webhooks — SQLite delivery table* (rejected): schema coupling with the task store for data that is append-only and loss-tolerant.
+- *Webhooks — Celery/queue-based delivery* (rejected): a heavy dependency for a fire-and-forget side channel.
+- *Webhooks — JSONL delivery log + HMAC signing now* (chosen): one JSONL line per attempt next to the task store; requests signed with hex HMAC-SHA256 over the raw body; retries honour `Retry-After`; consumers deduplicate on the event id. Redelivery API and per-tenant webhook endpoints are deferred.
+
+**Decision Outcome**
+
+- Service semantics are additive and default-off: the `default` plan is unlimited, unauthenticated callers resolve to principal `local` / tenant `default` / plan `default`, and webhooks are disabled unless `MN_WEBHOOK_URLS` is set.
+- Plans are data (`cloud/entitlements.py`), enforced at exactly two points — submission validation in `cloud/api.py` and policy injection in `cloud/worker.py`.
+- Webhook delivery is isolated in `cloud/webhooks.py` behind a daemon thread pool; failures are logged and recorded in `webhook_deliveries.jsonl` only.
+- Full tenant-isolated storage, per-tenant API keys, redelivery API and per-tenant webhook endpoints remain future work (per ROADMAP).
+
+**Consequences**
+
+- Positive: the engine gains a service/product surface without touching the pipeline; every limit is observable (audit records, `plan_policy` metadata, delivery records); the local path is unchanged.
+- Negative: tenant scoping is labelling, not isolation — operators must not treat `X-MN-Tenant` as a security boundary; webhook delivery is best-effort (no redelivery API yet); plan limits are advisory heuristics at submission time (the artifact-size estimate is approximate).
+
+**References**
+
+- `src/movie_narrator/cloud/entitlements.py`, `src/movie_narrator/cloud/webhooks.py`, `src/movie_narrator/cloud/dashboard.py`
+- `docs/DEPLOYMENT.md` (configuration), `docs/OBSERVABILITY.md` (dashboard summary API)
+- `.env.example` (v1.3.1 variables)
 
 ---
 
@@ -488,3 +532,4 @@ Steps may declare coarse `inputs` / `outputs` (Context attribute or `ctx.metadat
 | ADR-010 | i18n and Localized Voice | Accepted | v0.9.6 | Language-aware generation (lang default `zh`); `voice_map`/`resolve_voice` priority resolution |
 | ADR-011 | Licensing Red Lines and FFmpeg Bundling Policy | Accepted | v1.1.0 | Red-line list (Remotion/TypeTale code/scrapers/voice cloning); FFmpeg resolved via `ffmpeg_bin()` (imageio-ffmpeg preferred), no binary bundled into a distribution by the project |
 | ADR-012 | Linear-compatible DAG Contract | Accepted | v1.3.0 | Steps declare `inputs`/`outputs`/`depends_on`; `pipeline/dag.py` validates linear compatibility (`topological_order` == linear order); runner stays linear |
+| ADR-013 | Service and Product Semantics — Tenants, Plans, and Webhooks | Accepted | v1.3.1 | Tenant/principal labelling MVP (not isolation); plans enforced at API validation + worker injection (pipeline untouched); webhooks = JSONL delivery log + HMAC signing, redelivery deferred |

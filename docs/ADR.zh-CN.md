@@ -469,6 +469,50 @@ movie-narrator 流水线是一条 16 步处理链。部分步骤具有软依赖�
 - `src/movie_narrator/pipeline/dag.py`
 - `src/movie_narrator/pipeline/registry.py`
 - `docs/PLUGIN_DEVELOPMENT.md`
+## ADR-013：服务与产品语义——租户、套餐与 Webhook
+
+**状态：** Accepted
+**版本：** 于 v1.3.1 记录
+
+**背景**
+
+v1.3.1 将引擎从单用户工具推进为服务化接口：运营方需要审计“谁提交了什么”（主体/租户）、按提交限制产品配额（套餐/权益），以及任务终态的推送通知（Webhook）。ROADMAP 明确将完整的多租户隔离（“完整多租户隔离”）排除在本版本之外，且 v1.2 引入的本地免登录单用户路径默认不得改变。
+
+**决策驱动因素**
+
+- 向后兼容：不设置任何新环境变量时，v1.2 的全部行为（环回免认证、无配额限制、无推送通知）逐字节保持不变。
+- 不引入新依赖（httpx 已是运行时依赖；重试框架已存在）。
+- 管线（`src/movie_narrator/pipeline/`）必须保持与服务无关——服务策略属于 cloud 层。
+- 故障隔离：Webhook 投递绝不能影响任务结果。
+
+**备选方案**
+
+- *租户——立即做完整行级隔离*（已否决）：与尚未定义的存储模式和认证模型强耦合；真正的隔离工作是明确的长期目标。
+- *租户——按租户发 API 密钥*（已否决）：引入与打标无关的密钥管理和分发问题；推迟。
+- *租户——打标/范围限定 MVP*（已采纳）：`tenant_id`/`principal` 记录在任务上（增量列 + JSON），在响应与审计记录中呈现；非默认租户只能看到自己任务的产物，`default` 租户保留完整的单租户视图。
+- *套餐——在管线内部执行（如 `pipeline/render.py`）*（已否决）：将产品策略耦合进引擎步骤；渲染准入前置检查将在 v1.3.2 单独落地于该处。
+- *套餐——API 侧校验 + worker 侧注入*（已采纳）：提交时按解析出的 `Plan` 校验（违规返回 403 `entitlement_denied`）；worker 通过现有 `render_template.watermark_text` 参数注入强制水印，并在套餐禁用 GPU 编码时强制 CPU 编码提示，同时在 `ctx.metadata` 与 `metadata.json` 中记录 `plan`/`plan_policy` 块。
+- *Webhook——SQLite 投递表*（已否决）：对只追加、容忍丢失的数据引入与任务存储的模式耦合。
+- *Webhook——基于 Celery/队列的投递*（已否决）：对“发射后不管”的旁路通道而言依赖过重。
+- *Webhook——现在采用 JSONL 投递日志 + HMAC 签名*（已采纳）：每次尝试在任务存储旁追加一行 JSONL；请求体以十六进制 HMAC-SHA256 签名；重试遵循 `Retry-After`；消费方以事件 id 去重。重发 API 与按租户的 Webhook 端点推迟。
+
+**决策结果**
+
+- 服务语义全部为增量且默认关闭：`default` 套餐无限制，未认证调用方解析为主体 `local` / 租户 `default` / 套餐 `default`，未设置 `MN_WEBHOOK_URLS` 时 Webhook 关闭。
+- 套餐是数据（`cloud/entitlements.py`），只在两个点执行——`cloud/api.py` 的提交校验与 `cloud/worker.py` 的策略注入。
+- Webhook 投递被隔离在 `cloud/webhooks.py` 的守护线程池之后；失败仅记录并写入 `webhook_deliveries.jsonl`。
+- 完整的租户隔离存储、按租户的 API 密钥、重发 API 与按租户的 Webhook 端点仍为后续工作（依 ROADMAP）。
+
+**后果**
+
+- 正面：引擎在不触碰管线的情况下获得服务/产品能力面；每一项限制都可观测（审计记录、`plan_policy` 元数据、投递记录）；本地路径不变。
+- 负面：租户限定只是打标而非隔离——运营方不得把 `X-MN-Tenant` 当作安全边界；Webhook 投递是尽力而为（暂无重发 API）；提交时的套餐限制是启发式判断（产物体积估算为近似值）。
+
+**参考资料**
+
+- `src/movie_narrator/cloud/entitlements.py`、`src/movie_narrator/cloud/webhooks.py`、`src/movie_narrator/cloud/dashboard.py`
+- `docs/DEPLOYMENT.md`（配置）、`docs/OBSERVABILITY.md`（仪表盘汇总 API）
+- `.env.example`（v1.3.1 变量）
 
 ---
 
@@ -488,3 +532,4 @@ movie-narrator 流水线是一条 16 步处理链。部分步骤具有软依赖�
 | ADR-010 | 国际化与本地化语音 | Accepted | v0.9.6 | 语言感知生成（默认语言 `zh`）；`voice_map`/`resolve_voice` 优先级解析 |
 | ADR-011 | 许可禁区与 FFmpeg 捆绑策略 | Accepted | v1.1.0 | 禁区清单（Remotion/TypeTale 代码/爬虫/声音克隆）；FFmpeg 经 `ffmpeg_bin()` 解析（优先 imageio-ffmpeg），项目自身不将二进制打包进发行物 |
 | ADR-012 | 线性兼容的 DAG 契约 | Accepted | v1.3.0 | 步骤声明 `inputs`/`outputs`/`depends_on`；`pipeline/dag.py` 验证线性兼容（`topological_order` == 线性顺序）；运行器保持线性 |
+| ADR-013 | 服务与产品语义——租户、套餐与 Webhook | Accepted | v1.3.1 | 租户/主体打标 MVP（非隔离）；套餐在 API 校验 + worker 注入两点执行（管线不动）；Webhook = JSONL 投递日志 + HMAC 签名，重发推迟 |
