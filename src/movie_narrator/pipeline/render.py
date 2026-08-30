@@ -27,6 +27,7 @@ from ..utils.gpu_detect import (
 )
 from ..utils.metadata_export import build_metadata_json
 from ..utils.process import terminate_processes_matching
+from ..utils.resources import check_render_admission, env_flag_enabled
 from ..utils.text_image import create_text_image as _create_text_image
 from ..utils.video_layout import compute_fit_box
 from ..utils.transitions import apply_transition, get_transition_duration
@@ -34,6 +35,14 @@ from ..utils.text_anim import apply_text_animation, get_animation_duration
 from .bgm import ensure_final_audio
 
 logger = logging.getLogger(__name__)
+
+
+def _env_int(name: str, default: int) -> int:
+    """Read an integer env var, falling back to *default* on any problem."""
+    try:
+        return int(os.environ.get(name, "").strip() or default)
+    except ValueError:
+        return default
 
 # Minimum segment duration floor for speed scaling.
 # Prevents division-by-zero when seg_duration is extremely short
@@ -346,6 +355,23 @@ def render_video(ctx: Context) -> Context:
     Returns:
         Updated pipeline context with rendered output.
     """
+    # v1.3.2: resource-aware admission preflight (opt-in via
+    # MN_ADMISSION_DISK_CHECK; default off = zero behavior change).
+    # Aborts before any heavy work when the temp volume cannot hold the
+    # estimated render intermediates (see utils/resources.py).
+    if env_flag_enabled("MN_ADMISSION_DISK_CHECK"):
+        _admission = check_render_admission(
+            resolution=_get_video_sizes(ctx).get(
+                ctx.metadata.get("video_format", "16:9"), (1920, 1080)
+            ),
+            duration_estimate_s=float(ctx.duration),
+            temp_dir=Path(ctx.output_dir) / "cache",
+            min_free_disk_bytes=_env_int("MN_MIN_FREE_DISK_BYTES", 0),
+            cpu_count=os.cpu_count(),
+        )
+        if not _admission.ok:
+            raise RuntimeError(f"Render admission check failed: {'; '.join(_admission.reasons)}")
+
     # Safety net: ensure final audio is normalized even if mix_bgm
     # was skipped or failed. This guarantees render never receives raw
     # unnormalized narration when bgm_normalize=True.
