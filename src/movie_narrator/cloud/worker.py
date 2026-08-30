@@ -12,6 +12,7 @@ Wraps the existing ``run_pipeline`` function with:
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import threading
@@ -19,7 +20,7 @@ import time
 import traceback as tb_module
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Tuple, cast
 
 from ..models import Context, Services
 from ..pipeline.errors import PipelineCancelled
@@ -33,6 +34,12 @@ from ..utils.console import (
 from ..utils.log import resolve_log_level
 from .checkpoint import CheckpointStore, ResumePlan, TaskCheckpoint, compute_request_fingerprint
 from .dlq import DeadLetterRecord, DeadLetterStore
+from .entitlements import (  # v1.3.1 — plans & entitlements
+    DEFAULT,
+    PLAN_WATERMARK_TEXT,
+    Plan,
+    resolve_plan,
+)
 from .metrics import observe_render_duration
 from .models import Task, TaskProgress, TaskRequest, TaskResult, TaskStatus
 
@@ -215,6 +222,132 @@ def _build_output_dir(request: TaskRequest) -> Path:
 
     safe_name = sanitize_filename(request.movie_name) or "movie"
     return Path("output") / safe_name
+
+
+# ── Plan enforcement (v1.3.1, Feature 5) ───────────────────
+
+
+def _resolve_task_plan(task: Task) -> Plan:
+    """Resolve the :class:`Plan` recorded on *task* (tolerant).
+
+    An unknown plan name (e.g. the plans file changed after submission)
+    logs a warning and enforces the unlimited default instead of failing
+    an already-accepted task.
+    """
+    try:
+        return resolve_plan(task.plan or "default")
+    except KeyError:
+        logger.warning(
+            "Task %s: unknown plan %r — enforcing the unlimited default plan",
+            task.id,
+            task.plan,
+        )
+        return DEFAULT
+
+
+def _watermark_source(
+    params: Dict[str, Any],
+    request: TaskRequest,
+) -> Optional[str]:
+    """Where an existing watermark comes from, if any.
+
+    Two sources count: an explicit ``render_template.watermark_text`` in
+    the request params, or a narration preset whose own ``render_template``
+    provides one (e.g. ``douyin-fast``). Preset params are the baseline in
+    :func:`build_context`, so a preset watermark is already enforced.
+
+    Returns:
+        ``"request"``, ``"preset"``, or None when no watermark is
+        configured.
+    """
+    template = params.get("render_template")
+    if isinstance(template, dict) and template.get("watermark_text"):
+        return "request"
+    preset_name = (request.narration_preset or "").strip()
+    if preset_name:
+        try:
+            from ..presets import get_preset
+
+            preset_template = get_preset(preset_name).param_dict.get("render_template")
+            if isinstance(preset_template, dict) and preset_template.get("watermark_text"):
+                return "preset"
+        except Exception:  # noqa: BLE001 — preset lookup is best-effort
+            logger.debug(
+                "Preset watermark lookup failed for %r", preset_name, exc_info=True
+            )
+    return None
+
+
+def _plan_enforced_params(
+    plan: Plan,
+    request: TaskRequest,
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """Inject plan policy into the job params (v1.3.1, Feature 5).
+
+    Enforcement point 2 — this happens in the worker *before* the pipeline
+    runs; ``pipeline/`` code is untouched. The returned record documents
+    what was enforced so ``metadata.json`` / observability reflect policy
+    rather than a runtime failure.
+
+    Returns:
+        ``(params, plan_policy)`` — the (possibly modified) job params and
+        a small dict describing the enforcement decisions.
+    """
+    params = dict(request.params or {})
+    policy: Dict[str, Any] = {
+        "watermark_required": plan.watermark_required,
+        "gpu_encoder_allowed": plan.allow_gpu_encoder,
+    }
+    if plan.watermark_required:
+        source = _watermark_source(params, request)
+        if source is not None:
+            policy["watermark_source"] = source
+        else:
+            template = params.get("render_template")
+            merged = dict(template) if isinstance(template, dict) else {}
+            merged["watermark_text"] = PLAN_WATERMARK_TEXT
+            params["render_template"] = merged
+            policy["watermark_source"] = "plan"
+            logger.info(
+                "Task plan '%s': injecting mandatory watermark (render_template.watermark_text)",
+                plan.name,
+            )
+    if not plan.allow_gpu_encoder:
+        # Force the CPU encoder hint: the render step resolves its encoder
+        # from ``ctx.metadata["render_encoder"]`` (fed via
+        # ``workflow/merge.py`` job params), so "cpu" guarantees libx264 and
+        # no GPU encode (and thus no runtime GPU→CPU fallback event) —
+        # policy, not failure.
+        params["render_encoder"] = "cpu"
+        policy["gpu_encoder_forced"] = True
+        logger.info(
+            "Task plan '%s': forcing CPU encoder (GPU encoders disabled by policy)",
+            plan.name,
+        )
+    return params, policy
+
+
+def _merge_plan_into_metadata(output_dir: Path, plan_name: str) -> None:
+    """Best-effort: record the enforcing plan in the run's ``metadata.json``.
+
+    ``metadata.json`` is assembled by the render step from a fixed schema
+    (it does not wholesale-merge ``ctx.metadata``), so the worker adds the
+    ``plan`` key after a successful run. Missing file / parse errors are
+    logged at debug and never affect the task outcome.
+    """
+    path = Path(output_dir) / "metadata.json"
+    try:
+        if not path.is_file():
+            return
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict) or "plan" in data:
+            return
+        data["plan"] = plan_name
+        path.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+    except (OSError, json.JSONDecodeError) as e:
+        logger.debug("Could not record plan in metadata.json: %s", e)
 
 
 def _is_retryable_error(exc: Exception) -> bool:
@@ -446,6 +579,12 @@ def _execute_task(
     )
 
     # v0.9.2: restored context (from a checkpoint) or a fresh build_context
+    # v1.3.1 (Feature 5): plan enforcement happens here, in the worker,
+    # before the pipeline runs — the (possibly modified) params override
+    # the request's own, and the plan record lands in ``ctx.metadata`` so
+    # the run is auditable from ``TaskResult.metadata``.
+    plan = _resolve_task_plan(task)
+    enforced_params, plan_policy = _plan_enforced_params(plan, request)
     if resume is not None and resume.context_dump is not None:
         ctx = _restore_context(resume.context_dump, services)
         logger.info(
@@ -455,34 +594,42 @@ def _execute_task(
             resume.start_step if resume.start_step else "<done>",
         )
     else:
-        ctx = build_context(
-            **common_build_kwargs(
-                movie=request.movie_name,
-                style=request.style,
-                duration=request.duration,
-                voice=request.voice,
-                video_format=request.video_format,
-                output_dir=output_dir,
-                keep_cache=request.keep_cache,
-                video=request.video,
-                library_dir=request.library_dir,
-                research=request.research,
-                bgm=request.bgm,
-                no_bgm=request.no_bgm,
-                no_clips=request.no_clips,
-                strict=request.strict,
-                workflow_steps=request.workflow_steps,
-                params=request.params,
-                config_path=request.config_path,
-                subtitle_lang=request.subtitle_lang,
-                subtitle_mode=request.subtitle_mode,
-                services=services,
-                narration_preset=request.narration_preset,
-                lang=request.lang,
-                log_level=log_level,
-                verbose=request.verbose,
-            )
+        build_kwargs = common_build_kwargs(
+            movie=request.movie_name,
+            style=request.style,
+            duration=request.duration,
+            voice=request.voice,
+            video_format=request.video_format,
+            output_dir=output_dir,
+            keep_cache=request.keep_cache,
+            video=request.video,
+            library_dir=request.library_dir,
+            research=request.research,
+            bgm=request.bgm,
+            no_bgm=request.no_bgm,
+            no_clips=request.no_clips,
+            strict=request.strict,
+            workflow_steps=request.workflow_steps,
+            params=request.params,
+            config_path=request.config_path,
+            subtitle_lang=request.subtitle_lang,
+            subtitle_mode=request.subtitle_mode,
+            services=services,
+            narration_preset=request.narration_preset,
+            lang=request.lang,
+            log_level=log_level,
+            verbose=request.verbose,
         )
+        build_kwargs["params"] = enforced_params
+        ctx = build_context(**build_kwargs)
+
+    # v1.3.1 (Feature 5): plan record in ctx.metadata — surfaced through
+    # TaskResult.metadata and (post-merge) metadata.json. (MetadataDict is
+    # defined in the pipeline models; the cast matches the runner's own
+    # dynamic-key pattern.)
+    plan_metadata = cast(Dict[str, Any], ctx.metadata)
+    plan_metadata["plan"] = plan.name
+    plan_metadata["plan_policy"] = dict(plan_policy)
 
     # v0.9.2: checkpoint hook — snapshot the context after each completed
     # step. The closure reads the current ``ctx`` (steps mutate it in
@@ -579,6 +726,11 @@ def _execute_task(
             progress.elapsed_seconds = time.time() - start_time
             if on_progress:
                 on_progress(task)
+
+    # v1.3.1 (Feature 5): record the enforcing plan in metadata.json once
+    # the run finished (the render step owns the file's assembly).
+    if task.status == TaskStatus.COMPLETED:
+        _merge_plan_into_metadata(output_dir, plan.name)
 
     return task
 

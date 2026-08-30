@@ -130,6 +130,13 @@ class Settings(BaseSettings):
     # API server from the process environment at request time; this typed
     # field documents the surface with the same default.
     api_principal: str = "api-key"
+    # v1.3.1: plan used when a request does not pick one via the
+    # ``X-MN-Plan`` header (``MN_DEFAULT_PLAN``). Empty/unset resolves to
+    # the unlimited "default" plan, keeping v1.2 behaviour unchanged.
+    default_plan: str = "default"
+    # v1.3.1: optional JSON file with plan overrides
+    # ({"plans": [{...}]}); invalid files fall back to the built-ins.
+    plans_file: Optional[str] = None
     # v0.9.2: graceful-shutdown drain budget (seconds). After SIGINT /
     # SIGTERM, ``mn serve`` and ``TaskAPIServer.stop()`` wait up to this
     # long for in-flight tasks to finish before force-cancelling them.

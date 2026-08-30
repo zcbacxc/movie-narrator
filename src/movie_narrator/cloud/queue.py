@@ -328,12 +328,14 @@ class LocalTaskQueue:
         # the API server) so the worker's logs join the access log.
         # v1.3.1: stamp service semantics from the request when the API
         # layer supplied them; direct queue users keep the model defaults
-        # (``"default"`` tenant / ``"local"`` principal).
+        # (``"default"`` tenant / ``"local"`` principal / ``"default"``
+        # plan).
         task = Task(
             request=request,
             correlation_id=get_correlation_id(),
             tenant_id=request.tenant_id or "default",
             principal=request.principal or "local",
+            plan=request.plan or "default",
         )
         self._storage.save(task)
 

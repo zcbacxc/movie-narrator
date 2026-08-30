@@ -71,6 +71,16 @@ from .artifact_store import (  # v0.8.3 — artifact storage abstraction
     get_task_artifact_store,
 )
 from .dlq import DeadLetterStore, replay_dead_letter  # v0.9.4 — dead letters
+from .entitlements import (  # v1.3.1 — plans & entitlements
+    DEFAULT as _DEFAULT_PLAN,
+    PLAN_HEADER,
+    EntitlementError,
+    available_plan_names,
+    check_submission,
+    default_plan_name,
+    resolve_plan,
+    submission_resolution,
+)
 from .health import build_health_payload, build_readiness_payload, parse_deep_flag
 from .lifecycle import (  # v0.8.3 — artifact lifecycle / TTL cleanup
     ArtifactLifecyclePolicy,
@@ -651,6 +661,74 @@ class _APIHandler(BaseHTTPRequestHandler):
         except Exception:  # noqa: BLE001 — telemetry must never break a response
             logger.debug("Failed to write audit record", exc_info=True)
 
+    def _resolve_plan_name(self) -> Tuple[str, Optional[str]]:
+        """Resolve the plan for this request (v1.3.1, Feature 5).
+
+        - Unauthenticated (loopback) requests always get the unlimited
+          ``"default"`` plan — the frictionless local path is never
+          restricted, even when ``MN_DEFAULT_PLAN`` is set.
+        - An explicit ``X-MN-Plan`` header is validated against the
+          configured plans; an unknown name yields an error message.
+        - Otherwise ``MN_DEFAULT_PLAN`` applies (tolerant: unknown names
+          fall back to ``"default"`` with a warning).
+
+        Returns:
+            ``(plan_name, error_message)`` — ``error_message`` is None when
+            the name is usable.
+        """
+        api_key: Optional[str] = getattr(self.server, "api_key", None)
+        if api_key is None:
+            return (_DEFAULT_PLAN.name, None)
+        header = (self.headers.get(PLAN_HEADER) or "").strip()
+        if header:
+            try:
+                resolve_plan(header)
+            except KeyError:
+                configured = ", ".join(available_plan_names())
+                return (
+                    header,
+                    f"unknown plan {header!r} (configured plans: {configured})",
+                )
+            return (header.lower(), None)
+        return (default_plan_name(), None)
+
+    def _plan_entitlement_rejection(
+        self,
+        plan_name: str,
+        requests: List[TaskRequest],
+    ) -> Optional[Tuple[int, Dict[str, Any]]]:
+        """Validate *requests* against the resolved plan (v1.3.1, Feature 5).
+
+        Runs :func:`check_submission` per request using the request's
+        duration, its would-be render resolution and the v1.2 artifact-size
+        estimate heuristic. The unlimited default plan passes trivially, so
+        submissions are byte-for-byte unaffected when no plan is active.
+
+        Returns:
+            ``(HTTPStatus.FORBIDDEN, body)`` on the first violation, or
+            None when every request is admissible.
+        """
+        plan = resolve_plan(plan_name)
+        for request in requests:
+            try:
+                check_submission(
+                    plan,
+                    duration_s=float(request.duration),
+                    resolution=submission_resolution(request),
+                    estimated_bytes=_estimate_artifact_bytes(request),
+                )
+            except EntitlementError as e:
+                return (
+                    HTTPStatus.FORBIDDEN,
+                    {
+                        "error": "entitlement_denied",
+                        "plan": e.plan,
+                        "limit": e.limit,
+                        "actual": e.actual,
+                    },
+                )
+        return None
+
     # ── Submission admission (v1.2) ────────────────────────
 
     def _admission_rejection(
@@ -915,10 +993,21 @@ class _APIHandler(BaseHTTPRequestHandler):
             self._send_error(HTTPStatus.BAD_REQUEST, f"Invalid task request: {e}")
             return
 
-        # v1.3.1: stamp the resolved principal/tenant onto the task.
+        # v1.3.1: stamp the resolved principal/tenant onto the task and
+        # enforce the request's plan (Feature 4 / Feature 5).
         principal, tenant = self._current_identity()
         request.principal = principal
         request.tenant_id = tenant
+        plan_name, plan_error = self._resolve_plan_name()
+        if plan_error is not None:
+            self._send_error(HTTPStatus.BAD_REQUEST, plan_error)
+            return
+        request.plan = plan_name
+        plan_rejection = self._plan_entitlement_rejection(plan_name, [request])
+        if plan_rejection is not None:
+            status, body = plan_rejection
+            self._send_json(body, status=status)
+            return
 
         rejection = self._admission_rejection([request])
         if rejection is not None:
@@ -951,11 +1040,23 @@ class _APIHandler(BaseHTTPRequestHandler):
             self._send_error(HTTPStatus.BAD_REQUEST, f"Invalid batch request: {e}")
             return
 
-        # v1.3.1: stamp the resolved principal/tenant onto every member task.
+        # v1.3.1: stamp the resolved principal/tenant onto every member task
+        # and enforce the request's plan (Feature 4 / Feature 5).
         principal, tenant = self._current_identity()
         for member in request.requests:
             member.principal = principal
             member.tenant_id = tenant
+        plan_name, plan_error = self._resolve_plan_name()
+        if plan_error is not None:
+            self._send_error(HTTPStatus.BAD_REQUEST, plan_error)
+            return
+        for member in request.requests:
+            member.plan = plan_name
+        plan_rejection = self._plan_entitlement_rejection(plan_name, request.requests)
+        if plan_rejection is not None:
+            status, body = plan_rejection
+            self._send_json(body, status=status)
+            return
 
         rejection = self._admission_rejection(request.requests)
         if rejection is not None:

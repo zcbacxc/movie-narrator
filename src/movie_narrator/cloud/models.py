@@ -104,6 +104,10 @@ class TaskRequest(BaseModel):
     # load.
     tenant_id: Optional[str] = Field(default=None, max_length=100)
     principal: Optional[str] = Field(default=None, max_length=100)
+    # v1.3.1 (Feature 5): plan chosen for the request (``X-MN-Plan`` header
+    # or ``MN_DEFAULT_PLAN``). ``None`` resolves to the unlimited
+    # ``"default"`` plan at task-creation time.
+    plan: Optional[str] = Field(default=None, max_length=100)
 
     # Task-specific fields
     output_dir: Optional[str] = Field(default=None, max_length=500)
@@ -277,6 +281,10 @@ class Task(BaseModel):
     # versions still loads.
     tenant_id: str = "default"
     principal: str = "local"
+    # v1.3.1 (Feature 5): enforcing plan recorded at submission time. The
+    # worker resolves it to a :class:`Plan` and injects the policy
+    # (watermark / CPU encoder) before running the pipeline.
+    plan: str = "default"
 
     # Allow arbitrary types for future extensibility
     model_config = {"arbitrary_types_allowed": True}
