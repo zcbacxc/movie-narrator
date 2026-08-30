@@ -106,6 +106,7 @@ narration_preset: ""        # douyin-fast | mainstream-dry | bilibili-long
 #   视频: video_sizes
 #   平台: target_platform / lang
 #   视角: narrator_perspective / focus_character
+#   参考: reference_media (v1.3.2+)
 params:
   # ---- 场景检测 ----
   scene_threshold: 27.0     # PySceneDetect 灵敏度（越大越不敏感，切分越少）
@@ -220,3 +221,24 @@ params:
   # video_sizes:
   #   "16:9": [1920, 1080]
   #   "9:16": [1080, 1920]
+
+  # ---- 参考媒体（v1.3.2+）----
+  # 用户提供参考片段/图片，引导解说文案的风格（模仿手法，不抄内容）。
+  # 每项字段：
+  #   path:  文件路径（相对路径以本文件所在目录为基准）
+  #   kind:  video | image
+  #   usage: style（语气措辞）| pacing（节奏剪辑）| palette（视觉氛围）| structure（叙事结构）
+  #   note:  版权/来源备注（可选，随元数据落盘）
+  # 校验：文件必须存在且扩展名与 kind 匹配（video: mp4/mkv/mov/avi/webm/m4v；
+  #       image: png/jpg/jpeg/webp），否则流水线启动即失败。
+  # 图片（最多 3 张）在 vision_captioner 配置为 vlm 时会被视觉模型描述，
+  # 失败自动降级为纯文本提示，绝不阻断流水线。
+  # reference_media:
+  #   - path: refs/wolf-of-wallstreet-racing.mp4
+  #     kind: video
+  #     usage: pacing
+  #     note: "个人收藏片段，仅本地风格参考"
+  #   - path: refs/poster.jpg
+  #     kind: image
+  #     usage: palette
+  #     note: "官方海报，来源 douban.com"

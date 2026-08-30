@@ -3,9 +3,36 @@
 
 """Job configuration schema definitions."""
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional, Tuple
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+class ReferenceMediaItem(BaseModel):
+    """A user-provided reference media entry (v1.3.2).
+
+    Reference media (clips / stills from films the creator wants to
+    imitate) steer the *style* of the generated narration. Each item is
+    validated by the ``resolve_video`` step (existence + extension/kind
+    match) and surfaced to the script prompt as a compact style-hint
+    block.
+
+    Attributes:
+        path: Filesystem path to the media file. Relative paths are
+            resolved against the job.yaml directory at load time.
+        kind: ``"video"`` or ``"image"``.
+        usage: What the item should influence:
+            ``"style"`` (tone/wording), ``"pacing"`` (rhythm/cutting),
+            ``"palette"`` (visual mood), or ``"structure"`` (narrative
+            arc).
+        note: Free-form license / source attribution carried through to
+            metadata so provenance is auditable.
+    """
+
+    path: str
+    kind: Literal["video", "image"] = "video"
+    usage: Literal["style", "pacing", "palette", "structure"] = "style"
+    note: str = ""
 
 
 class JobSteps(BaseModel):
@@ -177,6 +204,10 @@ class JobParams(BaseModel):
     # Name of the character to anchor the narration on (used with
     # "character" perspective).  Ignored for other modes.
     focus_character: Optional[str] = None
+    # v1.3.2: user-provided reference media (clips / stills used as
+    # style guidance). Validated by the resolve step; empty tuple keeps
+    # behaviour byte-identical to jobs without reference media.
+    reference_media: Tuple[ReferenceMediaItem, ...] = ()
 
 
 VALID_SUBTITLE_MODES = frozenset({"original", "translated", "bilingual"})

@@ -199,12 +199,20 @@ def merge_job(
             "async_max_workers",
             # Video sizes
             "video_sizes",
+            # v1.3.2: reference media style guidance
+            "reference_media",
             # Render template styling
             "render_template",
         ):
             val = getattr(job.params, key)
             if val is not None:
                 params[key] = val
+
+    # v1.3.2: ``reference_media`` is a tuple with an empty default. An
+    # empty tuple is dropped so jobs without reference media keep
+    # byte-identical params/metadata (no phantom empty-list key).
+    if not params.get("reference_media"):
+        params.pop("reference_media", None)
 
     # Multi-language subtitle (v0.3).
     subtitle_lang = pick_optional(cli.get("subtitle_lang"), yaml_get("subtitle_lang"), None)

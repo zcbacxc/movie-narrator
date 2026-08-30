@@ -4,10 +4,11 @@
 """Script generation step — generate narration script via LLM."""
 
 from typing import List
+from pathlib import Path
 import re
 
 from ..config import get_settings
-from ..models import Context, ScriptSegment
+from ..models import Context, Scene, ScriptSegment
 from ..utils.console import step_timing
 from ..utils.prompts import (
     BEATS_PROMPT,
@@ -120,6 +121,104 @@ _RHYTHM_ZONES = frozenset({"hook", "rising", "peak", "settle"})
 _EMOTIONS = frozenset({"suspense", "laughter", "intense", "calm", "twist"})
 
 
+# ── Reference media style hints (v1.3.2) ───────────────────
+# User-provided reference media (validated by the resolve step and stored
+# as normalized dicts in ``ctx.metadata["reference_media"]``) steer the
+# narration style. When present, a compact hint block is appended to the
+# Phase 1 research context. Reference images are captioned once via the
+# configured vision provider (soft-degrading on any failure); captions
+# are cached in ``ctx.metadata["reference_media_captions"]``.
+#
+# When reference media is absent the hint builder returns "" and the
+# prompt is byte-identical to the pre-v1.3.2 behaviour.
+
+#: Maximum reference images captioned per run (cost guard).
+_REFERENCE_CAPTION_LIMIT = 3
+
+#: Matches stub/placeholder captions ("scene 0 from 0.0s to 1.0s") so
+#: placeholder labels are never injected as real visual style hints.
+_PLACEHOLDER_CAPTION_RE = re.compile(r"^scene \d+ from .+ to .+$")
+
+
+def _maybe_caption_reference_images(ctx: Context) -> None:
+    """Caption reference images once via the configured vision provider.
+
+    No-op when reference media is absent, no image entries exist, or
+    captions were already produced this run (the "once" guarantee across
+    script retry attempts). Only runs when a ``vision_captioner`` provider
+    is configured (``"none"``/unset → skip). Any provider failure is
+    soft-degraded: captions stay empty, a warning is logged, and the
+    pipeline proceeds with text-only hints — never fatal.
+    """
+    entries = ctx.metadata.get("reference_media") or []
+    if not entries or "reference_media_captions" in ctx.metadata:
+        return
+    images = [
+        e
+        for e in entries
+        if isinstance(e, dict) and e.get("kind") == "image"
+    ][:_REFERENCE_CAPTION_LIMIT]
+    if not images:
+        return
+
+    ctx.metadata["reference_media_captions"] = {}
+    provider = ctx.metadata.get("vision_captioner", "none")
+    if not provider or provider == "none":
+        return
+
+    try:
+        from ..vision import get_vision_captioner
+
+        captioner = get_vision_captioner(provider)
+        captions: dict[str, str] = {}
+        for i, entry in enumerate(images):
+            # A still image is presented as a one-frame "scene"; providers
+            # extract frames through ffmpeg, which accepts image inputs.
+            scene = Scene(index=i, start=0.0, end=1.0)
+            out = captioner.caption_scenes([scene], video_path=entry["path"])
+            text = (out[0] if out else "").strip()
+            if text and not _PLACEHOLDER_CAPTION_RE.match(text):
+                captions[entry["path"]] = text
+        ctx.metadata["reference_media_captions"] = captions
+    except Exception as exc:  # noqa: BLE001 — style hints must never break the script step
+        ctx.services.console.inline_warn(
+            f"Reference image captioning failed — skipping visual style hints: {exc}"
+        )
+
+
+def _build_reference_media_hints(ctx: Context) -> str:
+    """Build the compact "Reference style hints" prompt block.
+
+    Returns "" (and therefore leaves the prompt byte-identical) when
+    reference media is not configured. Otherwise each entry contributes a
+    ``kind + name + usage [+ note]`` line; captioned images add their
+    visual description.
+    """
+    entries = ctx.metadata.get("reference_media") or []
+    if not entries:
+        return ""
+    captions = ctx.metadata.get("reference_media_captions") or {}
+    lines: list[str] = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        name = Path(str(entry.get("path", ""))).name or "?"
+        line = f"- [{entry.get('kind', 'video')}] {name} — usage: {entry.get('usage', 'style')}"
+        note = str(entry.get("note") or "")
+        if note:
+            line += f" ({note})"
+        caption = captions.get(str(entry.get("path", "")))
+        if caption:
+            line += f" — visual: {caption}"
+        lines.append(line)
+    if not lines:
+        return ""
+    return (
+        "\nReference style hints (from user-provided reference media, "
+        "imitate their craft, do not copy content):\n" + "\n".join(lines) + "\n"
+    )
+
+
 def _generate_plot_beats(ctx: Context, settings, llm, target_count: int) -> List[str]:
     """Phase 1: Extract exactly *target_count* plot beats from the movie.
 
@@ -152,6 +251,10 @@ def _generate_plot_beats(ctx: Context, settings, llm, target_count: int) -> List
         # already supplied explicit set_pieces via metadata.
         if movie_card.set_pieces and not ctx.metadata.get("set_pieces"):
             ctx.metadata["set_pieces"] = movie_card.set_pieces
+
+    # v1.3.2: append user-provided reference media style hints. Returns ""
+    # when reference media is absent, keeping the prompt byte-identical.
+    research_block += _build_reference_media_hints(ctx)
 
     prompt = BEATS_PROMPT.format(
         movie=ctx.movie_name,
@@ -671,6 +774,10 @@ def generate_script(ctx: Context) -> Context:
     # hint can be injected into the next retry's expand prompt, turning
     # blind retries into targeted corrections.
     prev_judge_scores: dict | None = None
+
+    # v1.3.2: caption reference images once (before the retry loop) so
+    # retry attempts reuse the cached captions instead of re-calling VLM.
+    _maybe_caption_reference_images(ctx)
 
     for attempt in range(settings.script_retries):
         try:

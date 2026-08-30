@@ -198,6 +198,8 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
             # Narrator perspective and character anchor
             "narrator_perspective",
             "focus_character",
+            # v1.3.2: reference media style guidance
+            "reference_media",
         }
         for k in data["params"].keys():
             if k not in allowed_params:
@@ -210,6 +212,16 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
         val = data.get(key)
         if isinstance(val, str) and val and not Path(val).is_absolute():
             data[key] = str((base / val).resolve())
+
+    # v1.3.2: reference media item paths resolve against the config file
+    # directory, same semantics as the top-level _PATH_KEYS above.
+    ref_items = (data.get("params") or {}).get("reference_media")
+    if isinstance(ref_items, list):
+        for item in ref_items:
+            if isinstance(item, dict):
+                p = item.get("path")
+                if isinstance(p, str) and p and not Path(p).is_absolute():
+                    item["path"] = str((base / p).resolve())
 
     try:
         return JobConfig.model_validate(data)
