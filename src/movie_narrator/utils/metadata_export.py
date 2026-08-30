@@ -67,6 +67,8 @@ def build_metadata_json(ctx: Context) -> Dict[str, Any]:
         # ── v0.5.12: holistic quality dashboard ──
         "quality_dashboard": ctx.metadata.get("quality_dashboard"),
         "video_qa": ctx.metadata.get("video_qa"),
+        # ── v1.5.0: pixel pipeline (bit depth / pix_fmt / color tags / path) ──
+        "render_pixel": ctx.metadata.get("render_pixel"),
         # ── footage coverage (how many segments have real footage) ──
         "footage_coverage": ctx.metadata.get("footage_coverage"),
         # ── duration metrics (target vs actual) ──

@@ -21,6 +21,7 @@ from ..models import Context, MatchedClip, TimedSegment
 from ..utils.console import step_timing
 from ..utils.ffmpeg_bin import ffmpeg_bin
 from ..utils.gpu_detect import (
+    REASON_10BIT_GPU_UNSUPPORTED,
     REASON_GPU_RUNTIME_FALLBACK,
     get_encoder_info,
     resolve_encoder,
@@ -78,6 +79,30 @@ _SUBTITLE_DELIVERY_MODES = frozenset({"burned", "sidecar", "muxed"})
 # mov_text is an MP4-family subtitle codec; other containers (mkv...) use
 # text codecs we do not mux, so muxed degrades to burned for them.
 _MP4_FAMILY_FORMATS = frozenset({"mp4", "m4v", "mov"})
+
+# ── v1.5.0: pixel pipeline (bit depth + color metadata) ────────────
+# SDR outputs are tagged explicitly (bt709) so every deliverable carries
+# the same color interpretation ffmpeg previously applied implicitly;
+# hdr10 uses BT.2020 primaries + SMPTE ST 2084 (PQ) transfer + BT.2020
+# NC matrix. Mastering-display / MaxCLL/MaxFALL SEI injection is out of
+# scope for v1.5.0 (see docs/ADR.md ADR-017).
+#
+# The tags are written during the STAGE-2 copy mux — NOT the MoviePy
+# encode: with libx264 the encode-level ``-color_primaries`` /
+# ``-color_trc`` options are parsed but silently dropped (only
+# ``-colorspace`` reaches the H.264 VUI — verified on ffmpeg 7.1/8.1),
+# while stream-copy output options land in the container for every
+# encoder, GPU backends included. Note BT.2020 primaries are spelled
+# ``bt2020``: ffmpeg has no ``bt2020nc`` primaries constant (the
+# non-constant-luminance distinction lives in the colorspace only).
+_SDR_COLOR_TAGS = {"color_primaries": "bt709", "color_trc": "bt709", "colorspace": "bt709"}
+_HDR10_COLOR_TAGS = {
+    "color_primaries": "bt2020",
+    "color_trc": "smpte2084",
+    "colorspace": "bt2020nc",
+}
+_PIX_FMT_8BIT = "yuv420p"
+_PIX_FMT_10BIT = "yuv420p10le"
 
 # ISO 639-1 → ISO 639-2 for the languages this project documents (voice
 # map + subtitle translation targets). ffmpeg's mp4 muxer writes the
@@ -180,6 +205,7 @@ def _build_mux_cmd(
     target_format: str,
     subtitle_srt: str | None = None,
     subtitle_language: str | None = None,
+    color_args: list | None = None,
 ) -> list:
     """Build the STAGE-2 ffmpeg mux argv (v1.4.1 helper for testability).
 
@@ -188,6 +214,14 @@ def _build_mux_cmd(
     as ``mov_text`` and tagged with a per-stream ``language`` metadata
     (mp4-family containers only — callers degrade muxed to burned
     otherwise via :func:`_resolve_subtitle_delivery`).
+
+    v1.5.0: ``color_args`` — explicit color metadata
+    (``-color_primaries/-color_trc/-colorspace``), appended directly
+    after ``-c:v copy``. Because the video is stream-copied (no encoder
+    involved), the options are applied to the output stream verbatim —
+    this is the one place the v1.5.0 color tags reliably land (encode-
+    level color options are dropped by libx264, see the module comment).
+    ``None`` (default) keeps the v1.4.1 argv shape.
     """
     cmd = [
         ffmpeg,
@@ -210,6 +244,8 @@ def _build_mux_cmd(
         "-c:a",
         audio_codec if not audio_codec.startswith("lib") else audio_codec[3:],
     ]
+    if color_args:
+        cmd += list(color_args)
     if subtitle_srt is not None:
         cmd += ["-c:s", "mov_text"]
         if subtitle_language:
@@ -251,6 +287,75 @@ def _get_video_sizes(ctx: Context) -> dict:
     """
     raw = ctx.metadata.get("video_sizes", {"16:9": (1920, 1080), "9:16": (1080, 1920)})
     return {k: tuple(v) for k, v in raw.items()}
+
+
+def _resolve_pixel_plan(requested_bit_depth: int, color_space: str) -> dict:
+    """Resolve the v1.5.0 pixel pipeline plan (pure helper, unit-tested).
+
+    Args:
+        requested_bit_depth: Requested bit depth (``render_bit_depth``,
+            8 or 10; other values normalize defensively to 8).
+        color_space: Requested color space (``render_color_space``,
+            ``"sdr"`` or ``"hdr10"``; other values normalize defensively
+            to ``"sdr"``).
+
+    Returns:
+        A plan dict:
+
+        - ``bit_depth``: effective bit depth — ``hdr10`` forces 10-bit
+          (recorded in ``forced_note``, never rejected — simpler UX);
+        - ``forced_note``: human-readable note when hdr10 forced the
+          depth up, else ``None``;
+        - ``color_space``: the (normalized) color space;
+        - ``pix_fmt``: the expected output pixel format;
+        - ``color_tags``: ``{"color_primaries", "color_trc", "colorspace"}``
+          as written to the output;
+        - ``pixel_args``: encode-level ffmpeg args — the 10-bit
+          ``-pix_fmt``/``-profile:v high10`` pair, appended to the
+          encoder base (empty for 8-bit so the historical argv stays
+          byte-identical);
+        - ``color_args``: mux-level ffmpeg args — the explicit color tags,
+          applied during the STAGE-2 copy mux (see the module comment for
+          why the tags live at the mux, not the encode).
+    """
+    try:
+        depth = int(requested_bit_depth)
+    except (TypeError, ValueError):
+        depth = 8
+    if depth not in (8, 10):
+        depth = 8
+    cs = color_space if color_space in ("sdr", "hdr10") else "sdr"
+
+    forced_note = None
+    if cs == "hdr10" and depth != 10:
+        depth = 10
+        forced_note = "hdr10 requires 10-bit — render_bit_depth auto-forced from 8 to 10"
+
+    if depth == 10:
+        pix_fmt = _PIX_FMT_10BIT
+        pixel_args = ["-pix_fmt", _PIX_FMT_10BIT, "-profile:v", "high10"]
+    else:
+        pix_fmt = _PIX_FMT_8BIT
+        pixel_args = []
+
+    tags = dict(_HDR10_COLOR_TAGS if cs == "hdr10" else _SDR_COLOR_TAGS)
+    color_args = [
+        "-color_primaries",
+        tags["color_primaries"],
+        "-color_trc",
+        tags["color_trc"],
+        "-colorspace",
+        tags["colorspace"],
+    ]
+    return {
+        "bit_depth": depth,
+        "forced_note": forced_note,
+        "color_space": cs,
+        "pix_fmt": pix_fmt,
+        "color_tags": tags,
+        "pixel_args": pixel_args,
+        "color_args": color_args,
+    }
 
 
 def _overlay_text(ctx: Context, idx: int, seg: TimedSegment) -> str:
@@ -509,6 +614,21 @@ def render_video(ctx: Context) -> Context:
     Returns:
         Updated pipeline context with rendered output.
     """
+    # ── v1.5.0: pixel pipeline plan (bit depth + color metadata) ──
+    # Resolved once, up front: the admission heuristic needs the bit
+    # depth (10-bit ≈ ×1.25 temp space) and the encode below needs the
+    # pix_fmt/profile/color args. hdr10 forces the bit depth to 10 with
+    # a recorded note (JobParams never rejects the 8-bit + hdr10 combo).
+    pixel_plan = _resolve_pixel_plan(
+        ctx.metadata.get("render_bit_depth", 8),
+        ctx.metadata.get("render_color_space", "sdr"),
+    )
+    if pixel_plan["forced_note"]:
+        ctx.services.console.info(
+            "  render_color_space=hdr10 — forcing 10-bit encode "
+            f"({pixel_plan['pix_fmt']})"
+        )
+
     # v1.3.2: resource-aware admission preflight (opt-in via
     # MN_ADMISSION_DISK_CHECK; default off = zero behavior change).
     # Aborts before any heavy work when the temp volume cannot hold the
@@ -522,6 +642,7 @@ def render_video(ctx: Context) -> Context:
             temp_dir=Path(ctx.output_dir) / "cache",
             min_free_disk_bytes=_env_int("MN_MIN_FREE_DISK_BYTES", 0),
             cpu_count=os.cpu_count(),
+            bit_depth=pixel_plan["bit_depth"],
         )
         if not _admission.ok:
             raise RuntimeError(f"Render admission check failed: {'; '.join(_admission.reasons)}")
@@ -927,6 +1048,20 @@ def render_video(ctx: Context) -> Context:
     # is active. See ..utils.gpu_detect for the probe + caching logic.
     render_encoder_hint = ctx.metadata.get("render_encoder")
     gpu_codec, gpu_params = resolve_encoder(render_encoder_hint)
+    # v1.5.0 (ADR-017): 10-bit renders are CPU-only — the H.264 GPU
+    # backends this pipeline supports (NVENC / VAAPI / VideoToolbox) are
+    # 8-bit only, and v1.5.0 deliberately does NOT probe GPU 10-bit
+    # capability (HEVC main10 is future work). When a GPU encoder
+    # resolved, force libx264 and record why so ``encoder_info`` stays
+    # truthful about the codec that actually encoded the output.
+    tenbit_gpu_reason = None
+    if pixel_plan["bit_depth"] == 10 and gpu_codec != "libx264":
+        tenbit_gpu_reason = REASON_10BIT_GPU_UNSUPPORTED
+        ctx.services.console.inline_warn(
+            f"10-bit render requested — GPU encoder ({gpu_codec}) is 8-bit only; "
+            "encoding with libx264 (CPU)."
+        )
+        gpu_codec, gpu_params = "libx264", []
     # v1.2.1: non-None when a runtime GPU→libx264 fallback fires below; used to
     # override metadata.json so the actual encoder + reason are truthful.
     runtime_fallback_reason = None
@@ -950,6 +1085,12 @@ def render_video(ctx: Context) -> Context:
         video_ffmpeg_params = ["-crf", str(crf), "-preset", str(preset)]
     else:
         video_ffmpeg_params = list(gpu_params)
+    # v1.5.0: 10-bit renders append -pix_fmt yuv420p10le + -profile:v high10
+    # to the encoder base. For 8-bit jobs the plan's pixel args are empty,
+    # so the encode argv stays byte-identical to v1.4.2 (the color tags of
+    # the requested color space are applied at the STAGE-2 mux instead —
+    # see _resolve_pixel_plan / the module-level comment).
+    video_ffmpeg_params = video_ffmpeg_params + pixel_plan["pixel_args"]
     # NOTE: do NOT include +faststart here — we apply it deterministically
     # during the second-pass ffmpeg mux below, which is more reliable than
     # bundling it into MoviePy's subprocess invocation.
@@ -997,6 +1138,10 @@ def render_video(ctx: Context) -> Context:
                 logger.debug("GPU encoding failed, falling back to CPU", exc_info=True)
                 gpu_codec = "libx264"
                 video_write_kwargs["codec"] = "libx264"
+                # The runtime fallback can only fire for an 8-bit encode —
+                # 10-bit requests never reach a GPU encoder (see the
+                # ADR-017 override above) — and the v1.5.0 color tags live
+                # at the mux, so the retry argv is the historical one.
                 video_write_kwargs["ffmpeg_params"] = ["-crf", str(crf), "-preset", str(preset)]
                 _write_videofile_with_deadline(
                     final_video, video_only_path, video_write_kwargs, main_encode_timeout
@@ -1054,6 +1199,9 @@ def render_video(ctx: Context) -> Context:
     # v1.4.1: muxed subtitle delivery — add the mode-selected SRT as a soft
     # mov_text track (input 2, mapped 2:s:0). Burned/sidecar keep the
     # historical two-input mux.
+    # v1.5.0: the pixel plan's color tags are applied here, on the copy
+    # mux, so every deliverable (any encoder, GPU included) carries the
+    # requested color metadata.
     mux_cmd = _build_mux_cmd(
         ffmpeg,
         video_only_path,
@@ -1064,6 +1212,7 @@ def render_video(ctx: Context) -> Context:
         target_format=target_format,
         subtitle_srt=ctx.render_subtitle_path if subtitle_delivery == "muxed" else None,
         subtitle_language=mux_subtitle_lang,
+        color_args=pixel_plan["color_args"],
     )
 
     try:
@@ -1100,7 +1249,29 @@ def render_video(ctx: Context) -> Context:
         # up using differs from the probe's detection — make it truthful.
         encoder_info["active"] = "libx264"
         encoder_info["fallback_reason"] = runtime_fallback_reason
+    if tenbit_gpu_reason is not None:
+        # v1.5.0: the ADR-017 CPU-only 10-bit policy forced libx264 over the
+        # resolved GPU encoder — record the reason so the report reflects
+        # why the detected GPU was not used.
+        encoder_info["active"] = "libx264"
+        encoder_info["fallback_reason"] = tenbit_gpu_reason
     ctx.metadata["encoder_info"] = encoder_info
+
+    # v1.5.0: pixel pipeline report — effective bit depth, expected pix_fmt,
+    # color space + tags, and the encoder path actually taken (the runtime
+    # GPU→CPU fallback above can still demote a GPU encode to CPU).
+    final_codec = video_write_kwargs["codec"]
+    encoder_path = "cpu" if final_codec == "libx264" else "gpu"
+    render_pixel_report = {
+        "bit_depth": pixel_plan["bit_depth"],
+        "pix_fmt": pixel_plan["pix_fmt"],
+        "color_space": pixel_plan["color_space"],
+        "color_tags": pixel_plan["color_tags"],
+        "encoder_path": encoder_path,
+    }
+    if pixel_plan["forced_note"]:
+        render_pixel_report["note"] = pixel_plan["forced_note"]
+    ctx.metadata["render_pixel"] = render_pixel_report
 
     metadata = build_metadata_json(ctx)
     with open(output_dir / "metadata.json", "w", encoding="utf-8") as f:

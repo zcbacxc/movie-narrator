@@ -185,6 +185,12 @@ class MetadataDict(TypedDict, total=False):
     subtitle_delivery_fallback_reason: str
     # Render step
     encoder_info: dict
+    # v1.5.0: pixel pipeline — effective bit depth / pix_fmt / color space
+    # (+ tags) / encoder path actually taken; ``note`` when hdr10 forced
+    # the bit depth to 10.
+    render_pixel: dict
+    render_bit_depth: int
+    render_color_space: str
     footage_coverage: dict
     render_encoder: str
     render_video_codec: str

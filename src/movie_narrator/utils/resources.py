@@ -14,6 +14,7 @@ Heuristic (documented, deliberately simple — not a guarantee):
     temp_space_need ≈ 2 GB                    # ~1080p (1920×1080), 60 s
                       × (width × height) / (1920 × 1080)   # area ratio
                       × (duration_s / 60)                  # duration ratio
+                      × 1.25                               # 10-bit factor (v1.5.0)
     clamped to [0.5 GB, 50 GB]
 
 Rationale: a 1080p / 60 s render writes a video-only intermediate plus
@@ -24,6 +25,11 @@ duration, floored at 0.5 GB (very short/low-res renders still need
 working room) and capped at 50 GB (long 4K renders should not produce
 absurd gates — the heuristic's purpose is catching obviously-full
 disks, not predicting exact usage).
+
+v1.5.0: 10-bit renders (``render_bit_depth: 10`` / hdr10) carry ~25%
+more data per frame (yuv420p10le) and a slower encode keeps temp
+intermediates alive longer, so the estimate gains a ×1.25 factor when
+``bit_depth=10``. The factor is deliberately coarse — same clamp range.
 
 The CPU count is advisory only: a low core count is surfaced as a
 non-fatal ``advisory:`` reason, never a hard failure.
@@ -47,6 +53,10 @@ _BASE_DURATION_S = 60.0
 #: Clamp range for the estimate.
 _MIN_NEED_BYTES = 0.5 * 1024 * 1024 * 1024
 _MAX_NEED_BYTES = 50.0 * 1024 * 1024 * 1024
+# v1.5.0: temp-space multiplier for 10-bit renders (yuv420p10le carries
+# ~25% more data per frame; the slower encode also keeps intermediates
+# alive longer). Deliberately coarse — the heuristic is not a guarantee.
+_BIT_DEPTH_10_FACTOR = 1.25
 
 _TRUTHY = frozenset({"1", "true", "yes", "on"})
 
@@ -84,17 +94,22 @@ def _format_bytes(n: float) -> str:
 def estimate_temp_space_bytes(
     resolution: tuple[int, int],
     duration_estimate_s: float,
+    *,
+    bit_depth: int = 8,
 ) -> int:
     """Estimate the temp-space need (bytes) for a render.
 
     Implements the documented heuristic: a 2 GB base for 1080p / 60 s
-    scaled linearly by frame area and duration, clamped to
-    ``[0.5 GB, 50 GB]``. Non-positive durations fall back to the floor
-    (any render needs *some* working room).
+    scaled linearly by frame area and duration (×1.25 for 10-bit
+    renders, v1.5.0), clamped to ``[0.5 GB, 50 GB]``. Non-positive
+    durations fall back to the floor (any render needs *some* working
+    room).
 
     Args:
         resolution: ``(width, height)`` output resolution in pixels.
         duration_estimate_s: Expected output duration in seconds.
+        bit_depth: Render bit depth (8 default; 10 applies the
+            documented ×1.25 factor). Other values behave like 8.
 
     Returns:
         The estimated need in bytes (integer).
@@ -102,7 +117,8 @@ def estimate_temp_space_bytes(
     width, height = resolution
     area_ratio = max(float(width) * float(height), 0.0) / _BASE_AREA_PX
     duration_ratio = max(float(duration_estimate_s), 0.0) / _BASE_DURATION_S
-    need = _BASE_1080P_60S_BYTES * area_ratio * duration_ratio
+    depth_factor = _BIT_DEPTH_10_FACTOR if int(bit_depth) == 10 else 1.0
+    need = _BASE_1080P_60S_BYTES * area_ratio * duration_ratio * depth_factor
     return int(max(_MIN_NEED_BYTES, min(need, _MAX_NEED_BYTES)))
 
 
@@ -113,6 +129,7 @@ def check_render_admission(
     temp_dir: Path,
     min_free_disk_bytes: int = 0,
     cpu_count: int | None = None,
+    bit_depth: int = 8,
 ) -> AdmissionCheck:
     """Decide whether a render may start given available resources.
 
@@ -133,6 +150,9 @@ def check_render_admission(
             (its filesystem is probed).
         min_free_disk_bytes: User-configured minimum free-space floor.
         cpu_count: CPU core count (informational only).
+        bit_depth: Render bit depth (v1.5.0; 8 default, 10 applies the
+            documented ×1.25 temp-space factor). Keyword-only and
+            defaulted so existing callers stay behaviour-identical.
 
     Returns:
         An :class:`AdmissionCheck` with ``ok`` and diagnostic reasons.
@@ -149,13 +169,14 @@ def check_render_admission(
             reasons=(f"cannot determine free disk space for {temp_dir}: {exc}",),
         )
 
-    need_bytes = estimate_temp_space_bytes(resolution, duration_estimate_s)
+    need_bytes = estimate_temp_space_bytes(resolution, duration_estimate_s, bit_depth=bit_depth)
     required_bytes = max(need_bytes, max(int(min_free_disk_bytes), 0))
     if free_bytes < required_bytes:
+        depth_note = " ×1.25 10-bit factor" if int(bit_depth) == 10 else ""
         hard_failures.append(
             f"insufficient disk space for render: need ~{_format_bytes(required_bytes)} "
             f"(heuristic for {resolution[0]}x{resolution[1]} @ "
-            f"{float(duration_estimate_s):.0f}s), "
+            f"{float(duration_estimate_s):.0f}s{depth_note}), "
             f"only {_format_bytes(free_bytes)} free in {temp_dir}"
         )
 

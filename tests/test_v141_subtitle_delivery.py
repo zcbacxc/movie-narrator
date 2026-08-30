@@ -187,6 +187,16 @@ _LEGACY_BURNED_MUX_CMD = [
     "copy",
     "-c:a",
     "aac",
+    # v1.5.0: every mux now carries the explicit bt709 color tags (the
+    # default sdr stream is unchanged — the tags only write down the color
+    # interpretation ffmpeg previously applied implicitly). See
+    # tests/test_v150_color.py and docs/ADR.md ADR-017.
+    "-color_primaries",
+    "bt709",
+    "-color_trc",
+    "bt709",
+    "-colorspace",
+    "bt709",
     "-movflags",
     "+faststart",
     "-f",

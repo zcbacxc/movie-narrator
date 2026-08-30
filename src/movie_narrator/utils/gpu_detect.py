@@ -65,6 +65,10 @@ REASON_PROBE_FAILED = "probe_failed"
 REASON_NOT_DETECTED = "not_detected"
 REASON_UNKNOWN_HINT = "unknown_hint"
 REASON_GPU_RUNTIME_FALLBACK = "gpu_runtime_fallback"
+# v1.5.0 (ADR-017): 10-bit renders are CPU-only — the supported H.264 GPU
+# backends (NVENC/VAAPI/VideoToolbox) are 8-bit only, and no GPU 10-bit
+# capability probe exists in v1.5.0 (HEVC main10 is future work).
+REASON_10BIT_GPU_UNSUPPORTED = "10bit_gpu_unsupported"
 
 
 def _candidate_order() -> list[str]:

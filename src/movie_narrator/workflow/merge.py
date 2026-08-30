@@ -205,6 +205,9 @@ def merge_job(
             "timeline_export_backend",
             # v1.4.1: subtitle delivery (burned | sidecar | muxed)
             "subtitle_delivery",
+            # v1.5.0: render pixel pipeline (bit depth + color space)
+            "render_bit_depth",
+            "render_color_space",
             # Render template styling
             "render_template",
         ):
@@ -232,6 +235,17 @@ def merge_job(
     # muxed requests back to burned (never fails the render).
     if params.get("subtitle_delivery") == "burned":
         params.pop("subtitle_delivery", None)
+
+    # v1.5.0: ``render_bit_depth`` / ``render_color_space`` default to
+    # 8 / "sdr" (the historical 8-bit behaviour). The defaults are
+    # dropped so jobs that never set the keys keep byte-identical
+    # params/metadata; explicit 10-bit / hdr10 values propagate to the
+    # render step (hdr10 additionally forces the bit depth to 10 there,
+    # recorded as a note in metadata ``render_pixel``).
+    if params.get("render_bit_depth") == 8:
+        params.pop("render_bit_depth", None)
+    if params.get("render_color_space") == "sdr":
+        params.pop("render_color_space", None)
 
     # Multi-language subtitle (v0.3).
     subtitle_lang = pick_optional(cli.get("subtitle_lang"), yaml_get("subtitle_lang"), None)

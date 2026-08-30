@@ -204,6 +204,9 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
             "timeline_export_backend",
             # v1.4.1: subtitle delivery (burned | sidecar | muxed)
             "subtitle_delivery",
+            # v1.5.0: render pixel pipeline (bit depth + color space)
+            "render_bit_depth",
+            "render_color_space",
         }
         for k in data["params"].keys():
             if k not in allowed_params:

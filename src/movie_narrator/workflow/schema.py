@@ -60,6 +60,19 @@ class JobSteps(BaseModel):
 SubtitleDeliveryMode = Literal["burned", "sidecar", "muxed"]
 VALID_SUBTITLE_DELIVERY_MODES = frozenset({"burned", "sidecar", "muxed"})
 
+# v1.5.0: render pixel pipeline (ADR-017) — bit depth and color space.
+#   render_bit_depth 8 (default)  = historical yuv420p behaviour;
+#   render_bit_depth 10           = yuv420p10le + libx264 high10 profile.
+#   "sdr"   (default)             = bt709 color tags (the historical implicit
+#                                   interpretation, now written explicitly);
+#   "hdr10"                       = bt2020nc / smpte2084 / bt2020nc tags and
+#                                   10-bit forced (mastering-display SEI is
+#                                   out of scope; 10-bit renders are CPU-only
+#                                   in v1.5.0 — see docs/ADR.md ADR-017).
+RenderBitDepth = Literal[8, 10]
+RenderColorSpace = Literal["sdr", "hdr10"]
+VALID_RENDER_COLOR_SPACES = frozenset({"sdr", "hdr10"})
+
 
 class JobParams(BaseModel):
     """Job parameter configuration."""
@@ -228,6 +241,15 @@ class JobParams(BaseModel):
     # mp4 during the final ffmpeg pass). Unavailable muxed requests
     # (missing SRT / non-mp4 container) degrade to "burned" at render.
     subtitle_delivery: SubtitleDeliveryMode = "burned"
+    # v1.5.0: render pixel pipeline (ADR-017). ``render_bit_depth`` 10
+    # switches the main encode to yuv420p10le + libx264 ``high10``
+    # (CPU-only — GPU H.264 encoders are 8-bit only in v1.5.0).
+    # ``render_color_space="hdr10"`` writes bt2020nc/smpte2084/bt2020nc
+    # color tags and auto-forces the bit depth to 10 (recorded as a note
+    # in metadata ``render_pixel``). Default 8/"sdr" keeps the historical
+    # 8-bit stream; the sdr path now tags bt709 explicitly.
+    render_bit_depth: RenderBitDepth = 8
+    render_color_space: RenderColorSpace = "sdr"
 
     @field_validator("timeline_export_backend")
     @classmethod
