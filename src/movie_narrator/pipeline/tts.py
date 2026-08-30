@@ -6,6 +6,7 @@
 import asyncio
 import os
 from pathlib import Path
+from typing import Any, Dict, cast
 
 from pydub import AudioSegment
 from tqdm.asyncio import tqdm_asyncio
@@ -446,7 +447,8 @@ def generate_voice(ctx: Context) -> Context:
 
     # v1.5.1: usage ledger snapshot — flows into metadata.json via the
     # existing export path (execution-manifest integration waits for a
-    # runner-touching release).
-    ctx.metadata["usage"] = get_usage_ledger().summary()
+    # runner-touching release). Cast: "usage" is a dynamic metadata key
+    # not present in the MetadataDict TypedDict.
+    cast("Dict[str, Any]", ctx.metadata)["usage"] = get_usage_ledger().summary()
 
     return ctx
