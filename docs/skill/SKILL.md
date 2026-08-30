@@ -40,6 +40,7 @@ the system binary). Optional extras: `[media]` (scene detection), `[ml]`
 | `mn race` | Run multiple candidate configs in parallel and pick the best |
 | `mn imitate` | Analyze a reference video and imitate its style/rhythm |
 | `mn resume` | Resume a paused pipeline from a checkpoint |
+| `mn rerun` | Deliberately re-execute from a chosen step (`--from STEP`, `--list-steps`) with downstream invalidation (v1.3.0) |
 
 ### Pipeline sub-steps
 
@@ -115,6 +116,13 @@ mn serve --port 8765 --max-workers 2      # start daemon + REST API server
 ```bash
 mn create --movie "飞驰人生" --pause-at script                  # pause after script
 mn resume --state output/<movie>/pipeline_state.json           # resume from checkpoint
+```
+
+### Rerun from a step (deliberate re-execution)
+
+```bash
+mn rerun --list-steps                                          # ordered step names (soft steps marked)
+mn rerun output/<movie>/pipeline_state.json --from render_video  # re-run render_video onward
 ```
 
 ## Key `mn create` Flags
