@@ -176,11 +176,8 @@ class PromptCache:
             with suppress(OSError):
                 path.unlink()
             return None
-        created_at = entry.get("created_at")
-        try:
-            age = _now() - float(created_at)
-        except (TypeError, ValueError):
-            age = None
+        raw_created = entry.get("created_at")
+        age = _now() - float(raw_created) if isinstance(raw_created, (int, float)) else None
         if age is None or age < 0 or age > self.ttl_seconds:
             self.misses += 1
             with suppress(OSError):

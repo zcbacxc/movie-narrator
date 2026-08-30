@@ -6,7 +6,7 @@
 import re
 import unicodedata
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, Optional, cast
 
 from ..models import Context
 
@@ -58,7 +58,7 @@ def _reference_media_entries(ctx: Context) -> list[dict]:
     plain dicts (resumed from ``pipeline_state.json``), or absent. Returns
     an empty list when reference media is not configured.
     """
-    raw = ctx.metadata.get("reference_media")
+    raw = cast(Dict[str, Any], ctx.metadata).get("reference_media")
     if not raw:
         return []
     entries: list[dict] = []
@@ -111,7 +111,7 @@ def _validate_reference_media(ctx: Context) -> None:
                 "note": str(entry.get("note") or ""),
             }
         )
-    ctx.metadata["reference_media"] = validated
+    cast(Dict[str, Any], ctx.metadata)["reference_media"] = validated
 
 
 def resolve_video(ctx: Context) -> Context:

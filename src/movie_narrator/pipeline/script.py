@@ -3,7 +3,7 @@
 
 """Script generation step — generate narration script via LLM."""
 
-from typing import List
+from typing import Any, Dict, List, cast
 from pathlib import Path
 import re
 
@@ -151,8 +151,9 @@ def _maybe_caption_reference_images(ctx: Context) -> None:
     soft-degraded: captions stay empty, a warning is logged, and the
     pipeline proceeds with text-only hints — never fatal.
     """
-    entries = ctx.metadata.get("reference_media") or []
-    if not entries or "reference_media_captions" in ctx.metadata:
+    metadata = cast(Dict[str, Any], ctx.metadata)
+    entries = metadata.get("reference_media") or []
+    if not entries or "reference_media_captions" in metadata:
         return
     images = [
         e
@@ -162,8 +163,8 @@ def _maybe_caption_reference_images(ctx: Context) -> None:
     if not images:
         return
 
-    ctx.metadata["reference_media_captions"] = {}
-    provider = ctx.metadata.get("vision_captioner", "none")
+    metadata["reference_media_captions"] = {}
+    provider = metadata.get("vision_captioner", "none")
     if not provider or provider == "none":
         return
 
@@ -180,7 +181,7 @@ def _maybe_caption_reference_images(ctx: Context) -> None:
             text = (out[0] if out else "").strip()
             if text and not _PLACEHOLDER_CAPTION_RE.match(text):
                 captions[entry["path"]] = text
-        ctx.metadata["reference_media_captions"] = captions
+        metadata["reference_media_captions"] = captions
     except Exception as exc:  # noqa: BLE001 — style hints must never break the script step
         ctx.services.console.inline_warn(
             f"Reference image captioning failed — skipping visual style hints: {exc}"
@@ -195,10 +196,11 @@ def _build_reference_media_hints(ctx: Context) -> str:
     ``kind + name + usage [+ note]`` line; captioned images add their
     visual description.
     """
-    entries = ctx.metadata.get("reference_media") or []
+    metadata = cast(Dict[str, Any], ctx.metadata)
+    entries = metadata.get("reference_media") or []
     if not entries:
         return ""
-    captions = ctx.metadata.get("reference_media_captions") or {}
+    captions = metadata.get("reference_media_captions") or {}
     lines: list[str] = []
     for entry in entries:
         if not isinstance(entry, dict):
