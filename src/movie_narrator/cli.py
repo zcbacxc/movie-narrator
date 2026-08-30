@@ -825,8 +825,8 @@ def resume(
 
 @app.command()
 def rerun(
-    state: str = typer.Argument(
-        ..., help="pipeline_state.json 路径 / Path to pipeline state file"
+    state: Optional[str] = typer.Argument(
+        None, help="pipeline_state.json 路径 / Path to pipeline state file"
     ),
     from_step: Optional[str] = typer.Option(
         None,
@@ -890,6 +890,9 @@ def rerun(
         for name in ordered_step_names():
             typer.echo(f"{name} (soft)" if name in SOFT_STATUS_STEPS else name)
         raise typer.Exit(code=0)
+
+    if not state:
+        raise typer.BadParameter("STATE is required unless --list-steps is given.")
 
     ordered = ordered_step_names()
     if from_step not in ordered:

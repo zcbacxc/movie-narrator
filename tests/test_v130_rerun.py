@@ -272,10 +272,8 @@ class TestRerunCli:
 
     def test_rerun_list_steps(self, tmp_path):
         """--list-steps prints ordered names, marking soft steps, and
-        exits without touching the state file."""
-        result = runner.invoke(
-            app, ["rerun", str(tmp_path / "unused.json"), "--list-steps"]
-        )
+        exits without touching the state file (STATE optional)."""
+        result = runner.invoke(app, ["rerun", "--list-steps"])
         assert result.exit_code == 0, result.output
         lines = result.output.strip().splitlines()
         assert lines[0] == "resolve_video"
@@ -284,6 +282,12 @@ class TestRerunCli:
         assert "render_video" in lines
         # No "(soft)" marker on hard steps.
         assert "generate_script (soft)" not in lines
+
+    def test_rerun_without_state_and_without_list_steps_errors(self, tmp_path):
+        """No STATE and no --list-steps → BadParameter."""
+        result = runner.invoke(app, ["rerun"])
+        assert result.exit_code != 0
+        assert "STATE is required" in result.output
 
     def test_rerun_missing_state_file(self, tmp_path):
         """Missing state file → exit code 1 with a clear message."""
