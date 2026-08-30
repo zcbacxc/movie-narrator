@@ -250,6 +250,55 @@ docker compose --profile s3 up -d
 
 ---
 
+## Service semantics: plans, tenants, and webhooks (v1.3.1)
+
+All of these are **default-off / unlimited** — a deployment that sets none
+of them behaves exactly like v1.2. They are operational variables read
+from the *process environment* (export them before starting `mn serve`;
+see `.env.example` for the annotated list).
+
+### Plans and entitlements
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `MN_DEFAULT_PLAN` | `default` | Plan applied when the request does not pick one. `default` = all limits off. |
+| `MN_PLANS_FILE` | *(unset)* | Optional JSON file `{"plans": [{...}]}` overriding/adding plans; invalid files are ignored (built-ins stay active). |
+
+Built-ins: `default` (unlimited), `free` (720p max / 60 s / 512 MiB
+estimated artifacts / mandatory watermark / CPU-only encoder / 24 h
+artifact TTL), `pro` (1080p max / 3600 s / 8 GiB / GPU allowed).
+Clients can pick a plan per request with the `X-MN-Plan` header; unknown
+names are rejected with 400, and a submission that violates the plan is
+rejected with `403 {"error": "entitlement_denied", ...}`. Unauthenticated
+(loopback) callers always receive the unlimited default plan.
+
+### Principals and tenants (labelling MVP)
+
+| Variable / header | Meaning |
+|---|---|
+| `MN_API_PRINCIPAL` | Principal recorded for API-key-authenticated requests (default `api-key`); unauthenticated loopback stays `local`. |
+| `X-MN-Tenant` | Optional request header labelling the tenant (default `default`). A non-default tenant sees only its own tasks' artifacts; `default` keeps the full single-tenant view. |
+
+> Tenant scoping is labelling, not isolation (ADR-012) — do not treat
+> `X-MN-Tenant` as a security boundary.
+
+### Webhooks
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `MN_WEBHOOK_URLS` | *(unset)* | Comma-separated target URLs; unset = disabled. Terminal transitions (`task.completed` / `task.failed` / `task.cancelled`) are POSTed as JSON. |
+| `MN_WEBHOOK_SECRET` | *(unset)* | HMAC-SHA256 secret; `X-MN-Signature` carries the hex digest over the raw body. |
+| `MN_WEBHOOK_TIMEOUT` | `10` | Per-request delivery timeout (seconds). |
+| `MN_WEBHOOK_MAX_RETRIES` | `3` | Retries after the first attempt (exponential backoff; `Retry-After` honoured). |
+
+Consumer contract: verify `X-MN-Signature` before trusting a payload, and
+**deduplicate on `X-MN-Event-Id`** — the id identifies one logical event
+across retries and target URLs. Delivery attempts are recorded (one JSONL
+line each) in `webhook_deliveries.jsonl` next to the task store; webhook
+failures never affect task outcomes.
+
+---
+
 ## Environment variables
 
 Configuration is env-driven and read from `.env` (see `.env.example`). The

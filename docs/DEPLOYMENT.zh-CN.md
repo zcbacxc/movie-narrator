@@ -239,6 +239,42 @@ docker compose --profile s3 up -d
 
 ---
 
+## 服务语义：套餐、租户与 Webhook（v1.3.1）
+
+以下各项均为**默认关闭 / 无限制**——一个不设置它们的部署与 v1.2 行为完全一致。它们是从**进程环境**读取的运维变量（启动 `mn serve` 前导出；带注释的清单见 `.env.example`）。
+
+### 套餐与权益
+
+| 变量 | 默认 | 含义 |
+|---|---|---|
+| `MN_DEFAULT_PLAN` | `default` | 请求未指定时使用的套餐。`default` = 全部限制关闭。 |
+| `MN_PLANS_FILE` | *（未设置）* | 可选 JSON 文件 `{"plans": [{...}]}`，用于覆盖/新增套餐；无效文件被忽略（内置套餐保持生效）。 |
+
+内置套餐：`default`（无限制）、`free`（最大 720p / 60 秒 / 512 MiB 估算产物 / 强制水印 / 仅 CPU 编码 / 24 小时产物 TTL）、`pro`（最大 1080p / 3600 秒 / 8 GiB / 允许 GPU）。
+客户端可通过 `X-MN-Plan` 请求头按请求选择套餐；未知名称返回 400，违反套餐限制的提交返回 `403 {"error": "entitlement_denied", ...}`。未认证（环回）调用方始终获得无限制的默认套餐。
+
+### 主体与租户（打标 MVP）
+
+| 变量 / 请求头 | 含义 |
+|---|---|
+| `MN_API_PRINCIPAL` | 记录在 API 密钥认证请求上的主体（默认 `api-key`）；未认证环回仍为 `local`。 |
+| `X-MN-Tenant` | 可选请求头，用于给租户打标（默认 `default`）。非默认租户只能看到自己任务的产物；`default` 保持完整的单租户视图。 |
+
+> 租户限定只是打标，不是隔离（ADR-012）——不要把 `X-MN-Tenant` 当作安全边界。
+
+### Webhook
+
+| 变量 | 默认 | 含义 |
+|---|---|---|
+| `MN_WEBHOOK_URLS` | *（未设置）* | 逗号分隔的目标 URL；未设置 = 关闭。终态状态迁移（`task.completed` / `task.failed` / `task.cancelled`）会以 JSON POST 推送。 |
+| `MN_WEBHOOK_SECRET` | *（未设置）* | HMAC-SHA256 密钥；`X-MN-Signature` 为对原始请求体的十六进制摘要。 |
+| `MN_WEBHOOK_TIMEOUT` | `10` | 单次投递超时（秒）。 |
+| `MN_WEBHOOK_MAX_RETRIES` | `3` | 首次尝试后的重试次数（指数退避；遵循 `Retry-After`）。 |
+
+消费方契约：信任负载前先验证 `X-MN-Signature`，并**以 `X-MN-Event-Id` 去重**——该 id 在所有重试与目标 URL 中标识同一个逻辑事件。每次投递尝试都会以一行 JSONL 记录在任务存储旁的 `webhook_deliveries.jsonl`；Webhook 失败绝不会影响任务结果。
+
+---
+
 ## 环境变量
 
 配置由环境变量驱动，从 `.env` 读取（参见 `.env.example`）。容器不会把密钥
