@@ -40,6 +40,8 @@
 - **CLI**（`cli.py`）—— 入口；解析参数，调用 `workflow` 或直接调用 `run_pipeline`
 - **workflow**（`workflow.py`）—— 可选的 job.yaml 合并层（CLI > YAML > Settings）
 - **pipeline**（`pipeline/runner.py`）—— 16 步串行编排器；持有 `STEPS`、`build_context`、`run_pipeline`
+- **pipeline/dag.py** —— 线性兼容的 DAG 契约：步骤 I/O + 依赖声明、劝告性验证与拓扑排序；运行器保持串行（v1.3.0）
+- **pipeline/deliverable.py** —— 版本化交付物清单（`deliverable_manifest.json`），流式 SHA-256 校验（v1.3.0）
 - **tts / vision / providers** —— 可插拔子系统，基于注册表分派（`@register_tts`、`@register_vision` 等）
 - **cloud**（`cloud/`）—— 异步任务队列、REST API 服务、远程推理代理（v0.6.x）
 - **contract**（`contract.py`）—— 外部消费者的唯一导入面；固定 `CONTRACT_VERSION`

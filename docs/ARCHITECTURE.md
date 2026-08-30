@@ -40,6 +40,8 @@
 - **CLI** (`cli.py`) — entry point; parses flags, calls `workflow` or `run_pipeline` directly
 - **workflow** (`workflow.py`) — optional job.yaml merge layer (CLI > YAML > Settings)
 - **pipeline** (`pipeline/runner.py`) — 16-step sequential orchestrator; owns `STEPS`, `build_context`, `run_pipeline`
+- **pipeline/dag.py** — linear-compatible DAG contract: step I/O + dependency declarations, advisory validation and topological order; the runner stays linear (v1.3.0)
+- **pipeline/deliverable.py** — versioned deliverable manifest (`deliverable_manifest.json`) with streamed SHA-256 checksums (v1.3.0)
 - **tts / vision / providers** — pluggable subsystems with registry-based dispatch (`@register_tts`, `@register_vision`, etc.)
 - **cloud** (`cloud/`) — async task queue, REST API server, remote inference proxy (v0.6.x)
 - **contract** (`contract.py`) — single import surface for external consumers; pins `CONTRACT_VERSION`

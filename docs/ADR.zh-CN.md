@@ -441,6 +441,37 @@ movie-narrator 流水线是一条 16 步处理链。部分步骤具有软依赖�
 
 ---
 
+## ADR-012：线性兼容的 DAG 契约
+
+**状态：** 已接受
+**版本：** 自 v1.3.0 引入
+
+**背景**
+
+16 个流水线步骤在 `run_pipeline` 中构成固定线性序列。插件可以注入步骤，但无法声明其读取/写入哪些数据，因此没有机器可校验的方式来确认插件的数据依赖与线性执行兼容——也没有为未来并行调度打下基础。
+
+**备选方案**
+
+- 现在就把运行器改造成并行 DAG 执行器（否决：风险高、当前无需求；渲染/TTS 是仅有的慢步骤且已有缓存）。
+- 为刻意的重新执行扩展 `mn resume --from-step`（否决：resume 语义是崩溃恢复——从最后一个已完成步骤之后继续；混淆两种语义会让下游陈旧的成功状态静默跳过工作）。
+
+**决策结果**
+
+步骤可在注册时声明粗粒度的 `inputs` / `outputs`（Context 属性或 `ctx.metadata` 键名）与 `depends_on`（其输出被本步骤读取的上游步骤）。新增 `pipeline/dag.py` 提供 `StepSpec`、`build_step_graph`、`validate_linear_order`（对未注册/后置/成环依赖给出劝告性警告）与 `topological_order`（带线性决胜的 Kahn 算法）。运行器保持线性 for 循环；对任何线性兼容的注册表，`topological_order` 与 `step_registry.ordered_names()` 相等。重新执行是独立的 `mn rerun --from STEP` 命令，会失效下游软步骤的状态。
+
+**后果**
+
+- 正面：插件依赖错误在验证时即可发现；步骤图可经契约面检视；未来并行调度无需语义变更。
+- 负面：声明是劝告性的（运行器无法对可变 `Context` 状态强制执行）；插件作者必须保持 `depends_on` 指向前方，否则接受验证警告。
+
+**参考资料**
+
+- `src/movie_narrator/pipeline/dag.py`
+- `src/movie_narrator/pipeline/registry.py`
+- `docs/PLUGIN_DEVELOPMENT.md`
+
+---
+
 ## Decision Index
 
 | # | ADR | 状态 | 版本 | 摘要 |
@@ -456,3 +487,4 @@ movie-narrator 流水线是一条 16 步处理链。部分步骤具有软依赖�
 | ADR-009 | 输入净化与安全 | Accepted | v0.9.5 | 字段校验；HTTP 400/413；Bandit + pip-audit；80% 覆盖率门槛 |
 | ADR-010 | 国际化与本地化语音 | Accepted | v0.9.6 | 语言感知生成（默认语言 `zh`）；`voice_map`/`resolve_voice` 优先级解析 |
 | ADR-011 | 许可禁区与 FFmpeg 捆绑策略 | Accepted | v1.1.0 | 禁区清单（Remotion/TypeTale 代码/爬虫/声音克隆）；FFmpeg 经 `ffmpeg_bin()` 解析（优先 imageio-ffmpeg），项目自身不将二进制打包进发行物 |
+| ADR-012 | 线性兼容的 DAG 契约 | Accepted | v1.3.0 | 步骤声明 `inputs`/`outputs`/`depends_on`；`pipeline/dag.py` 验证线性兼容（`topological_order` == 线性顺序）；运行器保持线性 |

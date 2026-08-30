@@ -286,3 +286,36 @@ Structured QA report exported as `qa_report.json` and `qa_report.txt` alongside 
 ## TTS cache
 
 **`TTSCacheKey`** includes `style_prompt` (not `pause_ms`). `CACHE_SCHEMA_VERSION` = 3 — all pre-v0.4.23 cache files are automatically re-generated on first run. Atomic write (`.partial` → `os.replace`) prevents corrupt cache files; if a corrupt file is detected at load time, it is deleted and re-synthesized transparently.
+
+---
+
+## Deliverable manifest
+
+### `deliverable_manifest.json`
+
+Versioned, checksummed inventory of the artifacts a run delivered (v1.3.0+), written into the output directory after the pipeline completes successfully. Skipped on dry-run (no media is produced) and on pipeline failure. Atomic write (temp file + `os.replace`); paths are relative to the output directory and use POSIX separators.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `schema_version` | int | Manifest schema version, currently = 1 |
+| `package_version` | str | Core engine package version (from `importlib.metadata`) |
+| `contract_version` | str | Dotted `CONTRACT_VERSION` (e.g. `"1.0.0"`) |
+| `generated_at` | str | ISO-8601 UTC timestamp with `Z` suffix |
+| `movie` | str | Movie title of the run |
+| `generation_mode` | str | `"full"` or `"preview"` (preview mode) |
+| `artifacts` | list | Per-artifact entries (see below) |
+| `qa` | object | QA blocks recorded by the run (`qa_report` / `video_qa` / `qa_gate`), when present |
+
+Each entry in `artifacts`:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `kind` | str | `video` / `audio` / `subtitle` / `script` / `clip` / `metadata` / `execution_manifest` |
+| `path` | str | Path relative to the output directory (POSIX separators); conventional declared path when absent |
+| `bytes` | int | File size in bytes (0 when absent) |
+| `sha256` | str | Streamed SHA-256 hex digest (empty when absent) |
+| `present` | bool | Whether the file exists on disk |
+
+**Core vs optional kinds**: `video`, `audio`, and `subtitle` are core kinds — their entries always appear, with `present=false` and the conventional path (`final.mp4`, `narration.mp3`, `subtitle.srt`) when the artifact is missing, so consumers can rely on the manifest shape. `script`, `clip`, `metadata`, and `execution_manifest` are optional kinds — they appear only when present.
+
+**Video entry**: `final.mp4`, or `preview.mp4` in preview mode (the rendered `ctx.video_path`). **Audio entry**: the BGM-mixed final audio when present, otherwise the raw narration audio.

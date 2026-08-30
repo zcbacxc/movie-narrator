@@ -441,6 +441,37 @@ For **FFmpeg**: the engine resolves the binary through the shared `utils/ffmpeg_
 
 ---
 
+## ADR-012: Linear-compatible DAG Contract
+
+**Status:** Accepted
+**Version:** Introduced in v1.3.0
+
+**Context**
+
+The 16 pipeline steps form a fixed linear sequence in `run_pipeline`. Plugins can inject steps but cannot declare what data they read/write, so there is no machine-checkable way to validate that a plugin's data dependencies are compatible with linear execution — nor a foundation for future parallel scheduling.
+
+**Considered Options**
+
+- Making the runner a parallel DAG executor now (rejected: high risk, no current need; render/TTS are the only slow steps and are already cached).
+- Overloading `mn resume --from-step` for deliberate re-execution (rejected: resume means crash recovery — continue after the last completed step; mixing the two semantics would make stale downstream success states silently skip work).
+
+**Decision Outcome**
+
+Steps may declare coarse `inputs` / `outputs` (Context attribute or `ctx.metadata` key names) and `depends_on` (upstream steps whose outputs they read) at registration time. A new `pipeline/dag.py` exposes `StepSpec`, `build_step_graph`, `validate_linear_order` (advisory warnings for unregistered/later-ordered/cyclic dependencies) and `topological_order` (Kahn's algorithm with linear tie-breaking). The runner keeps its linear for-loop; `topological_order` equals `step_registry.ordered_names()` for any linear-compatible registry. Re-execution is a separate `mn rerun --from STEP` command that invalidates downstream soft-step statuses.
+
+**Consequences**
+
+- Positive: plugin dependency mistakes become detectable at validation time; the step graph is inspectable via the contract surface; future parallel scheduling needs no semantic change.
+- Negative: declarations are advisory (the runner cannot enforce them on mutable `Context` state); plugin authors must keep `depends_on` backwards-pointing or accept validation warnings.
+
+**References**
+
+- `src/movie_narrator/pipeline/dag.py`
+- `src/movie_narrator/pipeline/registry.py`
+- `docs/PLUGIN_DEVELOPMENT.md`
+
+---
+
 ## Decision Index
 
 | # | ADR | Status | Version | Summary |
@@ -456,3 +487,4 @@ For **FFmpeg**: the engine resolves the binary through the shared `utils/ffmpeg_
 | ADR-009 | Input Sanitization and Security | Accepted | v0.9.5 | Field validation; HTTP 400/413; Bandit + pip-audit; 80% coverage gate |
 | ADR-010 | i18n and Localized Voice | Accepted | v0.9.6 | Language-aware generation (lang default `zh`); `voice_map`/`resolve_voice` priority resolution |
 | ADR-011 | Licensing Red Lines and FFmpeg Bundling Policy | Accepted | v1.1.0 | Red-line list (Remotion/TypeTale code/scrapers/voice cloning); FFmpeg resolved via `ffmpeg_bin()` (imageio-ffmpeg preferred), no binary bundled into a distribution by the project |
+| ADR-012 | Linear-compatible DAG Contract | Accepted | v1.3.0 | Steps declare `inputs`/`outputs`/`depends_on`; `pipeline/dag.py` validates linear compatibility (`topological_order` == linear order); runner stays linear |

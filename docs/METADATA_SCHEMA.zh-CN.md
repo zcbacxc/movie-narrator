@@ -286,3 +286,36 @@
 ## TTS 缓存
 
 **`TTSCacheKey`** 包含 `style_prompt`（不包含 `pause_ms`）。`CACHE_SCHEMA_VERSION` = 3 — 所有 v0.4.23 之前的缓存文件在首次运行时自动重新生成。原子写入（`.partial` → `os.replace`）可防止缓存文件损坏；若在加载时检测到损坏文件，会透明地删除并重新合成。
+
+---
+
+## 交付物清单
+
+### `deliverable_manifest.json`
+
+运行交付产物的版本化、带校验和清单（v1.3.0+），在流水线成功完成后写入输出目录。dry-run（不产生媒体）与流水线失败时跳过。原子写入（临时文件 + `os.replace`）；路径相对于输出目录并使用 POSIX 分隔符。
+
+| 字段 | 类型 | 描述 |
+|-------|------|-------------|
+| `schema_version` | int | 清单 schema 版本，当前 = 1 |
+| `package_version` | str | 核心引擎包版本（来自 `importlib.metadata`） |
+| `contract_version` | str | 点分 `CONTRACT_VERSION`（如 `"1.0.0"`） |
+| `generated_at` | str | ISO-8601 UTC 时间戳（`Z` 后缀） |
+| `movie` | str | 本次运行的电影标题 |
+| `generation_mode` | str | `"full"` 或 `"preview"`（预览模式） |
+| `artifacts` | list | 逐产物条目（见下表） |
+| `qa` | object | 运行记录的 QA 块（`qa_report` / `video_qa` / `qa_gate`），存在时 |
+
+`artifacts` 中每个条目：
+
+| 字段 | 类型 | 描述 |
+|-------|------|-------------|
+| `kind` | str | `video` / `audio` / `subtitle` / `script` / `clip` / `metadata` / `execution_manifest` |
+| `path` | str | 相对输出目录的路径（POSIX 分隔符）；产物缺失时为约定的声明路径 |
+| `bytes` | int | 文件字节数（缺失时为 0） |
+| `sha256` | str | 流式 SHA-256 十六进制摘要（缺失时为空） |
+| `present` | bool | 文件是否存在于磁盘 |
+
+**核心与可选种类**：`video`、`audio`、`subtitle` 是核心种类——其条目始终出现，产物缺失时为 `present=false` 并使用约定路径（`final.mp4`、`narration.mp3`、`subtitle.srt`），消费者可以依赖清单结构。`script`、`clip`、`metadata`、`execution_manifest` 是可选种类——仅在存在时出现。
+
+**视频条目**：`final.mp4`，预览模式下为 `preview.mp4`（即渲染的 `ctx.video_path`）。**音频条目**：优先为 BGM 混音后的最终音频，否则为原始旁白音频。
