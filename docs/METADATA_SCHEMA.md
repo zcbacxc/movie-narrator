@@ -29,6 +29,7 @@
   "qa_report": { ... },
   "render_template": { ... },
   "render_profile": { ... },
+  "render_pixel": { ... },
   "beats_meta": [...],
   "warnings": [...],
   "bgm_error": "string (absent on success)"
@@ -237,8 +238,22 @@ Video encoding quality validation results.
 | `resolution` | [int, int] | Video resolution (width, height) |
 | `fps` | float | Frame rate |
 | `bitrate` | int | Video bitrate (kbps) |
+| `pixel_format` | str | Detected pixel format: `yuv420p` / `yuv420p10le` (v1.5.0) |
+| `color_primaries` | str | Probed color primaries (v1.5.0; empty when the stream is untagged) |
+| `color_transfer` | str | Probed color transfer: `bt709` / `smpte2084` (v1.5.0) |
+| `color_space` | str | Probed color matrix (v1.5.0; empty when the stream is untagged) |
 | `audio_codec` | str | Audio codec |
 | `issues` | list | Detected quality issues with recommendations |
+
+v1.5.0: the check set is expectations-aware, driven by the run's own
+config/metadata (see `render_pixel` below): a 4K-class requested size
+(>= 3840 wide or >= 2160 tall, either orientation) must be reproduced
+exactly by the output, and the pixel plan's bit depth / color space are
+cross-checked against the probed `pix_fmt` / `color_transfer` — a mismatch
+becomes an advisory issue (the report's `ok` flips to false, mirroring the
+other findings). Outputs without a 4K request or without a `render_pixel`
+plan keep the historical behaviour (>= 720p floor, codec / bitrate /
+frame-rate checks).
 
 ### `render_profile`
 
@@ -250,6 +265,27 @@ Video encoding quality validation results.
 | `render_transition` | str\|absent | Scene transition effect: `none`/`fade`/`dissolve`/`slide` (v0.7.1+) |
 | `render_text_animation` | str\|absent | Text animation effect: `none`/`fade`/`slide_up`/`slide_left` (v0.7.1+) |
 | `render_preview_mode` | bool\|absent | Whether preview mode was used (v0.7.2+) |
+
+### `render_pixel` (v1.5.0)
+
+The pixel pipeline the render actually used (ADR-017), requested via the
+`render_bit_depth` (8|10) and `render_color_space` (`sdr`|`hdr10`) job
+params. `hdr10` forces the bit depth to 10 (recorded in `note`); 10-bit
+renders are CPU-only — a GPU encoder hint falls back to libx264, recorded as
+`encoder_info.fallback_reason = 10bit_gpu_unsupported`.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `bit_depth` | int | Effective bit depth: `8` (default) or `10` |
+| `pix_fmt` | str | Expected output pixel format: `yuv420p` (8-bit) / `yuv420p10le` (10-bit) |
+| `color_space` | str | Requested color space: `sdr` / `hdr10` |
+| `color_tags` | object | Color metadata written at the mux: `color_primaries` / `color_trc` / `colorspace` — `bt709` ×3 for sdr; `bt2020` / `smpte2084` / `bt2020nc` for hdr10 |
+| `encoder_path` | str | `cpu` / `gpu` — the encoder path that actually produced the output |
+| `note` | str\|absent | Present when hdr10 forced the bit depth from 8 to 10 |
+
+The QA step validates the deliverable against this plan: a mismatched
+`pix_fmt` or `color_transfer` becomes an advisory finding in `video_qa`
+(see above).
 
 ### Subtitle delivery (v1.4.1)
 

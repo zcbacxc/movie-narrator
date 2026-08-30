@@ -29,6 +29,7 @@
   "qa_report": { ... },
   "render_template": { ... },
   "render_profile": { ... },
+  "render_pixel": { ... },
   "beats_meta": [...],
   "warnings": [...],
   "bgm_error": "string (absent on success)"
@@ -237,8 +238,19 @@
 | `resolution` | [int, int] | 视频分辨率（宽，高） |
 | `fps` | float | 帧率 |
 | `bitrate` | int | 视频码率（kbps） |
+| `pixel_format` | str | 检测到的像素格式：`yuv420p` / `yuv420p10le`（v1.5.0） |
+| `color_primaries` | str | 探测到的色彩基色（v1.5.0；未打标签时为空） |
+| `color_transfer` | str | 探测到的色彩传递函数：`bt709` / `smpte2084`（v1.5.0） |
+| `color_space` | str | 探测到的色彩矩阵（v1.5.0；未打标签时为空） |
 | `audio_codec` | str | 音频编码 |
 | `issues` | list | 检测到的质量问题及建议 |
+
+v1.5.0：检查集变为期望感知，由运行自身的配置/元数据驱动（见下方
+`render_pixel`）：4K 级请求尺寸（宽 >= 3840 或高 >= 2160，横竖屏皆可）必须
+被输出精确复现，且像素计划的位深 / 色彩空间会与探测到的 `pix_fmt` /
+`color_transfer` 交叉校验——不匹配会成为建议性问题（报告的 `ok` 翻转为
+false，与其他发现一致）。没有 4K 请求或没有 `render_pixel` 计划的输出保持
+历史行为（>= 720p 下限、编码 / 码率 / 帧率检查）。
 
 ### `render_profile`
 
@@ -250,6 +262,25 @@
 | `render_transition` | str\|absent | 场景转场效果：`none`/`fade`/`dissolve`/`slide`（v0.7.1+） |
 | `render_text_animation` | str\|absent | 文字动画效果：`none`/`fade`/`slide_up`/`slide_left`（v0.7.1+） |
 | `render_preview_mode` | bool\|absent | 是否使用了预览模式（v0.7.2+） |
+
+### `render_pixel`（v1.5.0）
+
+渲染实际使用的像素管线（ADR-017），通过 `render_bit_depth`（8|10）与
+`render_color_space`（`sdr`|`hdr10`）作业参数请求。`hdr10` 会强制位深为 10
+（记录在 `note`）；10-bit 渲染仅限 CPU——GPU 编码器提示回退到 libx264，
+记录为 `encoder_info.fallback_reason = 10bit_gpu_unsupported`。
+
+| 字段 | 类型 | 描述 |
+|-------|------|-------------|
+| `bit_depth` | int | 生效位深：`8`（默认）或 `10` |
+| `pix_fmt` | str | 期望的输出像素格式：`yuv420p`（8-bit）/ `yuv420p10le`（10-bit） |
+| `color_space` | str | 请求的色彩空间：`sdr` / `hdr10` |
+| `color_tags` | object | 混流时写入的色彩元数据：`color_primaries` / `color_trc` / `colorspace` — sdr 为 `bt709` ×3；hdr10 为 `bt2020` / `smpte2084` / `bt2020nc` |
+| `encoder_path` | str | `cpu` / `gpu` — 实际产出输出所走的编码路径 |
+| `note` | str\|缺省 | hdr10 将位深从 8 强制为 10 时存在 |
+
+QA 步骤会依据该计划校验成片：`pix_fmt` 或 `color_transfer` 不匹配会成为
+`video_qa` 中的建议性发现（见上文）。
 
 ### 字幕交付 (v1.4.1)
 
