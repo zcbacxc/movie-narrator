@@ -26,6 +26,7 @@ from ..utils.prompts import (
 )
 from ..utils.llm import get_llm_client
 from ..utils.json_parser import extract_json
+from ..utils.prompt_cache import note_prompt_cache, get_prompt_cache
 from ..tts.base import is_ci
 from ..workflow.errors import is_network_error
 from time import sleep
@@ -271,21 +272,47 @@ def _generate_plot_beats(ctx: Context, settings, llm, target_count: int) -> List
     # ~60 tokens; floor at the configured research_max_tokens.
     scaled_max_tokens = max(settings.research_max_tokens, target_count * 60)
 
-    response = llm.client.chat.completions.create(
-        model=llm.model,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=settings.research_temperature,
-        max_tokens=scaled_max_tokens,
+    # v1.3.2: opt-in prompt cache around the raw Phase 1 completion.
+    # ``target_count`` is folded into the key via ``extra`` — without it
+    # a cached beat list for a different segment count could be reused.
+    cache = get_prompt_cache()
+    key = cache.make_key(
+        kind="script_beats",
+        topic=ctx.movie_name,
+        style=ctx.style,
+        language=str(ctx.metadata.get("lang", "")),
+        model=str(llm.model),
+        provider=str(getattr(settings, "llm_provider", "")),
+        extra={"target_count": int(target_count)},
     )
-    # v0.7.0: record LLM token usage for cost tracking
-    if (
-        hasattr(ctx, "cost_tracker")
-        and ctx.cost_tracker is not None
-        and hasattr(response, "usage")
-        and response.usage
-    ):
-        ctx.cost_tracker.record_llm_call("script", llm.model, response.usage.model_dump())
-    raw = response.choices[0].message.content or ""
+    cached = cache.lookup(key)
+    if cached is not None:
+        raw = str(cached.get("response", ""))
+        note_prompt_cache(cache, ctx, "script_beats", True, key)
+    else:
+        response = llm.client.chat.completions.create(
+            model=llm.model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=settings.research_temperature,
+            max_tokens=scaled_max_tokens,
+        )
+        # v0.7.0: record LLM token usage for cost tracking
+        if (
+            hasattr(ctx, "cost_tracker")
+            and ctx.cost_tracker is not None
+            and hasattr(response, "usage")
+            and response.usage
+        ):
+            ctx.cost_tracker.record_llm_call("script", llm.model, response.usage.model_dump())
+        raw = response.choices[0].message.content or ""
+        cache.store(
+            key,
+            kind="script_beats",
+            response=raw,
+            model=str(llm.model),
+            provider=str(getattr(settings, "llm_provider", "")),
+        )
+        note_prompt_cache(cache, ctx, "script_beats", False, key)
     data = extract_json(raw)
     beats = data.get("beats", [])
 
@@ -419,21 +446,47 @@ def _expand_beats_to_script(
         judge_feedback=build_judge_feedback_hint(prev_judge_scores),
     )
 
-    response = llm.client.chat.completions.create(
-        model=llm.model,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=settings.script_expand_temperature,
-        max_tokens=settings.script_max_tokens,
+    # v1.3.2: opt-in prompt cache around the raw Phase 2 completion.
+    # The phase-1 ``beats`` are folded into the key via ``extra`` so a
+    # cached expansion is only reused for identical actual inputs.
+    cache = get_prompt_cache()
+    key = cache.make_key(
+        kind="script_expand",
+        topic=ctx.movie_name,
+        style=ctx.style,
+        language=str(ctx.metadata.get("lang", "")),
+        model=str(llm.model),
+        provider=str(getattr(settings, "llm_provider", "")),
+        extra={"beats": [str(b) for b in beats]},
     )
-    # v0.7.0: record LLM token usage for cost tracking
-    if (
-        hasattr(ctx, "cost_tracker")
-        and ctx.cost_tracker is not None
-        and hasattr(response, "usage")
-        and response.usage
-    ):
-        ctx.cost_tracker.record_llm_call("script", llm.model, response.usage.model_dump())
-    raw = response.choices[0].message.content or ""
+    cached = cache.lookup(key)
+    if cached is not None:
+        raw = str(cached.get("response", ""))
+        note_prompt_cache(cache, ctx, "script_expand", True, key)
+    else:
+        response = llm.client.chat.completions.create(
+            model=llm.model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=settings.script_expand_temperature,
+            max_tokens=settings.script_max_tokens,
+        )
+        # v0.7.0: record LLM token usage for cost tracking
+        if (
+            hasattr(ctx, "cost_tracker")
+            and ctx.cost_tracker is not None
+            and hasattr(response, "usage")
+            and response.usage
+        ):
+            ctx.cost_tracker.record_llm_call("script", llm.model, response.usage.model_dump())
+        raw = response.choices[0].message.content or ""
+        cache.store(
+            key,
+            kind="script_expand",
+            response=raw,
+            model=str(llm.model),
+            provider=str(getattr(settings, "llm_provider", "")),
+        )
+        note_prompt_cache(cache, ctx, "script_expand", False, key)
     data = extract_json(raw)
     raw_segments = data.get("segments", [])
 

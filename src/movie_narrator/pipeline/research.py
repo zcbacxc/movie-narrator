@@ -14,6 +14,7 @@ from ..providers import research_registry, register_research
 from ..utils.console import step_timing
 from ..utils.json_parser import extract_json
 from ..utils.llm import get_llm_client
+from ..utils.prompt_cache import note_prompt_cache, get_prompt_cache
 
 # Import tmdb module to trigger @register_research("tmdb") at import time.
 # Without this, the tmdb provider is only registered when
@@ -77,18 +78,46 @@ def _research_via_llm(ctx: Context, settings) -> ResearchInfo:
     """Fetch movie research data via LLM chat completion."""
     with get_llm_client() as llm:
         prompt = RESEARCH_PROMPT.format(movie=ctx.movie_name)
-        with step_timing(ctx.services.console, "llm_research"):
-            response = llm.client.chat.completions.create(
-                model=llm.model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=settings.research_temperature,
-                max_tokens=settings.research_max_tokens,
+        # v1.3.2: opt-in prompt cache around the raw completion. On hit
+        # the LLM call is skipped entirely and the cached raw response is
+        # reused; on miss the response is stored. Judge/dedup-style post
+        # processing is never cached — only this raw call is.
+        cache = get_prompt_cache()
+        key = cache.make_key(
+            kind="research",
+            topic=ctx.movie_name,
+            style=ctx.style,
+            language=str(ctx.metadata.get("lang", "")),
+            model=str(llm.model),
+            provider=str(getattr(settings, "llm_provider", "")),
+        )
+        cached = cache.lookup(key)
+        if cached is not None:
+            raw = str(cached.get("response", ""))
+            note_prompt_cache(cache, ctx, "research", True, key)
+        else:
+            with step_timing(ctx.services.console, "llm_research"):
+                response = llm.client.chat.completions.create(
+                    model=llm.model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=settings.research_temperature,
+                    max_tokens=settings.research_max_tokens,
+                )
+            # v0.7.0: Record LLM cost for research
+            if ctx is not None and hasattr(ctx, "cost_tracker") and ctx.cost_tracker is not None:
+                if hasattr(response, "usage") and response.usage:
+                    ctx.cost_tracker.record_llm_call(
+                        "research", llm.model, response.usage.model_dump()
+                    )
+            raw = response.choices[0].message.content or ""
+            cache.store(
+                key,
+                kind="research",
+                response=raw,
+                model=str(llm.model),
+                provider=str(getattr(settings, "llm_provider", "")),
             )
-        # v0.7.0: Record LLM cost for research
-        if ctx is not None and hasattr(ctx, "cost_tracker") and ctx.cost_tracker is not None:
-            if hasattr(response, "usage") and response.usage:
-                ctx.cost_tracker.record_llm_call("research", llm.model, response.usage.model_dump())
-        raw = response.choices[0].message.content or ""
+            note_prompt_cache(cache, ctx, "research", False, key)
         data = extract_json(raw)
 
         # Build a structured movie card from the same LLM
