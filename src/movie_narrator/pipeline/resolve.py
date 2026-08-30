@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, cast
 
 from ..models import Context
+from ..utils.media_cache import MediaCacheError, fetch_into_cache
 
 _VIDEO_EXTS = {".mp4", ".mkv", ".mov", ".avi", ".webm", ".m4v"}
 
@@ -81,7 +82,17 @@ def _validate_reference_media(ctx: Context) -> None:
     the pipeline cannot honor a style reference it cannot read, so failing
     fast beats silently ignoring the user's configuration.
 
-    On success the validated entries (absolute path, kind, usage, note)
+    v1.5.2: an entry with a ``url`` is fetched through the media cache
+    (:func:`movie_narrator.utils.media_cache.fetch_into_cache` — https
+    only, content-hash dedupe, TTL + size caps) and the cached local path
+    flows through the exact same validation and downstream usage. The
+    item's ``note`` doubles as the license note and is REQUIRED (compliance:
+    remote media must carry an auditable source attribution). Fetch
+    failures (offline, bad URL, size cap) are hard input errors, consistent
+    with the local-path failure mode.
+
+    On success the validated entries (absolute path, kind, usage, note —
+    plus additive ``source_url`` / ``cache_sha256`` keys for URL items)
     replace ``ctx.metadata["reference_media"]`` so downstream steps (the
     script prompt hint block) consume normalized dicts. When no reference
     media is configured the context is left untouched.
@@ -91,8 +102,29 @@ def _validate_reference_media(ctx: Context) -> None:
         return
     validated: list[dict] = []
     for i, entry in enumerate(entries):
-        path = str(entry.get("path") or "")
         kind = str(entry.get("kind") or "video")
+        usage = str(entry.get("usage") or "style")
+        note = str(entry.get("note") or "")
+        url = str(entry.get("url") or "").strip()
+        provenance: dict = {}
+        if url:
+            # v1.5.2: remote item — license note is mandatory, then fetch
+            # (or reuse) through the content-addressed media cache.
+            if not note.strip():
+                raise ValueError(
+                    f"reference_media[{i}] has a 'url' ({url!r}) but no license "
+                    "note — set 'note' (source attribution / license) to fetch "
+                    "remote reference media"
+                )
+            try:
+                cached = fetch_into_cache(url, license_note=note, kind=kind)
+            except MediaCacheError as exc:
+                raise ValueError(f"reference_media[{i}] url fetch failed: {exc}") from exc
+            path = str(cached)
+            # The blob filename IS its sha256 (content addressing).
+            provenance = {"source_url": url, "cache_sha256": cached.stem}
+        else:
+            path = str(entry.get("path") or "")
         p = Path(path)
         if not p.is_file():
             raise FileNotFoundError(f"reference_media[{i}] not found: {path}")
@@ -107,8 +139,9 @@ def _validate_reference_media(ctx: Context) -> None:
             {
                 "path": str(p.resolve()),
                 "kind": kind,
-                "usage": str(entry.get("usage") or "style"),
-                "note": str(entry.get("note") or ""),
+                "usage": usage,
+                "note": note,
+                **provenance,
             }
         )
     cast(Dict[str, Any], ctx.metadata)["reference_media"] = validated

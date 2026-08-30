@@ -5,7 +5,7 @@
 
 from typing import Any, Dict, Literal, Optional, Tuple
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class ReferenceMediaItem(BaseModel):
@@ -20,6 +20,7 @@ class ReferenceMediaItem(BaseModel):
     Attributes:
         path: Filesystem path to the media file. Relative paths are
             resolved against the job.yaml directory at load time.
+            Exactly one of ``path`` / ``url`` must be set.
         kind: ``"video"`` or ``"image"``.
         usage: What the item should influence:
             ``"style"`` (tone/wording), ``"pacing"`` (rhythm/cutting),
@@ -27,12 +28,42 @@ class ReferenceMediaItem(BaseModel):
             arc).
         note: Free-form license / source attribution carried through to
             metadata so provenance is auditable.
+        url: Optional remote source (v1.5.2). Must be an http(s) URL and
+            is mutually exclusive with ``path``. The resolve step fetches
+            it through the media cache
+            (``utils/media_cache.fetch_into_cache`` — https-only; the
+            license note comes from ``note``, which is REQUIRED for URL
+            items) and uses the cached local path for all downstream
+            validation.
     """
 
-    path: str
+    path: str = ""
     kind: Literal["video", "image"] = "video"
     usage: Literal["style", "pacing", "palette", "structure"] = "style"
     note: str = ""
+    # v1.5.2: remote source fetched into the media cache (content-hash +
+    # TTL + license-metadata cache); mutually exclusive with ``path``.
+    url: str = ""
+
+    @model_validator(mode="after")
+    def _check_path_xor_url(self) -> "ReferenceMediaItem":
+        """Exactly one of ``path`` / ``url`` must be set; validate the URL."""
+        has_path = bool(str(self.path or "").strip())
+        has_url = bool(str(self.url or "").strip())
+        if has_path and has_url:
+            raise ValueError(
+                "reference_media item: 'path' and 'url' are mutually "
+                "exclusive — set exactly one"
+            )
+        if not has_path and not has_url:
+            raise ValueError(
+                "reference_media item: exactly one of 'path' or 'url' must be set"
+            )
+        if has_url and not str(self.url).strip().lower().startswith(("http://", "https://")):
+            raise ValueError(
+                f"reference_media item: 'url' must be an http(s) URL, got {self.url!r}"
+            )
+        return self
 
 
 class JobSteps(BaseModel):
