@@ -319,3 +319,30 @@ metrics — watch `mn_http_requests_total{path="/tasks",code="429"}` (and
   labels: { severity: warning }
   annotations: { summary: "Task submissions are being rate limited" }
 ```
+
+## 8. Provider usage ledger (v1.5.1)
+
+Alongside Prometheus metrics (which cover the *service*), the engine
+keeps an always-on, in-memory **usage ledger** of what a run costs at
+the provider boundaries. It is cheap by design: pure counters behind
+one lock, no I/O, no opt-in flag.
+
+| Domain | Counters |
+|--------|----------|
+| `llm` | `attempts`, `errors` (retry outcomes included), `cache_hits`, `prompt_chars`, `resp_chars`; per-kind breakdown (`research`, `script_beats`, `script_expand`, `judge`, ...) |
+| `tts` | `synth_calls`, `chars`, `cache_hits`, `retries`; per-provider breakdown |
+| `vlm` | `calls`, `cache_hits` |
+
+Surfaces:
+
+- `ctx.metadata["usage"]` — snapshot taken at the end of the TTS step.
+- `metadata.json` — the same snapshot flows into the `usage` key via
+  the existing metadata export. Post-TTS provider calls (e.g.
+  translate-stage LLM usage) are not part of this snapshot; the
+  counters themselves cover the whole run.
+
+Motivation: make the deferred LLM-idempotency decision measurable
+("revisit only if duplicate-billing becomes measurable") — duplicate
+LLM/TTS spend becomes a number in `metadata.json`, not an anecdote.
+`metadata.json` is the only surface for now; execution-manifest
+integration waits for a runner-touching release.
