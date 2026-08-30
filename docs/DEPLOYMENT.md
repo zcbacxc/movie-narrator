@@ -3,18 +3,20 @@
 
 # Deployment
 
-Container images and a local cluster for `movie-narrator` (v1.5.1).
+Container images and a local cluster for `movie-narrator` (v1.5.2).
 
 - [Deployment modes](#deployment-modes)
 - [Requirements](#requirements)
 - [Building the image](#building-the-image)
 - [Running a single container](#running-a-single-container)
 - [The local cluster](#the-local-cluster)
+- [Kubernetes (Helm)](#kubernetes-helm)
 - [Scaling](#scaling)
 - [GPU](#gpu)
 - [Object storage (experimental)](#object-storage-experimental)
 - [Environment variables](#environment-variables)
 - [Volumes and backup](#volumes-and-backup)
+- [Media cache](#media-cache-v152)
 - [Architecture notes and limitations](#architecture-notes-and-limitations)
 - [Troubleshooting](#troubleshooting)
 
@@ -30,6 +32,7 @@ to a horizontally scaled cluster:
 | **Local** | `mn create` / `mn serve` directly on a host | Single-machine, interactive use |
 | **Single container** | One `api` container running the full pipeline | Simple server deployment |
 | **Local cluster** | `api` + `worker` replicas via Docker Compose | Parallel rendering, higher throughput |
+| **Kubernetes (Helm)** | One Deployment + Service via the bundled chart | Teams running on Kubernetes |
 | **GPU workers** | `worker-gpu` profile with NVIDIA Container Toolkit | GPU-accelerated render / `[ml]` extras |
 | **Cloud** | Remote inference, batch scheduling, distributed rendering | Managed / multi-node setups |
 
@@ -175,6 +178,74 @@ Tear down:
 docker compose down            # keep volumes
 docker compose down -v         # delete artifacts and task state too
 ```
+
+---
+
+## Kubernetes (Helm)
+
+A minimal Helm chart ships at `deploy/helm/movie-narrator/` for teams actually
+running on Kubernetes (v1.5.2, ADR-019). It deploys **one Deployment + one
+Service** running `mn serve` — the same image, default command, and `/health`
+liveness + `/ready` readiness probes as the compose stack, with `MN_API_KEY`
+always injected from a Secret (`mn serve` refuses a non-loopback bind without
+it). Single-node is the supported topology today; the deferral of
+Temporal/Celery-style distributed workflows is recorded with measurable
+triggers in [ADR-019](ADR.md).
+
+> **Validation status (honest):** the chart is covered by structural CI tests
+> (`tests/test_v152_helm.py` — YAML parse, values/template drift tripwire,
+> naive render) but has **not** been exercised against a live cluster or
+> `helm lint` at authoring time. Run `helm template` / `helm lint` in your
+> environment and review the manifests before production use.
+
+**Image assumption:** the project does not publish an official registry image
+yet — build `movie-narrator:<tag>` per [Building the image](#building-the-image),
+push it to your registry, and point `image.repository` at it:
+
+```bash
+docker build -t movie-narrator:1.5.2 .
+docker tag movie-narrator:1.5.2 registry.example.com/ai/movie-narrator:1.5.2
+docker push registry.example.com/ai/movie-narrator:1.5.2
+```
+
+Install from the repo tree (the chart is not in a Helm repository yet):
+
+```bash
+helm install movie-narrator deploy/helm/movie-narrator \
+  --set image.repository=registry.example.com/ai/movie-narrator \
+  --set auth.apiKey=your-secret \
+  --set persistence.size=20Gi
+```
+
+Minimal values example (persistence + API key secret):
+
+```yaml
+auth:
+  # Or point at a pre-existing Secret via auth.existingSecret (key: api-key).
+  apiKey: your-secret
+persistence:
+  # One PVC with three subPath mounts: ~/.movie-narrator (media + prompt
+  # caches, user .env), /app/output (artifacts), /app/.mn_tasks (task index).
+  enabled: true
+  size: 20Gi
+resources:
+  requests:
+    cpu: "1"
+    memory: 2Gi
+  limits:
+    cpu: "4"
+    memory: 6Gi
+```
+
+Wired in by the chart: `MN_MAX_CONCURRENT_TASKS` / `MN_WORKER_QUEUES` /
+`MN_TRACING` (tracing off by default) env knobs, a `job.yaml` ConfigMap
+mounted at `/app/job.yaml` (one-shot `mn create` runs inside the pod
+auto-discover it), and a ServiceAccount with the token mount disabled.
+
+**Not included** (future work): ingress + TLS certificate management, HPA
+autoscaling, GPU node pools / device plugins. The default `ReadWriteOnce`
+PVC suits `replicaCount=1`; scaling beyond one replica needs `ReadWriteMany`
+storage and is not the supported topology.
 
 ---
 
@@ -369,6 +440,33 @@ mount, chown the host directory to match:
 ```bash
 mkdir -p ./output && sudo chown -R 10001:10001 ./output
 ```
+
+---
+
+## Media cache (v1.5.2)
+
+`reference_media` entries may reference a remote `url` (https only) instead of
+a local `path`. The `resolve` step downloads them into a content-addressed
+cache under `~/.movie-narrator/media-cache/` before any downstream validation
+runs (see `examples/job.example.yaml` for the job.yaml syntax):
+
+- **Location**: `~/.movie-narrator/media-cache/` — each entry is a blob named
+  `<sha256>.<ext>` plus a `<sha256>.json` sidecar recording the source URL,
+  license note, fetch time, byte size, and content type.
+- **License note is mandatory**: a URL item without a non-empty `note` is
+  refused at fetch time (compliance — provenance must be auditable).
+- **Dedupe**: by content sha256. Re-fetching identical bytes reuses the
+  existing entry (refreshing `fetched_at`); repeated jobs with the same URL
+  are served from disk with no network round-trip.
+- **Caps**: 2 GiB per-entry download cap; cache-wide 2 GiB total / 30-day TTL
+  with oldest-mtime eviction enforced on write.
+- **Offline behaviour**: a URL item that is neither cached nor fetchable is a
+  hard input error. Pre-warm the cache on a connected machine before running
+  air-gapped.
+
+The cache is safe to delete at any time — entries re-download on the next
+run. On Kubernetes the chart's `user-home` subPath mount covers this
+directory; in containers it lives on whatever volume backs `/home/app`.
 
 ---
 

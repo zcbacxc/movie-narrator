@@ -3,18 +3,20 @@
 
 # 部署指南
 
-`movie-narrator` 的容器镜像与本地集群（v1.5.1）。
+`movie-narrator` 的容器镜像与本地集群（v1.5.2）。
 
 - [部署模式](#部署模式)
 - [环境要求](#环境要求)
 - [构建镜像](#构建镜像)
 - [运行单个容器](#运行单个容器)
 - [本地集群](#本地集群)
+- [Kubernetes（Helm）](#kuberneteshelm)
 - [扩缩容](#扩缩容)
 - [GPU](#gpu)
 - [对象存储（实验性）](#对象存储实验性)
 - [环境变量](#环境变量)
 - [数据卷与备份](#数据卷与备份)
+- [媒体缓存](#媒体缓存-v152)
 - [架构说明与限制](#架构说明与限制)
 - [故障排查](#故障排查)
 
@@ -29,6 +31,7 @@
 | **本地** | 直接在主机上运行 `mn create` / `mn serve` | 单机、交互式使用 |
 | **单容器** | 单个 `api` 容器运行完整流水线 | 简单的服务器部署 |
 | **本地集群** | 通过 Docker Compose 运行 `api` + `worker` 副本 | 并行渲染、更高吞吐 |
+| **Kubernetes（Helm）** | 通过内置 chart 部署单 Deployment + Service | 在 Kubernetes 上运行的团队 |
 | **GPU worker** | 使用 NVIDIA Container Toolkit 的 `worker-gpu` 配置 | GPU 加速渲染 / `[ml]` 扩展 |
 | **云端** | 远程推理、批量调度、分布式渲染 | 托管 / 多节点部署 |
 
@@ -171,6 +174,72 @@ mn download <task-id> --remote http://localhost:8765 -o ./output
 docker compose down            # 保留数据卷
 docker compose down -v         # 同时删除产物与任务状态
 ```
+
+---
+
+## Kubernetes（Helm）
+
+面向真正在 Kubernetes 上运行的团队，仓库内置了一个最小 Helm chart
+（`deploy/helm/movie-narrator/`，v1.5.2，ADR-019）。它部署**一个
+Deployment + 一个 Service**，运行 `mn serve`——与 compose 栈相同的镜像、
+默认命令，以及 `/health` 存活 + `/ready` 就绪探针；`MN_API_KEY` 始终由
+Secret 注入（`mn serve` 拒绝在非回环地址上无鉴权启动）。当前受支持的
+拓扑是单节点；Temporal/Celery 式分布式工作流的推迟决策附带可度量的
+触发条件，见 [ADR-019](ADR.zh-CN.md)。
+
+> **验证状态（如实记录）：** 该 chart 由结构化 CI 测试覆盖
+> （`tests/test_v152_helm.py`——YAML 解析、values/模板漂移哨兵、朴素
+> 渲染），但在撰写时**尚未**在真实集群或 `helm lint` 上验证过。请在
+> 你的环境中运行 `helm template` / `helm lint` 并审阅渲染结果后再上
+> 生产。
+
+**镜像假设：** 项目尚未发布官方镜像仓库——请按[构建镜像](#构建镜像)构建
+`movie-narrator:<tag>`，推送到你自己的仓库，并将 `image.repository`
+指向它：
+
+```bash
+docker build -t movie-narrator:1.5.2 .
+docker tag movie-narrator:1.5.2 registry.example.com/ai/movie-narrator:1.5.2
+docker push registry.example.com/ai/movie-narrator:1.5.2
+```
+
+从仓库目录安装（chart 尚未发布到 Helm 仓库）：
+
+```bash
+helm install movie-narrator deploy/helm/movie-narrator \
+  --set image.repository=registry.example.com/ai/movie-narrator \
+  --set auth.apiKey=your-secret \
+  --set persistence.size=20Gi
+```
+
+最小 values 示例（持久化 + API key Secret）：
+
+```yaml
+auth:
+  # 或通过 auth.existingSecret 指向已有 Secret（键名：api-key）。
+  apiKey: your-secret
+persistence:
+  # 单个 PVC、三个 subPath 挂载：~/.movie-narrator（媒体 + 提示词缓存、
+  # 用户 .env）、/app/output（产物）、/app/.mn_tasks（任务索引）。
+  enabled: true
+  size: 20Gi
+resources:
+  requests:
+    cpu: "1"
+    memory: 2Gi
+  limits:
+    cpu: "4"
+    memory: 6Gi
+```
+
+chart 已接好的内容：`MN_MAX_CONCURRENT_TASKS` / `MN_WORKER_QUEUES` /
+`MN_TRACING`（默认关闭）环境变量、挂载在 `/app/job.yaml` 的 `job.yaml`
+ConfigMap（在 Pod 内执行的一次性 `mn create` 会自动发现它），以及禁用
+token 挂载的 ServiceAccount。
+
+**未包含**（后续工作）：Ingress + TLS 证书管理、HPA 自动扩缩容、GPU
+节点池 / Device Plugin。默认 `ReadWriteOnce` PVC 适配 `replicaCount=1`；
+超过一个副本需要 `ReadWriteMany` 存储，且并非当前受支持的拓扑。
 
 ---
 
@@ -344,6 +413,31 @@ docker run --rm -v movie-narrator_mn-output:/data -v "$PWD":/backup \
 ```bash
 mkdir -p ./output && sudo chown -R 10001:10001 ./output
 ```
+
+---
+
+## 媒体缓存（v1.5.2）
+
+`reference_media` 条目可以使用远程 `url`（仅限 https）代替本地 `path`。
+`resolve` 步骤会在任何下游校验之前，将其下载到
+`~/.movie-narrator/media-cache/` 下的内容寻址缓存中（job.yaml 写法见
+`examples/job.example.yaml`）：
+
+- **位置**：`~/.movie-narrator/media-cache/`——每个条目为名为
+  `<sha256>.<ext>` 的数据块，外加记录来源 URL、许可说明、抓取时间、
+  字节数与内容类型的 `<sha256>.json` sidecar。
+- **许可说明为必填**：`note` 为空的 URL 条目在抓取时会被拒绝
+  （合规要求——来源必须可审计）。
+- **去重**：按内容 sha256。重复抓取相同字节会复用现有条目（刷新
+  `fetched_at`）；相同 URL 的重复任务直接从磁盘命中，无网络往返。
+- **上限**：单条目下载上限 2 GiB；缓存整体上限 2 GiB / 30 天 TTL，
+  写入时按最早 mtime 强制淘汰。
+- **离线行为**：既不在缓存中也无法抓取的 URL 条目属于硬性输入错误。
+  在离线环境运行前，请先在联网机器上预热缓存。
+
+缓存可随时安全删除——条目会在下次运行时重新下载。在 Kubernetes 上，
+chart 的 `user-home` subPath 挂载覆盖该目录；在容器中，它位于承载
+`/home/app` 的卷上。
 
 ---
 

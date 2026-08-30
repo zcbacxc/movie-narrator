@@ -251,10 +251,10 @@ params:
   # ---- 参考媒体（v1.3.2+）----
   # 用户提供参考片段/图片，引导解说文案的风格（模仿手法，不抄内容）。
   # 每项字段：
-  #   path:  文件路径（相对路径以本文件所在目录为基准）
+  #   path:  文件路径（相对路径以本文件所在目录为基准；与 url 二选一）
   #   kind:  video | image
   #   usage: style（语气措辞）| pacing（节奏剪辑）| palette（视觉氛围）| structure（叙事结构）
-  #   note:  版权/来源备注（可选，随元数据落盘）
+  #   note:  版权/来源备注（随元数据落盘；url 项必填，见下）
   # 校验：文件必须存在且扩展名与 kind 匹配（video: mp4/mkv/mov/avi/webm/m4v；
   #       image: png/jpg/jpeg/webp），否则流水线启动即失败。
   # 图片（最多 3 张）在 vision_captioner 配置为 vlm 时会被视觉模型描述，
@@ -268,6 +268,25 @@ params:
   #     kind: image
   #     usage: palette
   #     note: "官方海报，来源 douban.com"
+  #
+  # 远程 URL 条目（v1.5.2+）——path 与 url 互斥，每项必须且只能设置其一：
+  #   - url: https://example.com/refs/racing-scene.mp4
+  #     kind: video
+  #     usage: pacing
+  #     note: "CC-BY 4.0, source: https://example.com/film-refs"
+  #
+  # url 条目语义（媒体缓存，v1.5.2+）：
+  #   仅支持 https；resolve 步骤经内容寻址缓存
+  #   （~/.movie-narrator/media-cache/，条目 = <sha256>.<ext> + 来源 sidecar）
+  #   下载后按本地文件做同样的扩展名/kind 校验。
+  #   去重：按内容 sha256 —— 相同 URL 的重复任务直接命中磁盘缓存，无网络
+  #   往返；相同字节的不同 URL 复用同一文件。
+  #   上限：单条目下载上限 2 GiB；缓存整体 2 GiB / 30 天 TTL，写入时按最早
+  #   mtime 淘汰。
+  #   合规：url 项的 note 即许可备注，必须非空，否则拒绝抓取。
+  #   审计：元数据 reference_media 条目会附带 source_url 与 cache_sha256。
+  #   离线：既不在缓存中也无法抓取时启动即失败——离线环境请先在联网机器
+  #   预热缓存（缓存目录可随时整目录删除，下次运行自动重建）。
 
   # ---- 时间轴导出（v1.3.2+，需安装 examples/plugins/timeline_export 插件）----
   # none（默认，不导出）| jianying（剪映草稿）| otio（OpenTimelineIO，需 [otio] 依赖）
