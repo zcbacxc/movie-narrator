@@ -66,6 +66,45 @@ LLM_RETRY_POLICY = RetryPolicy(
 )
 
 
+def _record_llm_usage(create):
+    """v1.5.1: count every completion attempt in the usage ledger.
+
+    Wrapped *inside* the retry policy so each retry attempt is recorded
+    (including the failure outcome). One record per attempt: attempts,
+    errors, prompt/response chars. Call-kind attribution is not
+    available at this shared boundary, so records land under
+    ``kind="other"``; ``record_llm`` supports the finer kinds
+    (research / script_beats / script_expand / judge) for callers that
+    know them.
+    """
+    from .cost_ledger import get_usage_ledger
+
+    def _inner(*args, **kwargs):
+        messages = kwargs.get("messages")
+        if messages is None and args:
+            first = args[0]
+            messages = first if isinstance(first, list) else None
+        prompt_chars = sum(
+            len(str(m.get("content") or ""))
+            for m in (messages or [])
+            if isinstance(m, dict)
+        )
+        ledger = get_usage_ledger()
+        try:
+            response = create(*args, **kwargs)
+        except Exception:
+            ledger.record_llm(attempts=1, prompt_chars=prompt_chars, error=True)
+            raise
+        resp_chars = 0
+        choices = getattr(response, "choices", None)
+        if choices:
+            resp_chars = len(getattr(choices[0].message, "content", None) or "")
+        ledger.record_llm(attempts=1, prompt_chars=prompt_chars, resp_chars=resp_chars)
+        return response
+
+    return _inner
+
+
 def _wrap_llm_retry(client: OpenAI) -> OpenAI:
     """Wrap the chat-completion ``create`` method in the shared retry policy.
 
@@ -77,9 +116,12 @@ def _wrap_llm_retry(client: OpenAI) -> OpenAI:
 
     v1.4.0: each ``create`` call also runs inside one provider span
     (retry attempts included). No-op unless ``MN_TRACING`` is enabled.
+
+    v1.5.1: each attempt is also counted in the usage ledger (see
+    ``utils/cost_ledger.py``) — always-on, no I/O.
     """
     client.chat.completions.create = wrap_provider_call(
-        with_retry(LLM_RETRY_POLICY)(client.chat.completions.create),
+        with_retry(LLM_RETRY_POLICY)(_record_llm_usage(client.chat.completions.create)),
         "openai",
         "llm",
         model=get_settings().llm_model,

@@ -16,6 +16,7 @@ from ..reliability import RetryPolicy, with_async_retry
 from ..utils.async_utils import run_async
 from ..utils.audio_qa import analyze_segment, aggregate_metrics
 from ..utils.console import step_timing
+from ..utils.cost_ledger import get_usage_ledger
 from ..utils.emotion_track import EmotionTrack
 from ..utils.prosody import emotion_to_speed, apply_speed
 from ..tts import TTSCacheKey, get_tts_provider, is_ci
@@ -263,6 +264,17 @@ def generate_voice(ctx: Context) -> Context:
                 cached=was_cached,
             )
 
+    # v1.5.1: provider usage ledger — always-on, cheap counters,
+    # independent of the cost tracker (see utils/cost_ledger.py).
+    _ledger = get_usage_ledger()
+    _ledger_provider = settings.tts_provider.value
+    for i, seg in enumerate(ctx.segments):
+        _ledger.record_tts(
+            provider=_ledger_provider,
+            chars=len(seg.text),
+            cache_hit=bool(cached_flags[i]) if i < len(cached_flags) else False,
+        )
+
     # ── v0.5.9: Emotion-aware prosody ───────────────────────
     # Apply per-segment speed/pitch adjustment based on beat emotion labels.
     # Uses pydub's frame-rate trick: changes both speed and pitch, which is
@@ -431,5 +443,10 @@ def generate_voice(ctx: Context) -> Context:
     # for observability/audit. Written after eviction so the entry count and
     # total bytes reflect the final on-disk state.
     ctx.metadata["tts_cache_stats"] = get_cache_stats()
+
+    # v1.5.1: usage ledger snapshot — flows into metadata.json via the
+    # existing export path (execution-manifest integration waits for a
+    # runner-touching release).
+    ctx.metadata["usage"] = get_usage_ledger().summary()
 
     return ctx

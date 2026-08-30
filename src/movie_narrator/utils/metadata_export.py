@@ -77,6 +77,9 @@ def build_metadata_json(ctx: Context) -> Dict[str, Any]:
         "script_truncated": ctx.metadata.get("script_truncated"),
         # ── v0.8.0: render template (preset styling) ──
         "render_template": ctx.metadata.get("render_template"),
+        # ── v1.5.1: provider usage ledger snapshot (always-on counters;
+        # taken at the TTS step — see utils/cost_ledger.py) ──
+        "usage": ctx.metadata.get("usage"),
     }
 
     # v0.7.0: cost tracking summary
