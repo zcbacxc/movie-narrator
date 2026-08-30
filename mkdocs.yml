@@ -45,6 +45,7 @@ nav:
       - Presets: sdk/presets.md
       - Cloud: sdk/cloud.md
       - Reliability: sdk/reliability.md
+      - Tracing: sdk/tracing.md
 
 plugins:
   - mkdocstrings:
