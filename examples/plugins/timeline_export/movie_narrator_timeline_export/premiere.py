@@ -84,7 +84,10 @@ def _file_ref(
     file_el = _sub(clipitem, "file", id=file_id)
     _sub(file_el, "name", Path(path).name if path else "source")
     if path:
-        _sub(file_el, "pathurl", Path(path).as_uri())
+        # FCP7 consumers expect an absolute file URL; the timeline may carry
+        # repo-relative paths (CI runs the smoke test from the repo root), so
+        # resolve against the working directory first.
+        _sub(file_el, "pathurl", Path(path).resolve().as_uri())
     _rate(file_el, fps)
     _sub(file_el, "duration", duration_frames)
     media = _sub(file_el, "media")
