@@ -200,6 +200,37 @@ mn create -m "The Godfather" \
   --focus-character "Michael Corleone"
 ```
 
+### Community presets
+
+Beyond the built-ins, you can install **community presets** — small YAML data files that bundle style parameters. They never contain executable code: on install (and on every load) the file is validated against the same parameter whitelist that governs `job.yaml`, so a preset can only tune known knobs.
+
+Install from a local file or an `https://` URL (`http://` is rejected; 256 KiB size cap; 15 s timeout):
+
+```bash
+mn presets install ./slow-burn.yaml
+mn presets install https://example.com/presets/slow-burn.yaml
+```
+
+Installed files live in `~/.movie-narrator/presets/` with a `registry.json` index recording the source, a sha256 of the installed file, and metadata (author, license).
+
+List, inspect, and remove:
+
+```bash
+mn presets list             # built-ins + installed community presets, marked
+mn presets show slow-burn   # parameters + community provenance
+mn presets remove slow-burn
+```
+
+Apply a community preset exactly like a built-in (also via the `--preset` alias):
+
+```bash
+mn create -m "Knives Out" --preset slow-burn
+```
+
+Resolution rule: **built-ins win** — if an installed community preset shares a name with a built-in, the built-in is used and the community copy stays inert.
+
+**Security model** (ADR-018): a community preset is validated *data*, never code. The `preset:` block is metadata only (`name` required; `description`, `author`, `license`, `min_engine` optional); every other key must be a whitelisted `job.yaml` parameter; installs are hash-recorded and re-validated on every load. Only share presets from sources you trust.
+
 ---
 
 ## Tutorial 4 — Multilingual & voice
