@@ -38,10 +38,45 @@ version.
   `movie_narrator` top-level re-exports.
 - Private attributes and methods (names starting with `_`)
 - Default values that are not explicitly documented as stable
-- Output file formats (video encoding, subtitle styling) — these are
+- Output file formats beyond the narrow deliverable-set promise in
+  [Output Format Compatibility](#output-format-compatibility-v141) below
+  (video encoding details such as bitrate/profile, subtitle styling,
+  artifact naming outside the default set) — these remain
   implementation-dependent and may change between minor versions
 - Performance characteristics and timing
 - Experimental or preview features explicitly marked as unstable
+
+## Output Format Compatibility (v1.4.1+)
+
+Historically, output file formats were explicitly NOT covered by this
+promise. Starting with **v1.4.1**, the `deliverable_manifest.json`
+introduced in v1.3.0 (versioned schema plus per-artifact SHA-256
+checksums) enables a narrow, versioned commitment for what a run
+*delivers*:
+
+1. **Manifest schema**: `deliverable_manifest.json` with
+   `schema_version: 1` is stable. Within schema_version 1, only additive
+   fields may appear (new optional artifact kinds, new informational
+   fields). Any breaking shape change bumps `schema_version`
+   (`pipeline/deliverable.MANIFEST_SCHEMA_VERSION`).
+2. **Default deliverable set**: the default output of a full run —
+   `final.mp4` (mp4 container, H.264 video), the final narration audio
+   (`narration.mp3`), and the SRT sidecar files (`subtitle.srt`,
+   `subtitle.<lang>.srt`, `subtitle.bilingual.srt`) — remains compatible
+   across 1.x PATCH and MINOR releases. Breaking changes to this set
+   require a MAJOR release, or an explicit `schema_version` bump plus a
+   deprecation entry in `CHANGELOG.md`.
+3. **Muxed subtitles (provided-as-is)**: the `subtitle_delivery: muxed`
+   mode muxes the mode-selected SRT as a soft `mov_text` subtitle track
+   into the mp4. This is provided-as-is — player support for mov_text
+   varies, and the language tag is best-effort metadata. See
+   [METADATA_SCHEMA.md](METADATA_SCHEMA.md) for the recorded fields.
+
+Everything else about outputs stays out of scope: bit rates, encoder
+profiles, HDR/4K variants, subtitle styling (font/position/colors),
+`preview.mp4` naming, clip exports, and per-artifact checksums are
+informational, not contractual. The `metadata.json` diagnostics snapshot
+also remains non-contractual.
 
 ## Versioning Policy
 

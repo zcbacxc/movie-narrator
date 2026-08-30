@@ -35,10 +35,38 @@
   的符号中导入。
 - 私有属性和方法（以下划线 `_` 开头的名称）
 - 未明确文档化为稳定的默认值
-- 输出文件格式（视频编码、字幕样式）——这些依赖于实现，可能在次版本
-  之间发生变化
+- 输出文件格式——除下方[输出格式兼容性](#输出格式兼容性-v141)中定义的
+  窄范围交付物承诺之外的部分（码率/编码档位等视频编码细节、字幕样式、
+  默认集合之外的产物命名）——这些仍依赖于实现，可能在次版本之间发生变化
 - 性能特性和耗时
 - 明确标记为不稳定的实验性或预览功能
+
+## 输出格式兼容性 (v1.4.1+)
+
+历史上，输出文件格式被明确排除在本承诺之外。从 **v1.4.1** 开始，
+v1.3.0 引入的 `deliverable_manifest.json`（带版本的模式 + 每个产物的
+SHA-256 校验和）使我们能够对一次运行*交付了什么*作出窄范围的、带版本的
+承诺：
+
+1. **清单模式**：`schema_version: 1` 的 `deliverable_manifest.json` 是
+   稳定的。在 schema_version 1 内只允许新增字段（新的可选产物类型、
+   新的信息性字段）。任何破坏性形态变更都会升级 `schema_version`
+   （`pipeline/deliverable.MANIFEST_SCHEMA_VERSION`）。
+2. **默认交付物集合**：完整运行的默认输出——`final.mp4`（mp4 容器、
+   H.264 视频）、最终解说音频（`narration.mp3`）以及 SRT 外挂字幕文件
+   （`subtitle.srt`、`subtitle.<lang>.srt`、`subtitle.bilingual.srt`）
+   ——在 1.x 的 PATCH 和 MINOR 版本间保持兼容。对该集合的破坏性变更
+   需要主版本发布，或显式升级 `schema_version` 并在 `CHANGELOG.md`
+   中写入弃用条目。
+3. **混流字幕（按原样提供）**：`subtitle_delivery: muxed` 模式将选定
+   的 SRT 以软字幕 `mov_text` 轨道混流进 mp4。此项按原样提供——各播放
+   器对 mov_text 的支持不一，语言标签属于尽力而为的元数据。记录的
+   字段见 [METADATA_SCHEMA.zh-CN.md](METADATA_SCHEMA.zh-CN.md)。
+
+输出相关的其余一切均不在承诺范围内：码率、编码器档位、HDR/4K 变体、
+字幕样式（字体/位置/颜色）、`preview.mp4` 命名、片段导出，以及每个
+产物的校验和（信息性，非契约）。`metadata.json` 诊断快照同样不属于
+契约。
 
 ## 版本化政策
 
