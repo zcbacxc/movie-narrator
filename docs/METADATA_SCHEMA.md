@@ -173,6 +173,21 @@ Per-beat metadata from structured LLM output. Absent when two-phase script gener
 
 **Beat anchor priority**: when beat metadata is available, the heuristic baseline uses `approx_ratio` as the primary time anchor. Priority chain: beat anchor > weighted-act timeline > uniform proportional mapping.
 
+### Reference media (v1.3.2)
+
+Input field `params.reference_media` (job.yaml): a list of `{path, kind, usage, note}` items. `kind` is `video` | `image`; `usage` is `style` | `pacing` | `palette` | `structure`; `note` carries license/source attribution. The resolve step hard-validates each entry (file exists, extension matches `kind` — video: mp4/mkv/mov/avi/webm/m4v, image: png/jpg/jpeg/webp) and replaces the raw entries with normalized dicts. Absent when no reference media is configured.
+
+`ctx.metadata["reference_media"]` (after validation):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `path` | str | Absolute path to the validated media file |
+| `kind` | str | `video` or `image` |
+| `usage` | str | What the item influences: `style` / `pacing` / `palette` / `structure` |
+| `note` | str | License / source attribution carried through unchanged |
+
+`ctx.metadata["reference_media_captions"]` — map of image path → VLM caption. Written only when reference media contains image entries and a `vision_captioner` provider is configured (max 3 images per run, captioned once). Captioning failures soft-degrade: the map stays empty and the script prompt falls back to text-only hints. When reference media is empty, neither key exists and the script prompt is byte-identical to the pre-v1.3.2 behavior.
+
 ---
 
 ## Audio domain

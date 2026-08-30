@@ -173,6 +173,21 @@
 
 **拍锚点优先级**：当拍元数据可用时，启发式基线使用 `approx_ratio` 作为主要时间锚点。优先级链：拍锚点 > 加权幕 > 均匀比例映射。
 
+### 参考媒体 (v1.3.2)
+
+输入字段 `params.reference_media`（job.yaml）：`{path, kind, usage, note}` 列表。`kind` 为 `video` | `image`；`usage` 为 `style`（风格）| `pacing`（节奏）| `palette`（视觉氛围）| `structure`（结构）；`note` 携带版权/来源备注。resolve 步骤对每一项硬校验（文件存在、扩展名与 `kind` 匹配 —— video: mp4/mkv/mov/avi/webm/m4v，image: png/jpg/jpeg/webp），并将原始条目替换为规范化字典。未配置参考媒体时该字段缺省。
+
+`ctx.metadata["reference_media"]`（校验后）：
+
+| 字段 | 类型 | 描述 |
+|-------|------|-------------|
+| `path` | str | 校验通过的媒体文件绝对路径 |
+| `kind` | str | `video` 或 `image` |
+| `usage` | str | 该项影响的维度：`style` / `pacing` / `palette` / `structure` |
+| `note` | str | 原样保留的版权/来源备注 |
+
+`ctx.metadata["reference_media_captions"]` — 图片路径 → VLM 描述的映射。仅当参考媒体包含图片且配置了 `vision_captioner` 时写入（每次运行最多 3 张，只描述一次）。描述失败自动软降级：映射保持为空，脚本提示回退为纯文本提示。参考媒体为空时两个键都不存在，脚本提示与 v1.3.2 之前的输出逐字节一致。
+
 ---
 
 ## 音频域 (Audio domain)
