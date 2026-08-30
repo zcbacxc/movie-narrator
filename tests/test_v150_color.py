@@ -41,6 +41,7 @@ import pytest
 from movie_narrator.config import Settings
 from movie_narrator.models import Context, Services, TimedSegment
 from movie_narrator.utils.resources import estimate_temp_space_bytes
+from movie_narrator.utils.video_qa import check_encoding_quality, probe_video_encoding
 from movie_narrator.workflow.load import load_job_config
 from movie_narrator.workflow.merge import merge_job
 from movie_narrator.workflow.schema import (
@@ -715,6 +716,92 @@ def _probe_video_stream(ffprobe, path):
     return streams[0]
 
 
+def _encode_and_mux_pixel_pipeline(ffmpeg, tmp_path, requested_bit_depth, color_space):
+    """Encode a 1 s 640x360 clip with the exact argv the render step builds
+    (via ``_resolve_pixel_plan``) and run the STAGE-2 copy mux — the shared
+    real-ffmpeg fixture for the integration classes below.
+
+    Returns:
+        ``(final_path, plan)`` — the muxed deliverable and the pixel plan
+        that produced it.
+    """
+    import movie_narrator.pipeline.render as render_mod
+
+    plan = render_mod._resolve_pixel_plan(requested_bit_depth, color_space)
+
+    video_only = tmp_path / "video_only.mp4"
+    encode_cmd = [
+        ffmpeg,
+        "-y",
+        "-loglevel",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        "color=c=blue:s=640x360:d=1:r=12",
+        "-frames:v",
+        "12",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "ultrafast",  # speed — the argv shape matches the render step
+    ] + plan["pixel_args"] + [str(video_only)]
+    encode = subprocess.run(  # nosec B603 B607 — real ffmpeg integration check
+        encode_cmd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+    )
+    assert encode.returncode == 0, encode.stderr
+
+    audio = tmp_path / "audio.m4a"
+    make_audio = subprocess.run(  # nosec B603 B607 — real ffmpeg integration check
+        [
+            ffmpeg,
+            "-y",
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:duration=1",
+            "-c:a",
+            "aac",
+            str(audio),
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+    )
+    assert make_audio.returncode == 0, make_audio.stderr
+
+    final = tmp_path / "final.mp4"
+    mux_cmd = render_mod._build_mux_cmd(
+        ffmpeg,
+        video_only,
+        audio,
+        final,
+        audio_codec="aac",
+        faststart=True,
+        target_format="mp4",
+        color_args=plan["color_args"],
+    )
+    mux = subprocess.run(  # nosec B603 B607 — real ffmpeg integration check
+        mux_cmd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+    )
+    assert mux.returncode == 0, mux.stderr
+    return final, plan
+
+
 @pytest.mark.integration
 class TestPixelPipelineRealFfmpeg:
     """Encode a tiny 640x360 clip with the exact argv the render step
@@ -734,80 +821,9 @@ class TestPixelPipelineRealFfmpeg:
     def _render_pixel_pipeline(self, tmp_path, requested_bit_depth, color_space):
         """Encode the video-only intermediate (MoviePy-style argv) and run
         the STAGE-2 copy mux exactly like render_video does."""
-        import movie_narrator.pipeline.render as render_mod
-
-        plan = render_mod._resolve_pixel_plan(requested_bit_depth, color_space)
-
-        video_only = tmp_path / "video_only.mp4"
-        encode_cmd = [
-            self.ffmpeg,
-            "-y",
-            "-loglevel",
-            "error",
-            "-f",
-            "lavfi",
-            "-i",
-            "color=c=blue:s=640x360:d=1:r=12",
-            "-frames:v",
-            "12",
-            "-c:v",
-            "libx264",
-            "-preset",
-            "ultrafast",  # speed — the argv shape matches the render step
-        ] + plan["pixel_args"] + [str(video_only)]
-        encode = subprocess.run(  # nosec B603 B607 — real ffmpeg integration check
-            encode_cmd,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=120,
+        final, _plan = _encode_and_mux_pixel_pipeline(
+            self.ffmpeg, tmp_path, requested_bit_depth, color_space
         )
-        assert encode.returncode == 0, encode.stderr
-
-        audio = tmp_path / "audio.m4a"
-        make_audio = subprocess.run(  # nosec B603 B607 — real ffmpeg integration check
-            [
-                self.ffmpeg,
-                "-y",
-                "-loglevel",
-                "error",
-                "-f",
-                "lavfi",
-                "-i",
-                "sine=frequency=440:duration=1",
-                "-c:a",
-                "aac",
-                str(audio),
-            ],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=120,
-        )
-        assert make_audio.returncode == 0, make_audio.stderr
-
-        final = tmp_path / "final.mp4"
-        mux_cmd = render_mod._build_mux_cmd(
-            self.ffmpeg,
-            video_only,
-            audio,
-            final,
-            audio_codec="aac",
-            faststart=True,
-            target_format="mp4",
-            color_args=plan["color_args"],
-        )
-        mux = subprocess.run(  # nosec B603 B607 — real ffmpeg integration check
-            mux_cmd,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=120,
-        )
-        assert mux.returncode == 0, mux.stderr
         return final
 
     def test_default_sdr_deliverable_is_8bit_bt709(self, tmp_path):
@@ -832,3 +848,87 @@ class TestPixelPipelineRealFfmpeg:
         assert stream.get("color_primaries") == "bt2020"
         assert stream.get("color_transfer") == "smpte2084"
         assert stream.get("color_space") == "bt2020nc"
+
+
+@pytest.mark.integration
+class TestPixelQARealFfmpeg:
+    """v1.5.0: the expectations-aware video QA loop over real encodes —
+    the real-ffmpeg deliverable is run through ``evaluate_video_quality``
+    with the expectations derived from its own ``render_pixel`` plan
+    (Feature 2's checks validating Feature 1's output).
+
+    The 640x360 fixture clip sits below the 720p floor, so these QA calls
+    lower the resolution minimums to isolate the pixel checks — the floor
+    itself is unit-covered in tests/test_v120_vertical_qa.py and
+    tests/test_v150_qa.py."""
+
+    @pytest.fixture(autouse=True)
+    def _require_ffmpeg(self):
+        from movie_narrator.utils.ffmpeg_bin import ffmpeg_bin
+
+        self.ffmpeg = ffmpeg_bin()
+        self.ffprobe = shutil.which("ffprobe")
+        has_ffmpeg = Path(self.ffmpeg).is_file() or shutil.which("ffmpeg") is not None
+        if not has_ffmpeg or self.ffprobe is None:
+            pytest.skip("real ffmpeg/ffprobe unavailable")
+
+    def _qa_report(self, tmp_path, requested_bit_depth, color_space):
+        final, plan = _encode_and_mux_pixel_pipeline(
+            self.ffmpeg, tmp_path, requested_bit_depth, color_space
+        )
+        metrics = probe_video_encoding(str(final))
+        # The synthetic 1 s / 12 fps clip trips the bitrate + fps floors and
+        # sits below the 720p floor — all relaxed here to isolate the pixel
+        # expectations, which are what's under test (the floors themselves
+        # are unit-covered in tests/test_v120_vertical_qa.py +
+        # tests/test_v150_qa.py).
+        return check_encoding_quality(
+            metrics,
+            min_width=320,
+            min_height=180,
+            min_bitrate_kbps=0,
+            min_fps=0.0,
+            max_fps=1000.0,
+            expected_pixel=plan,
+        )
+
+    def test_qa_accepts_default_sdr_deliverable(self, tmp_path):
+        report = self._qa_report(tmp_path, 8, "sdr")
+        assert report.ok is True, report.issues
+        assert report.metrics.pixel_format == "yuv420p"
+        assert report.metrics.color_transfer == "bt709"
+
+    def test_qa_accepts_10bit_sdr_deliverable(self, tmp_path):
+        report = self._qa_report(tmp_path, 10, "sdr")
+        assert report.ok is True, report.issues
+        assert report.metrics.pixel_format == "yuv420p10le"
+        assert report.metrics.color_transfer == "bt709"
+
+    def test_qa_accepts_hdr10_deliverable(self, tmp_path):
+        report = self._qa_report(tmp_path, 10, "hdr10")
+        assert report.ok is True, report.issues
+        assert report.metrics.pixel_format == "yuv420p10le"
+        assert report.metrics.color_transfer == "smpte2084"
+        assert report.metrics.color_primaries == "bt2020"
+        assert report.metrics.color_space == "bt2020nc"
+
+    def test_qa_flags_8bit_output_against_10bit_plan(self, tmp_path):
+        """A real 8-bit deliverable probed against a 10-bit plan produces
+        the pix_fmt mismatch finding (yuv420p10le expected)."""
+        import movie_narrator.pipeline.render as render_mod
+
+        final, _plan = _encode_and_mux_pixel_pipeline(self.ffmpeg, tmp_path, 8, "sdr")
+        ten_bit_plan = render_mod._resolve_pixel_plan(10, "sdr")
+        metrics = probe_video_encoding(str(final))
+        report = check_encoding_quality(
+            metrics,
+            min_width=320,
+            min_height=180,
+            min_bitrate_kbps=0,
+            min_fps=0.0,
+            max_fps=1000.0,
+            expected_pixel=ten_bit_plan,
+        )
+        assert report.ok is False
+        assert any("does not match the render plan" in i for i in report.issues)
+        assert any("yuv420p10le" in i for i in report.issues)
