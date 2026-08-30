@@ -21,7 +21,8 @@ appVersion: "1.5.2"
 home: https://github.com/zcbacxc/movie-narrator
 sources:
   - https://github.com/zcbacxc/movie-narrator
-license: AGPL-3.0-or-later
+annotations:
+  license: AGPL-3.0-or-later
 keywords:
   - movie-narrator
   - video
