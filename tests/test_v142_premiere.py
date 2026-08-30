@@ -145,7 +145,7 @@ class TestPremiereXmlStructure:
         first_file = items[0].find("file")
         assert first_file is not None
         assert first_file.get("id") == "file-1"
-        assert first_file.findtext("pathurl") == Path(r"C:\mock\source.mp4").as_uri()
+        assert first_file.findtext("pathurl") == Path(r"C:\mock\source.mp4").resolve().as_uri()
         # Subsequent references are id-only (no repeated definition).
         ref = items[1].find("file")
         assert ref is not None
@@ -174,7 +174,7 @@ class TestPremiereXmlStructure:
         # Audio file defined with a pathurl; video media absent.
         file_el = audio_item.find("file")
         assert file_el is not None
-        assert file_el.findtext("pathurl") == Path(r"C:\mock\narration.mp3").as_uri()
+        assert file_el.findtext("pathurl") == Path(r"C:\mock\narration.mp3").resolve().as_uri()
         assert file_el.find("media/video") is None
         assert file_el.find("media/audio") is not None
 
@@ -259,7 +259,7 @@ class TestPremierePluginE2E:
         # Narration stem carried from ctx.audio_path.
         audio_file = seq.find("media/audio/track/clipitem/file")
         assert audio_file is not None
-        assert audio_file.findtext("pathurl") == Path(r"C:\mock\narration.mp3").as_uri()
+        assert audio_file.findtext("pathurl") == Path(r"C:\mock\narration.mp3").resolve().as_uri()
 
     def test_render_fps_metadata_drives_timebase(self, tmp_path, ctx):
         plugin = _import_plugin()
