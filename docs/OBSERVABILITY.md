@@ -176,6 +176,57 @@ Recommended first panels: `mn_queue_depth` (backlog), `mn_active_tasks`
 `mn_errors_total{type!="http_401"}` (real failures). Each family's
 docstring in §2.2 says what it measures and which labels are available.
 
+### 5.1 Dashboard summary API (v1.3.1)
+
+`GET /api/v1/dashboard/summary` returns the whole monitoring state as a
+single, **versioned** JSON document (`schema_version: 1`) — a stable
+contract for external dashboards that prefer one pull over scraping
+metrics. Auth matches the other read routes: loopback binds are open,
+non-loopback binds require `MN_API_KEY`.
+
+| Key | Meaning |
+|-----|---------|
+| `schema_version` | Bumped on incompatible schema changes; consumers gate on it |
+| `generated_at` | ISO-8601 UTC timestamp of the aggregation |
+| `tasks.total` | Total persisted tasks |
+| `tasks.by_status` | Task count per lifecycle status (incl. `dead`) |
+| `tasks.recent` | Up to 10 newest tasks, minimal views (`task_id`, `movie`, `status`, `progress`, `tenant_id`, `plan`, `created_at`) |
+| `queue.depth` | Pending tasks (classic backlog gauge) |
+| `queue.active` | Active tasks (pending/running/retrying) |
+| `queue.max_workers` | Configured worker parallelism |
+| `artifacts` | Stored artifact `count` and `total_bytes` (zeros when no artifact store is available) |
+| `plans` | The effective default plan name and all configured plan names |
+
+Example response:
+
+```json
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-30T09:00:00.000000+00:00",
+  "tasks": {
+    "total": 42,
+    "by_status": {
+      "pending": 2, "running": 1, "completed": 30, "failed": 5,
+      "cancelled": 2, "retrying": 0, "dead": 2
+    },
+    "recent": [
+      {
+        "task_id": "9f8e7d6c5b4a",
+        "movie": "飞驰人生",
+        "status": "completed",
+        "progress": 100.0,
+        "tenant_id": "default",
+        "plan": "default",
+        "created_at": "2026-08-30T08:44:12.000000+00:00"
+      }
+    ]
+  },
+  "queue": {"depth": 2, "active": 3, "max_workers": 2},
+  "artifacts": {"count": 118, "total_bytes": 53687091200},
+  "plans": {"default": "default", "configured": ["default", "free", "pro"]}
+}
+```
+
 ## 6. Alerting
 
 Alerting is also left to the external stack — engine code never fires

@@ -148,6 +148,53 @@ mn serve --log-format json | jq -c 'select(.correlation_id == "3f2a9c1b")'
 
 推荐的首屏面板：`mn_queue_depth`（积压）、`mn_active_tasks`（并发）、`mn_task_duration_seconds` 直方图（p95 延迟）、`mn_errors_total{type!="http_401"}`（真实失败）。§2.2 中每个指标族的说明都写明了它衡量什么、有哪些可用标签。
 
+### 5.1 仪表盘汇总 API（v1.3.1）
+
+`GET /api/v1/dashboard/summary` 将整个监控状态以单个、**带版本**的 JSON 文档（`schema_version: 1`）返回——为偏好一次拉取而非抓取指标的外部仪表盘提供稳定契约。认证规则与其他读路由一致：环回绑定免认证，非环回绑定需要 `MN_API_KEY`。
+
+| 键 | 含义 |
+|-----|---------|
+| `schema_version` | 模式不兼容变更时递增；消费方以此为门楷 |
+| `generated_at` | 汇总时刻（ISO-8601 UTC） |
+| `tasks.total` | 持久化任务总数 |
+| `tasks.by_status` | 各生命周期状态的任务数（含 `dead`） |
+| `tasks.recent` | 最新的至多 10 个任务，最小化视图（`task_id`、`movie`、`status`、`progress`、`tenant_id`、`plan`、`created_at`） |
+| `queue.depth` | 待处理任务（经典积压指标） |
+| `queue.active` | 活动任务（pending/running/retrying） |
+| `queue.max_workers` | 配置的工作线程并发数 |
+| `artifacts` | 已存储产物的 `count` 与 `total_bytes`（无可用产物存储时为零） |
+| `plans` | 生效的默认套餐名与所有已配置套餐名 |
+
+响应示例：
+
+```json
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-30T09:00:00.000000+00:00",
+  "tasks": {
+    "total": 42,
+    "by_status": {
+      "pending": 2, "running": 1, "completed": 30, "failed": 5,
+      "cancelled": 2, "retrying": 0, "dead": 2
+    },
+    "recent": [
+      {
+        "task_id": "9f8e7d6c5b4a",
+        "movie": "飞驰人生",
+        "status": "completed",
+        "progress": 100.0,
+        "tenant_id": "default",
+        "plan": "default",
+        "created_at": "2026-08-30T08:44:12.000000+00:00"
+      }
+    ]
+  },
+  "queue": {"depth": 2, "active": 3, "max_workers": 2},
+  "artifacts": {"count": 118, "total_bytes": 53687091200},
+  "plans": {"default": "default", "configured": ["default", "free", "pro"]}
+}
+```
+
 ## 6. 告警
 
 告警同样交由外部技术栈处理——引擎代码从不主动触发告警。在 Prometheus 中基于同样的指标族定义告警规则：
