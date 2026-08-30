@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, cast
 
 from .. import __version__
-from ..models import Assets, Context, MetadataDict, Services, StepResult, StepState
+from ..models import Assets, Context, MetadataDict, PipelineStatus, Services, StepResult, StepState
 from ..utils.console import build_console
 from ..utils.environment import collect_environment
 from .align import align_audio
@@ -714,6 +714,109 @@ def _next_step_after(completed_step: str) -> Optional[str]:
     return None
 
 
+def ordered_step_names() -> List[str]:
+    """
+    Returns:
+        All registered step names in execution order (the linear
+        pipeline order, including plugin steps).
+    """
+    return step_registry.ordered_names()
+
+
+# ── Selective rerun (v1.3.0) ───────────────────────────────
+
+
+def _emit_rerun_log(
+    ctx: Context,
+    from_step: str,
+    completed_step: str,
+    invalidated_steps: List[str],
+    timestamp: str,
+) -> None:
+    """Emit one structured record for a rerun decision.
+
+    Follows the ``pipeline_step`` structured-log style introduced in
+    v1.2 (stable message token + machine-readable fields via ``extra=``,
+    serialised by ``JsonFormatter`` when JSON logging is enabled). Emitted
+    at INFO — unlike per-step records, this is a single deliberate action
+    whose audit trace exists nowhere else.
+    """
+    _logger.info(
+        "pipeline_rerun",
+        extra={
+            "event": "rerun",
+            "task_id": ctx.metadata.get("run_id"),
+            "pid": os.getpid(),
+            "from_step": from_step,
+            "state_completed_step": completed_step,
+            "invalidated_steps": list(invalidated_steps),
+            "timestamp": timestamp,
+        },
+    )
+
+
+def prepare_rerun(ctx: Context, completed_step: str, from_step: str) -> List[str]:
+    """Prepare *ctx* for a deliberate re-execution starting at *from_step*.
+
+    Semantics (v1.3.0 ``mn rerun``):
+
+    - Steps strictly before *from_step* are reusable — their state comes
+      from the saved ``Context`` and is left untouched.
+    - *from_step* and every step after it are **invalidated**: the
+      ``ctx.status`` fields of invalided soft steps are reset to their
+      "not yet run" default (see :class:`~movie_narrator.models.PipelineStatus`),
+      so downstream soft steps re-execute cleanly instead of being
+      considered already-run. Hard steps have no status field and simply
+      re-run unconditionally.
+    - The decision is recorded in ``ctx.metadata["rerun"]`` as
+      ``{"from_step", "state_completed_step", "invalidated_steps",
+      "timestamp"}`` and one structured log record is emitted.
+
+    Args:
+        ctx: Context loaded from a saved pipeline state.
+        completed_step: The ``completed_step`` recorded in the saved state.
+        from_step: The step to restart from (must be a registered step).
+
+    Returns:
+        The list of invalidated step names (from_step inclusive, in
+        pipeline order).
+
+    Raises:
+        ValueError: if *from_step* is not a registered step.
+    """
+    ordered = ordered_step_names()
+    if from_step not in ordered:
+        raise ValueError(
+            f"Unknown step '{from_step}'. Valid steps: {', '.join(ordered)}"
+        )
+    idx = ordered.index(from_step)
+    invalidated = ordered[idx:]
+
+    # Soft steps: reset the status field to its "not yet run" default so
+    # downstream steps do not skip on a stale success/failed state. The
+    # defaults live on a fresh PipelineStatus (research → "disabled",
+    # translate → "skipped", ...). Hard steps rerun unconditionally.
+    fresh = PipelineStatus()
+    for name in invalidated:
+        field = STATUS_FIELD_FOR_STEP.get(name)
+        if field:
+            setattr(ctx.status, field, getattr(fresh, field))
+
+    from datetime import datetime, timezone
+
+    timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds").replace(
+        "+00:00", "Z"
+    )
+    cast(Dict[str, Any], ctx.metadata)["rerun"] = {
+        "from_step": from_step,
+        "state_completed_step": completed_step,
+        "invalidated_steps": list(invalidated),
+        "timestamp": timestamp,
+    }
+    _emit_rerun_log(ctx, from_step, completed_step, invalidated, timestamp)
+    return invalidated
+
+
 def run_pipeline(
     ctx: Context,
     *,
@@ -726,8 +829,10 @@ def run_pipeline(
     passes a ``GradioController`` so the user can request a cooperative
     cancel at step boundaries.
 
-    ``start_step``: when set, skip all steps before this step name.
-    Used by ``mn resume`` to avoid re-running already-completed steps.
+    ``start_step``: when set, skip all steps before this step name and
+    begin execution AT this step. Used by ``mn resume`` (continue after
+    the last completed step) and ``mn rerun`` (deliberate re-execution
+    with downstream invalidation — see :func:`prepare_rerun`).
 
     ``PipelineCancelled`` raises before ``_check_strict``, so ``--strict``
     never trips on cancellation. Cancel is a distinct terminal path —

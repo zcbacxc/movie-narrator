@@ -824,6 +824,130 @@ def resume(
 
 
 @app.command()
+def rerun(
+    state: str = typer.Argument(
+        ..., help="pipeline_state.json 路径 / Path to pipeline state file"
+    ),
+    from_step: Optional[str] = typer.Option(
+        None,
+        "--from",
+        help=(
+            "从此步骤重新执行（含该步骤及之后所有步骤，前置步骤状态保留）；"
+            "若晚于已完成的步骤则退化为 resume 行为 / "
+            "Restart from this step (the step and everything after it re-executes; "
+            "steps before it keep their saved state). If --from is after the saved "
+            "completed step, this degenerates to resume behavior (no upstream "
+            "re-execution)."
+        ),
+    ),
+    list_steps: bool = typer.Option(
+        False,
+        "--list-steps",
+        help="列出有序步骤名（标注软步骤）后退出 / Print ordered step names (soft steps marked) and exit",
+    ),
+    retry: bool = typer.Option(
+        False,
+        "--retry",
+        help="硬步骤失败时交互重试 / Enable interactive retry on hard step failure",
+    ),
+    log_level: str = typer.Option(
+        "DEBUG",
+        "--log-level",
+        help="日志级别 DEBUG|INFO|WARNING|ERROR / Log level (default: DEBUG)",
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        help="在控制台显示 DEBUG 日志 / Show debug logs in console",
+    ),
+):
+    """Deliberately re-execute the pipeline from a chosen step.
+
+    Unlike ``mn resume`` (crash recovery — continue from the step AFTER
+    the last completed one), ``mn rerun --from STEP`` re-executes the
+    named step and every step after it: soft-step status fields of the
+    invalidated steps are reset so downstream steps re-run cleanly
+    instead of skipping on stale success states. The decision is
+    recorded in ``ctx.metadata["rerun"]`` for auditability.
+
+    Examples:
+            mn rerun --list-steps
+            mn rerun output/movie/pipeline_state.json --from render_video
+    """
+    from .pipeline.runner import (
+        SOFT_STATUS_STEPS,
+        _load_pipeline_state,
+        ordered_step_names,
+        prepare_rerun,
+        run_pipeline,
+    )
+    from .pipeline.errors import PipelinePaused
+    from .pipeline.preflight import PreflightError
+    from .models import Services
+    from .utils.console import Console, build_console
+
+    if list_steps:
+        for name in ordered_step_names():
+            typer.echo(f"{name} (soft)" if name in SOFT_STATUS_STEPS else name)
+        raise typer.Exit(code=0)
+
+    ordered = ordered_step_names()
+    if from_step not in ordered:
+        raise typer.BadParameter(
+            f"Unknown step '{from_step}'. Valid steps: {', '.join(ordered)}"
+        )
+
+    state_path = Path(state)
+    if not state_path.is_file():
+        typer.echo(f"State file not found: {state}", err=True)
+        raise typer.Exit(code=1)
+
+    ctx, completed_step = _load_pipeline_state(state_path)
+
+    _resolved_level = resolve_log_level(log_level)
+
+    # Re-inject a real console (serialized state has SilentConsole)
+    console: Console = build_console(
+        Path(ctx.output_dir),
+        log_level=_resolved_level,
+        verbose=verbose,
+    )
+    ctx.services = Services(
+        console=console,
+        logger=getattr(console, "_log", None),
+    )
+
+    invalidated = prepare_rerun(ctx, completed_step, from_step)
+    console.debug(
+        f"Rerunning from step '{from_step}' (state completed: {completed_step}); "
+        f"invalidated: {', '.join(invalidated)}"
+    )
+
+    controller = InteractiveCLIController() if retry else None
+    try:
+        ctx = run_pipeline(ctx, controller=controller, start_step=from_step)
+    except Exception as e:  # noqa: BLE001 — CLI top-level error barrier
+        if isinstance(e, PipelinePaused):
+            typer.echo(
+                f"\n⏸ Pipeline paused after '{e.completed_step}'. "
+                f'Resume with: mn resume --state "{Path(ctx.output_dir) / "pipeline_state.json"}"'
+            )
+            raise typer.Exit(code=0)
+        if isinstance(e, PreflightError):
+            typer.echo(str(e), err=True)
+            raise typer.Exit(code=1)
+        raise typer.Exit(code=1)
+
+    if ctx.metadata.get("script_degraded"):
+        typer.echo(
+            "⚠ 警告：旁白为占位内容——LLM 不可达。请检查 LLM 连接后重试。",
+            err=True,
+        )
+    if ctx.video_path:
+        typer.echo(f"{ctx.video_path}")
+
+
+@app.command()
 def resolve(
     movie: str = typer.Option(..., "--movie", "-m", help="电影名称 / Movie name to resolve"),
     library_dir: Optional[str] = typer.Option(
