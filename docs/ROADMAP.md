@@ -26,8 +26,9 @@
 | v1.3.1 | Service semantics — tenant/principal foundation / plans & entitlements / webhook MVP / dashboard contract |
 | v1.3.2 | Ecosystem & efficiency — reference media input contract / timeline export hardening / prompt-script cache / render admission / encoder benchmark |
 | v1.4.0 | Tracing & queue governance — opt-in OpenTelemetry tracing / GPU-vs-CPU queue split / webhook redelivery / plan artifact TTL |
+| v1.4.1 | Output experience — subtitle delivery burned/sidecar/muxed / versioned output-format stability promise |
 
-`CONTRACT_VERSION` (current): `(1, 3, 0)` (bumped in v1.4.0 — tracing exports; bumped in v1.3.1 — service-semantics exports; bumped in v1.3.0 — workflow-semantics exports)
+`CONTRACT_VERSION` (current): `(1, 3, 0)` (bumped in v1.4.0 — tracing exports; unchanged in v1.4.1)
 
 ---
 
@@ -70,12 +71,12 @@
 - Webhook operations — `GET /api/v1/webhooks/deliveries` and `POST /api/v1/webhooks/redeliver/{event_id}` (same idempotent event id, re-signed).
 - Plan artifact TTL wired — plan `artifact_ttl_hours` narrows the lifecycle policy per artifact (effective = min), recorded as `artifact_retention` in `metadata.json`.
 
-#### v1.4.1 — Output Experience (planned)
+#### v1.4.1 — Output Experience **(shipped)**
 
 - Subtitle delivery `burned | sidecar | muxed` — muxed embeds a `mov_text` soft track with ISO-639-2 language normalization; graceful burned fallback with a recorded reason. (ADR-015 planned)
 - Output format stability promise — `deliverable_manifest.json` schema v1 + the default deliverable set compatibility-protected across 1.x (STABILITY.md).
 
-#### v1.4.2 — Ecosystem (planned)
+#### v1.4.2 — Ecosystem (planned — next)
 
 - Premiere timeline adapter — FCP7-XML (`xmeml`) export in the timeline_export plugin; `timeline_export_backend=premiere`. (ADR-016 planned)
 - CLI ergonomics — `mn benchmark` and `mn rerun --dry-run`.

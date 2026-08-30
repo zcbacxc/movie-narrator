@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.4.1] - 2026-08-30
+
+### Added
+
+- **Subtitle delivery modes** — new `subtitle_delivery` job parameter: `burned` (default — previous behaviour, byte-identical output), `sidecar` (skip burn-in for faster renders; SRT files remain the delivery) and `muxed` (embed a soft `mov_text` subtitle track during the final mux with ISO-639-2 language normalization — ffmpeg silently drops two-letter tags). Missing SRT, non-mp4 containers or invalid modes fall back to `burned` with a recorded `subtitle_delivery_fallback_reason`; the effective mode is reported in `metadata.json` as `subtitle_delivery_used`. The mux command builder is extracted and unit-tested; one real-ffmpeg integration test verifies the text track. (ADR-015)
+- **Output format stability promise** — `docs/STABILITY.md` now commits to a narrow, versioned compatibility guarantee made possible by v1.3.0's `deliverable_manifest.json`: manifest schema v1 (additive fields only) and the default deliverable set (mp4/H.264 video, narration audio, SRT sidecars) stay compatible across 1.x; breaking output changes require a schema-version bump and a changelog deprecation entry. Guard tests keep the section and the manifest schema version in sync.
+- **Tests** (`tests/test_v141_subtitle_delivery.py`, `tests/test_v141_stability.py`): +32 tests (28 unit + 4 stability guards, plus 1 integration-marked real-ffmpeg mux check).
+
+### Changed
+- `CONTRACT_VERSION` remains (1, 3, 0). All 2946 tests pass (2 skipped in CI, 0 failures). +32 new tests vs v1.4.0.
+
 ## [1.4.0] - 2026-08-30
 
 ### Added
@@ -1339,7 +1350,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `workflow_steps` and `params` metadata injection.
 - Console log refactoring design.
 
-[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/zcbacxc/movie-narrator/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/zcbacxc/movie-narrator/compare/v1.3.2...v1.4.0
 [1.3.2]: https://github.com/zcbacxc/movie-narrator/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/zcbacxc/movie-narrator/compare/v1.3.0...v1.3.1

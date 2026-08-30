@@ -1,9 +1,9 @@
 [![English](https://img.shields.io/badge/English-Release_Checklist-blue)](RELEASE_CHECKLIST.md)
 [![简体中文](https://img.shields.io/badge/简体中文-发布清单-green)](RELEASE_CHECKLIST.zh-CN.md)
 
-# v1.4.0 发布清单
+# v1.4.1 发布清单
 
-> **v1.4.0 版本的完成定义（Definition of Done）。** 在创建 v1.4.0 标签
+> **v1.4.1 版本的完成定义（Definition of Done）。** 在创建 v1.4.1 标签
 > 并发布到 PyPI 之前，必须逐项核实并勾选本清单中的所有项目。
 > 项目按类别分组；每项均附有验证命令或方法。
 
@@ -26,7 +26,7 @@
 - [x] **测试覆盖率达标**
   - 命令：`pytest --cov=movie_narrator --cov-report=term-missing --cov-fail-under=90`
   - 预期结果：`Required test coverage of 90% reached. Total coverage: XX%`
-  - 说明：阈值在 CI 配置中定义（`.coveragerc` + `ci.yml`）；v1.4.0 实测 91.19%；不得低于 v1.1 基线
+  - 说明：阈值在 CI 配置中定义（`.coveragerc` + `ci.yml`）；v1.4.1 实测 91.23%；不得低于 v1.1 基线
 
 ---
 
@@ -52,10 +52,10 @@
   - 预期结果：所有契约重新导出、协议和版本测试通过
   - 说明：验证 `CONTRACT_VERSION` 值和 `__all__` 完整性
 
-- [ ] **新增 v1.4.0 追踪/队列测试通过**
-  - 命令：`pytest -v tests/test_v140_tracing.py tests/test_v140_queue_split.py tests/test_v140_webhooks_api.py tests/test_v140_plan_ttl.py`
-  - 预期结果：全部通过（基于桩的追踪、队列路由、Webhook 运维、套餐 TTL）
-  - 说明：相对 v1.3.2 总计新增 +123 个测试（CI 无需安装新依赖包）
+- [ ] **新增 v1.4.1 输出体验测试通过**
+  - 命令：`pytest -v tests/test_v141_subtitle_delivery.py tests/test_v141_stability.py`
+  - 预期结果：全部通过（交付模式、mux 命令、回退、稳定承诺守卫）
+  - 说明：相对 v1.4.0 总计新增 +32 个测试（含 1 个真实 ffmpeg 的集成标记测试）
 
 ---
 
@@ -92,18 +92,18 @@
 - [x] **CHANGELOG.md 已定稿**
   - 验证：审阅 `CHANGELOG.md`
   - 预期结果：
-    - 新增 `## [1.4.0] - <日期>` 标题（原为 `[Unreleased]`）
-    - `CONTRACT_VERSION` 行使用规范格式：`- \`CONTRACT_VERSION\` bumped to (1, 3, 0). All NNN tests pass (N skipped in CI, 0 failures). +M new tests vs v1.3.2.`
-    - 底部版本比较链接已更新（`[Unreleased]` → `.../compare/v1.4.0...HEAD`，新增 `[1.4.0]` 链接）
+    - 新增 `## [1.4.1] - <日期>` 标题（原为 `[Unreleased]`）
+    - `CONTRACT_VERSION` 行使用规范格式：`- \`CONTRACT_VERSION\` remains (1, 3, 0). All NNN tests pass (N skipped in CI, 0 failures). +M new tests vs v1.4.0.`
+    - 底部版本比较链接已更新（`[Unreleased]` → `.../compare/v1.4.1...HEAD`，新增 `[1.4.1]` 链接）
     - 历史条目保持不变（不对旧版做代号或措辞改动）
 
-- [x] **ROADMAP 反映 v1.4.0**
+- [x] **ROADMAP 反映 v1.4.1**
   - 验证：`docs/ROADMAP.zh-CN.md`（及 `.md`）
-  - 预期结果：已完成表中含 v1.4.0 行；新的 v1.4 章节列出三个增量版本，v1.4.0 标注已交付
+  - 预期结果：已完成表中含 v1.4.1 行；v1.4 章节标注 v1.4.0 与 v1.4.1 已交付
 
 - [x] **当前版本对齐**
-  - 方法：扫描**所有**公开文档（`docs/**/*.md` + `README.md`）——**不要依赖固定文件清单**——逐个 grep 上个版本号（`v1.3.2`）作为"当前"版本声明的使用
-  - 预期结果：无任何公开文档仍将旧版本当作当前版本；将每一处过期戳（`DEPLOYMENT`/`MIGRATION`/`TUTORIAL` 中的兼容性说明、`QUICKSTART` 中 `mn version` 输出、`index.md` 发布清单标签）更新为 **v1.4.0**。合理的历史引用保持不动（历史记录、比较基线、示例性表述）。重跑扫描确认。
+  - 方法：扫描**所有**公开文档（`docs/**/*.md` + `README.md`）——**不要依赖固定文件清单**——逐个 grep 上个版本号（`v1.4.0`）作为"当前"版本声明的使用
+  - 预期结果：无任何公开文档仍将旧版本当作当前版本；将每一处过期戳（`DEPLOYMENT`/`MIGRATION`/`TUTORIAL` 中的兼容性说明、`QUICKSTART` 中 `mn version` 输出、`index.md` 发布清单标签）更新为 **v1.4.1**。合理的历史引用保持不动（历史记录、比较基线、示例性表述）。重跑扫描确认。
   - 说明：同时更新本地 `CLAUDE.md` 的"当前版本"行（gitignored，仅本地）。此检查与文件无关，后续新增文档也无需调整本清单
 
 - [ ] **mkdocs 构建成功**
@@ -116,15 +116,15 @@
 
 - [ ] **版本号已对齐**
   - 验证：
-    - `pyproject.toml` → `version = "1.4.0"`
-    - `src/movie_narrator/contract.py` → `CONTRACT_VERSION = (1, 3, 0)`（已提升——v1.4.0 追踪导出）
-    - `docs/ROADMAP.zh-CN.md` → CONTRACT_VERSION 行显示 `(1, 3, 0)`（v1.4.0 已提升）
+    - `pyproject.toml` → `version = "1.4.1"`
+    - `src/movie_narrator/contract.py` → `CONTRACT_VERSION = (1, 3, 0)`（未变——v1.4.1 无新增导出，**不得**递增）
+    - `docs/ROADMAP.zh-CN.md` → CONTRACT_VERSION 行显示 `(1, 3, 0)`（v1.4.1 未变）
     - `docs/MIGRATION.zh-CN.md` → 当前版本注记已更新
-  - 预期结果：包版本 1.4.0；契约版本提升至 (1, 3, 0)
+  - 预期结果：包版本 1.4.1；契约版本保持 (1, 3, 0)
 
 - [ ] **标签命名遵循约定**
-  - 格式：`v1.4.0`（小写 `v`、语义化版本、无前缀/后缀）
-  - 命令：`git tag -a v1.4.0 -m "v1.4.0 - Tracing & Queue Governance: OpenTelemetry, Queue Split, Webhook Ops & Plan TTL"`
+  - 格式：`v1.4.1`（小写 `v`、语义化版本、无前缀/后缀）
+  - 命令：`git tag -a v1.4.1 -m "v1.4.1 - Output Experience: Subtitle Delivery Modes & Output Stability Promise"`
   - 说明：使用注解标签，非轻量标签；标签推送必须与分支推送分开
 
 - [ ] **发布分支已合并到 main**
@@ -136,18 +136,18 @@
   - 预期结果：Trusted Publisher 已配置，标签推送触发发布
   - 手动验证：
     ```bash
-    pip install dist/movie_narrator-1.4.0-py3-none-any.whl
-    mn version  # 应显示 1.4.0
+    pip install dist/movie_narrator-1.4.1-py3-none-any.whl
+    mn version  # 应显示 1.4.1
     ```
 
 - [ ] **GitHub Release 遵循 release.md 规范**
-  - 标题：`v1.4.0 - Tracing & Queue Governance: OpenTelemetry, Queue Split, Webhook Ops & Plan TTL`
-  - 正文：逐字复制 `CHANGELOG.md` 的 `## [v1.4.0]` 章节（按 `.claude/rules/release.md`），并附完整 CHANGELOG 链接
+  - 标题：`v1.4.1 - Output Experience: Subtitle Delivery Modes & Output Stability Promise`
+  - 正文：逐字复制 `CHANGELOG.md` 的 `## [v1.4.1]` 章节（按 `.claude/rules/release.md`），并附完整 CHANGELOG 链接
   - 每个标签只允许一个**非草稿** Release —— 删除 `publish.yml` 可能遗留的空草稿
 
 - [ ] **Git 标签已推送**
-  - 命令：`git push origin v1.4.0`
-  - 预期结果：标签出现在 GitHub 上，发布工作流启动，PyPI 发布 `movie-narrator==1.4.0`
+  - 命令：`git push origin v1.4.1`
+  - 预期结果：标签出现在 GitHub 上，发布工作流启动，PyPI 发布 `movie-narrator==1.4.1`
   - 说明：仅在所有清单项确认后推送标签
 
 ---
@@ -157,17 +157,17 @@
 - [ ] **PyPI 发布已验证**
   - 验证：
     ```bash
-    pip install movie-narrator==1.4.0
+    pip install movie-narrator==1.4.1
     python -c "from movie_narrator.contract import CONTRACT_VERSION; print(CONTRACT_VERSION)"
     # 预期结果：(1, 3, 0)
     ```
-  - 预期结果：包干净地安装，导入正常，包版本 1.4.0
+  - 预期结果：包干净地安装，导入正常，包版本 1.4.1
 
 - [ ] **维护分支存在**
-  - 验证：origin 上存在 `v1.4.x` 分支（v1.4.0 时创建）
+  - 验证：origin 上存在 `v1.4.x` 分支（v1.4.1 时创建）
   - 用途：为 v1.x 用户回溯安全和关键 Bug 修复
 
 ---
 
 *请在发布候选（RC）阶段使用本清单。通过所有项的最终 RC
-即成为 v1.4.0 正式版。*
+即成为 v1.4.1 正式版。*

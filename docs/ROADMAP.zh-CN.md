@@ -26,8 +26,9 @@
 | v1.3.1 | 服务语义 — 租户/主体基础 / 套餐与权益 / Webhook MVP / 看板契约                                  |
 | v1.3.2 | 生态与效率 — 参考媒体输入契约 / 时间线导出收口 / 提示词缓存 / 渲染准入 / 编码器基准测试          |
 | v1.4.0 | 追踪与队列治理 — 可选 OpenTelemetry 追踪 / GPU-CPU 队列分离 / Webhook 重发 / 套餐产物 TTL        |
+| v1.4.1 | 输出体验 — 字幕交付 burned/sidecar/muxed / 输出格式版本化稳定承诺                                |
 
-`CONTRACT_VERSION`（当前）：`(1, 3, 0)`（v1.4.0 提升追踪导出；v1.3.1 提升服务语义导出；v1.3.0 提升工作流语义导出）
+`CONTRACT_VERSION`（当前）：`(1, 3, 0)`（v1.4.0 提升追踪导出；v1.4.1 未变）
 
 ***
 
@@ -70,12 +71,12 @@
 - Webhook 运维 — `GET /api/v1/webhooks/deliveries` 与 `POST /api/v1/webhooks/redeliver/{event_id}`（同一幂等事件 ID，重新签名）。
 - 套餐产物 TTL 接线 — 套餐 `artifact_ttl_hours` 按产物收窄生命周期策略（取最小值），以 `artifact_retention` 记录在 `metadata.json`。
 
-#### v1.4.1 — 输出体验（规划）
+#### v1.4.1 — 输出体验 **（已交付）**
 
 - 字幕交付 `burned | sidecar | muxed` — muxed 内嵌 `mov_text` 软字幕轨并做 ISO-639-2 语言归一；缺 SRT/非 mp4 容器优雅回退 burned 并记录原因。（ADR-015 规划）
 - 输出格式稳定承诺 — `deliverable_manifest.json` schema v1 与默认交付物集合在 1.x 内受兼容保护（STABILITY.md）。
 
-#### v1.4.2 — 生态（规划）
+#### v1.4.2 — 生态（规划——下一版本）
 
 - Premiere 时间线适配器 — timeline_export 插件新增 FCP7-XML（`xmeml`）导出；`timeline_export_backend=premiere`。（ADR-016 规划）
 - CLI 工效 — `mn benchmark` 与 `mn rerun --dry-run`。
