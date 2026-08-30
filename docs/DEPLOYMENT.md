@@ -3,7 +3,7 @@
 
 # Deployment
 
-Container images and a local cluster for `movie-narrator` (v1.4.2).
+Container images and a local cluster for `movie-narrator` (v1.5.0).
 
 - [Deployment modes](#deployment-modes)
 - [Requirements](#requirements)

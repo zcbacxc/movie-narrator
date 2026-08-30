@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.5.0] - 2026-08-30
+
+### Added
+
+- **10-bit & HDR10-ready colour pipeline** — new `render_bit_depth` (8|10) and `render_color_space` (sdr|hdr10) job params: 10-bit renders use `yuv420p10le` with libx264 `high10`; SDR outputs now carry explicit bt709 colour tags; `hdr10` applies bt2020nc / smpte2084 / bt2020nc tagging with 10-bit forced. 10-bit is CPU-only — GPU H.264 encoders are 8-bit, so GPU hints fall back to libx264 with `fallback_reason "10bit_gpu_unsupported"`; true HDR mastering (tone mapping, mastering-display SEI) stays out of scope. (ADR-017)
+- **4K QA baseline** — expectations-aware video QA: requested 4K sizes are verified as exact matches, and the delivered `pix_fmt` / colour transfer are cross-checked against the render plan (`render_pixel` metadata); mismatches become QA findings. `yuv420p10le` joins the accepted compatibility list.
+- **Render admission for heavy renders** — the temp-space heuristic gains a 1.25× 10-bit factor on top of the existing area/duration scaling.
+- **Tests** (`tests/test_v150_color.py`, `tests/test_v150_qa.py`): +72 tests (65 unit + 7 integration-marked real-ffmpeg pixel checks).
+
+### Changed
+- `CONTRACT_VERSION` remains (1, 3, 0). All 3034 tests pass (2 skipped in CI, 0 failures). +72 new tests vs v1.4.2.
+
 ## [1.4.2] - 2026-08-30
 
 ### Added
@@ -1361,7 +1373,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `workflow_steps` and `params` metadata injection.
 - Console log refactoring design.
 
-[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v1.4.2...HEAD
+[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/zcbacxc/movie-narrator/compare/v1.4.2...v1.5.0
 [1.4.2]: https://github.com/zcbacxc/movie-narrator/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/zcbacxc/movie-narrator/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/zcbacxc/movie-narrator/compare/v1.3.2...v1.4.0

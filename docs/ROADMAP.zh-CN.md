@@ -82,12 +82,31 @@
 - Premiere 时间线适配器 — timeline_export 插件新增 FCP7-XML（`xmeml`）导出；`timeline_export_backend=premiere`。（ADR-016 规划）
 - CLI 工效 — `mn benchmark` 与 `mn rerun --dry-run`。
 
+
+### v1.5 — 视觉保真、社区与部署（下一系列）
+
+> 主题：补完原始架构规划的长尾——HDR/4K 级输出、社区生态与部署工效。按三个增量版本交付。
+
+#### v1.5.0 — 视觉保真 **（已交付）**
+
+- 10-bit 与色彩管线 — `render_bit_depth`（8|10）与 `render_color_space`（sdr|hdr10）：`yuv420p10le` + libx264 `high10`，显式 bt709（SDR）/ bt2020nc+smpte2084（HDR10）标记；10-bit 仅 CPU 编码（GPU H.264 后端为 8-bit）并记录回退；真正的 HDR 母版处理（色调映射、mastering-display SEI）不在范围内。（ADR-017）
+- 4K QA 基线 — 期望感知的视频 QA：请求的 4K 尺寸精确匹配，交付的 `pix_fmt`/色彩传递与渲染计划交叉校验；不匹配成为 QA 发现。准入临时空间估算引入 1.25× 10-bit 系数。
+
+#### v1.5.1 — 社区与治理（规划）
+
+- 社区预设共享 — `mn presets install/list/show/remove`；仅数据的 YAML，按任务参数白名单校验，绝不执行代码。（ADR-018 规划）
+- 按租户令牌桶限流（可选）与 Provider 用量账本（使延期的幂等键决策可度量）。
+
+#### v1.5.2 — 部署与媒体缓存（规划）
+
+- Helm chart / K8s 部署模板；媒体缓存池（`reference_media` 支持 URL 与版权元数据）；Temporal/Celery 试点决策以可度量触发条件记录。（ADR-019 规划）
+
 ### 长期 — 架构延展（需求驱动）
 
 仅依据真实指标（队列延迟、渲染耗时、恢复成功率、重复 Provider 调用、缓存命中率、磁盘/GPU 使用率）做承诺：
 
 - Temporal 试点（Celery 备选）— 仅当多节点 worker、持久定时器、心跳、人工审批步骤或可重放执行历史成为真实需求时启动。
-- HDR / 4K 管线 — 10-bit pix_fmt、profile、色彩 primaries/transfer/mastering 元数据、显存预算与 4K QA 基线（不只是改 `video_sizes`）。
+- HDR / 4K 管线 — 10-bit pix_fmt + profile、色彩元数据标记与 4K QA 基线已随 v1.5.0 交付（`render_bit_depth` / `render_color_space`）；完整的 HDR 母版处理（色调映射、mastering-display SEI）与 GPU 10-bit 编码仍为后续工作。（ADR-017）
 - 可选软字幕 — `subtitle_delivery=burned|sidecar|muxed`，并进行 `mov_text` 兼容性测试。
 - 扩展时间线适配器 — 在当前 OTIO + 剪映支持之外增加 Premiere XML。
 - 素材缓存池 — 面向未来外部素材接入的 content-hash + TTL + 许可元数据缓存。

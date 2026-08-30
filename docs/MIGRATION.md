@@ -283,7 +283,7 @@ v1.0 formalizes the `CONTRACT_VERSION` semantic versioning rules for the public 
 
 The version is bumped **only** when the public API surface changes. Internal refactoring that doesn't affect exported symbols doesn't require a version bump.
 
-**Current version (v1.4.2):** `CONTRACT_VERSION` remains `(1, 3, 0)` (no new contract exports in v1.4.2).
+**Current version (v1.5.0):** `CONTRACT_VERSION` remains `(1, 3, 0)` (no new contract exports in v1.5.0).
 **First stable release — contract frozen.** All v1.x releases will maintain backward compatibility within the v1.x major series. See [STABILITY.md](STABILITY.md) for the full stability promise.
 
 ### Checking Contract Version in Your Code

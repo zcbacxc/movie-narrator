@@ -16,7 +16,7 @@ pip install movie-narrator
 
 ```bash
 mn version
-# movie-narrator 1.4.2 (contract 1.3.0)
+# movie-narrator 1.5.0 (contract 1.3.0)
 ```
 
 ## 步骤 1：创建插件包

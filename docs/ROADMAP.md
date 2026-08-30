@@ -28,6 +28,7 @@
 | v1.4.0 | Tracing & queue governance — opt-in OpenTelemetry tracing / GPU-vs-CPU queue split / webhook redelivery / plan artifact TTL |
 | v1.4.1 | Output experience — subtitle delivery burned/sidecar/muxed / versioned output-format stability promise |
 | v1.4.2 | Ecosystem — Premiere (FCP7-XML) timeline adapter / mn benchmark + mn rerun --dry-run CLI |
+| v1.5.0 | Visual fidelity — 10-bit & colour-tagged pipeline / expectations-aware 4K+pixel QA / admission factor |
 
 `CONTRACT_VERSION` (current): `(1, 3, 0)` (bumped in v1.4.0 — tracing exports; unchanged in v1.4.1)
 
@@ -63,6 +64,8 @@
 
 ### v1.4 — Tracing, Output Experience & Ecosystem (shipped as v1.4.0–v1.4.2)
 
+---
+
 > Theme: close out the v1.3 deferrals whose prerequisites are now in place and deepen the output/product surface. Shipped as three incremental releases.
 
 #### v1.4.0 — Tracing & Queue Governance **(shipped)**
@@ -82,12 +85,31 @@
 - Premiere timeline adapter — FCP7-XML (`xmeml`) export in the timeline_export plugin; `timeline_export_backend=premiere`. (ADR-016 planned)
 - CLI ergonomics — `mn benchmark` and `mn rerun --dry-run`.
 
+
+### v1.5 — Visual Fidelity, Community & Deployment (next)
+
+> Theme: complete the long tail of the original architecture plan — HDR/4K-grade output, the community ecosystem, and deployment ergonomics. Shipped as three incremental releases.
+
+#### v1.5.0 — Visual Fidelity **(shipped)**
+
+- 10-bit & colour pipeline — `render_bit_depth` (8|10) and `render_color_space` (sdr|hdr10): `yuv420p10le` + libx264 `high10`, explicit bt709 (SDR) / bt2020nc+smpte2084 (HDR10) tagging; CPU-only 10-bit encode (GPU H.264 backends are 8-bit) with recorded fallback; true HDR mastering (tone mapping, mastering-display SEI) out of scope. (ADR-017)
+- 4K QA baseline — expectations-aware video QA: requested 4K sizes verified exact-match, delivered `pix_fmt` / colour transfer cross-checked against the render plan; mismatches become QA findings. Render admission temp-space estimate gains a 1.25× 10-bit factor.
+
+#### v1.5.1 — Community & Governance (planned)
+
+- Community preset sharing — `mn presets install/list/show/remove`; data-only YAML validated against the job-param whitelist, no code execution. (ADR-018 planned)
+- Per-tenant token-bucket rate limiting (opt-in) and a provider usage ledger (makes the deferred idempotency-key decision measurable).
+
+#### v1.5.2 — Deployment & Media Cache (planned)
+
+- Helm chart / K8s deployment templates; media cache pool with `reference_media` URL support and licence metadata; Temporal/Celery pilot decision recorded with measurable triggers. (ADR-019 planned)
+
 ### Long-term — Architecture Outgrowths (demand-driven)
 
 Commitments are made only against real metrics (queue latency, render duration, recovery success rate, duplicate provider calls, cache hit rate, disk/GPU utilization):
 
 - Temporal pilot (Celery as fallback) — only when multi-node workers, durable timers, heartbeats, manual approval steps, or replayable execution history become actual requirements.
-- HDR / 4K pipeline — 10-bit pix_fmt, profile, color primaries/transfer/mastering metadata, VRAM budgeting, and a 4K QA baseline (not just a `video_sizes` bump).
+- HDR / 4K pipeline — 10-bit pix_fmt + profile, colour metadata tagging, and a 4K QA baseline shipped in v1.5.0 (`render_bit_depth` / `render_color_space`); full HDR mastering (tone mapping, mastering-display SEI) and GPU 10-bit encodes remain future work. (ADR-017)
 - Optional soft subtitles — `subtitle_delivery=burned|sidecar|muxed` with `mov_text` compatibility testing.
 - Extended timeline adapters — Premiere XML beyond the current OTIO + Jianying support.
 - Media cache pool — content-hash + TTL + license-metadata cache for future external stock-footage integration.
