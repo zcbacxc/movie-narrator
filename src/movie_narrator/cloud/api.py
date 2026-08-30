@@ -98,6 +98,7 @@ from .metrics import (
 from .models import BatchRequest, Task, TaskRequest, TaskStatus
 from .openapi import build_openapi_spec
 from .queue import LocalTaskQueue
+from .ratelimit import RateLimiter  # v1.5.1 — per-tenant submission throttling
 from .scheduler import JobScheduler, ScheduleError
 from .webhooks import (  # v1.4.0 — webhook delivery records + redelivery
     DELIVERY_LOG_FILENAME,
@@ -486,12 +487,15 @@ class _APIHandler(BaseHTTPRequestHandler):
         self,
         data: Any,
         status: int = HTTPStatus.OK,
+        extra_headers: Optional[Dict[str, str]] = None,
     ) -> None:
         """Send a JSON response."""
         body = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        for key, value in (extra_headers or {}).items():
+            self.send_header(key, value)
         self.end_headers()
         self.wfile.write(body)
 
@@ -742,6 +746,40 @@ class _APIHandler(BaseHTTPRequestHandler):
                     },
                 )
         return None
+
+    # ── Rate limiting (v1.5.1) ─────────────────────────────
+
+    def _rate_limit_rejection(self) -> Optional[Tuple[int, Dict[str, Any], float]]:
+        """Per-tenant submission throttle (v1.5.1, opt-in).
+
+        When the server's :class:`~movie_narrator.cloud.ratelimit.RateLimiter`
+        is enabled (``MN_RATE_LIMIT_ENABLED``), each task submission costs
+        one token from the caller's tenant bucket (resolved via the
+        existing tenant rules — unauthenticated loopback callers share
+        the ``"default"`` bucket). Reads are never throttled.
+
+        Returns:
+            ``(HTTPStatus.TOO_MANY_REQUESTS, body, retry_after_seconds)``
+            when the tenant is out of tokens, else None.
+        """
+        limiter = getattr(self.server, "rate_limiter", None)
+        if not isinstance(limiter, RateLimiter) or not limiter.enabled:
+            return None
+        _, tenant = self._current_identity()
+        retry_after = limiter.try_acquire(tenant)
+        if retry_after <= 0.0:
+            return None
+        return (
+            HTTPStatus.TOO_MANY_REQUESTS,
+            {"error": "rate_limited", "retry_after_s": round(retry_after, 2)},
+            retry_after,
+        )
+
+    @staticmethod
+    def _retry_after_header(retry_after: float) -> str:
+        """Format an HTTP ``Retry-After`` (integer seconds, min 1)."""
+        whole = int(retry_after)
+        return str(whole + 1 if retry_after > whole else max(whole, 1))
 
     # ── Submission admission (v1.2) ────────────────────────
 
@@ -1081,6 +1119,16 @@ class _APIHandler(BaseHTTPRequestHandler):
         principal, tenant = self._current_identity()
         request.principal = principal
         request.tenant_id = tenant
+        # v1.5.1: opt-in per-tenant token-bucket throttle (submissions only).
+        rate_rejection = self._rate_limit_rejection()
+        if rate_rejection is not None:
+            status, rate_body, retry_after = rate_rejection
+            self._send_json(
+                rate_body,
+                status=status,
+                extra_headers={"Retry-After": self._retry_after_header(retry_after)},
+            )
+            return
         plan_name, plan_error = self._resolve_plan_name()
         if plan_error is not None:
             self._send_error(HTTPStatus.BAD_REQUEST, plan_error)
@@ -1129,6 +1177,16 @@ class _APIHandler(BaseHTTPRequestHandler):
         for member in request.requests:
             member.principal = principal
             member.tenant_id = tenant
+        # v1.5.1: opt-in per-tenant token-bucket throttle (submissions only).
+        rate_rejection = self._rate_limit_rejection()
+        if rate_rejection is not None:
+            status, rate_body, retry_after = rate_rejection
+            self._send_json(
+                rate_body,
+                status=status,
+                extra_headers={"Retry-After": self._retry_after_header(retry_after)},
+            )
+            return
         plan_name, plan_error = self._resolve_plan_name()
         if plan_error is not None:
             self._send_error(HTTPStatus.BAD_REQUEST, plan_error)
@@ -1536,11 +1594,27 @@ class TaskAPIServer:
         self._drain_timeout = drain_timeout
 
         self._dead_letter_store = dead_letter_store
+        # v1.5.1: opt-in per-tenant submission rate limiting, resolved
+        # from the MN_RATE_LIMIT_* process-env variables (disabled by
+        # default). Replaceable via the rate_limiter property (tests).
+        self._rate_limiter = RateLimiter.from_env()
 
     @property
     def queue(self) -> LocalTaskQueue:
         """The underlying task queue."""
         return self._queue
+
+    @property
+    def rate_limiter(self) -> RateLimiter:
+        """The per-tenant submission rate limiter (v1.5.1)."""
+        return self._rate_limiter
+
+    @rate_limiter.setter
+    def rate_limiter(self, limiter: RateLimiter) -> None:
+        """Replace the rate limiter (used by tests / custom deployments)."""
+        self._rate_limiter = limiter
+        if self._server is not None:
+            self._server.rate_limiter = limiter  # type: ignore[attr-defined]
 
     @property
     def scheduler(self) -> JobScheduler:
@@ -1605,6 +1679,8 @@ class TaskAPIServer:
 
         # v0.9.4: optional explicit dead-letter store (None → default)
         self._server.dead_letter_store_override = self._dead_letter_store  # type: ignore[attr-defined]
+        # v1.5.1: per-tenant submission rate limiter (disabled by default)
+        self._server.rate_limiter = self._rate_limiter  # type: ignore[attr-defined]
         # Update actual port (in case port=0 was used)
         self.port = self._server.server_address[1]
 

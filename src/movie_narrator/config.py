@@ -144,6 +144,14 @@ class Settings(BaseSettings):
     webhook_secret: Optional[str] = None  # HMAC-SHA256 signing secret
     webhook_timeout: float = 10.0  # per-request timeout seconds
     webhook_max_retries: int = 3  # retries after the first attempt
+    # v1.5.1: per-tenant token-bucket rate limiting for task submissions
+    # (POST /tasks, POST /tasks/batch). The API server resolves
+    # MN_RATE_LIMIT_* from the process environment at construction —
+    # default off keeps v1.4 behaviour unchanged; these typed fields
+    # document the surface with the same defaults.
+    rate_limit_enabled: bool = False
+    rate_limit_capacity: float = 60.0
+    rate_limit_refill_per_minute: float = 60.0
     # v0.9.2: graceful-shutdown drain budget (seconds). After SIGINT /
     # SIGTERM, ``mn serve`` and ``TaskAPIServer.stop()`` wait up to this
     # long for in-flight tasks to finish before force-cancelling them.
