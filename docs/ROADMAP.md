@@ -24,8 +24,9 @@
 | v1.2.1 | Persistent GPU capability cache / encoder fallback-reason reporting (incl. runtime GPU→CPU fallback audit) |
 | v1.3.0 | Workflow semantics — selective rerun (`mn rerun`) / linear-compatible DAG contract / versioned deliverable manifest |
 | v1.3.1 | Service semantics — tenant/principal foundation / plans & entitlements / webhook MVP / dashboard contract |
+| v1.3.2 | Ecosystem & efficiency — reference media input contract / timeline export hardening / prompt-script cache / render admission / encoder benchmark |
 
-`CONTRACT_VERSION` (current): `(1, 2, 0)` (bumped in v1.3.1 — service-semantics exports; bumped in v1.3.0 — workflow-semantics exports)
+`CONTRACT_VERSION` (current): `(1, 2, 0)` (bumped in v1.3.1 — service-semantics exports; bumped in v1.3.0 — workflow-semantics exports; unchanged in v1.3.2)
 
 ---
 
@@ -39,11 +40,11 @@
 
 #### Carried over from v1.2 (deferred items)
 
-- OpenTelemetry tracing — v1.2 shipped structured step logging instead; real span-based tracing (task → step/provider/subprocess) remains open.
-- Hardware encoding productization — v1.2 unified ffmpeg detection; capability cache and fallback-reason reporting shipped as a v1.2.1 patch, benchmark remains open.
-- Prompt/script cache — keyed by normalized topic / style / language / prompt-template version / model, with hit-source attribution.
-- Resource-aware admission — temp-disk / CPU / GPU / resolution checks and GPU-vs-CPU queue separation.
-- Provider idempotency keys — v1.2 decided against strong idempotency for non-deterministic LLM output (documented); revisit only if duplicate-billing becomes measurable.
+- OpenTelemetry tracing — v1.2 shipped structured step logging instead; real span-based tracing (task → step/provider/subprocess) remains open. Deferred beyond v1.3: structured step logs + execution/deliverable manifests cover the near-term need; revisit when an external tracing backend is a concrete requirement.
+- Hardware encoding productization — v1.2 unified ffmpeg detection; capability cache and fallback-reason reporting shipped as a v1.2.1 patch; benchmark tooling shipped in v1.3.2 (`benchmarks/encoder_benchmark.py`).
+- Prompt/script cache — keyed by normalized topic / style / language / prompt-template version / model, with hit-source attribution. **(shipped in v1.3.2)**
+- Resource-aware admission — temp-disk / resolution/duration checks shipped in v1.3.2 (`MN_ADMISSION_DISK_CHECK`, opt-in); GPU-vs-CPU queue separation deferred (entitlements GPU flag already gates access; revisit with measured multi-task contention).
+- Provider idempotency keys — v1.2 decided against strong idempotency for non-deterministic LLM output (documented); stays deferred — revisit only if duplicate-billing becomes measurable.
 
 #### v1.3 scope
 
@@ -54,8 +55,8 @@
 - Principal & tenant foundation — tenant/principal propagated through tasks, artifacts, and audit records with per-tenant artifact scoping (full lifecycle/row isolation long-term). **(shipped in v1.3.1)**
 - Plans & entitlements — max duration / resolution / artifact bytes / watermark / GPU-encoder permission / artifact TTL, enforced at submission + worker injection. **(shipped in v1.3.1)**
 - Webhook MVP — signed events, delivery retry, idempotent event IDs, delivery records (replaces pure polling). **(shipped in v1.3.1)**
-- Timeline export hardening — `timeline_export_backend` accepted by the core whitelist with integration tests.
-- Reference media input contract — `reference_media[]` entries with video/image kind, usage, license source, and style features; image-reference style hints via the VLM provider.
+- Timeline export hardening — `timeline_export_backend` accepted by the core whitelist with integration tests. **(shipped in v1.3.2)**
+- Reference media input contract — `reference_media[]` entries with video/image kind, usage, license source, and style features; image-reference style hints via the VLM provider. **(shipped in v1.3.2)**
 
 ### Long-term — Architecture Outgrowths (demand-driven)
 

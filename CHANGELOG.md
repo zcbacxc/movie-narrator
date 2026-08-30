@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.3.2] - 2026-08-30
+
+### Added
+
+- **Reference media input contract** — `reference_media[]` job parameter accepts video/image references with `kind`, `usage` (style/pacing/palette/structure) and a free-text `note` for license/source attribution; paths are validated at resolve time, style hints are appended to the research/script prompt, and image references are captioned once through the existing VLM captioner (soft-degrade on failure, max 3). Empty default is byte-identical to previous prompts; attribution flows into `metadata.json`.
+- **Timeline export hardening** — `timeline_export_backend` (`none` / `jianying` / `otio`) is now accepted by the core whitelist/schema/merge and covered by integration tests against the out-of-tree timeline_export plugin (jianying end-to-end; OTIO soft-skips when `opentimelineio` is absent).
+- **Opt-in prompt/script cache** — raw LLM responses for deterministic input tuples (research / script beats / script expansion) are cached under `~/.movie-narrator/prompts/` keyed by normalized topic + style + language + template version + model + provider (7-day TTL, 200-entry LRU); opt-in via `MN_PROMPT_CACHE` (default off); judge calls are never cached; per-stage hit/miss surfaces in `metadata.json`.
+- **Resource-aware render admission** — `utils/resources.py` preflight estimates temp-disk need from resolution × duration (clamped 0.5–50 GB) and aborts the render step with a clear error when free space is insufficient; gated behind `MN_ADMISSION_DISK_CHECK` (default off). CPU count is reported advisory-only.
+- **Encoder benchmark script** — `benchmarks/encoder_benchmark.py` times `libx264` vs every detected GPU encoder on a synthetic 1080p clip through the shared ffmpeg policy, emitting a versioned JSON report (encoder, seconds, fps, size, fallback reason); unit-tested without ffmpeg.
+- **Tests** (`tests/test_v132_reference_media.py`, `tests/test_v132_timeline.py`, `tests/test_v132_prompt_cache.py`, `tests/test_v132_resources.py`, `tests/test_v132_benchmark.py`): +83 tests (79 unit + 4 integration-marked).
+
+### Changed
+- `CONTRACT_VERSION` remains (1, 2, 0). All 2792 tests pass (2 skipped in CI, 0 failures). +83 new tests vs v1.3.1.
+
+## [1.3.2] - 2026-08-30
+
+### Added
+
+- **Reference media input contract** — `reference_media[]` job parameter accepts video/image references with `kind`, `usage` (style/pacing/palette/structure) and a free-text `note` for license/source attribution; paths are validated at resolve time, style hints are appended to the research/script prompt, and image references are captioned once through the existing VLM captioner (soft-degrade on failure, max 3). Empty default is byte-identical to previous prompts; attribution flows into `metadata.json`.
+- **Timeline export hardening** — `timeline_export_backend` (`none` / `jianying` / `otio`) is now accepted by the core whitelist/schema/merge and covered by integration tests against the out-of-tree timeline_export plugin (jianying end-to-end; OTIO soft-skips when `opentimelineio` is absent).
+- **Opt-in prompt/script cache** — raw LLM responses for deterministic input tuples (research / script beats / script expansion) are cached under `~/.movie-narrator/prompts/` keyed by normalized topic + style + language + template version + model + provider (7-day TTL, 200-entry LRU); opt-in via `MN_PROMPT_CACHE` (default off); judge calls are never cached; per-stage hit/miss surfaces in `metadata.json`.
+- **Resource-aware render admission** — `utils/resources.py` preflight estimates temp-disk need from resolution × duration (clamped 0.5–50 GB) and aborts the render step with a clear error when free space is insufficient; gated behind `MN_ADMISSION_DISK_CHECK` (default off). CPU count is reported advisory-only.
+- **Encoder benchmark script** — `benchmarks/encoder_benchmark.py` times `libx264` vs every detected GPU encoder on a synthetic 1080p clip through the shared ffmpeg policy, emitting a versioned JSON report (encoder, seconds, fps, size, fallback reason); unit-tested without ffmpeg.
+- **Tests** (`tests/test_v132_reference_media.py`, `tests/test_v132_timeline.py`, `tests/test_v132_prompt_cache.py`, `tests/test_v132_resources.py`, `tests/test_v132_benchmark.py`): +83 tests (79 unit + 4 integration-marked).
+
+### Changed
+- `CONTRACT_VERSION` remains (1, 2, 0). All 2792 tests pass (2 skipped in CI, 0 failures). +83 new tests vs v1.3.1.
+
 ## [1.3.1] - 2026-08-30
 
 ### Added
@@ -1312,7 +1340,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `workflow_steps` and `params` metadata injection.
 - Console log refactoring design.
 
-[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v1.3.2...HEAD
+[1.3.2]: https://github.com/zcbacxc/movie-narrator/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/zcbacxc/movie-narrator/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/zcbacxc/movie-narrator/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/zcbacxc/movie-narrator/compare/v1.2.0...v1.2.1
