@@ -63,7 +63,7 @@ logger = logging.getLogger(__name__)
 
 #: Environment variables (documented in .env.example).
 ENV_WEBHOOK_URLS = "MN_WEBHOOK_URLS"
-ENV_WEBHOOK_SECRET = "MN_WEBHOOK_SECRET"
+ENV_WEBHOOK_SECRET = "MN_WEBHOOK_SECRET"  # nosec B105  # env var NAME, not a credential
 ENV_WEBHOOK_TIMEOUT = "MN_WEBHOOK_TIMEOUT"
 ENV_WEBHOOK_MAX_RETRIES = "MN_WEBHOOK_MAX_RETRIES"
 
