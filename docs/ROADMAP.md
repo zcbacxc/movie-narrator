@@ -27,6 +27,7 @@
 | v1.3.2 | Ecosystem & efficiency — reference media input contract / timeline export hardening / prompt-script cache / render admission / encoder benchmark |
 | v1.4.0 | Tracing & queue governance — opt-in OpenTelemetry tracing / GPU-vs-CPU queue split / webhook redelivery / plan artifact TTL |
 | v1.4.1 | Output experience — subtitle delivery burned/sidecar/muxed / versioned output-format stability promise |
+| v1.4.2 | Ecosystem — Premiere (FCP7-XML) timeline adapter / mn benchmark + mn rerun --dry-run CLI |
 
 `CONTRACT_VERSION` (current): `(1, 3, 0)` (bumped in v1.4.0 — tracing exports; unchanged in v1.4.1)
 
@@ -60,7 +61,7 @@
 - Timeline export hardening — `timeline_export_backend` accepted by the core whitelist with integration tests. **(shipped in v1.3.2)**
 - Reference media input contract — `reference_media[]` entries with video/image kind, usage, license source, and style features; image-reference style hints via the VLM provider. **(shipped in v1.3.2)**
 
-### v1.4 — Tracing, Output Experience & Ecosystem (next)
+### v1.4 — Tracing, Output Experience & Ecosystem (shipped as v1.4.0–v1.4.2)
 
 > Theme: close out the v1.3 deferrals whose prerequisites are now in place and deepen the output/product surface. Shipped as three incremental releases.
 
@@ -76,7 +77,7 @@
 - Subtitle delivery `burned | sidecar | muxed` — muxed embeds a `mov_text` soft track with ISO-639-2 language normalization; graceful burned fallback with a recorded reason. (ADR-015 planned)
 - Output format stability promise — `deliverable_manifest.json` schema v1 + the default deliverable set compatibility-protected across 1.x (STABILITY.md).
 
-#### v1.4.2 — Ecosystem (planned — next)
+#### v1.4.2 — Ecosystem **(shipped)**
 
 - Premiere timeline adapter — FCP7-XML (`xmeml`) export in the timeline_export plugin; `timeline_export_backend=premiere`. (ADR-016 planned)
 - CLI ergonomics — `mn benchmark` and `mn rerun --dry-run`.

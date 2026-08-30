@@ -27,6 +27,7 @@
 | v1.3.2 | 生态与效率 — 参考媒体输入契约 / 时间线导出收口 / 提示词缓存 / 渲染准入 / 编码器基准测试          |
 | v1.4.0 | 追踪与队列治理 — 可选 OpenTelemetry 追踪 / GPU-CPU 队列分离 / Webhook 重发 / 套餐产物 TTL        |
 | v1.4.1 | 输出体验 — 字幕交付 burned/sidecar/muxed / 输出格式版本化稳定承诺                                |
+| v1.4.2 | 生态 — Premiere（FCP7-XML）时间线适配器 / mn benchmark 与 mn rerun --dry-run CLI                  |
 
 `CONTRACT_VERSION`（当前）：`(1, 3, 0)`（v1.4.0 提升追踪导出；v1.4.1 未变）
 
@@ -60,7 +61,7 @@
 - 时间线导出收口 — `timeline_export_backend` 接入核心白名单并补充集成测试。**（已随 v1.3.2 交付）**
 - 参考媒体输入契约 — `reference_media[]` 记录视频/图片类型、用途、版权来源与风格特征；基于 VLM Provider 的图像参考风格提示。**（已随 v1.3.2 交付）**
 
-### v1.4 — 追踪、输出体验与生态（下一系列）
+### v1.4 — 追踪、输出体验与生态（已随 v1.4.0–v1.4.2 交付）
 
 > 主题：收尾 v1.3 中前置条件已就绪的延期项，并深化输出与产品面。按三个增量版本交付。
 
@@ -76,7 +77,7 @@
 - 字幕交付 `burned | sidecar | muxed` — muxed 内嵌 `mov_text` 软字幕轨并做 ISO-639-2 语言归一；缺 SRT/非 mp4 容器优雅回退 burned 并记录原因。（ADR-015 规划）
 - 输出格式稳定承诺 — `deliverable_manifest.json` schema v1 与默认交付物集合在 1.x 内受兼容保护（STABILITY.md）。
 
-#### v1.4.2 — 生态（规划——下一版本）
+#### v1.4.2 — 生态 **（已交付）**
 
 - Premiere 时间线适配器 — timeline_export 插件新增 FCP7-XML（`xmeml`）导出；`timeline_export_backend=premiere`。（ADR-016 规划）
 - CLI 工效 — `mn benchmark` 与 `mn rerun --dry-run`。

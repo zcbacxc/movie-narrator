@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.4.2] - 2026-08-30
+
+### Added
+
+- **Premiere timeline adapter** — the `timeline_export` plugin gains a `premiere` backend emitting Final Cut Pro 7 XML (`xmeml`), the interchange format Premiere imports natively: sequence with rate from the render fps, video clipitems per scene, narration audio track, and text overlays as FCP7 `generatoritem`s (jianying parity). `timeline_export_backend=premiere` is accepted by the core whitelist; stdlib-only, no new dependencies; plugin smoke test covers it in a bare environment. (ADR-016)
+- **CLI ergonomics** — `mn benchmark` wraps the v1.3.2 encoder-benchmark script with `--duration`/`--out`/`--encoders` options (delegates to the script's own `main()` for identical table/report/exit-code behaviour; requires a source checkout) and `mn rerun --dry-run` previews the invalidation plan (from-step, invalidated and reusable steps) without executing the pipeline.
+- **Tests** (`tests/test_v142_premiere.py`, `tests/test_v142_cli.py`): +26 tests (23 unit + 3 integration-marked); XML structure validated via `ElementTree` parsing.
+
+### Changed
+- `CONTRACT_VERSION` remains (1, 3, 0). All 2969 tests pass (2 skipped in CI, 0 failures). +26 new tests vs v1.4.1.
+
 ## [1.4.1] - 2026-08-30
 
 ### Added
@@ -1350,7 +1361,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `workflow_steps` and `params` metadata injection.
 - Console log refactoring design.
 
-[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v1.4.1...HEAD
+[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v1.4.2...HEAD
+[1.4.2]: https://github.com/zcbacxc/movie-narrator/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/zcbacxc/movie-narrator/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/zcbacxc/movie-narrator/compare/v1.3.2...v1.4.0
 [1.3.2]: https://github.com/zcbacxc/movie-narrator/compare/v1.3.1...v1.3.2
