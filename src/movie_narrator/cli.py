@@ -209,7 +209,9 @@ def create(
         None,
         "--narration-preset",
         "-p",
-        help="解说风格预设 douyin-fast | mainstream-dry | bilibili-long / Narration style preset",
+        "--preset",
+        help="解说风格预设(内置或已安装社区预设) douyin-fast | mainstream-dry | bilibili-long "
+        "/ Narration style preset (built-in or installed community preset)",
     ),
     narrator_perspective: Optional[str] = typer.Option(
         None,
@@ -1406,6 +1408,139 @@ def preset(
         typer.echo("Prompt tags:")
         for key in sorted(p.tag_dict):
             typer.echo(f"  {key:<40} {p.tag_dict[key]}")
+
+
+# ── Community preset sharing (v1.5.1) ─────────────────────
+
+
+presets_app = typer.Typer(
+    help="Community preset sharing — install and manage YAML data presets "
+    "(no code execution; see ADR-018).",
+    no_args_is_help=True,
+)
+app.add_typer(presets_app, name="presets")
+
+
+@presets_app.command("list")
+def presets_list():
+    """List built-in and installed community presets.
+
+    Examples:
+        mn presets list
+    """
+    from .presets import list_installed, list_presets
+
+    installed = {item.name: item for item in list_installed()}
+    presets = list_presets()
+    if not presets:
+        typer.echo("No narration presets available.")
+        return
+    typer.echo("Available narration presets:")
+    typer.echo("")
+    for pname, pdesc in presets.items():
+        marker = "built-in"
+        if pname in installed:
+            marker = "community"
+        typer.echo(f"  {pname:<20} [{marker}] {pdesc}")
+    typer.echo("")
+    typer.echo("Install more: mn presets install <https-url-or-local-path>")
+    typer.echo("Use 'mn presets show <name>' for details, or -p <name> with 'mn create'.")
+
+
+@presets_app.command("install")
+def presets_install(
+    source: str = typer.Argument(
+        ...,
+        help="https:// URL or local YAML file path (http:// is rejected; 256 KiB cap)",
+    ),
+):
+    """Install a community preset from an https URL or a local YAML file.
+
+    Community presets are validated data files (never code): the YAML is
+    checked against the job-param whitelist, the preset name becomes the
+    registry key, and a sha256 of the file is recorded.
+
+    Examples:
+        mn presets install ./slow-burn.yaml
+        mn presets install https://example.com/presets/slow-burn.yaml
+    """
+    from .presets import CommunityPresetError, install_preset
+
+    try:
+        item = install_preset(source)
+    except CommunityPresetError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+    typer.echo(f"Installed community preset: {item.name}")
+    if item.description:
+        typer.echo(f"  description: {item.description}")
+    if item.author:
+        typer.echo(f"  author:      {item.author}")
+    if item.license:
+        typer.echo(f"  license:     {item.license}")
+    typer.echo(f"  sha256:      {item.sha256}")
+    typer.echo(f"Apply it: mn create -m <movie> --preset {item.name}")
+
+
+@presets_app.command("remove")
+def presets_remove(
+    name: str = typer.Argument(..., help="Installed community preset name"),
+):
+    """Uninstall a community preset (file + registry entry removed).
+
+    Examples:
+        mn presets remove slow-burn
+    """
+    from .presets import CommunityPresetError, uninstall_preset
+
+    try:
+        uninstall_preset(name)
+    except KeyError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+    except CommunityPresetError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+    typer.echo(f"Removed community preset: {name}")
+
+
+@presets_app.command("show")
+def presets_show(
+    name: str = typer.Argument(..., help="Preset name (built-in or installed community)"),
+):
+    """Show details for a preset — community metadata when applicable.
+
+    Examples:
+        mn presets show slow-burn
+        mn presets show douyin-fast
+    """
+    from contextlib import suppress
+
+    from .presets import CommunityPresetError, get_preset, load_community_preset
+
+    try:
+        p = get_preset(name)
+    except KeyError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+
+    typer.echo(f"Preset: {p.name}")
+    typer.echo(f"Description: {p.desc}")
+    # Community provenance block — only present for installed presets.
+    with suppress(KeyError, CommunityPresetError):
+        doc = load_community_preset(name)
+        meta = doc.get("preset") or {}
+        for key in ("author", "license", "min_engine"):
+            if meta.get(key):
+                typer.echo(f"{key.capitalize()}: {meta[key]}")
+    typer.echo("")
+    typer.echo("Parameters:")
+    for key in sorted(p.param_dict):
+        typer.echo(f"  {key:<40} {p.param_dict[key]}")
+    typer.echo("")
+    typer.echo("Prompt tags:")
+    for key in sorted(p.tag_dict):
+        typer.echo(f"  {key:<40} {p.tag_dict[key]}")
 
 
 # ── Task Queue commands (v0.6.0) ──────────────────────────

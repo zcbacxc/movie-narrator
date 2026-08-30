@@ -6,7 +6,9 @@
 A preset bundles a set of default parameter values (match cadence, BGM
 ducking, subtitle layout, prompt shaping) that together produce a
 recognisable narration style.  Built-in presets cover three popular
-recap styles; third-party presets can be added later via entry-points.
+recap styles; community presets (v1.5.1) are installed YAML data files
+(never code — see ``presets/community.py`` and ADR-018) managed via
+``mn presets install``.
 
 Usage::
 
@@ -18,6 +20,14 @@ Usage::
 """
 
 from .base import Preset, PresetParam
+from .community import (
+    CommunityPresetError,
+    InstalledPreset,
+    install_preset,
+    list_installed,
+    load_community_preset,
+    uninstall_preset,
+)
 from .registry import get_preset, list_presets, BUILTIN_PRESETS
 
 __all__ = [
@@ -26,4 +36,11 @@ __all__ = [
     "get_preset",
     "list_presets",
     "BUILTIN_PRESETS",
+    # v1.5.1 — community preset sharing (data-only YAML presets)
+    "CommunityPresetError",
+    "InstalledPreset",
+    "install_preset",
+    "list_installed",
+    "load_community_preset",
+    "uninstall_preset",
 ]

@@ -10,7 +10,8 @@ The :func:`discover_presets` hook is reserved for Stage 2 (entry-points
 
 from __future__ import annotations
 
-from typing import Dict, List
+from contextlib import suppress
+from typing import Any, Dict, List, Optional
 
 from .base import (
     ALLOWED_PARAM_KEYS,
@@ -18,6 +19,7 @@ from .base import (
     Preset,
     PresetParam,
 )
+from .community import CommunityPresetError, list_installed, load_community_preset
 
 # ── Built-in presets ────────────────────────────────────────
 from .mainstream_dry import MainstreamDryPreset
@@ -127,26 +129,69 @@ def _get_registry() -> Dict[str, PresetParam]:
     return _REGISTRY
 
 
+def _community_param(name: str) -> Optional[PresetParam]:
+    """Build a :class:`PresetParam` from an installed community preset.
+
+    v1.5.1 (ADR-018): community presets are YAML data validated against
+    the job-param whitelist at load time (see ``community.py``). Only
+    the ``params:`` mapping (plus any top-level job keys that are also
+    valid preset params, e.g. ``lang``) is applied at run time; prompt
+    tags remain a closed, built-in-only vocabulary. Returns None when
+    *name* is not an installed community preset.
+    """
+    from .base import ALLOWED_PARAM_KEYS
+
+    doc = load_community_preset(name)
+    job = {k: v for k, v in doc.items() if k != "preset"}
+    param_dict: Dict[str, Any] = dict(job.get("params") or {})
+    param_dict.update({k: v for k, v in job.items() if k in ALLOWED_PARAM_KEYS})
+    meta = doc.get("preset") or {}
+    desc = meta.get("description") if isinstance(meta, dict) else None
+    return PresetParam(
+        name=name,
+        param_dict=param_dict,
+        tag_dict={},
+        desc=str(desc) if desc else "Community preset",
+    )
+
+
 def get_preset(name: str) -> PresetParam:
     """Look up a validated preset by name.
+
+    Resolution rule (v1.5.1, ADR-018): **built-ins win** — an installed
+    community preset is only consulted when no built-in preset matches.
 
     Raises:
         :class:`KeyError` if not found.  Use :func:`list_presets`
             to see available names.
     """
     reg = _get_registry()
-    if name not in reg:
-        available = ", ".join(sorted(reg))
-        raise KeyError(f"Unknown narration preset '{name}'. Available: {available}")
-    return reg[name]
+    if name in reg:
+        return reg[name]
+    try:
+        community = _community_param(name)
+    except KeyError:
+        community = None
+    if community is not None:
+        return community
+    available = ", ".join(sorted(reg))
+    raise KeyError(f"Unknown narration preset '{name}'. Available: {available}")
 
 
 def list_presets() -> Dict[str, str]:
     """
     Returns:
-        ``{name: description}`` for all registered presets.
+        ``{name: description}`` for all registered presets — built-ins
+        plus installed community presets (v1.5.1).
     """
-    return {name: p.desc for name, p in _get_registry().items()}
+    merged: Dict[str, str] = {name: p.desc for name, p in _get_registry().items()}
+    # Community presets are best-effort in listing: a corrupt registry
+    # or storage dir must not break ``mn preset``; get_preset still
+    # surfaces the error when a preset is actually requested.
+    with suppress(CommunityPresetError, OSError):
+        for item in list_installed():
+            merged.setdefault(item.name, item.description or "Community preset")
+    return merged
 
 
 # Lazy-loaded constant for __init__ re-export
