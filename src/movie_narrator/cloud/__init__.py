@@ -113,6 +113,20 @@ from .remote_provider import (
     register_remote_llm,
     register_remote_tts,
 )
+from .entitlements import (  # v1.3.1
+    DEFAULT as DEFAULT_PLAN,
+    EntitlementError,
+    Plan,
+    check_submission,
+    default_plan_name,
+    resolve_plan,
+)
+from .webhooks import (  # v1.3.1
+    WebhookDispatcher,
+    WebhookEvent,
+    event_for_task,
+    sign_payload,
+)
 
 __all__ = [
     # Models
@@ -201,4 +215,16 @@ __all__ = [
     "DistributedRenderError",
     "render_task_dispatcher",
     "estimate_render_seconds",
+    # Plans & entitlements (v1.3.1)
+    "DEFAULT_PLAN",
+    "EntitlementError",
+    "Plan",
+    "check_submission",
+    "default_plan_name",
+    "resolve_plan",
+    # Webhooks (v1.3.1)
+    "WebhookDispatcher",
+    "WebhookEvent",
+    "event_for_task",
+    "sign_payload",
 ]

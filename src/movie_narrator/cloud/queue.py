@@ -43,6 +43,7 @@ from .models import (
     TaskStatus,
 )
 from .storage import JsonModelStore, TaskStorage
+from .webhooks import WebhookDispatcher  # v1.3.1 — webhook notifications
 from .worker import CancelController, run_task
 
 logger = logging.getLogger(__name__)
@@ -210,6 +211,12 @@ class LocalTaskQueue:
         self._completion_events: Dict[str, threading.Event] = {}
         # v0.9.2: per-task checkpoints for crash / retry recovery
         self._checkpoint_store = CheckpointStore(self._storage.storage_dir)
+        # v1.3.1: webhook dispatcher for terminal transitions. Constructed
+        # once per queue lifecycle; None (disabled no-op) unless
+        # ``MN_WEBHOOK_URLS`` is configured.
+        self._webhooks = WebhookDispatcher.from_env(
+            storage_dir=self._storage.storage_dir
+        )
 
         if auto_start:
             self.start()
@@ -306,6 +313,11 @@ class LocalTaskQueue:
         # Anything still in flight after the drain budget was force-cancelled.
         self._cancel_inflight("queue shutdown drain timeout")
 
+        # v1.3.1: give pending webhook deliveries a bounded chance to land
+        # before the process exits (no-op when webhooks are disabled).
+        if self._webhooks is not None:
+            self._webhooks.close()
+
     # ── TaskQueue protocol ───────────────────────────────────
 
     def submit(self, request: TaskRequest) -> str:
@@ -400,6 +412,9 @@ class LocalTaskQueue:
         self._publish_queue_metrics()
         if event is not None:
             event.set()
+        # v1.3.1: pending (never-started) cancellation is a terminal
+        # transition — notify webhook consumers.
+        self._emit_task_event(task)
         return True
 
     def list_tasks(
@@ -691,6 +706,9 @@ class LocalTaskQueue:
                 )
                 self._storage.save(task)
                 self._record_task_outcome(task, time.monotonic() - started)
+                # v1.3.1: terminal transition — notify webhook consumers
+                # (completed / failed / cancelled). Fire-and-forget.
+                self._emit_task_event(task)
 
         except Exception as e:  # noqa: BLE001 — worker top-level must never crash the executor
             logger.exception("Worker thread error for task %s: %s", task_id, e)
@@ -708,6 +726,13 @@ class LocalTaskQueue:
                 logger.debug("Failed to mark task as failed after worker error", exc_info=True)
             record_error("worker_thread")
             record_task_terminal(TaskStatus.FAILED.value)
+            # v1.3.1: worker-thread crash also terminates the task.
+            try:
+                failed = self._storage.load(task_id)
+                if failed is not None:
+                    self._emit_task_event(failed)
+            except Exception:  # noqa: BLE001 — telemetry must never raise here
+                logger.debug("Failed to emit webhook after worker error", exc_info=True)
 
         finally:
             with self._lock:
@@ -749,6 +774,27 @@ class LocalTaskQueue:
                     event = self._completion_events.pop(task_id, None)
                 if event is not None:
                     event.set()
+                # v1.3.1: force-cancelled during shutdown — notify consumers.
+                self._emit_task_event(task)
+
+    # ── Webhook emission (v1.3.1) ────────────────────────────
+
+    def _emit_task_event(self, task: Task) -> None:
+        """Notify webhook consumers of a terminal task transition.
+
+        Best-effort: when no dispatcher is configured, or the task is not
+        terminal, this is a no-op. Failures are logged at debug and never
+        affect the task outcome.
+        """
+        dispatcher = self._webhooks
+        if dispatcher is None or not task.is_terminal:
+            return
+        try:
+            dispatcher.dispatch_for_task(task)
+        except Exception:  # noqa: BLE001 — webhooks must never break the queue
+            logger.debug(
+                "Failed to dispatch webhook event for task %s", task.id, exc_info=True
+            )
 
     # ── Observability (v0.8.1) ───────────────────────────────
 
@@ -813,6 +859,11 @@ class LocalTaskQueue:
     def checkpoint_store(self) -> CheckpointStore:
         """Per-task checkpoint store (v0.9.2)."""
         return self._checkpoint_store
+
+    @property
+    def webhooks(self) -> Optional[WebhookDispatcher]:
+        """The webhook dispatcher, or None when disabled (v1.3.1)."""
+        return self._webhooks
 
     @property
     def active_count(self) -> int:

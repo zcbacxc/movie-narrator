@@ -137,6 +137,13 @@ class Settings(BaseSettings):
     # v1.3.1: optional JSON file with plan overrides
     # ({"plans": [{...}]}); invalid files fall back to the built-ins.
     plans_file: Optional[str] = None
+    # v1.3.1: webhook notifications for terminal task transitions. The
+    # dispatcher reads MN_WEBHOOK_* from the process environment at queue
+    # construction; these typed fields document the surface.
+    webhook_urls: str = ""  # comma-separated target URLs (empty = off)
+    webhook_secret: Optional[str] = None  # HMAC-SHA256 signing secret
+    webhook_timeout: float = 10.0  # per-request timeout seconds
+    webhook_max_retries: int = 3  # retries after the first attempt
     # v0.9.2: graceful-shutdown drain budget (seconds). After SIGINT /
     # SIGTERM, ``mn serve`` and ``TaskAPIServer.stop()`` wait up to this
     # long for in-flight tasks to finish before force-cancelling them.
