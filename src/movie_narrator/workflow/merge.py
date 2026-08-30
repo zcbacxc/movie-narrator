@@ -203,6 +203,8 @@ def merge_job(
             "reference_media",
             # v1.3.2: timeline export plugin backend
             "timeline_export_backend",
+            # v1.4.1: subtitle delivery (burned | sidecar | muxed)
+            "subtitle_delivery",
             # Render template styling
             "render_template",
         ):
@@ -222,6 +224,14 @@ def merge_job(
     # that never set the key; explicit jianying/otio values propagate.
     if params.get("timeline_export_backend") == "none":
         params.pop("timeline_export_backend", None)
+
+    # v1.4.1: ``subtitle_delivery`` defaults to "burned" (the historical
+    # hard-burn behaviour). The default is dropped so jobs that never set
+    # the key keep byte-identical params/metadata; explicit sidecar/muxed
+    # values propagate to the render step, which degrades unavailable
+    # muxed requests back to burned (never fails the render).
+    if params.get("subtitle_delivery") == "burned":
+        params.pop("subtitle_delivery", None)
 
     # Multi-language subtitle (v0.3).
     subtitle_lang = pick_optional(cli.get("subtitle_lang"), yaml_get("subtitle_lang"), None)

@@ -175,6 +175,14 @@ class MetadataDict(TypedDict, total=False):
     untranslated_indices: list
     untranslated_count: int
     translation_glossary: dict
+    # v1.4.1: subtitle delivery — requested mode ("burned" | "sidecar" |
+    # "muxed"), the effective mode after fallbacks, the muxed track
+    # language (ISO 639-2, muxed only), and the reason a requested
+    # muxed delivery degraded to burned.
+    subtitle_delivery: str
+    subtitle_delivery_used: str
+    subtitle_mux_language: str
+    subtitle_delivery_fallback_reason: str
     # Render step
     encoder_info: dict
     footage_coverage: dict

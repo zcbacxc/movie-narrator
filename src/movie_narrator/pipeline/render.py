@@ -44,6 +44,7 @@ def _env_int(name: str, default: int) -> int:
     except ValueError:
         return default
 
+
 # Minimum segment duration floor for speed scaling.
 # Prevents division-by-zero when seg_duration is extremely short
 # (e.g. 0-length segment from alignment glitch). 0.1s is intentional:
@@ -66,6 +67,159 @@ _DEFAULT_MAIN_ENCODE_TIMEOUT = 1800.0
 # ratios push subtitles above the danger zone.
 _VERTICAL_BOTTOM_MARGIN_RATIO = 0.15  # vs 0.08 default for 16:9
 _VERTICAL_MAX_WIDTH_RATIO = 0.82  # vs 0.90 default for 16:9
+
+# v1.4.1: subtitle delivery modes (metadata["subtitle_delivery"]).
+#   "burned"  = hard-burn SRT overlay into the frames (historical default);
+#   "sidecar" = no burn-in, the SRT sidecar files are the delivery;
+#   "muxed"   = no burn-in, the SRT is muxed as a soft mov_text track into
+#               the mp4 during the final ffmpeg pass.
+_SUBTITLE_DELIVERY_MODES = frozenset({"burned", "sidecar", "muxed"})
+
+# mov_text is an MP4-family subtitle codec; other containers (mkv...) use
+# text codecs we do not mux, so muxed degrades to burned for them.
+_MP4_FAMILY_FORMATS = frozenset({"mp4", "m4v", "mov"})
+
+# ISO 639-1 → ISO 639-2 for the languages this project documents (voice
+# map + subtitle translation targets). ffmpeg's mp4 muxer writes the
+# ``language`` tag verbatim and only 3-letter codes survive (verified on
+# the imageio-ffmpeg 7.1 build); 2-letter tags are normalized here and
+# unknown values pass through unchanged (best-effort metadata).
+_ISO_639_1_TO_2 = {
+    "zh": "zho",
+    "en": "eng",
+    "ja": "jpn",
+    "ko": "kor",
+    "de": "deu",
+    "fr": "fra",
+    "es": "spa",
+    "pt": "por",
+    "ru": "rus",
+    "it": "ita",
+    "th": "tha",
+    "vi": "vie",
+    "ar": "ara",
+    "hi": "hin",
+    "id": "ind",
+    "ms": "msa",
+    "tr": "tur",
+    "nl": "nld",
+    "pl": "pol",
+    "sv": "swe",
+    "uk": "ukr",
+}
+
+
+def _mux_subtitle_language(ctx: Context) -> str:
+    """Language tag for the muxed soft subtitle track (v1.4.1).
+
+    Mirrors the render-track selection semantics: translated / bilingual
+    tracks carry the translation target language (``subtitle_lang``);
+    the original track carries the narration language (``lang``,
+    default ``zh``). 2-letter ISO 639-1 tags (optionally BCP-47 with a
+    region suffix, e.g. ``zh-TW``) are normalized to their 3-letter
+    ISO 639-2 form because ffmpeg's mp4 muxer drops 2-letter tags.
+    """
+    mode = ctx.metadata.get("subtitle_mode", "original")
+    if mode in ("translated", "bilingual") and ctx.metadata.get("subtitle_lang"):
+        lang = str(ctx.metadata["subtitle_lang"])
+    else:
+        lang = str(ctx.metadata.get("lang") or "zh")
+    base = lang.split("-")[0].lower()
+    return _ISO_639_1_TO_2.get(base, lang)
+
+
+def _resolve_subtitle_delivery(ctx: Context, output_name: str) -> tuple[str, str | None]:
+    """Resolve the effective subtitle delivery mode (v1.4.1).
+
+    Args:
+        ctx: Pipeline context. ``metadata["subtitle_delivery"]`` carries
+            the request (absent = ``"burned"``).
+        output_name: Final output filename — its suffix decides whether a
+            ``muxed`` mov_text track is representable in the container.
+
+    Returns:
+        ``(effective_mode, fallback_reason)``. ``fallback_reason`` is
+        ``None`` unless a requested ``muxed`` degraded to ``burned``
+        (``"missing_srt"``, ``"non_mp4_container"`` or
+        ``"invalid_mode"``). Muxed requests never fail the render — they
+        degrade to the historical burned behaviour and the reason is
+        recorded in metadata for auditability.
+    """
+    requested = ctx.metadata.get("subtitle_delivery") or "burned"
+    if requested not in _SUBTITLE_DELIVERY_MODES:
+        # JobParams validates the job.yaml surface; direct metadata
+        # injection (plugins / cloud worker) is normalized defensively.
+        ctx.services.console.inline_warn(
+            f"Unknown subtitle_delivery {requested!r} — falling back to 'burned'."
+        )
+        return "burned", "invalid_mode"
+    if requested != "muxed":
+        return requested, None
+
+    # muxed requires an mp4-family container (mov_text is an MP4 codec).
+    target_format = Path(output_name).suffix.lstrip(".").lower()
+    if target_format not in _MP4_FAMILY_FORMATS:
+        return "burned", "non_mp4_container"
+
+    # The muxed SRT is the same mode-selected track the burn path would
+    # have rendered (ctx.render_subtitle_path, set by generate_subtitle).
+    srt = ctx.render_subtitle_path
+    if not srt or not Path(srt).is_file():
+        return "burned", "missing_srt"
+    return "muxed", None
+
+
+def _build_mux_cmd(
+    ffmpeg: str,
+    video_only_path: str | Path,
+    audio_path: str | Path,
+    partial_path: str | Path,
+    *,
+    audio_codec: str,
+    faststart: bool,
+    target_format: str,
+    subtitle_srt: str | None = None,
+    subtitle_language: str | None = None,
+) -> list:
+    """Build the STAGE-2 ffmpeg mux argv (v1.4.1 helper for testability).
+
+    Input order is fixed: 0 = video-only stream, 1 = narration audio,
+    2 = optional soft subtitle SRT. The SRT is mapped ``2:s:0``, encoded
+    as ``mov_text`` and tagged with a per-stream ``language`` metadata
+    (mp4-family containers only — callers degrade muxed to burned
+    otherwise via :func:`_resolve_subtitle_delivery`).
+    """
+    cmd = [
+        ffmpeg,
+        "-y",
+        "-loglevel",
+        "error",
+        "-i",
+        str(video_only_path),
+        "-i",
+        str(audio_path),
+    ]
+    if subtitle_srt is not None:
+        cmd += ["-i", str(subtitle_srt)]
+    cmd += ["-map", "0:v:0", "-map", "1:a:0"]
+    if subtitle_srt is not None:
+        cmd += ["-map", "2:s:0"]
+    cmd += [
+        "-c:v",
+        "copy",
+        "-c:a",
+        audio_codec if not audio_codec.startswith("lib") else audio_codec[3:],
+    ]
+    if subtitle_srt is not None:
+        cmd += ["-c:s", "mov_text"]
+        if subtitle_language:
+            cmd += ["-metadata:s:s:0", f"language={subtitle_language}"]
+    if faststart:
+        cmd += ["-movflags", "+faststart"]
+    if target_format:
+        cmd += ["-f", target_format]
+    cmd.append(str(partial_path))
+    return cmd
 
 
 class _RenderProgressLogger(TqdmProgressBarLogger):
@@ -408,6 +562,46 @@ def render_video(ctx: Context) -> Context:
         # clamped to end at the boundary).
         ctx.timed_segments = truncate_segments_for_preview(ctx.timed_segments, total_duration)
 
+    # ── v1.4.1: subtitle delivery (burned | sidecar | muxed) ──
+    # Resolve the effective mode BEFORE clip assembly so the burn-in
+    # overlay can be skipped for sidecar/muxed without touching the
+    # encode path. Degraded muxed requests fall back to the historical
+    # burned behaviour (never fail the render); the effective mode and
+    # any fallback reason are recorded in metadata for auditability.
+    default_output_name = "preview.mp4" if preview_mode else "final.mp4"
+    output_name = ctx.metadata.get("render_output_name", default_output_name)
+    subtitle_delivery, subtitle_fallback_reason = _resolve_subtitle_delivery(ctx, str(output_name))
+    ctx.metadata["subtitle_delivery_used"] = subtitle_delivery
+    mux_subtitle_lang: str | None = None
+    if subtitle_delivery == "muxed":
+        mux_subtitle_lang = _mux_subtitle_language(ctx)
+        ctx.metadata["subtitle_mux_language"] = mux_subtitle_lang
+    if subtitle_fallback_reason is not None:
+        ctx.metadata["subtitle_delivery_fallback_reason"] = subtitle_fallback_reason
+        ctx.services.console.inline_warn(
+            f"subtitle_delivery=muxed unavailable ({subtitle_fallback_reason}) — "
+            f"falling back to burned subtitles."
+        )
+        logger.warning(
+            "SubtitleDeliveryFallback",
+            extra={
+                "event": "subtitle_delivery_fallback",
+                "task_id": ctx.metadata.get("run_id"),
+                "requested": "muxed",
+                "effective": subtitle_delivery,
+                "reason": subtitle_fallback_reason,
+            },
+        )
+    elif subtitle_delivery == "sidecar":
+        ctx.services.console.info(
+            "  Subtitle delivery: sidecar — SRT files only, skipping burn-in overlay"
+        )
+    elif subtitle_delivery == "muxed":
+        ctx.services.console.info(
+            f"  Subtitle delivery: muxed — soft mov_text track "
+            f"(language={mux_subtitle_lang}), skipping burn-in overlay"
+        )
+
     # Production-quality render knobs (spec §7.2).
     fit_mode = ctx.metadata.get("render_fit_mode", "cover")
     subtitle_position = ctx.metadata.get("render_subtitle_position", "bottom")
@@ -511,17 +705,24 @@ def render_video(ctx: Context) -> Context:
                 except (ValueError, RuntimeError) as ie:
                     ctx.services.console.debug(f"  fallback for segment {mc.segment_index}: {ie}")
                     logger.debug("clip fallback for segment %d", mc.segment_index, exc_info=True)
-                    img_array = _create_text_image(
-                        _overlay_text(ctx, mc.segment_index, ctx.timed_segments[mc.segment_index]),
-                        size,
-                        fontsize=font_size,
-                        position=subtitle_position,
-                        max_width_ratio=max_width_ratio,
-                        bottom_margin_ratio=bottom_margin_ratio,
-                    )
-                    img_clip = ImageClip(img_array, is_mask=False)
-                    img_clip = img_clip.with_duration(seg_duration).with_start(mc.narr_start)
-                    clips.append(img_clip)
+                    # v1.4.1: the fallback text card is part of the burn-in
+                    # surface. sidecar/muxed deliver narration text via the
+                    # SRT (sidecar file or soft track), so no text card is
+                    # burned for segments whose footage failed to load.
+                    if subtitle_delivery == "burned":
+                        img_array = _create_text_image(
+                            _overlay_text(
+                                ctx, mc.segment_index, ctx.timed_segments[mc.segment_index]
+                            ),
+                            size,
+                            fontsize=font_size,
+                            position=subtitle_position,
+                            max_width_ratio=max_width_ratio,
+                            bottom_margin_ratio=bottom_margin_ratio,
+                        )
+                        img_clip = ImageClip(img_array, is_mask=False)
+                        img_clip = img_clip.with_duration(seg_duration).with_start(mc.narr_start)
+                        clips.append(img_clip)
             # NOTE: source must NOT be closed here — subclips still need its reader during write_videofile.
 
     # Always draw subtitle overlays for ALL narration segments — including
@@ -538,35 +739,42 @@ def render_video(ctx: Context) -> Context:
     # for videos with many segments without complicating clip ordering (each
     # future carries its own index/segment; results are appended in submit
     # order which is deterministic).
-    def _make_subtitle_image(i, seg, pos):
-        img_array = _create_text_image(
-            _overlay_text(ctx, i, seg),
-            size,
-            fontsize=font_size,
-            position=pos,
-            max_width_ratio=max_width_ratio,
-            bottom_margin_ratio=bottom_margin_ratio,
-        )
-        img_clip = ImageClip(img_array, is_mask=False)
-        img_clip = img_clip.with_duration(seg.end - seg.start).with_start(seg.start)
+    #
+    # v1.4.1: burn-in happens ONLY for the default "burned" delivery.
+    # sidecar/muxed skip the overlay entirely (faster render): the
+    # narration text reaches the viewer via the SRT sidecar files or the
+    # soft mov_text track muxed during the final ffmpeg pass.
+    if subtitle_delivery == "burned":
 
-        # v0.7.1: apply text animation to subtitle overlays
-        text_anim_type = ctx.metadata.get("render_text_animation", "none")
-        if text_anim_type != "none":
-            anim_dur = get_animation_duration(
-                seg.end - seg.start, ctx.metadata.get("render_text_animation_duration", 0.3)
+        def _make_subtitle_image(i, seg, pos):
+            img_array = _create_text_image(
+                _overlay_text(ctx, i, seg),
+                size,
+                fontsize=font_size,
+                position=pos,
+                max_width_ratio=max_width_ratio,
+                bottom_margin_ratio=bottom_margin_ratio,
             )
-            img_clip = apply_text_animation(img_clip, text_anim_type, anim_dur)
+            img_clip = ImageClip(img_array, is_mask=False)
+            img_clip = img_clip.with_duration(seg.end - seg.start).with_start(seg.start)
 
-        return img_clip
+            # v0.7.1: apply text animation to subtitle overlays
+            text_anim_type = ctx.metadata.get("render_text_animation", "none")
+            if text_anim_type != "none":
+                anim_dur = get_animation_duration(
+                    seg.end - seg.start, ctx.metadata.get("render_text_animation_duration", 0.3)
+                )
+                img_clip = apply_text_animation(img_clip, text_anim_type, anim_dur)
 
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        subtitle_futures = []
-        for i, seg in enumerate(ctx.timed_segments):
-            pos = "bottom" if i in footage_segments else subtitle_position
-            subtitle_futures.append(pool.submit(_make_subtitle_image, i, seg, pos))
-        for future in subtitle_futures:
-            clips.append(future.result())
+            return img_clip
+
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            subtitle_futures = []
+            for i, seg in enumerate(ctx.timed_segments):
+                pos = "bottom" if i in footage_segments else subtitle_position
+                subtitle_futures.append(pool.submit(_make_subtitle_image, i, seg, pos))
+            for future in subtitle_futures:
+                clips.append(future.result())
 
     # Title card overlay — show movie name at the beginning for a
     # polished opening. Uses a larger centered font with fade in/out.
@@ -677,8 +885,9 @@ def render_video(ctx: Context) -> Context:
     # v0.7.2: In preview mode, default the output name to preview.mp4 so the
     # short render is never mistaken for the final deliverable.  An explicit
     # render_output_name from the user always takes precedence.
-    default_output_name = "preview.mp4" if preview_mode else "final.mp4"
-    video_path = output_dir / ctx.metadata.get("render_output_name", default_output_name)
+    # (v1.4.1: ``output_name`` was resolved before clip assembly for the
+    # subtitle-delivery decision — reused here unchanged.)
+    video_path = output_dir / output_name
 
     tmp_dir = output_dir / ".tmp"
     tmp_dir.mkdir(exist_ok=True)
@@ -839,32 +1048,23 @@ def render_video(ctx: Context) -> Context:
     # export-clips) from ever observing a truncated ``final.mp4``.
     partial_path = tmp_dir / f"{video_path.name}.part"
 
-    mux_cmd = [
-        ffmpeg,
-        "-y",
-        "-loglevel",
-        "error",
-        "-i",
-        str(video_only_path),
-        "-i",
-        str(audio_path),
-        "-map",
-        "0:v:0",
-        "-map",
-        "1:a:0",
-        "-c:v",
-        "copy",
-        "-c:a",
-        audio_codec if not audio_codec.startswith("lib") else audio_codec[3:],
-    ]
-    if faststart:
-        mux_cmd += ["-movflags", "+faststart"]
     # ffmpeg cannot infer the container from the ``.part`` staging suffix, so
     # pass the format explicitly (derived from the final target extension).
     target_format = video_path.suffix.lstrip(".")
-    if target_format:
-        mux_cmd += ["-f", target_format]
-    mux_cmd.append(str(partial_path))
+    # v1.4.1: muxed subtitle delivery — add the mode-selected SRT as a soft
+    # mov_text track (input 2, mapped 2:s:0). Burned/sidecar keep the
+    # historical two-input mux.
+    mux_cmd = _build_mux_cmd(
+        ffmpeg,
+        video_only_path,
+        str(audio_path),
+        partial_path,
+        audio_codec=audio_codec,
+        faststart=faststart,
+        target_format=target_format,
+        subtitle_srt=ctx.render_subtitle_path if subtitle_delivery == "muxed" else None,
+        subtitle_language=mux_subtitle_lang,
+    )
 
     try:
         with step_timing(ctx.services.console, "ffmpeg_mux"):

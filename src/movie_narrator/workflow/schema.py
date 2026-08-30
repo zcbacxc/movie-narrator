@@ -51,6 +51,16 @@ class JobSteps(BaseModel):
     translate: Optional[bool] = None
 
 
+# v1.4.1: subtitle delivery — how subtitles reach the viewer.
+#   "burned"  = hard-burn SRT overlay into the frames during render
+#               (historical default, byte-identical behaviour);
+#   "sidecar" = no burn-in; the SRT sidecar files are the delivery;
+#   "muxed"   = no burn-in; the SRT is muxed as a soft ``mov_text``
+#               subtitle track into the mp4 during the final ffmpeg pass.
+SubtitleDeliveryMode = Literal["burned", "sidecar", "muxed"]
+VALID_SUBTITLE_DELIVERY_MODES = frozenset({"burned", "sidecar", "muxed"})
+
+
 class JobParams(BaseModel):
     """Job parameter configuration."""
 
@@ -212,6 +222,12 @@ class JobParams(BaseModel):
     # "none" (default) = not requested; "jianying" | "otio" are passed
     # through to the plugin step via metadata.
     timeline_export_backend: str = "none"
+    # v1.4.1: how subtitles reach the viewer — "burned" (default,
+    # historical hard-burn behaviour), "sidecar" (SRT files only, no
+    # burn-in), or "muxed" (SRT muxed as a soft mov_text track into the
+    # mp4 during the final ffmpeg pass). Unavailable muxed requests
+    # (missing SRT / non-mp4 container) degrade to "burned" at render.
+    subtitle_delivery: SubtitleDeliveryMode = "burned"
 
     @field_validator("timeline_export_backend")
     @classmethod

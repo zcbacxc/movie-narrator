@@ -202,6 +202,8 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
             "reference_media",
             # v1.3.2: timeline export plugin backend
             "timeline_export_backend",
+            # v1.4.1: subtitle delivery (burned | sidecar | muxed)
+            "subtitle_delivery",
         }
         for k in data["params"].keys():
             if k not in allowed_params:
