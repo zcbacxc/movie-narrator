@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.5.1] - 2026-08-30
+
+### Added
+
+- **Community preset sharing** — `mn presets install <url-or-path>` / `list` / `show` / `remove`: data-driven YAML presets stored under `~/.movie-narrator/presets/` with a sha256 registry; validated against the job-param whitelist on install AND on every load (tamper-proof); no code execution ever; `mn create --preset` resolves built-ins first and community presets on miss. (ADR-018)
+- **Per-tenant token-bucket rate limiting (opt-in)** — `MN_RATE_LIMIT_ENABLED` with capacity/refill knobs: submission routes answer 429 + `Retry-After` with a machine-readable body; per-tenant buckets (LRU-capped); disabled by default = unchanged behaviour.
+- **Provider usage ledger** — always-on thread-safe counters at the LLM/TTS call boundaries (attempts, retries, cache hits, chars) surfaced as `usage` in `metadata.json`, making the deferred provider-idempotency decision measurable with real data.
+- **Tests** (`tests/test_v151_presets.py`, `tests/test_v151_ratelimit.py`, `tests/test_v151_cost_ledger.py`): +88 tests.
+
+### Changed
+- `CONTRACT_VERSION` remains (1, 3, 0). All 3122 tests pass (2 skipped in CI, 0 failures). +88 new tests vs v1.5.0.
+
 ## [1.5.0] - 2026-08-30
 
 ### Added
@@ -1373,7 +1385,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `workflow_steps` and `params` metadata injection.
 - Console log refactoring design.
 
-[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/zcbacxc/movie-narrator/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/zcbacxc/movie-narrator/compare/v1.4.2...v1.5.0
 [1.4.2]: https://github.com/zcbacxc/movie-narrator/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/zcbacxc/movie-narrator/compare/v1.4.0...v1.4.1

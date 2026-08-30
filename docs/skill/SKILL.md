@@ -72,7 +72,10 @@ the system binary). Optional extras: `[media]` (scene detection), `[ml]`
 | `mn plugin list` | List installed entry-point plugins |
 | `mn plugin discover` | Discover and load all plugins |
 | `mn plugin registries` | Show registered providers/steps |
-| `mn plugin version` | Show CONTRACT_VERSION |
+| `mn presets list                          # built-in + installed community presets
+  mn presets install <url-or-path>          # data-only YAML, whitelist-validated
+  mn presets show <name> / remove <name>
+  mn plugin version` | Show CONTRACT_VERSION |
 | `mn preset` | List presets or show preset details |
 | `mn api-spec` | Dump the REST API OpenAPI 3.1 spec |
 | `mn artifacts` | Artifact storage and TTL lifecycle (sub: `list` / `cleanup`) |

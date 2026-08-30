@@ -29,6 +29,7 @@
 | v1.4.1 | Output experience — subtitle delivery burned/sidecar/muxed / versioned output-format stability promise |
 | v1.4.2 | Ecosystem — Premiere (FCP7-XML) timeline adapter / mn benchmark + mn rerun --dry-run CLI |
 | v1.5.0 | Visual fidelity — 10-bit & colour-tagged pipeline / expectations-aware 4K+pixel QA / admission factor |
+| v1.5.1 | Community & governance — mn presets sharing / per-tenant rate limiting / provider usage ledger |
 
 `CONTRACT_VERSION` (current): `(1, 3, 0)` (bumped in v1.4.0 — tracing exports; unchanged in v1.4.1)
 
@@ -95,12 +96,12 @@
 - 10-bit & colour pipeline — `render_bit_depth` (8|10) and `render_color_space` (sdr|hdr10): `yuv420p10le` + libx264 `high10`, explicit bt709 (SDR) / bt2020nc+smpte2084 (HDR10) tagging; CPU-only 10-bit encode (GPU H.264 backends are 8-bit) with recorded fallback; true HDR mastering (tone mapping, mastering-display SEI) out of scope. (ADR-017)
 - 4K QA baseline — expectations-aware video QA: requested 4K sizes verified exact-match, delivered `pix_fmt` / colour transfer cross-checked against the render plan; mismatches become QA findings. Render admission temp-space estimate gains a 1.25× 10-bit factor.
 
-#### v1.5.1 — Community & Governance (planned)
+#### v1.5.1 — Community & Governance **(shipped)**
 
 - Community preset sharing — `mn presets install/list/show/remove`; data-only YAML validated against the job-param whitelist, no code execution. (ADR-018 planned)
 - Per-tenant token-bucket rate limiting (opt-in) and a provider usage ledger (makes the deferred idempotency-key decision measurable).
 
-#### v1.5.2 — Deployment & Media Cache (planned)
+#### v1.5.2 — Deployment & Media Cache (planned — next)
 
 - Helm chart / K8s deployment templates; media cache pool with `reference_media` URL support and licence metadata; Temporal/Celery pilot decision recorded with measurable triggers. (ADR-019 planned)
 
@@ -118,8 +119,8 @@ Commitments are made only against real metrics (queue latency, render duration, 
 
 The following remain out of the v1.3 scope and will be prioritized only when community feedback and enterprise demand materialize:
 
-- Community preset sharing — `mn presets install <url>` mechanism (depends on stable API after contract freeze)
+- Community preset sharing — `mn presets install/list/show/remove`; data-only YAML validated against the job-param whitelist, no code execution; built-ins win. **(shipped in v1.5.1)**
 - Helm chart / K8s deployment templates — for teams actually running on Kubernetes
 - Full multi-tenant isolation — tenant-scoped task storage and artifacts (foundation laid in v1.3)
 - OAuth2 authentication — full auth flow for web clients (only if SaaS demand materializes)
-- Token bucket rate limiting — per-tenant request throttling (only if multi-user deployment demand materializes)
+- Token bucket rate limiting — per-tenant submission throttling, opt-in via `MN_RATE_LIMIT_*` (429 + Retry-After). **(shipped in v1.5.1)**

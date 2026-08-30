@@ -28,6 +28,8 @@
 | v1.4.0 | 追踪与队列治理 — 可选 OpenTelemetry 追踪 / GPU-CPU 队列分离 / Webhook 重发 / 套餐产物 TTL        |
 | v1.4.1 | 输出体验 — 字幕交付 burned/sidecar/muxed / 输出格式版本化稳定承诺                                |
 | v1.4.2 | 生态 — Premiere（FCP7-XML）时间线适配器 / mn benchmark 与 mn rerun --dry-run CLI                  |
+| v1.5.0 | 视觉保真 — 10-bit 与色彩标记管线 / 期望感知 4K+像素 QA / 准入系数                              |
+| v1.5.1 | 社区与治理 — mn presets 预设共享 / 按租户限流 / Provider 用量账本                               |
 
 `CONTRACT_VERSION`（当前）：`(1, 3, 0)`（v1.4.0 提升追踪导出；v1.4.1 未变）
 
@@ -92,12 +94,12 @@
 - 10-bit 与色彩管线 — `render_bit_depth`（8|10）与 `render_color_space`（sdr|hdr10）：`yuv420p10le` + libx264 `high10`，显式 bt709（SDR）/ bt2020nc+smpte2084（HDR10）标记；10-bit 仅 CPU 编码（GPU H.264 后端为 8-bit）并记录回退；真正的 HDR 母版处理（色调映射、mastering-display SEI）不在范围内。（ADR-017）
 - 4K QA 基线 — 期望感知的视频 QA：请求的 4K 尺寸精确匹配，交付的 `pix_fmt`/色彩传递与渲染计划交叉校验；不匹配成为 QA 发现。准入临时空间估算引入 1.25× 10-bit 系数。
 
-#### v1.5.1 — 社区与治理（规划）
+#### v1.5.1 — 社区与治理 **（已交付）**
 
 - 社区预设共享 — `mn presets install/list/show/remove`；仅数据的 YAML，按任务参数白名单校验，绝不执行代码。（ADR-018 规划）
 - 按租户令牌桶限流（可选）与 Provider 用量账本（使延期的幂等键决策可度量）。
 
-#### v1.5.2 — 部署与媒体缓存（规划）
+#### v1.5.2 — 部署与媒体缓存（规划——下一版本）
 
 - Helm chart / K8s 部署模板；媒体缓存池（`reference_media` 支持 URL 与版权元数据）；Temporal/Celery 试点决策以可度量触发条件记录。（ADR-019 规划）
 

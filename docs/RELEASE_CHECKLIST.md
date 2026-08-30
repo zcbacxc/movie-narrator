@@ -1,10 +1,10 @@
 [![English](https://img.shields.io/badge/English-Release_Checklist-blue)](RELEASE_CHECKLIST.md)
 [![简体中文](https://img.shields.io/badge/简体中文-发布清单-green)](RELEASE_CHECKLIST.zh-CN.md)
 
-# v1.5.0 Release Checklist
+# v1.5.1 Release Checklist
 
-> **Definition of Done for the v1.5.0 release.** Every item on this list
-> must be verified and checked off before the v1.5.0 tag is created and the
+> **Definition of Done for the v1.5.1 release.** Every item on this list
+> must be verified and checked off before the v1.5.1 tag is created and the
 > release is published to PyPI. Items are grouped by category; each has a
 > verification command or method.
 
@@ -27,7 +27,7 @@
 - [x] **Test coverage meets threshold**
   - Command: `pytest --cov=movie_narrator --cov-report=term-missing --cov-fail-under=90`
   - Expected: `Required test coverage of 90% reached. Total coverage: XX%`
-  - Note: Threshold defined in CI config (`.coveragerc` + `ci.yml`); v1.5.0 measured 91.31%; must not regress from the v1.1 baseline
+  - Note: Threshold defined in CI config (`.coveragerc` + `ci.yml`); v1.5.1 measured 91.41%; must not regress from the v1.1 baseline
 
 ---
 
@@ -53,10 +53,10 @@
   - Expected: All contract re-export, protocol, and version tests pass
   - Note: Verifies `CONTRACT_VERSION` value and `__all__` completeness
 
-- [ ] **New v1.5.0 pixel-pipeline tests pass**
-  - Command: `pytest -v tests/test_v150_color.py tests/test_v150_qa.py`
-  - Expected: All pass (10-bit/hdr10 argv, colour tags, 4K/pixel QA, admission factor)
-  - Note: Adds +72 tests total vs v1.4.2 (65 unit + 7 integration-marked)
+- [ ] **New v1.5.1 community/governance tests pass**
+  - Command: `pytest -v tests/test_v151_presets.py tests/test_v151_ratelimit.py tests/test_v151_cost_ledger.py`
+  - Expected: All pass (preset install/validation, bucket math, 429 path, ledger counters)
+  - Note: Adds +88 tests total vs v1.5.0
 
 ---
 
@@ -93,18 +93,18 @@
 - [x] **CHANGELOG.md is finalized**
   - Verification: Review `CHANGELOG.md`
   - Expected:
-    - New `## [1.5.0] - <date>` heading (was `[Unreleased]`)
-    - `CONTRACT_VERSION` line uses the mandated format: `- `CONTRACT_VERSION` remains (1, 3, 0). All NNN tests pass (N skipped in CI, 0 failures). +M new tests vs v1.4.2.`
-    - Version comparison links at bottom updated (`[Unreleased]` → `.../compare/v1.5.0...HEAD`, new `[1.5.0]` link)
+    - New `## [1.5.1] - <date>` heading (was `[Unreleased]`)
+    - `CONTRACT_VERSION` line uses the mandated format: `- `CONTRACT_VERSION` remains (1, 3, 0). All NNN tests pass (N skipped in CI, 0 failures). +M new tests vs v1.5.0.`
+    - Version comparison links at bottom updated (`[Unreleased]` → `.../compare/v1.5.1...HEAD`, new `[1.5.1]` link)
     - Historical entries unchanged (no codename or terminology edits to old releases)
 
-- [x] **ROADMAP reflects v1.5.0**
+- [x] **ROADMAP reflects v1.5.1**
   - Verification: `docs/ROADMAP.md` (+ `.zh-CN.md`)
-  - Expected: v1.5.0 row in the Completed table; a new v1.5 section lists the three incremental releases with v1.5.0 marked shipped
+  - Expected: v1.5.1 row in the Completed table; the v1.5 section marks v1.5.0 and v1.5.1 as shipped
 
 - [x] **Current-version alignment**
-  - Method: Scan **all** public docs (`docs/**/*.md` + `README.md`) — do **not** rely on a fixed file list — and grep each for the previous version string (`v1.4.2`) used as a "current"-version claim
-  - Expected: No public doc still claims the old version as current; update every stale stamp (compatibility notes in `DEPLOYMENT`/`MIGRATION`/`TUTORIAL`, `mn version` output in `QUICKSTART`, `index.md` checklist label) to **v1.5.0**. Leave legitimate references intact (historical records, comparison baselines, illustrative examples). Re-run the scan to confirm.
+  - Method: Scan **all** public docs (`docs/**/*.md` + `README.md`) — do **not** rely on a fixed file list — and grep each for the previous version string (`v1.5.0`) used as a "current"-version claim
+  - Expected: No public doc still claims the old version as current; update every stale stamp (compatibility notes in `DEPLOYMENT`/`MIGRATION`/`TUTORIAL`, `mn version` output in `QUICKSTART`, `index.md` checklist label) to **v1.5.1**. Leave legitimate references intact (historical records, comparison baselines, illustrative examples). Re-run the scan to confirm.
   - Note: Also update the local `CLAUDE.md` "Current version" line (gitignored, local-only). File-agnostic, so this item never needs a new file list
 
 - [ ] **mkdocs build succeeds**
@@ -117,15 +117,15 @@
 
 - [ ] **Version numbers are aligned**
   - Verification:
-    - `pyproject.toml` → `version = "1.5.0"`
-    - `src/movie_narrator/contract.py` → `CONTRACT_VERSION = (1, 3, 0)` (unchanged — no new exports in v1.5.0, do **not** bump)
-    - `docs/ROADMAP.md` → CONTRACT_VERSION line shows `(1, 3, 0)` (unchanged in v1.5.0)
+    - `pyproject.toml` → `version = "1.5.1"`
+    - `src/movie_narrator/contract.py` → `CONTRACT_VERSION = (1, 3, 0)` (unchanged — no new exports in v1.5.1, do **not** bump)
+    - `docs/ROADMAP.md` → CONTRACT_VERSION line shows `(1, 3, 0)` (unchanged in v1.5.1)
     - `docs/MIGRATION.md` → current-version note updated
-  - Expected: Package version 1.5.0; contract version remains (1, 3, 0)
+  - Expected: Package version 1.5.1; contract version remains (1, 3, 0)
 
 - [ ] **Tag naming follows convention**
-  - Format: `v1.5.0` (lowercase `v`, semver, no prefix/suffix)
-  - Command: `git tag -a v1.5.0 -m "v1.5.0 - Visual Fidelity: 10-bit & Colour Pipeline, 4K QA Baseline"`
+  - Format: `v1.5.1` (lowercase `v`, semver, no prefix/suffix)
+  - Command: `git tag -a v1.5.1 -m "v1.5.1 - Community & Governance: Preset Sharing, Rate Limiting & Usage Ledger"`
   - Note: Annotated tag, not lightweight; tag push MUST be separate from branch push
 
 - [ ] **Release branch merged to main**
@@ -137,18 +137,18 @@
   - Expected: Trusted Publisher configured, tag push triggers publish
   - Manual verification:
     ```bash
-    pip install dist/movie_narrator-1.5.0-py3-none-any.whl
-    mn version  # should show 1.5.0
+    pip install dist/movie_narrator-1.5.1-py3-none-any.whl
+    mn version  # should show 1.5.1
     ```
 
 - [ ] **GitHub Release follows the release.md spec**
-  - Title: `v1.5.0 - Visual Fidelity: 10-bit & Colour Pipeline, 4K QA Baseline`
-  - Body: the `## [v1.5.0]` section of `CHANGELOG.md` copied verbatim (per `.claude/rules/release.md`), plus a link to the full CHANGELOG
+  - Title: `v1.5.1 - Community & Governance: Preset Sharing, Rate Limiting & Usage Ledger`
+  - Body: the `## [v1.5.1]` section of `CHANGELOG.md` copied verbatim (per `.claude/rules/release.md`), plus a link to the full CHANGELOG
   - Exactly one **non-draft** release per tag — delete any empty draft left by `publish.yml`
 
 - [ ] **Git tag pushed**
-  - Command: `git push origin v1.5.0`
-  - Expected: Tag appears on GitHub, publish workflow starts, PyPI `movie-narrator==1.5.0` published
+  - Command: `git push origin v1.5.1`
+  - Expected: Tag appears on GitHub, publish workflow starts, PyPI `movie-narrator==1.5.1` published
   - Note: Push tag only after all checklist items are confirmed
 
 ---
@@ -158,14 +158,14 @@
 - [ ] **PyPI release verified**
   - Verification:
     ```bash
-    pip install movie-narrator==1.5.0
+    pip install movie-narrator==1.5.1
     python -c "from movie_narrator.contract import CONTRACT_VERSION; print(CONTRACT_VERSION)"
     # Expected: (1, 3, 0)
     ```
-  - Expected: Package installs cleanly, import works, package version 1.5.0
+  - Expected: Package installs cleanly, import works, package version 1.5.1
 
 - [ ] **Maintenance branch exists**
-  - Verification: `v1.5.x` branch present on origin (created at v1.5.0)
+  - Verification: `v1.5.x` branch present on origin (created at v1.5.1)
   - Purpose: Backport security and critical bug fixes for v1.x users
 
 ---
