@@ -243,3 +243,33 @@ groups:
 ```
 
 以上规则**仅为示例**——请根据你的部署调整阈值（集群规模与扩容指引参见 `DEPLOYMENT.md`）。
+
+## 7. 提交限流（v1.5.1，可选开启）
+
+`mn serve` 可以用按租户的令牌桶对**任务提交**（`POST /tasks`、
+`POST /tasks/batch`）进行限流。读取类路由永不限流。功能默认关闭；
+通过进程环境变量进行配置（参见 `.env.example`）：
+
+| 变量 | 默认值 | 含义 |
+|------|--------|------|
+| `MN_RATE_LIMIT_ENABLED` | 关闭 | 开启开关 |
+| `MN_RATE_LIMIT_CAPACITY` | 60 | 每租户突发容量 |
+| `MN_RATE_LIMIT_REFILL_PER_MINUTE` | 60 | 每租户每分钟持续提交配额 |
+
+被限流的提交会返回 **429**，带 `Retry-After` 响应头和 JSON 响应体
+`{"error": "rate_limited", "retry_after_s": ...}`——客户端应遵循
+`Retry-After`。租户按键基于现有的租户解析规则（API-key 调用者的
+`X-MN-Tenant` 请求头）；未认证的 loopback 调用者共享 `"default"`
+桶。
+
+监控：被限流的提交会进入标准请求指标——关注
+`mn_http_requests_total{path="/tasks",code="429"}`（以及
+`/tasks/batch`）或 `mn_errors_total{type="http_429"}`：
+
+```yaml
+- alert: MNSubmissionThrottling
+  expr: increase(mn_errors_total{type="http_429"}[15m]) > 0
+  for: 5m
+  labels: { severity: warning }
+  annotations: { summary: "任务提交正在被限流" }
+```

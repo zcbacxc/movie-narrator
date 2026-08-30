@@ -288,3 +288,34 @@ groups:
 
 These rules are **examples** — tune the thresholds to your deployment
 (refer to `DEPLOYMENT.md` for cluster sizing and scaling guidance).
+
+## 7. Submission rate limiting (v1.5.1, opt-in)
+
+`mn serve` can throttle **task submissions** (`POST /tasks`,
+`POST /tasks/batch`) with a per-tenant token bucket. Read routes are
+never throttled. The feature is off by default; it is configured via
+process-env variables (see `.env.example`):
+
+| Variable | Default | Meaning |
+|----------|---------|---------|
+| `MN_RATE_LIMIT_ENABLED` | off | opt-in flag |
+| `MN_RATE_LIMIT_CAPACITY` | 60 | burst size per tenant |
+| `MN_RATE_LIMIT_REFILL_PER_MINUTE` | 60 | sustained submissions per tenant per minute |
+
+A throttled submission answers **429** with a `Retry-After` header and
+the JSON body `{"error": "rate_limited", "retry_after_s": ...}` —
+clients should honour `Retry-After`. Tenants are keyed by the existing
+tenant resolution (the `X-MN-Tenant` header for API-key callers);
+unauthenticated loopback callers share the `"default"` bucket.
+
+Monitoring: throttled submissions flow through the standard request
+metrics — watch `mn_http_requests_total{path="/tasks",code="429"}` (and
+`/tasks/batch`) or `mn_errors_total{type="http_429"}`:
+
+```yaml
+- alert: MNSubmissionThrottling
+  expr: increase(mn_errors_total{type="http_429"}[15m]) > 0
+  for: 5m
+  labels: { severity: warning }
+  annotations: { summary: "Task submissions are being rate limited" }
+```
