@@ -486,12 +486,17 @@ def test_generate_script_research_in_phase1(tmp_path):
 # ── 9. Cross-phase retry ────────────────────────────────────
 
 
-def test_generate_script_phase1_ok_phase2_fail_then_retry(tmp_path):
+def test_generate_script_phase1_ok_phase2_fail_then_retry(tmp_path, monkeypatch):
     """Phase 1 succeeds but Phase 2 fails → retry both → success.
 
     This verifies the retry loop wraps both phases together: a Phase 2
     failure triggers a full retry (Phase 1 + Phase 2), not just Phase 2.
+
+    ``is_ci`` is pinned to False so the Phase 3 judge LLM call is
+    deterministic: in CI mode the judge short-circuits without an LLM
+    call and the call count below would be 4 instead of 5.
     """
+    monkeypatch.delenv("CI", raising=False)
     ctx = _make_ctx(tmp_path)
     ctx.metadata["prompt_target_sentences"] = 3
 
@@ -510,9 +515,14 @@ def test_generate_script_phase1_ok_phase2_fail_then_retry(tmp_path):
         ]
     )
 
-    with patch("movie_narrator.pipeline.script.get_settings", return_value=_mock_settings()):
-        with patch("movie_narrator.pipeline.script.get_llm_client", return_value=mock_cm):
-            result = generate_script(ctx)
+    with patch("movie_narrator.pipeline.script.is_ci", return_value=False):
+        with patch(
+            "movie_narrator.pipeline.script.get_settings", return_value=_mock_settings()
+        ):
+            with patch(
+                "movie_narrator.pipeline.script.get_llm_client", return_value=mock_cm
+            ):
+                result = generate_script(ctx)
 
     assert result.metadata["script_source"] == "llm"
     assert len(result.segments) == 3
