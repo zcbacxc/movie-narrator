@@ -845,6 +845,15 @@ def rerun(
         "--list-steps",
         help="列出有序步骤名（标注软步骤）后退出 / Print ordered step names (soft steps marked) and exit",
     ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help=(
+            "只打印重跑计划（起始步骤/将失效步骤/可复用上游步骤）后退出，"
+            "不执行管线 / Print the rerun plan (from-step, invalidated steps, "
+            "reusable upstream steps) and exit WITHOUT running the pipeline"
+        ),
+    ),
     retry: bool = typer.Option(
         False,
         "--retry",
@@ -873,6 +882,7 @@ def rerun(
     Examples:
             mn rerun --list-steps
             mn rerun output/movie/pipeline_state.json --from render_video
+            mn rerun output/movie/pipeline_state.json --from render_video --dry-run
     """
     from .pipeline.runner import (
         SOFT_STATUS_STEPS,
@@ -906,6 +916,27 @@ def rerun(
         raise typer.Exit(code=1)
 
     ctx, completed_step = _load_pipeline_state(state_path)
+
+    if dry_run:
+        # v1.4.2: compute the invalidation plan via the same v1.3.0
+        # helper the real rerun uses, print it, and stop — the pipeline
+        # never executes (the state file is left untouched too).
+        invalidated = prepare_rerun(ctx, completed_step, from_step)
+        idx = ordered.index(from_step)
+        reusable = ordered[:idx]
+        typer.echo("▶ Rerun plan (dry run — no steps executed)")
+        typer.echo(f"  from step:        {from_step}")
+        typer.echo(f"  state completed:  {completed_step}")
+        typer.echo(
+            f"  reusable upstream ({len(reusable)}): "
+            + (", ".join(reusable) if reusable else "(none)")
+        )
+        typer.echo(
+            f"  invalidated ({len(invalidated)}): "
+            + (", ".join(invalidated) if invalidated else "(none)")
+        )
+        typer.echo("✓ Dry run complete — pipeline not executed.")
+        raise typer.Exit(code=0)
 
     _resolved_level = resolve_log_level(log_level)
 
@@ -1230,6 +1261,103 @@ def doctor():
     typer.echo(render_report(report))
     if not report.healthy:
         raise typer.Exit(code=1)
+
+
+# ── Encoder benchmark (v1.4.2) ────────────────────────────
+
+#: sys.modules key the benchmark module is cached under (loaded once).
+_BENCHMARK_MOD_NAME = "mn_encoder_benchmark"
+
+
+def _benchmark_script_path() -> Path:
+    """Location of the v1.3.2 benchmark script (source checkout layout)."""
+    return Path(__file__).resolve().parents[2] / "benchmarks" / "encoder_benchmark.py"
+
+
+def _load_encoder_benchmark():
+    """Import ``benchmarks/encoder_benchmark.py`` by file path.
+
+    Decision (v1.4.2): the repo ships ``benchmarks/`` as a plain script
+    directory (no ``__init__.py``), so the module is loaded via
+    ``importlib.util.spec_from_file_location`` instead of repackaging it
+    into the package. The module is import-safe (no ffmpeg at import
+    time) and cached in ``sys.modules`` so repeated calls — and tests —
+    share one module object. Requires a source checkout; a wheel install
+    does not carry ``benchmarks/``.
+    """
+    import importlib.util
+    import sys
+
+    cached = sys.modules.get(_BENCHMARK_MOD_NAME)
+    if cached is not None:
+        return cached
+    path = _benchmark_script_path()
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"benchmarks/encoder_benchmark.py not found (looked at {path}). "
+            "'mn benchmark' requires a source checkout of movie-narrator."
+        )
+    spec = importlib.util.spec_from_file_location(_BENCHMARK_MOD_NAME, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load benchmark module from {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[_BENCHMARK_MOD_NAME] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+@app.command()
+def benchmark(
+    duration: int = typer.Option(
+        5,
+        "--duration",
+        min=1,
+        help="合成测试片段时长（秒） / Synthetic clip duration in seconds (default: 5)",
+    ),
+    out: Optional[Path] = typer.Option(
+        None,
+        "--out",
+        help="JSON 报告输出路径 / Optional path for the JSON report",
+    ),
+    encoders: Optional[str] = typer.Option(
+        None,
+        "--encoders",
+        help=(
+            "逗号分隔的编码器过滤（label 或 codec 名，如 'libx264,nvenc'）；"
+            "缺省自动检测 / Comma-separated encoder filter (label or codec "
+            "name, e.g. 'libx264,nvenc'); default: auto-detect"
+        ),
+    ),
+):
+    """Benchmark ffmpeg encoders (libx264 baseline vs detected GPU encoders).
+
+    Thin wrapper over ``benchmarks/encoder_benchmark.py`` (v1.3.2) — same
+    report, same table, same JSON schema. Generates a short synthetic
+    clip and encodes it once per encoder; the moviepy render path is not
+    involved.
+
+    Examples:
+            mn benchmark
+            mn benchmark --duration 8 --out gpu.json
+            mn benchmark --encoders libx264,nvenc
+    """
+    try:
+        bench = _load_encoder_benchmark()
+    except FileNotFoundError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=1)
+
+    encoders_filter = (
+        [e.strip() for e in encoders.split(",") if e.strip()] if encoders else None
+    )
+    # Delegate to the script's own argparse main so behavior (table,
+    # report writing, exit code) is identical to running the script.
+    cmd = ["--duration", str(duration)]
+    if out:
+        cmd += ["--out", str(out)]
+    if encoders_filter:
+        cmd += ["--encoders", ",".join(encoders_filter)]
+    raise typer.Exit(code=bench.main(cmd))
 
 
 @app.command()

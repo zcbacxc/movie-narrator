@@ -11,7 +11,6 @@ import importlib.util
 import json
 import sys
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -234,10 +233,11 @@ class TestRunBenchmark:
 class TestCLI:
     def test_main_writes_json_report(self, bench, tmp_path, monkeypatch, capsys):
         out = tmp_path / "reports" / "r.json"
+        # v1.4.2: main() now forwards --duration/--encoders as kwargs.
         monkeypatch.setattr(
             bench,
             "run_benchmark",
-            lambda: {
+            lambda **kwargs: {
                 "schema_version": 1,
                 "environment": {"ffmpeg_bin": "/fake/ffmpeg", "gpu": {}},
                 "status": "ok",

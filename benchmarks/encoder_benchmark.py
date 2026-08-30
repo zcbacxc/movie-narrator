@@ -22,10 +22,12 @@ Usage::
 
     python benchmarks/encoder_benchmark.py                # table only
     python benchmarks/encoder_benchmark.py --out r.json   # also write JSON
+    python benchmarks/encoder_benchmark.py --duration 8 --encoders libx264,nvenc
 
 The JSON report (``schema_version`` 1) embeds environment info (ffmpeg
 binary path, platform, GPU detection result + fallback_reason) so runs
-can be compared across machines.
+can be compared across machines. ``mn benchmark`` (v1.4.2) is a thin
+Typer wrapper over this module and accepts the same options.
 
 The module is import-safe: nothing touches ffmpeg at import time; all
 subprocess calls go through :func:`run_command` (monkeypatchable) and
@@ -87,7 +89,9 @@ _FPS_RE = re.compile(r"fps=\s*([\d.]+)")
 # ── Command builders (pure, easily testable) ─────────────
 
 
-def build_generate_command(ffmpeg: str, clip_path: Path) -> list[str]:
+def build_generate_command(
+    ffmpeg: str, clip_path: Path, duration_s: int = CLIP_DURATION_S
+) -> list[str]:
     """Build the ffmpeg command that renders the synthetic test clip."""
     return [
         ffmpeg,
@@ -96,11 +100,11 @@ def build_generate_command(ffmpeg: str, clip_path: Path) -> list[str]:
         "-f",
         "lavfi",
         "-i",
-        f"testsrc2=size={CLIP_WIDTH}x{CLIP_HEIGHT}:rate={CLIP_FPS}:duration={CLIP_DURATION_S}",
+        f"testsrc2=size={CLIP_WIDTH}x{CLIP_HEIGHT}:rate={CLIP_FPS}:duration={duration_s}",
         "-f",
         "lavfi",
         "-i",
-        f"sine=frequency=1000:duration={CLIP_DURATION_S}",
+        f"sine=frequency=1000:duration={duration_s}",
         "-c:v",
         "libx264",
         "-crf",
@@ -204,6 +208,7 @@ def benchmark_encoder(
     label: str,
     codec: str,
     extra_params: list[str],
+    duration_s: int = CLIP_DURATION_S,
 ) -> dict[str, Any]:
     """Encode the clip once with *codec* and return a result record."""
     out_path = work_dir / f"out_{label}.mp4"
@@ -235,20 +240,45 @@ def benchmark_encoder(
     # Prefer ffmpeg's own fps accounting; fall back to frames/wall-time.
     fps = parse_encode_fps(proc.stderr)
     if fps is None and record["wall_time_s"]:
-        frames = CLIP_DURATION_S * CLIP_FPS
+        frames = duration_s * CLIP_FPS
         fps = round(frames / record["wall_time_s"], 2)
     record["encode_fps"] = fps
     return record
 
 
-def run_benchmark(work_dir: Optional[Path] = None) -> dict[str, Any]:
+def _candidate_encoders() -> list[tuple[str, str, list[str]]]:
+    """libx264 baseline + every GPU encoder the shared detector reports.
+
+    Empty GPU list in CI (its skip semantics). Pure detection + command
+    assembly — no subprocess here.
+    """
+    encoders: list[tuple[str, str, list[str]]] = [("libx264", "libx264", list(LIBX264_PARAMS))]
+    detected = detect_gpu_encoder()
+    if detected and detected in _CODEC_TO_HINT:
+        codec, params = resolve_encoder(_CODEC_TO_HINT[detected])
+        encoders.append((_CODEC_TO_HINT[detected], codec, list(params)))
+    return encoders
+
+
+def run_benchmark(
+    work_dir: Optional[Path] = None,
+    *,
+    duration_s: Optional[int] = None,
+    encoders_filter: Optional[list[str]] = None,
+) -> dict[str, Any]:
     """Run the full benchmark and return the JSON-serializable report.
 
     Never raises for environmental problems: when ffmpeg is absent the
     report carries ``status: "ffmpeg_unavailable"`` with no results; a
     GPU encoder that cannot encode (e.g. VAAPI without a usable device)
     records a per-encoder ``failed`` status instead of aborting.
+
+    ``duration_s`` overrides the synthetic clip length (default:
+    :data:`CLIP_DURATION_S`). ``encoders_filter`` restricts the encoders
+    under test by label or codec name (e.g. ``["libx264", "nvenc"]``);
+    ``None`` keeps auto-detection.
     """
+    duration = int(duration_s) if duration_s else CLIP_DURATION_S
     report: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "environment": {
@@ -262,7 +292,7 @@ def run_benchmark(work_dir: Optional[Path] = None) -> dict[str, Any]:
         "clip": {
             "width": CLIP_WIDTH,
             "height": CLIP_HEIGHT,
-            "duration_s": CLIP_DURATION_S,
+            "duration_s": duration,
             "fps": CLIP_FPS,
         },
         "status": "ok",
@@ -275,21 +305,22 @@ def run_benchmark(work_dir: Optional[Path] = None) -> dict[str, Any]:
         return report
     report["environment"]["ffmpeg_bin"] = ffmpeg
 
-    # Encoders under test: the libx264 baseline plus every GPU encoder
-    # the shared detector reports (empty in CI — its skip semantics).
-    encoders: list[tuple[str, str, list[str]]] = [("libx264", "libx264", list(LIBX264_PARAMS))]
+    encoders = _candidate_encoders()
     detected = detect_gpu_encoder()
-    if detected and detected in _CODEC_TO_HINT:
-        codec, params = resolve_encoder(_CODEC_TO_HINT[detected])
-        encoders.append((_CODEC_TO_HINT[detected], codec, list(params)))
     report["environment"]["gpu_benchmarked"] = detected
+    if encoders_filter:
+        wanted = {str(e).strip().lower() for e in encoders_filter if str(e).strip()}
+        encoders = [e for e in encoders if e[0].lower() in wanted or e[1].lower() in wanted]
+        if not encoders:
+            report["status"] = "no_encoders_matched"
+            return report
 
     tmp_ctx = tempfile.TemporaryDirectory()  # noqa: SIM115  # cleaned in finally
     try:
         work = Path(tmp_ctx.name) if work_dir is None else Path(work_dir)
         work.mkdir(parents=True, exist_ok=True)
         clip_path = work / "synthetic_clip.mp4"
-        gen = run_command(build_generate_command(ffmpeg, clip_path))
+        gen = run_command(build_generate_command(ffmpeg, clip_path, duration_s=duration))
         if gen.returncode != 0 or not clip_path.is_file():
             report["status"] = "clip_generation_failed"
             report["results"] = []
@@ -305,6 +336,7 @@ def run_benchmark(work_dir: Optional[Path] = None) -> dict[str, Any]:
                     label=label,
                     codec=codec,
                     extra_params=params,
+                    duration_s=duration,
                 )
             )
     finally:
@@ -346,9 +378,28 @@ def main(argv: Optional[list[str]] = None) -> int:
     """CLI entry point (only invoked under ``if __name__ == "__main__"``)."""
     parser = argparse.ArgumentParser(description="Benchmark ffmpeg encoders")
     parser.add_argument("--out", default=None, help="optional path for the JSON report")
+    parser.add_argument(
+        "--duration",
+        type=int,
+        default=None,
+        help="synthetic clip duration in seconds (default: %(default)s → module default 5)",
+    )
+    parser.add_argument(
+        "--encoders",
+        default=None,
+        help=(
+            "comma-separated encoder filter by label or codec name "
+            "(e.g. 'libx264,nvenc'); default: auto-detect"
+        ),
+    )
     args = parser.parse_args(argv)
 
-    report = run_benchmark()
+    encoders_filter = (
+        [e.strip() for e in args.encoders.split(",") if e.strip()]
+        if args.encoders
+        else None
+    )
+    report = run_benchmark(duration_s=args.duration, encoders_filter=encoders_filter)
     print(format_table(report))
     if args.out:
         out_path = Path(args.out)
