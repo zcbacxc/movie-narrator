@@ -435,6 +435,60 @@ def _manual_schemas() -> Dict[str, Any]:
             },
             "required": ["task_id", "removed"],
         },
+        "WebhookDeliveryList": {
+            "type": "object",
+            "description": "Delivery-attempt records, newest first (v1.4.0).",
+            "properties": {
+                "deliveries": {
+                    "type": "array",
+                    "items": {"$ref": "#/components/schemas/WebhookDelivery"},
+                },
+                "count": {
+                    "type": "integer",
+                    "description": "Number of records returned.",
+                },
+            },
+            "required": ["deliveries", "count"],
+        },
+        "WebhookDelivery": {
+            "type": "object",
+            "description": "One webhook delivery attempt (v1.4.0).",
+            "properties": {
+                "event_id": _string("Dedup key of the delivered event."),
+                "task_id": {
+                    "type": "string",
+                    "description": "Task the event is about (empty pre-v1.4.0).",
+                },
+                "url": _string("Target URL."),
+                "status_code": {
+                    "type": ["integer", "null"],
+                    "description": "HTTP status (null on transport error).",
+                },
+                "error": {
+                    "type": ["string", "null"],
+                    "description": "Failure summary, when the attempt failed.",
+                },
+                "attempt": {
+                    "type": "integer",
+                    "description": "1-based attempt number.",
+                },
+                "timestamp": _string("ISO-8601 UTC time of the attempt."),
+                "ok": {"type": "boolean", "description": "Whether the attempt succeeded."},
+            },
+            "required": ["event_id", "url", "attempt", "timestamp", "ok"],
+        },
+        "WebhookRedelivered": {
+            "type": "object",
+            "description": "Acknowledgement returned by `POST /api/v1/webhooks/redeliver/{event_id}` (v1.4.0).",
+            "properties": {
+                "event_id": _string("The redelivered event's id (unchanged dedup key)."),
+                "redelivered": {
+                    "type": "boolean",
+                    "description": "Whether the redelivery was queued.",
+                },
+            },
+            "required": ["event_id", "redelivered"],
+        },
     }
 
 
@@ -906,6 +960,77 @@ def _paths() -> Dict[str, Any]:
                 },
             },
         },
+        "/api/v1/webhooks/deliveries": {
+            "get": {
+                "operationId": "listWebhookDeliveries",
+                "summary": "Webhook delivery records",
+                "description": (
+                    "Delivery-attempt records from the webhook delivery log "
+                    "(newest first). Filterable by exact `event_id` or "
+                    "`task_id`; records written before v1.4.0 carry no "
+                    "`task_id` and never match that filter."
+                ),
+                "tags": ["webhooks"],
+                "security": _secured(),
+                "parameters": [
+                    {
+                        "name": "event_id",
+                        "in": "query",
+                        "required": False,
+                        "description": "Only deliveries of this event.",
+                        "schema": {"type": "string"},
+                    },
+                    {
+                        "name": "task_id",
+                        "in": "query",
+                        "required": False,
+                        "description": "Only deliveries of this task.",
+                        "schema": {"type": "string"},
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": False,
+                        "description": "Maximum number of records.",
+                        "schema": {"type": "integer", "default": 50, "minimum": 0},
+                    },
+                ],
+                "responses": {
+                    "200": _json_response("Matching delivery records.", "WebhookDeliveryList"),
+                    "400": _error_response("Invalid `limit`."),
+                    "401": unauthorized,
+                },
+            },
+        },
+        "/api/v1/webhooks/redeliver/{event_id}": {
+            "post": {
+                "operationId": "redeliverWebhookEvent",
+                "summary": "Redeliver a webhook event",
+                "description": (
+                    "Re-posts the stored original payload with the same "
+                    "event id (consumers deduplicate on it), re-signed "
+                    "with the configured secret. A non-default caller "
+                    "tenant may only redeliver its own events."
+                ),
+                "tags": ["webhooks"],
+                "security": _secured(),
+                "parameters": [
+                    {
+                        "name": "event_id",
+                        "in": "path",
+                        "required": True,
+                        "description": "The event id (uuid4 hex).",
+                        "schema": {"type": "string", "pattern": "^[a-f0-9]+$"},
+                    }
+                ],
+                "responses": {
+                    "202": _json_response("Redelivery queued.", "WebhookRedelivered"),
+                    "401": unauthorized,
+                    "403": _error_response("Event belongs to another tenant."),
+                    "404": not_found,
+                },
+            },
+        },
         "/health": {
             "get": {
                 "operationId": "getHealth",
@@ -1074,6 +1199,10 @@ def build_openapi_spec(*, server_url: str | None = None) -> Dict[str, Any]:
             {
                 "name": "deadletters",
                 "description": "Failed-task inspection and replay (v0.9.4).",
+            },
+            {
+                "name": "webhooks",
+                "description": "Webhook delivery records and redelivery (v1.4.0).",
             },
             {
                 "name": "observability",

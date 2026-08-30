@@ -8,29 +8,31 @@ so that no additional dependencies are required. The server wraps a
 ``LocalTaskQueue`` and exposes REST endpoints for task submission,
 status polling, cancellation, and result retrieval.
 
-Endpoints::
+    Endpoints::
 
-    POST   /tasks                       — submit a new task
-    GET    /tasks                       — list tasks (optional ?status= filter)
-    GET    /tasks/{id}                  — get task details
-    DELETE /tasks/{id}                  — cancel a task
-    GET    /tasks/{id}/result           — get task result (terminal only)
-    GET    /tasks/{id}/artifacts        — list output files
-    GET    /tasks/{id}/download/{file}  — download an output file
-    GET    /health                      — health check (?deep=1 for the
-                                          full report, see cloud.health)
-    GET    /ready                       — readiness probe (v0.8.2)
-    GET    /info                        — server info (version, worker count)
-    GET    /metrics                     — Prometheus metrics (v0.8.1)
-    GET    /openapi.json                — OpenAPI 3.1 spec (v0.8.2)
-    POST   /tasks/batch                 — submit a batch of tasks (v0.9.3)
-    GET    /batches                     — list batches (v0.9.3)
-    GET    /batches/{id}                — get a batch with aggregate progress
-    DELETE /batches/{id}                — cancel every task in a batch
-    POST   /schedules                   — create a cron scheduled job (v0.9.3)
-    GET    /schedules                   — list scheduled jobs
-    DELETE /schedules/{id}              — delete a scheduled job
-    GET    /schedules/{id}/runs         — recent trigger records
+        POST   /tasks                       — submit a new task
+        GET    /tasks                       — list tasks (optional ?status= filter)
+        GET    /tasks/{id}                  — get task details
+        DELETE /tasks/{id}                  — cancel a task
+        GET    /tasks/{id}/result           — get task result (terminal only)
+        GET    /tasks/{id}/artifacts        — list output files
+        GET    /tasks/{id}/download/{file}  — download an output file
+        GET    /health                      — health check (?deep=1 for the
+                                              full report, see cloud.health)
+        GET    /ready                       — readiness probe (v0.8.2)
+        GET    /info                        — server info (version, worker count)
+        GET    /metrics                     — Prometheus metrics (v0.8.1)
+        GET    /openapi.json                — OpenAPI 3.1 spec (v0.8.2)
+        POST   /tasks/batch                 — submit a batch of tasks (v0.9.3)
+        GET    /batches                     — list batches (v0.9.3)
+        GET    /batches/{id}                — get a batch with aggregate progress
+        DELETE /batches/{id}                — cancel every task in a batch
+        POST   /schedules                   — create a cron scheduled job (v0.9.3)
+        GET    /schedules                   — list scheduled jobs
+        DELETE /schedules/{id}              — delete a scheduled job
+        GET    /schedules/{id}/runs         — recent trigger records
+        GET    /api/v1/webhooks/deliveries  — webhook delivery records (v1.4.0)
+        POST   /api/v1/webhooks/redeliver/{event_id} — re-post a webhook (v1.4.0)
 
 Typical usage::
 
@@ -97,6 +99,12 @@ from .models import BatchRequest, Task, TaskRequest, TaskStatus
 from .openapi import build_openapi_spec
 from .queue import LocalTaskQueue
 from .scheduler import JobScheduler, ScheduleError
+from .webhooks import (  # v1.4.0 — webhook delivery records + redelivery
+    DELIVERY_LOG_FILENAME,
+    EVENT_LOG_FILENAME,
+    load_webhook_event,
+    read_delivery_records,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +117,9 @@ _TASK_DOWNLOAD_PATTERN = re.compile(r"^/tasks/([a-f0-9]+)/download/(.+)$")
 # v0.9.4: dead-letter queue routes
 _DEADLETTER_PATTERN = re.compile(r"^/deadletters/([a-f0-9]+)$")
 _DEADLETTER_REPLAY_PATTERN = re.compile(r"^/deadletters/([a-f0-9]+)/replay$")
+
+# v1.4.0: webhook delivery records + redelivery
+_WEBHOOK_REDELIVER_PATTERN = re.compile(r"^/api/v1/webhooks/redeliver/([a-f0-9]+)$")
 
 # v0.9.3: batch aggregates and scheduled jobs. Note ``/tasks/batch`` is a
 # static path — the task-ID pattern above cannot match it because "batch"
@@ -168,6 +179,7 @@ _STATIC_PATHS = frozenset(
         "/schedules",
         "/deadletters",
         "/api/v1/dashboard/summary",
+        "/api/v1/webhooks/deliveries",
     }
 )
 
@@ -184,6 +196,7 @@ _ROUTE_TEMPLATES = (
     (_BATCH_PATTERN, "/batches/{id}"),
     (_DEADLETTER_REPLAY_PATTERN, "/deadletters/{id}/replay"),
     (_DEADLETTER_PATTERN, "/deadletters/{id}"),
+    (_WEBHOOK_REDELIVER_PATTERN, "/api/v1/webhooks/redeliver/{event_id}"),
     (_TASK_PATTERN, "/tasks/{id}"),
 )
 
@@ -964,6 +977,40 @@ class _APIHandler(BaseHTTPRequestHandler):
             return
         self._send_json(record.model_dump(mode="json"))
 
+    @_route_registry.register("GET", r"^/api/v1/webhooks/deliveries$")
+    def _handle_get_webhook_deliveries(self) -> None:
+        """Webhook delivery-attempt records, newest first (v1.4.0).
+
+        Query parameters: ``event_id`` (exact match), ``task_id`` (exact
+        match; pre-v1.4.0 records carry no task_id and never match) and
+        ``limit`` (default 50, clamped like every list endpoint).
+
+        Auth: same rules as every other read route — loopback binds are
+        open, non-loopback binds require the API key.
+        """
+        query = self._parse_query()
+        try:
+            limit = self._parse_limit(query.get("limit"))
+        except ValueError:
+            self._send_error(HTTPStatus.BAD_REQUEST, "Invalid limit")
+            return
+        log_path = self._webhook_delivery_log_path()
+        records = read_delivery_records(
+            log_path,
+            event_id=(query.get("event_id") or "").strip() or None,
+            task_id=(query.get("task_id") or "").strip() or None,
+            limit=limit,
+        )
+        self._send_json({"deliveries": records, "count": len(records)})
+
+    def _webhook_delivery_log_path(self):
+        """Path of the delivery log next to the task store (v1.4.0)."""
+        return self.queue.storage.storage_dir / DELIVERY_LOG_FILENAME
+
+    def _webhook_event_log_path(self):
+        """Path of the raw-event log next to the task store (v1.4.0)."""
+        return self.queue.storage.storage_dir / EVENT_LOG_FILENAME
+
     @_route_registry.register("GET", r"^/api/v1/dashboard/summary$")
     def _handle_get_dashboard_summary(self) -> None:
         """Aggregated, versioned dashboard summary (v1.3.1).
@@ -1127,6 +1174,50 @@ class _APIHandler(BaseHTTPRequestHandler):
                 "task_id": new_task_id,
             },
             status=HTTPStatus.CREATED,
+        )
+
+    @_route_registry.register(
+        "POST", r"^/api/v1/webhooks/redeliver/(?P<event_id>[a-f0-9]+)$"
+    )
+    def _handle_post_webhook_redeliver(self, event_id: str) -> None:
+        """Re-dispatch the original webhook event (v1.4.0).
+
+        The stored payload (``webhook_events.jsonl``) is re-posted through
+        the normal dispatcher path: same event id (consumers deduplicate),
+        re-signed with the configured secret, retries and delivery
+        records as for any fresh event. Auth follows the admin-route
+        rules (loopback open, non-loopback requires the API key); a
+        non-default caller tenant may only redeliver its own events.
+        """
+        dispatcher = self.queue.webhooks
+        if dispatcher is None or not dispatcher.enabled:
+            self._send_error(
+                HTTPStatus.NOT_FOUND,
+                "webhook redelivery unavailable: MN_WEBHOOK_URLS is not configured",
+            )
+            return
+        payload = load_webhook_event(self._webhook_event_log_path(), event_id)
+        if payload is None:
+            self._send_error(HTTPStatus.NOT_FOUND, f"Webhook event {event_id} not found")
+            return
+        _, tenant = self._current_identity()
+        event_tenant = str(payload.get("tenant_id") or "default")
+        if tenant != "default" and event_tenant != tenant:
+            self._send_error(
+                HTTPStatus.FORBIDDEN,
+                "webhook event belongs to another tenant",
+            )
+            return
+        queued = dispatcher.redeliver(payload)
+        # v1.4.0: structured audit record for redeliveries.
+        self._audit(
+            "webhook_redeliver",
+            str(payload.get("task_id") or ""),
+            event_id=event_id,
+        )
+        self._send_json(
+            {"event_id": event_id, "redelivered": bool(queued)},
+            status=HTTPStatus.ACCEPTED,
         )
 
     @_route_registry.register("POST", r"^/schedules$")

@@ -50,6 +50,9 @@ EXPECTED_PATHS = {
     "/deadletters": {"get"},
     "/deadletters/{task_id}": {"get", "delete"},
     "/deadletters/{task_id}/replay": {"post"},
+    # v1.4.0: webhook delivery records + redelivery
+    "/api/v1/webhooks/deliveries": {"get"},
+    "/api/v1/webhooks/redeliver/{event_id}": {"post"},
     "/health": {"get"},
     "/ready": {"get"},
     "/info": {"get"},

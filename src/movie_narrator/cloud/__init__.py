@@ -126,6 +126,8 @@ from .webhooks import (  # v1.3.1
     WebhookDispatcher,
     WebhookEvent,
     event_for_task,
+    load_webhook_event,  # v1.4.0 — redelivery support
+    read_delivery_records,
     sign_payload,
 )
 from .dashboard import build_dashboard_summary  # v1.3.1
@@ -229,6 +231,8 @@ __all__ = [
     "WebhookDispatcher",
     "WebhookEvent",
     "event_for_task",
+    "load_webhook_event",
+    "read_delivery_records",
     "sign_payload",
     # Dashboard summary (v1.3.1)
     "build_dashboard_summary",
