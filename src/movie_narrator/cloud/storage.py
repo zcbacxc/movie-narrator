@@ -209,6 +209,33 @@ class TaskStorage:
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA busy_timeout=5000")
         self._conn.commit()
+        # v1.3.1: service-semantics columns (additive migration on open).
+        self._ensure_column("tenant_id", "default")
+        self._ensure_column("principal", "local")
+
+    def _ensure_column(self, name: str, default: str) -> None:
+        """Add column *name* to the tasks table when it does not exist.
+
+        Idempotent, additive ``ALTER TABLE`` guarded by an existence check
+        against ``PRAGMA table_info`` — the smallest safe migration for the
+        create-if-absent schema style used here. The authoritative task
+        record stays the ``data`` JSON blob; the columns are a denormalized
+        mirror kept in sync by :meth:`save` so tenant scoping can be
+        (re)indexed without rewriting every row.
+        """
+        columns = {str(row[1]) for row in self._conn.execute("PRAGMA table_info(tasks)")}
+        if name in columns:
+            return
+        try:
+            # SQLite requires a *literal* DEFAULT in ALTER TABLE ADD COLUMN,
+            # so the constant default is inlined. Both name and default are
+            # code-owned constants (never user input).
+            self._conn.execute(
+                f"ALTER TABLE tasks ADD COLUMN {name} TEXT NOT NULL DEFAULT '{default}'"  # nosec B608 — constants only
+            )
+            self._conn.commit()
+        except sqlite3.Error as e:  # pragma: no cover - defensive
+            logger.warning("Could not add column %r to tasks table: %s", name, e)
 
     def _migrate_from_json(self) -> None:
         """Import a legacy ``tasks.json`` into the DB (idempotent).
@@ -265,14 +292,18 @@ class TaskStorage:
         record = task.model_dump(mode="json")
         with self._lock:
             self._conn.execute(
-                "INSERT INTO tasks(id, data, created_at, status) VALUES (?, ?, ?, ?) "
+                "INSERT INTO tasks(id, data, created_at, status, tenant_id, principal) "
+                "VALUES (?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT(id) DO UPDATE SET "
-                "data=excluded.data, created_at=excluded.created_at, status=excluded.status",
+                "data=excluded.data, created_at=excluded.created_at, status=excluded.status, "
+                "tenant_id=excluded.tenant_id, principal=excluded.principal",
                 (
                     task.id,
                     json.dumps(record, ensure_ascii=False),
                     str(record.get("created_at", "")),
                     str(record.get("status", "pending")),
+                    str(record.get("tenant_id", "default")),
+                    str(record.get("principal", "local")),
                 ),
             )
             self._conn.commit()

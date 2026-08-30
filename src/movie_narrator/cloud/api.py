@@ -133,6 +133,17 @@ class PayloadTooLargeError(Exception):
 #: Environment variable opting ``/metrics`` out of API-key auth.
 _ENV_METRICS_PUBLIC = "MN_METRICS_PUBLIC"
 
+#: v1.3.1: principal reported for API-key-authenticated requests when
+#: ``MN_API_PRINCIPAL`` is unset. Unauthenticated loopback requests keep
+#: the pre-v1.3.1 identity: principal ``"local"``, tenant ``"default"``.
+_ENV_API_PRINCIPAL = "MN_API_PRINCIPAL"
+_DEFAULT_API_PRINCIPAL = "api-key"
+
+#: v1.3.1: optional tenant-scoping header. A non-default tenant sees only
+#: its own tasks' artifacts; ``"default"`` (and unauthenticated loopback)
+#: keeps the single-tenant backward-compatible view of everything.
+TENANT_HEADER = "X-MN-Tenant"
+
 #: Paths that are already templates (no variable segment).
 _STATIC_PATHS = frozenset(
     {
@@ -194,6 +205,17 @@ def _metrics_public() -> bool:
         "yes",
         "on",
     }
+
+
+def _api_principal() -> str:
+    """Principal recorded for API-key-authenticated requests (v1.3.1).
+
+    Reads ``MN_API_PRINCIPAL`` from the process environment (the same
+    resolution style as the other operational ``MN_*`` admission and
+    lifecycle variables); falls back to ``"api-key"``.
+    """
+    raw = os.environ.get(_ENV_API_PRINCIPAL, "").strip()
+    return raw or _DEFAULT_API_PRINCIPAL
 
 
 # ── Loopback detection (v1.2) ──────────────────────────────
@@ -577,6 +599,58 @@ class _APIHandler(BaseHTTPRequestHandler):
         self._send_error(HTTPStatus.UNAUTHORIZED, "unauthorized")
         return False
 
+    def _current_identity(self) -> Tuple[str, str]:
+        """Resolve the ``(principal, tenant_id)`` of the caller (v1.3.1).
+
+        Must be called *after* :meth:`_check_auth` has passed:
+
+        - A valid API key → principal from ``MN_API_PRINCIPAL`` (default
+          ``"api-key"``); tenant from the optional ``X-MN-Tenant`` header,
+          else ``"default"``.
+        - Unauthenticated loopback (the v1.2 frictionless path) →
+          principal ``"local"``, tenant ``"default"``.
+        - Unauthenticated non-loopback never reaches here (``_check_auth``
+          already answered 401).
+        """
+        api_key: Optional[str] = getattr(self.server, "api_key", None)
+        if api_key is None:
+            # Loopback anonymous — the v1.2 frictionless path.
+            return ("local", "default")
+        provided = self.headers.get("X-API-Key", "")
+        if not hmac.compare_digest(provided, api_key):
+            # Defensive: _check_auth should have rejected already.
+            return ("local", "default")
+        principal = _api_principal()
+        tenant = (self.headers.get(TENANT_HEADER) or "").strip() or "default"
+        return (principal, tenant)
+
+    def _audit(self, route: str, task_id: str = "", **fields: Any) -> None:
+        """Emit a structured audit record for a state-reading or mutating route (v1.3.1).
+
+        The record carries ``task_id``, ``route``, ``tenant_id`` and
+        ``principal`` as top-level JSON keys when ``MN_LOG_FORMAT=json`` is
+        active, so SIEM/audit pipelines can join submissions, status reads
+        and artifact downloads with the tasks they touched. Auditing is
+        best-effort and must never affect the response.
+        """
+        try:
+            principal, tenant = self._current_identity()
+            logger.info(
+                "audit %s %s",
+                route,
+                task_id or "-",
+                extra={
+                    "event": "audit",
+                    "route": route,
+                    "task_id": task_id,
+                    "tenant_id": tenant,
+                    "principal": principal,
+                    **fields,
+                },
+            )
+        except Exception:  # noqa: BLE001 — telemetry must never break a response
+            logger.debug("Failed to write audit record", exc_info=True)
+
     # ── Submission admission (v1.2) ────────────────────────
 
     def _admission_rejection(
@@ -711,6 +785,11 @@ class _APIHandler(BaseHTTPRequestHandler):
         if task is None:
             self._send_error(HTTPStatus.NOT_FOUND, f"Task {task_id} not found")
             return
+        rejection = self._artifact_scope_rejection(task)
+        if rejection is not None:
+            status, message = rejection
+            self._send_error(status, message)
+            return
         artifacts = self._list_task_artifacts(task)
         self._send_json({"artifacts": artifacts, "count": len(artifacts)})
 
@@ -720,6 +799,15 @@ class _APIHandler(BaseHTTPRequestHandler):
         if task is None:
             self._send_error(HTTPStatus.NOT_FOUND, f"Task {task_id} not found")
             return
+        rejection = self._artifact_scope_rejection(task)
+        if rejection is not None:
+            status, message = rejection
+            self._send_error(status, message)
+            return
+        # v1.3.1: structured audit record for artifact downloads.
+        # (``artifact`` rather than ``filename`` — LogRecord reserves the
+        # latter and logging raises KeyError on extra-key collisions.)
+        self._audit("artifact_download", task_id, artifact=filename)
         self._serve_task_artifact(task, filename)
 
     @_route_registry.register("GET", r"^/tasks/(?P<task_id>[a-f0-9]+)$")
@@ -728,6 +816,8 @@ class _APIHandler(BaseHTTPRequestHandler):
         if task is None:
             self._send_error(HTTPStatus.NOT_FOUND, f"Task {task_id} not found")
             return
+        # v1.3.1: structured audit record for status reads.
+        self._audit("task_status", task_id)
         self._send_json(task.model_dump(mode="json"))
 
     @_route_registry.register("GET", r"^/batches$")
@@ -825,6 +915,11 @@ class _APIHandler(BaseHTTPRequestHandler):
             self._send_error(HTTPStatus.BAD_REQUEST, f"Invalid task request: {e}")
             return
 
+        # v1.3.1: stamp the resolved principal/tenant onto the task.
+        principal, tenant = self._current_identity()
+        request.principal = principal
+        request.tenant_id = tenant
+
         rejection = self._admission_rejection([request])
         if rejection is not None:
             status, message = rejection
@@ -832,6 +927,8 @@ class _APIHandler(BaseHTTPRequestHandler):
             return
 
         task_id = self.queue.submit(request)
+        # v1.3.1: structured audit record for submissions.
+        self._audit("task_submit", task_id)
         self._send_json(
             {"task_id": task_id, "status": "pending"},
             status=HTTPStatus.CREATED,
@@ -854,6 +951,12 @@ class _APIHandler(BaseHTTPRequestHandler):
             self._send_error(HTTPStatus.BAD_REQUEST, f"Invalid batch request: {e}")
             return
 
+        # v1.3.1: stamp the resolved principal/tenant onto every member task.
+        principal, tenant = self._current_identity()
+        for member in request.requests:
+            member.principal = principal
+            member.tenant_id = tenant
+
         rejection = self._admission_rejection(request.requests)
         if rejection is not None:
             status, message = rejection
@@ -861,6 +964,8 @@ class _APIHandler(BaseHTTPRequestHandler):
             return
 
         batch = self.queue.submit_batch(request)
+        # v1.3.1: structured audit record for batch submissions.
+        self._audit("task_submit_batch", batch.batch_id, count=len(batch.task_ids))
         self._send_json(
             {
                 "batch_id": batch.batch_id,
@@ -1017,6 +1122,28 @@ class _APIHandler(BaseHTTPRequestHandler):
         return min(value, _MAX_LIST_LIMIT)
 
     # ── Artifact helpers ────────────────────────────────────
+
+    def _artifact_scope_rejection(self, task: Task) -> Optional[Tuple[int, str]]:
+        """Tenant scoping for artifact listing/download (v1.3.1).
+
+        A non-default tenant sees only its own tasks' artifacts. The
+        ``"default"`` tenant (and unauthenticated loopback callers, who
+        resolve to ``"default"``) keeps the single-tenant backward-compatible
+        view of everything — a labeling/scoping MVP, not row isolation.
+
+        Returns:
+            A ``(status, message)`` rejection pair, or None when the caller
+            may access the task's artifacts.
+        """
+        _, tenant = self._current_identity()
+        if tenant == "default":
+            return None
+        if (task.tenant_id or "default") != tenant:
+            return (
+                HTTPStatus.FORBIDDEN,
+                "task artifacts belong to another tenant",
+            )
+        return None
 
     def _list_task_artifacts(self, task: Task) -> list:
         """List available output files for a task (v0.8.3: via the artifact store)."""

@@ -97,6 +97,14 @@ class TaskRequest(BaseModel):
     params: Optional[Dict[str, Any]] = None
     config_path: Optional[str] = Field(default=None, max_length=500)
 
+    # v1.3.1: service semantics (optional). ``None`` means "not supplied by
+    # the caller" — the queue stamps the resolved tenant/principal onto the
+    # created ``Task`` (defaulting to ``"default"`` / ``"local"``).
+    # Serialized requests from earlier versions lack these keys and still
+    # load.
+    tenant_id: Optional[str] = Field(default=None, max_length=100)
+    principal: Optional[str] = Field(default=None, max_length=100)
+
     # Task-specific fields
     output_dir: Optional[str] = Field(default=None, max_length=500)
     priority: TaskPriority = TaskPriority.NORMAL
@@ -262,6 +270,14 @@ class Task(BaseModel):
     # such key and must still load.
     correlation_id: Optional[str] = None
 
+    # v1.3.1: service semantics — who submitted the task and under which
+    # tenant label. Defaults keep the pre-v1.3.1 single-user behaviour:
+    # local unauthenticated submissions are principal "local", tenant
+    # "default". Optional-with-default so task JSON persisted by earlier
+    # versions still loads.
+    tenant_id: str = "default"
+    principal: str = "local"
+
     # Allow arbitrary types for future extensibility
     model_config = {"arbitrary_types_allowed": True}
 
@@ -310,6 +326,9 @@ class Task(BaseModel):
             "created_at": self.created_at,
             "completed_at": self.completed_at or "",
             "error": self.last_error or "",
+            # v1.3.1: service semantics surfaced in list responses.
+            "tenant_id": self.tenant_id,
+            "principal": self.principal,
         }
 
 

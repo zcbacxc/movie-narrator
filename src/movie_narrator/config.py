@@ -124,6 +124,12 @@ class Settings(BaseSettings):
     # (``mn serve``). When None, the API server runs unauthenticated —
     # safe only on loopback. Required when binding to a public interface.
     api_key: Optional[str] = None
+    # v1.3.1: principal recorded for API-key-authenticated requests
+    # (``MN_API_PRINCIPAL``). Unauthenticated loopback requests keep the
+    # pre-v1.3.1 identity: principal "local", tenant "default". Read by the
+    # API server from the process environment at request time; this typed
+    # field documents the surface with the same default.
+    api_principal: str = "api-key"
     # v0.9.2: graceful-shutdown drain budget (seconds). After SIGINT /
     # SIGTERM, ``mn serve`` and ``TaskAPIServer.stop()`` wait up to this
     # long for in-flight tasks to finish before force-cancelling them.

@@ -326,7 +326,15 @@ class LocalTaskQueue:
 
         # v0.8.1: inherit the caller's correlation ID (set per-request by
         # the API server) so the worker's logs join the access log.
-        task = Task(request=request, correlation_id=get_correlation_id())
+        # v1.3.1: stamp service semantics from the request when the API
+        # layer supplied them; direct queue users keep the model defaults
+        # (``"default"`` tenant / ``"local"`` principal).
+        task = Task(
+            request=request,
+            correlation_id=get_correlation_id(),
+            tenant_id=request.tenant_id or "default",
+            principal=request.principal or "local",
+        )
         self._storage.save(task)
 
         self._enqueue_task(task, count_active=True)
