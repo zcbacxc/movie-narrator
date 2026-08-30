@@ -1165,6 +1165,23 @@ def run_pipeline(
     if ctx.video_path:
         _write_execution_manifest(ctx, step_records, total_elapsed)
 
+    # ── Deliverable manifest (v1.3.0) ────────────────────
+    # Checksummed inventory of what the run delivered. Skipped on
+    # dry-run (no media is produced — a manifest of absent artifacts
+    # would be misleading) and on pipeline failure (exceptions above
+    # never reach this point). The metadata re-export and execution
+    # manifest above are gated on ctx.video_path; the deliverable
+    # manifest follows the same gate so runs without a rendered video
+    # keep producing the same file set as before.
+    if ctx.video_path and not ctx.metadata.get("dry_run"):
+        try:
+            from .deliverable import write_deliverable_manifest
+
+            manifest_path = write_deliverable_manifest(ctx)
+            cast(Dict[str, Any], ctx.metadata)["deliverable_manifest"] = str(manifest_path)
+        except Exception as e:  # noqa: BLE001 — manifest is best-effort
+            console.debug(f"deliverable_manifest.json write failed: {e}")
+
     return ctx
 
 

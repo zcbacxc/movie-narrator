@@ -150,6 +150,10 @@ class TestAllCompleteness:
             "build_step_graph",
             "validate_linear_order",
             "topological_order",
+            # v1.3.0 — Versioned deliverable manifest
+            "DeliverableManifest",
+            "ManifestEntry",
+            "write_deliverable_manifest",
         }
         assert expected.issubset(set(contract.__all__))
 
@@ -388,3 +392,14 @@ class TestV130ContractExports:
         assert contract.topological_order is _topological_order
         assert contract.StepSpec.__name__ == "StepSpec"
         assert contract.StepRegistry is _StepRegistry
+
+    def test_deliverable_symbols_identity(self):
+        from movie_narrator.pipeline.deliverable import (
+            DeliverableManifest as _DeliverableManifest,
+            ManifestEntry as _ManifestEntry,
+            write_deliverable_manifest as _write_deliverable_manifest,
+        )
+
+        assert contract.DeliverableManifest is _DeliverableManifest
+        assert contract.ManifestEntry is _ManifestEntry
+        assert contract.write_deliverable_manifest is _write_deliverable_manifest

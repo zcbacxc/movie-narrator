@@ -414,6 +414,10 @@ __all__ = [
     "build_step_graph",
     "validate_linear_order",
     "topological_order",
+    # Versioned deliverable manifest (v1.3.0)
+    "DeliverableManifest",
+    "ManifestEntry",
+    "write_deliverable_manifest",
 ]
 
 
@@ -551,4 +555,15 @@ from .pipeline.dag import (  # noqa: E402
     build_step_graph,
     topological_order,
     validate_linear_order,
+)
+
+# ── Versioned deliverable manifest (v1.3.0) ────────────────
+# New exports, backward compatible. A checksummed inventory of the
+# artifacts a run delivered (``deliverable_manifest.json``): external
+# consumers can verify completeness without hashing the output
+# directory themselves.
+from .pipeline.deliverable import (  # noqa: E402
+    DeliverableManifest,
+    ManifestEntry,
+    write_deliverable_manifest,
 )
