@@ -358,6 +358,7 @@ python scripts/llm_check.py
 ```bash
 python benchmarks/encoder_benchmark.py                # 打印对比表
 python benchmarks/encoder_benchmark.py --out gpu.json # 同时写出 JSON 报告
+mn benchmark                                          # 从 CLI 运行同一基准（v1.4.2；另支持 --duration、--encoders libx264,nvenc）
 ```
 
 如何解读这些数字：

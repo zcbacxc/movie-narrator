@@ -40,7 +40,7 @@ the system binary). Optional extras: `[media]` (scene detection), `[ml]`
 | `mn race` | Run multiple candidate configs in parallel and pick the best |
 | `mn imitate` | Analyze a reference video and imitate its style/rhythm |
 | `mn resume` | Resume a paused pipeline from a checkpoint |
-| `mn rerun` | Deliberately re-execute from a chosen step (`--from STEP`, `--list-steps`) with downstream invalidation (v1.3.0) |
+| `mn rerun` | Deliberately re-execute from a chosen step (`--from STEP`, `--list-steps`, `--dry-run` prints the invalidation plan without executing) with downstream invalidation (v1.3.0; `--dry-run` v1.4.2) |
 
 ### Pipeline sub-steps
 
@@ -82,6 +82,7 @@ the system binary). Optional extras: `[media]` (scene detection), `[ml]`
 | Command | Purpose |
 |---------|---------|
 | `mn doctor` | Pre-flight environment check — ffmpeg, optional extras, config (exit code 1 if anything missing) |
+| `mn benchmark` | Encoder benchmark (`libx264` vs detected GPU encoders); flags `--duration` (clip seconds, default 5), `--out` (JSON report), `--encoders` (comma filter, default auto-detect). Thin wrapper over `benchmarks/encoder_benchmark.py` — requires a source checkout (v1.4.2) |
 
 ## Common Workflows
 
@@ -123,6 +124,7 @@ mn resume --state output/<movie>/pipeline_state.json           # resume from che
 ```bash
 mn rerun --list-steps                                          # ordered step names (soft steps marked)
 mn rerun output/<movie>/pipeline_state.json --from render_video  # re-run render_video onward
+mn rerun output/<movie>/pipeline_state.json --from render_video --dry-run  # print the plan only, no execution
 ```
 
 ## Key `mn create` Flags

@@ -358,6 +358,7 @@ If you have a GPU and want to decide between `render_encoder: auto` and `render_
 ```bash
 python benchmarks/encoder_benchmark.py                # print a comparison table
 python benchmarks/encoder_benchmark.py --out gpu.json # also write the JSON report
+mn benchmark                                          # same benchmark from the CLI (v1.4.2; also: --duration, --encoders libx264,nvenc)
 ```
 
 How to read the numbers:
