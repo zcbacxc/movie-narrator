@@ -1,9 +1,9 @@
 [![English](https://img.shields.io/badge/English-Release_Checklist-blue)](RELEASE_CHECKLIST.md)
 [![简体中文](https://img.shields.io/badge/简体中文-发布清单-green)](RELEASE_CHECKLIST.zh-CN.md)
 
-# v1.5.1 发布清单
+# v1.5.2 发布清单
 
-> **v1.5.1 版本的完成定义（Definition of Done）。** 在创建 v1.5.1 标签
+> **v1.5.2 版本的完成定义（Definition of Done）。** 在创建 v1.5.2 标签
 > 并发布到 PyPI 之前，必须逐项核实并勾选本清单中的所有项目。
 > 项目按类别分组；每项均附有验证命令或方法。
 
@@ -26,7 +26,7 @@
 - [x] **测试覆盖率达标**
   - 命令：`pytest --cov=movie_narrator --cov-report=term-missing --cov-fail-under=90`
   - 预期结果：`Required test coverage of 90% reached. Total coverage: XX%`
-  - 说明：阈值在 CI 配置中定义（`.coveragerc` + `ci.yml`）；v1.5.1 实测 91.41%；不得低于 v1.1 基线
+  - 说明：阈值在 CI 配置中定义（`.coveragerc` + `ci.yml`）；v1.5.2 实测 91.38%；不得低于 v1.1 基线
 
 ---
 
@@ -52,10 +52,10 @@
   - 预期结果：所有契约重新导出、协议和版本测试通过
   - 说明：验证 `CONTRACT_VERSION` 值和 `__all__` 完整性
 
-- [ ] **新增 v1.5.1 社区/治理测试通过**
-  - 命令：`pytest -v tests/test_v151_presets.py tests/test_v151_ratelimit.py tests/test_v151_cost_ledger.py`
-  - 预期结果：全部通过（预设安装/校验、令牌桶数学、429 路径、账本计数）
-  - 说明：相对 v1.5.0 总计新增 +88 个测试
+- [ ] **新增 v1.5.2 部署/缓存测试通过**
+  - 命令：`pytest -v tests/test_v152_helm.py tests/test_v152_media_cache.py`
+  - 预期结果：全部通过（chart 结构、values 漂移、缓存去重/TTL、URL resolve e2e）
+  - 说明：相对 v1.5.1 总计新增 +55 个测试
 
 ---
 
@@ -92,18 +92,18 @@
 - [x] **CHANGELOG.md 已定稿**
   - 验证：审阅 `CHANGELOG.md`
   - 预期结果：
-    - 新增 `## [1.5.1] - <日期>` 标题（原为 `[Unreleased]`）
-    - `CONTRACT_VERSION` 行使用规范格式：`- \`CONTRACT_VERSION\` remains (1, 3, 0). All NNN tests pass (N skipped in CI, 0 failures). +M new tests vs v1.5.0.`
-    - 底部版本比较链接已更新（`[Unreleased]` → `.../compare/v1.5.1...HEAD`，新增 `[1.5.1]` 链接）
+    - 新增 `## [1.5.2] - <日期>` 标题（原为 `[Unreleased]`）
+    - `CONTRACT_VERSION` 行使用规范格式：`- \`CONTRACT_VERSION\` remains (1, 3, 0). All NNN tests pass (N skipped in CI, 0 failures). +M new tests vs v1.5.1.`
+    - 底部版本比较链接已更新（`[Unreleased]` → `.../compare/v1.5.2...HEAD`，新增 `[1.5.2]` 链接）
     - 历史条目保持不变（不对旧版做代号或措辞改动）
 
-- [x] **ROADMAP 反映 v1.5.1**
+- [x] **ROADMAP 反映 v1.5.2**
   - 验证：`docs/ROADMAP.zh-CN.md`（及 `.md`）
-  - 预期结果：已完成表中含 v1.5.1 行；v1.5 章节标注 v1.5.0 与 v1.5.1 已交付
+  - 预期结果：已完成表中含 v1.5.2 行；v1.5 章节标注三个版本均已交付
 
 - [x] **当前版本对齐**
-  - 方法：扫描**所有**公开文档（`docs/**/*.md` + `README.md`）——**不要依赖固定文件清单**——逐个 grep 上个版本号（`v1.5.0`）作为"当前"版本声明的使用
-  - 预期结果：无任何公开文档仍将旧版本当作当前版本；将每一处过期戳（`DEPLOYMENT`/`MIGRATION`/`TUTORIAL` 中的兼容性说明、`QUICKSTART` 中 `mn version` 输出、`index.md` 发布清单标签）更新为 **v1.5.1**。合理的历史引用保持不动（历史记录、比较基线、示例性表述）。重跑扫描确认。
+  - 方法：扫描**所有**公开文档（`docs/**/*.md` + `README.md`）——**不要依赖固定文件清单**——逐个 grep 上个版本号（`v1.5.1`）作为"当前"版本声明的使用
+  - 预期结果：无任何公开文档仍将旧版本当作当前版本；将每一处过期戳（`DEPLOYMENT`/`MIGRATION`/`TUTORIAL` 中的兼容性说明、`QUICKSTART` 中 `mn version` 输出、`index.md` 发布清单标签）更新为 **v1.5.2**。合理的历史引用保持不动（历史记录、比较基线、示例性表述）。重跑扫描确认。
   - 说明：同时更新本地 `CLAUDE.md` 的"当前版本"行（gitignored，仅本地）。此检查与文件无关，后续新增文档也无需调整本清单
 
 - [ ] **mkdocs 构建成功**
@@ -116,15 +116,15 @@
 
 - [ ] **版本号已对齐**
   - 验证：
-    - `pyproject.toml` → `version = "1.5.1"`
-    - `src/movie_narrator/contract.py` → `CONTRACT_VERSION = (1, 3, 0)`（未变——v1.5.1 无新增导出，**不得**递增）
-    - `docs/ROADMAP.zh-CN.md` → CONTRACT_VERSION 行显示 `(1, 3, 0)`（v1.5.1 未变）
+    - `pyproject.toml` → `version = "1.5.2"`
+    - `src/movie_narrator/contract.py` → `CONTRACT_VERSION = (1, 3, 0)`（未变——v1.5.2 无新增导出，**不得**递增）
+    - `docs/ROADMAP.zh-CN.md` → CONTRACT_VERSION 行显示 `(1, 3, 0)`（v1.5.2 未变）
     - `docs/MIGRATION.zh-CN.md` → 当前版本注记已更新
-  - 预期结果：包版本 1.5.1；契约版本保持 (1, 3, 0)
+  - 预期结果：包版本 1.5.2；契约版本保持 (1, 3, 0)
 
 - [ ] **标签命名遵循约定**
-  - 格式：`v1.5.1`（小写 `v`、语义化版本、无前缀/后缀）
-  - 命令：`git tag -a v1.5.1 -m "v1.5.1 - Community & Governance: Preset Sharing, Rate Limiting & Usage Ledger"`
+  - 格式：`v1.5.2`（小写 `v`、语义化版本、无前缀/后缀）
+  - 命令：`git tag -a v1.5.2 -m "v1.5.2 - Deployment & Media Cache: Helm Chart, Media Cache Pool & Pilot Decision"`
   - 说明：使用注解标签，非轻量标签；标签推送必须与分支推送分开
 
 - [ ] **发布分支已合并到 main**
@@ -136,18 +136,18 @@
   - 预期结果：Trusted Publisher 已配置，标签推送触发发布
   - 手动验证：
     ```bash
-    pip install dist/movie_narrator-1.5.1-py3-none-any.whl
-    mn version  # 应显示 1.5.1
+    pip install dist/movie_narrator-1.5.2-py3-none-any.whl
+    mn version  # 应显示 1.5.2
     ```
 
 - [ ] **GitHub Release 遵循 release.md 规范**
-  - 标题：`v1.5.1 - Community & Governance: Preset Sharing, Rate Limiting & Usage Ledger`
-  - 正文：逐字复制 `CHANGELOG.md` 的 `## [v1.5.1]` 章节（按 `.claude/rules/release.md`），并附完整 CHANGELOG 链接
+  - 标题：`v1.5.2 - Deployment & Media Cache: Helm Chart, Media Cache Pool & Pilot Decision`
+  - 正文：逐字复制 `CHANGELOG.md` 的 `## [v1.5.2]` 章节（按 `.claude/rules/release.md`），并附完整 CHANGELOG 链接
   - 每个标签只允许一个**非草稿** Release —— 删除 `publish.yml` 可能遗留的空草稿
 
 - [ ] **Git 标签已推送**
-  - 命令：`git push origin v1.5.1`
-  - 预期结果：标签出现在 GitHub 上，发布工作流启动，PyPI 发布 `movie-narrator==1.5.1`
+  - 命令：`git push origin v1.5.2`
+  - 预期结果：标签出现在 GitHub 上，发布工作流启动，PyPI 发布 `movie-narrator==1.5.2`
   - 说明：仅在所有清单项确认后推送标签
 
 ---
@@ -157,17 +157,17 @@
 - [ ] **PyPI 发布已验证**
   - 验证：
     ```bash
-    pip install movie-narrator==1.5.1
+    pip install movie-narrator==1.5.2
     python -c "from movie_narrator.contract import CONTRACT_VERSION; print(CONTRACT_VERSION)"
     # 预期结果：(1, 3, 0)
     ```
-  - 预期结果：包干净地安装，导入正常，包版本 1.5.1
+  - 预期结果：包干净地安装，导入正常，包版本 1.5.2
 
 - [ ] **维护分支存在**
-  - 验证：origin 上存在 `v1.5.x` 分支（v1.5.1 时创建）
+  - 验证：origin 上存在 `v1.5.x` 分支（v1.5.2 时创建）
   - 用途：为 v1.x 用户回溯安全和关键 Bug 修复
 
 ---
 
 *请在发布候选（RC）阶段使用本清单。通过所有项的最终 RC
-即成为 v1.5.1 正式版。*
+即成为 v1.5.2 正式版。*

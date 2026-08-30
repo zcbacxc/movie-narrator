@@ -30,6 +30,7 @@
 | v1.4.2 | 生态 — Premiere（FCP7-XML）时间线适配器 / mn benchmark 与 mn rerun --dry-run CLI                  |
 | v1.5.0 | 视觉保真 — 10-bit 与色彩标记管线 / 期望感知 4K+像素 QA / 准入系数                              |
 | v1.5.1 | 社区与治理 — mn presets 预设共享 / 按租户限流 / Provider 用量账本                               |
+| v1.5.2 | 部署与媒体缓存 — Helm chart 与 K8s 模板 / 媒体缓存池(reference_media URL)/ 试点延期决策记录     |
 
 `CONTRACT_VERSION`（当前）：`(1, 3, 0)`（v1.4.0 提升追踪导出；v1.4.1 未变）
 
@@ -85,7 +86,7 @@
 - CLI 工效 — `mn benchmark` 与 `mn rerun --dry-run`。
 
 
-### v1.5 — 视觉保真、社区与部署（下一系列）
+### v1.5 — 视觉保真、社区与部署（已随 v1.5.0–v1.5.2 交付）
 
 > 主题：补完原始架构规划的长尾——HDR/4K 级输出、社区生态与部署工效。按三个增量版本交付。
 
@@ -99,7 +100,7 @@
 - 社区预设共享 — `mn presets install/list/show/remove`；仅数据的 YAML，按任务参数白名单校验，绝不执行代码。（ADR-018 规划）
 - 按租户令牌桶限流（可选）与 Provider 用量账本（使延期的幂等键决策可度量）。
 
-#### v1.5.2 — 部署与媒体缓存（规划——下一版本）
+#### v1.5.2 — 部署与媒体缓存 **（已交付）**
 
 - Helm chart / K8s 部署模板；媒体缓存池（`reference_media` 支持 URL 与版权元数据）；Temporal/Celery 试点决策以可度量触发条件记录。（ADR-019 规划）
 

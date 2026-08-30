@@ -30,6 +30,7 @@
 | v1.4.2 | Ecosystem — Premiere (FCP7-XML) timeline adapter / mn benchmark + mn rerun --dry-run CLI |
 | v1.5.0 | Visual fidelity — 10-bit & colour-tagged pipeline / expectations-aware 4K+pixel QA / admission factor |
 | v1.5.1 | Community & governance — mn presets sharing / per-tenant rate limiting / provider usage ledger |
+| v1.5.2 | Deployment & media cache — Helm chart & K8s templates / media cache pool with reference_media URLs / pilot deferral record |
 
 `CONTRACT_VERSION` (current): `(1, 3, 0)` (bumped in v1.4.0 — tracing exports; unchanged in v1.4.1)
 
@@ -87,7 +88,7 @@
 - CLI ergonomics — `mn benchmark` and `mn rerun --dry-run`.
 
 
-### v1.5 — Visual Fidelity, Community & Deployment (next)
+### v1.5 — Visual Fidelity, Community & Deployment (shipped as v1.5.0–v1.5.2)
 
 > Theme: complete the long tail of the original architecture plan — HDR/4K-grade output, the community ecosystem, and deployment ergonomics. Shipped as three incremental releases.
 
@@ -101,7 +102,7 @@
 - Community preset sharing — `mn presets install/list/show/remove`; data-only YAML validated against the job-param whitelist, no code execution. (ADR-018 planned)
 - Per-tenant token-bucket rate limiting (opt-in) and a provider usage ledger (makes the deferred idempotency-key decision measurable).
 
-#### v1.5.2 — Deployment & Media Cache (planned — next)
+#### v1.5.2 — Deployment & Media Cache **(shipped)**
 
 - Helm chart / K8s deployment templates; media cache pool with `reference_media` URL support and licence metadata; Temporal/Celery pilot decision recorded with measurable triggers. (ADR-019 planned)
 
@@ -113,14 +114,14 @@ Commitments are made only against real metrics (queue latency, render duration, 
 - HDR / 4K pipeline — 10-bit pix_fmt + profile, colour metadata tagging, and a 4K QA baseline shipped in v1.5.0 (`render_bit_depth` / `render_color_space`); full HDR mastering (tone mapping, mastering-display SEI) and GPU 10-bit encodes remain future work. (ADR-017)
 - Optional soft subtitles — `subtitle_delivery=burned|sidecar|muxed` with `mov_text` compatibility testing.
 - Extended timeline adapters — Premiere XML beyond the current OTIO + Jianying support.
-- Media cache pool — content-hash + TTL + license-metadata cache for future external stock-footage integration.
+- Media cache pool — shipped in v1.5.2: content-hash + TTL + licence-metadata cache, wired to `reference_media[]` URL items.
 
 ### Community & SaaS Ecosystem (demand-driven)
 
 The following remain out of the v1.3 scope and will be prioritized only when community feedback and enterprise demand materialize:
 
 - Community preset sharing — `mn presets install/list/show/remove`; data-only YAML validated against the job-param whitelist, no code execution; built-ins win. **(shipped in v1.5.1)**
-- Helm chart / K8s deployment templates — for teams actually running on Kubernetes
+- Helm chart / K8s deployment templates — shipped in v1.5.2 (`deploy/helm/movie-narrator/`, structurally CI-tested; rendered/validated locally during development)
 - Full multi-tenant isolation — tenant-scoped task storage and artifacts (foundation laid in v1.3)
 - OAuth2 authentication — full auth flow for web clients (only if SaaS demand materializes)
 - Token bucket rate limiting — per-tenant submission throttling, opt-in via `MN_RATE_LIMIT_*` (429 + Retry-After). **(shipped in v1.5.1)**

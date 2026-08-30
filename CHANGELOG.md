@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.5.2] - 2026-08-30
+
+### Added
+
+- **Helm chart & K8s templates** — `deploy/helm/movie-narrator/`: deployment/service/PVC/configmap/secret with probes wired to the real `/health` and `/ready` endpoints, `mn serve` command mirroring the Dockerfile, NOTES.txt covering the v1.2 non-loopback auth requirement; structurally CI-tested (values-drift tripwire + naive-render YAML validation; full `helm template`/`helm lint` run locally during development — no helm binary in CI). (ADR-019)
+- **Media cache pool & `reference_media` URL support** — `ReferenceMediaItem` accepts `url` (mutually exclusive with `path`): downloads land in a content-addressed cache under `~/.movie-narrator/media-cache/` (sha256 dedupe, 30-day TTL, 2 GiB cap, licence note required, corrupt-sidecar self-heal); cached provenance (`source_url`, `cache_sha256`) recorded in `metadata.json`; local-path items unchanged.
+- **Distributed-workflow pilot deferral recorded** — ADR-019 defines the measurable triggers (p95 queue/render latency, orphan-recovery rate, duplicate-provider-call rate from the v1.5.1 usage ledger, multi-node census) that would start a Temporal pilot; none are met today — single-node remains the supported topology.
+- **Tests** (`tests/test_v152_helm.py`, `tests/test_v152_media_cache.py`): +55 tests.
+
+### Changed
+- `CONTRACT_VERSION` remains (1, 3, 0). All 3177 tests pass (2 skipped in CI, 0 failures). +55 new tests vs v1.5.1.
+
 ## [1.5.1] - 2026-08-30
 
 ### Added
@@ -1385,7 +1397,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `workflow_steps` and `params` metadata injection.
 - Console log refactoring design.
 
-[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v1.5.1...HEAD
+[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v1.5.2...HEAD
+[1.5.2]: https://github.com/zcbacxc/movie-narrator/compare/v1.5.1...v1.5.2
 [1.5.1]: https://github.com/zcbacxc/movie-narrator/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/zcbacxc/movie-narrator/compare/v1.4.2...v1.5.0
 [1.4.2]: https://github.com/zcbacxc/movie-narrator/compare/v1.4.1...v1.4.2
