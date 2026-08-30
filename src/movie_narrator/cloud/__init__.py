@@ -120,6 +120,7 @@ from .entitlements import (  # v1.3.1
     check_submission,
     default_plan_name,
     resolve_plan,
+    task_requires_gpu,  # v1.4.0 — GPU/CPU pool routing
 )
 from .webhooks import (  # v1.3.1
     WebhookDispatcher,
@@ -223,6 +224,7 @@ __all__ = [
     "check_submission",
     "default_plan_name",
     "resolve_plan",
+    "task_requires_gpu",
     # Webhooks (v1.3.1)
     "WebhookDispatcher",
     "WebhookEvent",

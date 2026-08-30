@@ -14,15 +14,17 @@ same protocol by providing a duck-typed replacement.
 from __future__ import annotations
 
 import logging
+import os
 import threading
 import time
 from concurrent.futures import Future, ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Protocol, runtime_checkable
+from typing import Dict, List, Mapping, Optional, Protocol, runtime_checkable
 
 from ..utils.logging_config import correlation_scope, get_correlation_id
 from .checkpoint import CheckpointStore
+from .entitlements import task_requires_gpu  # v1.4.0 — GPU/CPU pool routing
 from .metrics import (
     observe_task_duration,
     record_error,
@@ -54,6 +56,69 @@ _POLL_INTERVAL: float = 0.5
 # Upper bound on tasks scanned by crash recovery at startup. Active tasks
 # are bounded by the queue depth in practice; this only caps the SQL scan.
 _RECOVERY_SCAN_LIMIT: int = 100_000
+
+# ── GPU/CPU queue separation (v1.4.0) ──────────────────────
+
+#: Environment variable selecting the pool layout: ``single`` (default,
+#: one executor — the pre-v1.4.0 behaviour) or ``split`` (a CPU pool plus
+#: a small dedicated GPU pool).
+ENV_WORKER_QUEUES = "MN_WORKER_QUEUES"
+
+#: Environment variable sizing the GPU pool in ``split`` mode.
+ENV_GPU_WORKERS = "MN_GPU_WORKERS"
+
+#: Pool-layout modes.
+QUEUE_MODE_SINGLE = "single"
+QUEUE_MODE_SPLIT = "split"
+
+#: Default GPU-pool size.
+_DEFAULT_GPU_WORKERS = 1
+
+
+def worker_queue_mode(env: Optional[Mapping[str, str]] = None) -> str:
+    """Resolve the pool layout from ``MN_WORKER_QUEUES`` (v1.4.0).
+
+    Args:
+        env: Environment mapping (defaults to ``os.environ``).
+
+    Returns:
+        ``"split"`` when the variable says so; ``"single"`` for any other
+        value (unset, empty or unknown — unknown values log a warning).
+    """
+    environ: Mapping[str, str] = os.environ if env is None else env
+    raw = (environ.get(ENV_WORKER_QUEUES) or "").strip().lower()
+    if not raw or raw == QUEUE_MODE_SINGLE:
+        return QUEUE_MODE_SINGLE
+    if raw == QUEUE_MODE_SPLIT:
+        return QUEUE_MODE_SPLIT
+    logger.warning(
+        "Ignoring unknown %s=%r — using the single-pool layout",
+        ENV_WORKER_QUEUES,
+        raw,
+    )
+    return QUEUE_MODE_SINGLE
+
+
+def gpu_worker_count(env: Optional[Mapping[str, str]] = None) -> int:
+    """Resolve the GPU-pool size from ``MN_GPU_WORKERS`` (v1.4.0).
+
+    Returns:
+        The configured size (default 1). Unset/empty, invalid or
+        non-positive values fall back to 1 (with a warning when invalid).
+    """
+    environ: Mapping[str, str] = os.environ if env is None else env
+    raw = (environ.get(ENV_GPU_WORKERS) or "").strip()
+    if not raw:
+        return _DEFAULT_GPU_WORKERS
+    try:
+        value = int(raw)
+    except ValueError:
+        logger.warning("Ignoring invalid %s=%r — using %d GPU worker(s)", ENV_GPU_WORKERS, raw, _DEFAULT_GPU_WORKERS)
+        return _DEFAULT_GPU_WORKERS
+    if value <= 0:
+        logger.warning("Ignoring non-positive %s=%r — using %d GPU worker(s)", ENV_GPU_WORKERS, raw, _DEFAULT_GPU_WORKERS)
+        return _DEFAULT_GPU_WORKERS
+    return value
 
 
 class QueueShutdownError(RuntimeError):
@@ -178,6 +243,10 @@ class LocalTaskQueue:
         storage_dir: Directory for task persistence.
         max_workers: Maximum concurrent task executions.
         auto_start: If True, the executor starts immediately.
+        queue_mode: Pool layout (v1.4.0): ``"single"`` (default) or
+            ``"split"``. None reads ``MN_WORKER_QUEUES``.
+        gpu_max_workers: GPU-pool size in ``split`` mode (default 1).
+            None reads ``MN_GPU_WORKERS``.
     """
 
     def __init__(
@@ -186,9 +255,23 @@ class LocalTaskQueue:
         storage_dir: Optional[Path] = None,
         max_workers: int = 2,
         auto_start: bool = True,
+        queue_mode: Optional[str] = None,
+        gpu_max_workers: Optional[int] = None,
     ) -> None:
         self._storage = TaskStorage(storage_dir)
         self._max_workers = max_workers
+        # v1.4.0: pool layout. ``single`` keeps the pre-v1.4.0 behaviour
+        # (one executor); ``split`` adds a small dedicated GPU pool for
+        # tasks whose plan + encoder hint require it.
+        self._queue_mode = worker_queue_mode() if queue_mode is None else queue_mode.strip().lower()
+        if self._queue_mode not in (QUEUE_MODE_SINGLE, QUEUE_MODE_SPLIT):
+            logger.warning(
+                "Ignoring unknown queue mode %r — using %r", queue_mode, QUEUE_MODE_SINGLE
+            )
+            self._queue_mode = QUEUE_MODE_SINGLE
+        self._gpu_max_workers = (
+            gpu_worker_count() if gpu_max_workers is None else max(int(gpu_max_workers), 1)
+        )
         # v0.9.3: batch aggregates live in a separate JSON file so they
         # never pollute the task index.
         self._batch_storage = JsonModelStore(
@@ -198,6 +281,10 @@ class LocalTaskQueue:
             key_field="batch_id",
         )
         self._executor: Optional[ThreadPoolExecutor] = None
+        # v1.4.0: dedicated GPU pool (None unless split mode is active).
+        self._gpu_executor: Optional[ThreadPoolExecutor] = None
+        # All live executors (CPU first, then GPU) for uniform shutdown.
+        self._executors: List[ThreadPoolExecutor] = []
         self._futures: Dict[str, Future] = {}
         self._controllers: Dict[str, CancelController] = {}
         self._lock = threading.Lock()
@@ -237,6 +324,21 @@ class LocalTaskQueue:
             max_workers=self._max_workers,
             thread_name_prefix="mn-worker",
         )
+        self._executors = [self._executor]
+        # v1.4.0: split mode adds a small dedicated GPU pool so GPU-bound
+        # renders (plan allows GPU + explicit GPU encoder hint) serialize
+        # without blocking CPU work.
+        if self._queue_mode == QUEUE_MODE_SPLIT:
+            self._gpu_executor = ThreadPoolExecutor(
+                max_workers=self._gpu_max_workers,
+                thread_name_prefix="mn-gpu-worker",
+            )
+            self._executors.append(self._gpu_executor)
+            logger.info(
+                "Task queue started in split mode (cpu_workers=%d, gpu_workers=%d)",
+                self._max_workers,
+                self._gpu_max_workers,
+            )
         self._started = True
         # v0.9.2: a restarted queue accepts new submissions again.
         self._shutting_down = False
@@ -271,25 +373,33 @@ class LocalTaskQueue:
         signal completion events). Holding the lock across
         ``executor.shutdown(wait=True)`` deadlocks: the shutdown thread waits
         for workers that are waiting for the lock. See issue #127.
+
+        v1.4.0: in split mode both pools (CPU and GPU) are shut down and
+        drained together — every in-flight future is joined regardless of
+        which pool ran it.
         """
-        executor = None
+        executors: List[ThreadPoolExecutor] = []
         with self._lock:
-            executor = self._executor
+            executors = list(self._executors)
+            self._executors = []
             self._executor = None
+            self._gpu_executor = None
             self._started = False
             self._shutting_down = True
-        if executor is None:
+        if not executors:
             return
 
         if not wait:
             # Abandon immediately: cancel queued work, return right away.
-            executor.shutdown(wait=False, cancel_futures=True)
+            for executor in executors:
+                executor.shutdown(wait=False, cancel_futures=True)
             self._cancel_inflight("queue shutdown (no drain)")
             return
 
         # Graceful drain: no new work, in-flight tasks run to completion
         # (bounded by ``timeout``).
-        executor.shutdown(wait=False, cancel_futures=False)
+        for executor in executors:
+            executor.shutdown(wait=False, cancel_futures=False)
 
         with self._lock:
             futures = list(self._futures.values())
@@ -856,6 +966,21 @@ class LocalTaskQueue:
         return self._shutting_down
 
     @property
+    def queue_mode(self) -> str:
+        """Pool layout: ``"single"`` or ``"split"`` (v1.4.0)."""
+        return self._queue_mode
+
+    @property
+    def gpu_max_workers(self) -> int:
+        """Configured GPU-pool size (used in ``split`` mode only, v1.4.0)."""
+        return self._gpu_max_workers
+
+    @property
+    def gpu_executor(self) -> Optional[ThreadPoolExecutor]:
+        """The dedicated GPU pool, or None (single mode / not started, v1.4.0)."""
+        return self._gpu_executor
+
+    @property
     def checkpoint_store(self) -> CheckpointStore:
         """Per-task checkpoint store (v0.9.2)."""
         return self._checkpoint_store
@@ -883,6 +1008,39 @@ class LocalTaskQueue:
 
     # ── Internal helpers ─────────────────────────────────────
 
+    def _select_executor(self, task: Task) -> ThreadPoolExecutor:
+        """Pick the pool for *task* (v1.4.0 GPU/CPU separation).
+
+        In ``split`` mode, tasks whose plan allows GPU encoding and whose
+        render-encoder hint explicitly selects a GPU backend run on the
+        dedicated GPU pool; everything else (and every task in ``single``
+        mode) runs on the CPU pool.
+        """
+        if self._gpu_executor is not None and task_requires_gpu(task):
+            logger.info(
+                "queue_route",
+                extra={
+                    "event": "queue_route",
+                    "task_id": task.id,
+                    "pool": "gpu",
+                    "plan": task.plan or "default",
+                    "queue_mode": self._queue_mode,
+                },
+            )
+            return self._gpu_executor
+        logger.debug(
+            "queue_route",
+            extra={
+                "event": "queue_route",
+                "task_id": task.id,
+                "pool": "cpu",
+                "plan": task.plan or "default",
+                "queue_mode": self._queue_mode,
+            },
+        )
+        assert self._executor is not None  # start() always precedes enqueue
+        return self._executor
+
     def _enqueue_task(self, task: Task, *, count_active: bool = True) -> None:
         """Register ``task`` with the executor and schedule its worker thread.
 
@@ -905,8 +1063,7 @@ class LocalTaskQueue:
             if count_active:
                 self._active_count += 1
 
-        executor = self._executor
-        assert executor is not None  # start() always precedes enqueue
+        executor = self._select_executor(task)
         future = executor.submit(
             self._run_task_threadsafe,
             task.id,

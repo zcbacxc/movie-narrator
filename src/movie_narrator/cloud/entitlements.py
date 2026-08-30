@@ -363,12 +363,56 @@ def submission_resolution(request: TaskRequest) -> Tuple[int, int]:
     return _DEFAULT_VIDEO_SIZES.get(request.video_format, (1920, 1080))
 
 
+# ── GPU-pool routing (v1.4.0) ──────────────────────────────
+
+
+#: Render-encoder hints that explicitly select a GPU-capable backend.
+#: ``None`` / ``"auto"`` resolve dynamically at render time (possibly to
+#: a GPU codec) but are not *known* GPU requests, so they stay on the
+#: CPU pool; ``"cpu"`` is explicitly software. Mirrors the values
+#: accepted by ``utils.gpu_detect.resolve_encoder``.
+GPU_ENCODER_HINTS = frozenset({"nvenc", "vaapi", "videotoolbox"})
+
+
+def task_requires_gpu(task: Any) -> bool:
+    """Whether *task* must run on the GPU worker pool (v1.4.0).
+
+    A task needs the GPU pool when its **resolved plan** allows GPU
+    encoding (``allow_gpu_encoder=True``) **and** its render-encoder hint
+    (``params.render_encoder``) explicitly selects a GPU backend. This is
+    the same plan/encoder pair the worker enforces — a plan that disallows
+    GPU has its hint forced to ``"cpu"`` at execution time, so such tasks
+    always route to the CPU pool.
+
+    Pure function: reads only the task, never probes the encoder.
+
+    Args:
+        task: A persisted :class:`~movie_narrator.cloud.models.Task` (or
+            any object exposing ``.plan`` and ``.request.params``).
+
+    Returns:
+        True when the task should be routed to the GPU pool.
+    """
+    params = getattr(getattr(task, "request", None), "params", None) or {}
+    hint = str(params.get("render_encoder") or "").strip().lower()
+    if hint not in GPU_ENCODER_HINTS:
+        return False
+    try:
+        plan = resolve_plan(getattr(task, "plan", "") or "default")
+    except KeyError:
+        # Unknown plan: the worker enforces the unlimited default for
+        # already-accepted tasks, so mirror that here (GPU allowed).
+        plan = DEFAULT
+    return plan.allow_gpu_encoder
+
+
 __all__ = [
     "DEFAULT",
     "FREE",
     "PRO",
     "ENV_DEFAULT_PLAN",
     "ENV_PLANS_FILE",
+    "GPU_ENCODER_HINTS",
     "PLAN_HEADER",
     "PLAN_WATERMARK_TEXT",
     "EntitlementError",
@@ -378,4 +422,5 @@ __all__ = [
     "default_plan_name",
     "resolve_plan",
     "submission_resolution",
+    "task_requires_gpu",
 ]
