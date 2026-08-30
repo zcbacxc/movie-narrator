@@ -139,9 +139,11 @@ from movie_narrator.utils.logging_config import configure_logging, JsonFormatter
 
 ## 4. Distributed tracing
 
-Tracing is correlation-ID based — there is **no OpenTelemetry
-integration** (by design: zero new dependencies). The `X-Correlation-ID`
-header ties together, across services:
+### 4.1 Correlation IDs (default)
+
+By default, tracing is correlation-ID based with **zero new
+dependencies**. The `X-Correlation-ID` header ties together, across
+services:
 
 - the API request log,
 - the `/tasks/{id}` log,
@@ -159,6 +161,42 @@ Because the ID propagates from the submitted task into its worker
 thread, a single `correlation_id` string is enough to reconstruct the
 full journey of one job — request, queueing, pipeline steps, and final
 render.
+
+### 4.2 OpenTelemetry spans (v1.4.0, opt-in)
+
+Real span-based tracing (`task → step / provider / subprocess`) is
+available through the optional `[otel]` extra. Nothing changes unless
+you opt in: without the extra installed, or with `MN_TRACING` off (the
+default), every span helper is a zero-overhead no-op.
+
+```bash
+pip install "movie-narrator[otel]"   # opentelemetry-api + opentelemetry-sdk
+export MN_TRACING=1
+export MN_TRACING_EXPORTER=console   # none (default) | console
+```
+
+Span hierarchy (children nest via OpenTelemetry context propagation):
+
+| Span           | Attributes                                                            |
+|----------------|-----------------------------------------------------------------------|
+| `mn.task`      | `mn.task.id`, `mn.task.movie`, `mn.task.tenant`, `mn.task.plan`       |
+| `mn.step`      | `mn.step.name`, `mn.step.attempt`, `mn.step.duration_s`, `mn.step.result`, `mn.step.error_class` |
+| `mn.provider`  | `mn.provider.name`, `mn.provider.kind`, `mn.provider.model`, `mn.provider.cache_hit` |
+| `mn.subprocess`| `mn.subprocess.cmd` (head only), `mn.subprocess.timeout`              |
+
+Exporters:
+
+- `none` (default) — spans are created through a no-exporter SDK
+  provider and dropped on end. Cheap; useful to measure the
+  instrumentation cost before shipping traces anywhere.
+- `console` — the SDK's built-in `ConsoleSpanExporter` prints every
+  finished span to stdout.
+- **OTLP / Jaeger / Zipkin are intentionally not bundled** (they would
+  drag protobuf/grpcio into the dependency tree). Install the exporter
+  package yourself (e.g. `opentelemetry-exporter-otlp`) and register its
+  global tracer provider *before* enabling `MN_TRACING` — the engine
+  detects an already-registered provider and uses it unchanged. See
+  [ADR-014](ADR.md) for the decision record.
 
 ## 5. Dashboards
 

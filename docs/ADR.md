@@ -516,6 +516,48 @@ v1.3.1 turns the engine from a single-user tool into a service surface: operator
 
 ---
 
+## ADR-014: Opt-in OpenTelemetry Tracing
+
+**Status:** Accepted
+**Version:** Recorded at v1.4.0
+
+**Context**
+
+The ROADMAP deferred item "real span-based tracing (task → step/provider/subprocess)" asks for vendor-neutral distributed traces across the pipeline and the cloud service. OpenTelemetry is the industry default, but its SDK (and especially the OTLP exporter) pulls a heavyweight dependency chain (protobuf, grpcio) into a project whose engine deliberately ships with a small dependency surface — and most single-machine users never export a trace.
+
+**Decision Drivers**
+
+- Zero-dependency-when-off: the default installation and the CI gate must be byte-for-byte unaffected; tracing must cost nothing unless explicitly installed and enabled.
+- No pipeline coupling: instrumentation belongs at the runner/worker/provider boundaries via 1–2-line hooks, not inside step implementations.
+- Bounded cardinality: stable, low-cardinality span names (`mn.task`, `mn.step`, `mn.provider`, `mn.subprocess`) with the variable parts as attributes.
+- Vendor neutrality: users must be able to bring their own backend (OTLP, Jaeger, Zipkin) without the engine shipping transport dependencies.
+
+**Considered Options**
+
+- *Always-on tracing with a built-in exporter* (rejected): couples every deployment to the SDK and adds overhead with no opt-out; contradicts the zero-dependency-when-off requirement.
+- *Bundling `opentelemetry-exporter-otlp` in the extra* (rejected): drags protobuf/grpcio into the `[otel]` extra; users who want OTLP install the exporter themselves.
+- *Hand-rolled span/event format with a pluggable sink* (rejected): reinvents context propagation, sampling and the exporter ecosystem; every backend integration would become engine code.
+- *Opt-in `opentelemetry-api` + `opentelemetry-sdk` with guarded imports and no-op fallback* (chosen): `MN_TRACING` gates span creation; without the extra (or with the flag off) every helper is a zero-overhead no-op. `MN_TRACING_EXPORTER=none` (default) creates spans through a no-exporter SDK provider and drops them; `console` uses the SDK's built-in `ConsoleSpanExporter`. A pre-registered global tracer provider (e.g. a user-supplied OTLP pipeline) is detected and used unchanged.
+
+**Decision Outcome**
+
+- `movie_narrator.tracing` exposes four span factories (`start_task_span`, `start_step_span`, `start_provider_span`, `start_subprocess_span`) returning context-manager handles; the factories are part of the public contract (v1.4.0 exports).
+- Wire-up points: the pipeline runner opens one span per step execution; the worker opens the task span (parent of all step spans); `utils/llm.py` and `pipeline/tts.py` open one provider span per LLM call / TTS segment; `utils/process.py` wraps ffmpeg children in a subprocess span (lazy import keeps the module stdlib-only).
+- `pyproject.toml` gains an `[otel]` extra (`opentelemetry-api`/`opentelemetry-sdk` `>=1.20,<2`); CI never installs it and no test requires it (tests inject fake `opentelemetry` modules).
+
+**Consequences**
+
+- Positive: the ROADMAP tracing item is delivered with zero default behaviour change; operators can graduate from correlation-ID grep to real traces without re-instrumentation; the exporter choice stays with the deployment.
+- Negative: spans in `none` mode are created but dropped (a small, measurable cost while enabled); a user registering a global provider must do so *before* enabling `MN_TRACING` (the engine only auto-registers when no global provider exists); version alignment of the optional SDK is bounded by the `<2` pin.
+
+**References**
+
+- `src/movie_narrator/tracing.py`, `src/movie_narrator/pipeline/runner.py`, `src/movie_narrator/cloud/worker.py`, `src/movie_narrator/utils/llm.py`, `src/movie_narrator/pipeline/tts.py`, `src/movie_narrator/utils/process.py`
+- `docs/OBSERVABILITY.md` §4.2 (Distributed tracing)
+- `.env.example` (v1.4.0 variables)
+
+---
+
 ## Decision Index
 
 | # | ADR | Status | Version | Summary |
@@ -533,3 +575,4 @@ v1.3.1 turns the engine from a single-user tool into a service surface: operator
 | ADR-011 | Licensing Red Lines and FFmpeg Bundling Policy | Accepted | v1.1.0 | Red-line list (Remotion/TypeTale code/scrapers/voice cloning); FFmpeg resolved via `ffmpeg_bin()` (imageio-ffmpeg preferred), no binary bundled into a distribution by the project |
 | ADR-012 | Linear-compatible DAG Contract | Accepted | v1.3.0 | Steps declare `inputs`/`outputs`/`depends_on`; `pipeline/dag.py` validates linear compatibility (`topological_order` == linear order); runner stays linear |
 | ADR-013 | Service and Product Semantics — Tenants, Plans, and Webhooks | Accepted | v1.3.1 | Tenant/principal labelling MVP (not isolation); plans enforced at API validation + worker injection (pipeline untouched); webhooks = JSONL delivery log + HMAC signing, redelivery deferred |
+| ADR-014 | Opt-in OpenTelemetry Tracing | Accepted | v1.4.0 | `movie_narrator.tracing` span factories (task → step/provider/subprocess); `[otel]` extra = api+sdk only, OTLP not bundled; `MN_TRACING` off (default) = zero-overhead no-op; pre-registered global providers used unchanged |

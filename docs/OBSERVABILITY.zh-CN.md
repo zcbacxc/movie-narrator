@@ -122,7 +122,9 @@ from movie_narrator.utils.logging_config import configure_logging, JsonFormatter
 
 ## 4. 分布式追踪
 
-追踪基于关联 ID（correlation ID）实现——**不集成 OpenTelemetry**（刻意为之：零新增依赖）。`X-Correlation-ID` 头将以下内容在跨服务间串联起来：
+### 4.1 关联 ID（默认）
+
+默认情况下，追踪基于关联 ID（correlation ID）实现，**零新增依赖**。`X-Correlation-ID` 头将以下内容在跨服务间串联起来：
 
 - API 请求日志，
 - `/tasks/{id}` 日志，
@@ -136,6 +138,31 @@ mn serve --log-format json | jq -c 'select(.correlation_id == "3f2a9c1b")'
 ```
 
 由于 ID 会从提交的任务传播到其工作线程，一个 `correlation_id` 字符串就足以还原某个任务的全部旅程——请求、排队、流水线各步骤以及最终渲染。
+
+### 4.2 OpenTelemetry Span（v1.4.0，可选开启）
+
+基于真实 Span 的追踪（`task → step / provider / subprocess`）通过可选的 `[otel]` extra 提供。不主动开启时一切照旧：未安装该 extra、或 `MN_TRACING` 处于关闭状态（默认）时，所有 Span 辅助函数都是零开销的空操作。
+
+```bash
+pip install "movie-narrator[otel]"   # opentelemetry-api + opentelemetry-sdk
+export MN_TRACING=1
+export MN_TRACING_EXPORTER=console   # none（默认）| console
+```
+
+Span 层级（子 Span 通过 OpenTelemetry 上下文传播自动嵌套）：
+
+| Span           | 属性                                                                  |
+|----------------|-----------------------------------------------------------------------|
+| `mn.task`      | `mn.task.id`、`mn.task.movie`、`mn.task.tenant`、`mn.task.plan`       |
+| `mn.step`      | `mn.step.name`、`mn.step.attempt`、`mn.step.duration_s`、`mn.step.result`、`mn.step.error_class` |
+| `mn.provider`  | `mn.provider.name`、`mn.provider.kind`、`mn.provider.model`、`mn.provider.cache_hit` |
+| `mn.subprocess`| `mn.subprocess.cmd`（仅头部）、`mn.subprocess.timeout`                |
+
+导出器：
+
+- `none`（默认）——Span 通过无导出器的 SDK Provider 创建，结束即丢弃。开销极小，可用于在把追踪数据发往任何后端之前度量插桩成本。
+- `console`——SDK 内置的 `ConsoleSpanExporter` 将每个完成的 Span 打印到 stdout。
+- **刻意不捆绑 OTLP / Jaeger / Zipkin**（否则会把 protobuf/grpcio 拖入依赖树）。请自行安装导出器包（如 `opentelemetry-exporter-otlp`）并在启用 `MN_TRACING` *之前*注册其全局 Tracer Provider——引擎检测到已注册的 Provider 时会原样使用。决策记录见 [ADR-014](ADR.md)。
 
 ## 5. 仪表盘
 

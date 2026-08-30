@@ -516,6 +516,48 @@ v1.3.1 将引擎从单用户工具推进为服务化接口：运营方需要审�
 
 ---
 
+## ADR-014：可选开启的 OpenTelemetry 追踪
+
+**状态：** Accepted
+**版本：** 于 v1.4.0 记录
+
+**背景**
+
+ROADMAP 中的预留项“基于真实 Span 的追踪（task → step/provider/subprocess）”要求为管线与云服务提供厂商中立的分布式追踪。OpenTelemetry 是行业默认选择，但其 SDK（尤其是 OTLP 导出器）会拖入重量级依赖链（protobuf、grpcio），而本项目的引擎刻意保持极小的依赖面——况且大多数单机用户从不导出追踪数据。
+
+**决策驱动因素**
+
+- 关闭即零依赖：默认安装与 CI 门槛必须逐字节不受影响；未显式安装并启用时，追踪的开销必须是零。
+- 管线不耦合：插桩属于运行器/工作线程/提供者边界的 1–2 行钩子，而不是侵入各步骤实现内部。
+- 基数有界：稳定、低基数的 Span 名称（`mn.task`、`mn.step`、`mn.provider`、`mn.subprocess`），可变部分作为属性携带。
+- 厂商中立：用户必须能自带后端（OTLP、Jaeger、Zipkin），而引擎无需捆绑传输层依赖。
+
+**备选方案**
+
+- *始终开启并内置导出器*（否决）：将所有部署与 SDK 绑定，在没有退出开关的情况下增加开销；与“关闭即零依赖”的要求矛盾。
+- *在 extra 中捆绑 `opentelemetry-exporter-otlp`*（否决）：会把 protobuf/grpcio 拖进 `[otel]` extra；需要 OTLP 的用户可自行安装导出器。
+- *自研 Span/事件格式 + 可插拔接收端*（否决）：重复造上下文传播、采样与导出器生态的轮子；每个后端集成都会变成引擎代码。
+- *可选开启的 `opentelemetry-api` + `opentelemetry-sdk`，导入受保护、缺省空操作*（选定）：`MN_TRACING` 控制 Span 创建；未安装 extra（或开关关闭）时所有辅助函数都是零开销空操作。`MN_TRACING_EXPORTER=none`（默认）通过无导出器的 SDK Provider 创建 Span 并在结束时丢弃；`console` 使用 SDK 内置的 `ConsoleSpanExporter`。若检测到已注册的全局 Tracer Provider（例如用户自备的 OTLP 管道），引擎原样使用、不做覆盖。
+
+**决策结果**
+
+- `movie_narrator.tracing` 暴露四个 Span 工厂（`start_task_span`、`start_step_span`、`start_provider_span`、`start_subprocess_span`），返回上下文管理器句柄；这些工厂属于公开契约（v1.4.0 导出）。
+- 挂接点：管线运行器为每步执行打开一个 Span；工作线程打开任务 Span（所有步骤 Span 的父级）；`utils/llm.py` 与 `pipeline/tts.py` 为每次 LLM 调用 / 每段 TTS 打开一个提供者 Span；`utils/process.py` 为 ffmpeg 子进程包裹子进程 Span（惰性导入使该模块保持纯标准库）。
+- `pyproject.toml` 新增 `[otel]` extra（`opentelemetry-api`/`opentelemetry-sdk` `>=1.20,<2`）；CI 永不安装它，任何测试都不依赖真实包（测试注入伪造的 `opentelemetry` 模块）。
+
+**后果**
+
+- 正面：ROADMAP 追踪项以零默认行为变更落地；运维可从关联 ID 检索平滑升级到真实追踪而无需重新插桩；导出器的选择权留给部署方。
+- 负面：`none` 模式下 Span 会被创建后丢弃（启用期间存在小的可度量开销）；用户注册全局 Provider 必须*先于*启用 `MN_TRACING`（引擎仅在无全局 Provider 时自动注册）；可选 SDK 的版本对齐受 `<2` 约束。
+
+**参考资料**
+
+- `src/movie_narrator/tracing.py`、`src/movie_narrator/pipeline/runner.py`、`src/movie_narrator/cloud/worker.py`、`src/movie_narrator/utils/llm.py`、`src/movie_narrator/pipeline/tts.py`、`src/movie_narrator/utils/process.py`
+- `docs/OBSERVABILITY.zh-CN.md` §4.2（分布式追踪）
+- `.env.example`（v1.4.0 变量）
+
+---
+
 ## Decision Index
 
 | # | ADR | 状态 | 版本 | 摘要 |
@@ -533,3 +575,4 @@ v1.3.1 将引擎从单用户工具推进为服务化接口：运营方需要审�
 | ADR-011 | 许可禁区与 FFmpeg 捆绑策略 | Accepted | v1.1.0 | 禁区清单（Remotion/TypeTale 代码/爬虫/声音克隆）；FFmpeg 经 `ffmpeg_bin()` 解析（优先 imageio-ffmpeg），项目自身不将二进制打包进发行物 |
 | ADR-012 | 线性兼容的 DAG 契约 | Accepted | v1.3.0 | 步骤声明 `inputs`/`outputs`/`depends_on`；`pipeline/dag.py` 验证线性兼容（`topological_order` == 线性顺序）；运行器保持线性 |
 | ADR-013 | 服务与产品语义——租户、套餐与 Webhook | Accepted | v1.3.1 | 租户/主体打标 MVP（非隔离）；套餐在 API 校验 + worker 注入两点执行（管线不动）；Webhook = JSONL 投递日志 + HMAC 签名，重发推迟 |
+| ADR-014 | 可选开启的 OpenTelemetry 追踪 | Accepted | v1.4.0 | `movie_narrator.tracing` Span 工厂（task → step/provider/subprocess）；`[otel]` extra 仅含 api+sdk，不捆绑 OTLP；`MN_TRACING` 关闭（默认）即零开销空操作；已注册的全局 Provider 原样使用 |
