@@ -116,14 +116,108 @@ _BUILTIN_STEP_META = {
     ),
 }
 
+# ── Built-in step I/O contract (v1.3.0 linear-compatible DAG) ──
+# Coarse declarations consumed by pipeline/dag.py. Names are Context
+# attributes or ``ctx.metadata`` keys each step reads/writes (convention
+# documented in dag.py). ``depends_on`` lists the upstream steps whose
+# outputs the step reads — direct data dependencies only, all of which
+# point backwards in the linear order (that is what keeps the graph
+# linear-compatible). Advisory: the runner does not enforce them.
+_BUILTIN_STEP_IO: Dict[str, Dict[str, tuple[str, ...]]] = {
+    "resolve_video": {
+        "inputs": (),
+        "outputs": ("source_video_path",),
+        "depends_on": (),
+    },
+    "prepare_assets": {
+        "inputs": ("assets",),
+        "outputs": ("assets",),
+        "depends_on": (),
+    },
+    "research_plot": {
+        "inputs": ("movie_name",),
+        "outputs": ("research", "movie_card"),
+        "depends_on": (),
+    },
+    "generate_script": {
+        "inputs": ("research", "movie_card"),
+        "outputs": ("segments", "script_source", "beats_meta", "script_qa"),
+        "depends_on": ("research_plot",),
+    },
+    "export_script_md": {
+        "inputs": ("segments",),
+        "outputs": ("script_md_path",),
+        "depends_on": ("generate_script",),
+    },
+    "generate_voice": {
+        "inputs": ("segments",),
+        "outputs": ("audio_path", "timed_segments", "duration_metrics"),
+        "depends_on": ("generate_script",),
+    },
+    "align_audio": {
+        "inputs": ("audio_path", "timed_segments"),
+        "outputs": ("timed_segments", "alignment_qa"),
+        "depends_on": ("generate_voice",),
+    },
+    "detect_scenes": {
+        "inputs": ("source_video_path",),
+        "outputs": ("scenes",),
+        "depends_on": ("resolve_video",),
+    },
+    "match_clips": {
+        "inputs": ("timed_segments", "scenes", "source_video_path"),
+        "outputs": ("matched_clips", "match_summary"),
+        "depends_on": ("align_audio", "detect_scenes"),
+    },
+    "mix_bgm": {
+        "inputs": ("audio_path", "assets"),
+        "outputs": ("final_audio_path", "bgm_transitions"),
+        "depends_on": ("generate_voice", "prepare_assets"),
+    },
+    "translate_subtitles": {
+        "inputs": ("timed_segments", "subtitle_lang"),
+        "outputs": ("translated_texts",),
+        "depends_on": ("align_audio",),
+    },
+    "generate_subtitle": {
+        "inputs": ("timed_segments", "translated_texts"),
+        "outputs": ("subtitle_path", "subtitle_paths", "render_subtitle_path"),
+        "depends_on": ("align_audio", "translate_subtitles"),
+    },
+    "run_qa_gate": {
+        "inputs": ("script_qa", "audio_quality", "subtitle_qa", "alignment_qa"),
+        "outputs": ("qa_gate",),
+        "depends_on": ("generate_script", "generate_voice", "align_audio", "generate_subtitle"),
+    },
+    "render_video": {
+        "inputs": ("matched_clips", "timed_segments", "final_audio_path", "render_subtitle_path"),
+        "outputs": ("video_path",),
+        "depends_on": ("match_clips", "mix_bgm", "generate_subtitle"),
+    },
+    "validate_deliverable": {
+        "inputs": ("video_path",),
+        "outputs": ("qa_report", "video_qa", "quality_dashboard"),
+        "depends_on": ("render_video",),
+    },
+    "export_clips": {
+        "inputs": ("scenes", "matched_clips", "source_video_path"),
+        "outputs": ("clips_dir",),
+        "depends_on": ("detect_scenes", "match_clips"),
+    },
+}
+
 for _name, (_func, _soft, _field, _consequence) in _BUILTIN_STEP_META.items():
     if not step_registry.contains(_name):
+        _io = _BUILTIN_STEP_IO.get(_name, {})
         step_registry.register(
             _name,
             _func,
             soft=_soft,
             status_field=_field,
             consequence=_consequence,
+            inputs=_io.get("inputs", ()),
+            outputs=_io.get("outputs", ()),
+            depends_on=_io.get("depends_on", ()),
         )
 
 # ── Derived constants (backward-compatible with existing code) ──

@@ -23,6 +23,9 @@ The registry tracks:
 - **soft**: whether exceptions are caught (True) or re-raised (False)
 - **status_field**: the ``PipelineStatus`` field name for soft steps
 - **consequence**: human-readable degradation message for soft steps
+- **inputs** / **outputs** / **depends_on**: optional coarse I/O and
+  dependency declarations for the v1.3.0 linear-compatible DAG contract
+  (advisory — see ``pipeline/dag.py``)
 - **insert_after** / **insert_before**: ordering hints for plugin steps
 
 Ordering rules:
@@ -54,6 +57,14 @@ class StepEntry:
     soft: bool = False
     status_field: Optional[str] = None
     consequence: str = ""
+    # v1.3.0: Linear-compatible DAG contract. Coarse I/O / dependency
+    # declarations — names are Context attributes or ``ctx.metadata`` keys
+    # (convention documented in ``pipeline/dag.py``). All optional; the
+    # runner does not enforce them (advisory, for validation and future
+    # parallel scheduling).
+    inputs: tuple[str, ...] = ()
+    outputs: tuple[str, ...] = ()
+    depends_on: tuple[str, ...] = ()
     # Ordering: built-in steps use seq; plugin steps use after/before.
     seq: int = -1  # -1 means "unsequenced" (plugin step)
     insert_after: Optional[str] = None
@@ -82,6 +93,9 @@ class StepRegistry:
         soft: bool = False,
         status_field: Optional[str] = None,
         consequence: str = "",
+        inputs: tuple[str, ...] = (),
+        outputs: tuple[str, ...] = (),
+        depends_on: tuple[str, ...] = (),
         after: Optional[str] = None,
         before: Optional[str] = None,
     ) -> StepFunc:
@@ -96,6 +110,13 @@ class StepRegistry:
                 name to set on failure/skip.
             consequence: Human-readable message shown when the soft
                 step degrades.
+            inputs: Coarse declared input names (Context attributes or
+                ``ctx.metadata`` keys the step reads). Advisory.
+            outputs: Coarse declared output names (Context attributes or
+                ``ctx.metadata`` keys the step writes). Advisory.
+            depends_on: Declared upstream step names whose outputs this
+                step reads. Advisory — validated by
+                :func:`movie_narrator.pipeline.dag.validate_linear_order`.
             after: Insert this step immediately after the named step
                 (for plugin steps only).
             before: Insert this step immediately before the named step
@@ -120,6 +141,9 @@ class StepRegistry:
             soft=soft,
             status_field=status_field,
             consequence=consequence,
+            inputs=tuple(inputs),
+            outputs=tuple(outputs),
+            depends_on=tuple(depends_on),
             seq=seq,
             insert_after=after,
             insert_before=before,
@@ -295,6 +319,9 @@ class StepRegistry:
                 "seq": e.seq,
                 "insert_after": e.insert_after,
                 "insert_before": e.insert_before,
+                "inputs": list(e.inputs),
+                "outputs": list(e.outputs),
+                "depends_on": list(e.depends_on),
             }
             for e in self._entries.values()
         ]
@@ -319,6 +346,9 @@ def register_step(
     soft: bool = False,
     status_field: Optional[str] = None,
     consequence: str = "",
+    inputs: tuple[str, ...] = (),
+    outputs: tuple[str, ...] = (),
+    depends_on: tuple[str, ...] = (),
     after: Optional[str] = None,
     before: Optional[str] = None,
 ) -> Callable[[StepFunc], StepFunc]:
@@ -347,6 +377,9 @@ def register_step(
             soft=soft,
             status_field=status_field,
             consequence=consequence,
+            inputs=inputs,
+            outputs=outputs,
+            depends_on=depends_on,
             after=after,
             before=before,
         )

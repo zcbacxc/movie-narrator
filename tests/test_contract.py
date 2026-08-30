@@ -145,6 +145,11 @@ class TestAllCompleteness:
             "Step",
             "list_presets",
             "get_preset",
+            # v1.3.0 — Linear-compatible DAG contract
+            "StepSpec",
+            "build_step_graph",
+            "validate_linear_order",
+            "topological_order",
         }
         assert expected.issubset(set(contract.__all__))
 
@@ -362,3 +367,24 @@ class TestSDKSymbolExports:
     def test_get_preset_callable(self):
         """get_preset is callable from contract."""
         assert callable(contract.get_preset)
+
+
+# ── v1.3.0 contract exports (append-only section) ─────────
+
+
+class TestV130ContractExports:
+    """v1.3.0 symbols are importable from the contract module."""
+
+    def test_dag_symbols_identity(self):
+        from movie_narrator.pipeline.dag import (
+            build_step_graph as _build_step_graph,
+            topological_order as _topological_order,
+            validate_linear_order as _validate_linear_order,
+        )
+        from movie_narrator.pipeline.registry import StepRegistry as _StepRegistry
+
+        assert contract.build_step_graph is _build_step_graph
+        assert contract.validate_linear_order is _validate_linear_order
+        assert contract.topological_order is _topological_order
+        assert contract.StepSpec.__name__ == "StepSpec"
+        assert contract.StepRegistry is _StepRegistry

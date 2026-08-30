@@ -407,6 +407,13 @@ __all__ = [
     "DistributedRenderPlanner",
     "DistributedRenderError",
     "render_task_dispatcher",
+    # Linear-compatible DAG contract (v1.3.0)
+    # The runner still executes linearly; these exports expose the step
+    # I/O + dependency declarations for validation and future scheduling.
+    "StepSpec",
+    "build_step_graph",
+    "validate_linear_order",
+    "topological_order",
 ]
 
 
@@ -531,4 +538,17 @@ from .cloud import (  # noqa: E402
     NodeRegistry,
     render_task_dispatcher,
     replay_dead_letter,
+)
+
+# ── Linear-compatible DAG contract (v1.3.0) ────────────────
+# New exports, backward compatible. The pipeline runner still executes
+# steps linearly (flat for-loop); these symbols expose the coarse step
+# I/O + dependency declarations (StepRegistry inputs/outputs/depends_on)
+# so external consumers can validate linear compatibility and prepare
+# for future parallel scheduling. Nothing parallel runs today.
+from .pipeline.dag import (  # noqa: E402
+    StepSpec,
+    build_step_graph,
+    topological_order,
+    validate_linear_order,
 )
