@@ -652,6 +652,39 @@ The render emitted an unlabeled 8-bit `yuv420p` stream regardless of intent — 
 - Negative: true HDR mastering (tone mapping, SEI metadata) is explicitly out of scope; 10-bit encode is CPU-bound; players ignoring HDR tags show washed-out colors.
 
 **References:** `src/movie_narrator/pipeline/render.py`, `src/movie_narrator/workflow/schema.py`, `src/movie_narrator/utils/video_qa.py`; `docs/METADATA_SCHEMA.md` (render_pixel), `docs/BEST_PRACTICES.md` (4K & 10-bit Rendering), `examples/job.example.yaml`
+## ADR-018: Community Presets as Validated Data, not Code
+
+**Status:** Accepted
+**Version:** Recorded at v1.5.1
+
+**Context**
+
+With the preset style layer stable, ROADMAP unblocks sharing narration presets across installs. Installed presets may arrive from URLs and other authors, so they must never become an arbitrary-code execution vector.
+
+**Decision Drivers**
+
+- `mn presets install <url>` must never execute attacker-controlled code.
+- Presets need the expressive range of whitelisted job parameters.
+- Validation must reuse the existing single-source whitelists — no drift.
+
+**Considered Options**
+
+- *Executable preset packages* (rejected): runs code from untrusted sources; a sandbox would be a permanent liability.
+- *Signed-only installs* (rejected): no PKI/trust infra to bootstrap; blocks ad-hoc sharing.
+- *YAML data validated against the job-param whitelist* (chosen): data-only; reuses `workflow/load.py` (`_ALLOWED_TOP` + `JobConfig`); hash-recorded.
+
+**Decision Outcome**
+
+- `presets/community.py`: install/list/uninstall/load; storage `~/.movie-narrator/presets/<name>.yaml` + `registry.json` (source, sha256, metadata). https-only (256 KiB cap, 15 s timeout); the YAML's `preset.name` is the registry key; files re-validated on every load; `get_preset` resolves community presets only when no built-in matches.
+
+**Consequences**
+
+- Positive: the whitelist-reuse security argument — a community preset can only tune keys `job.yaml` already governs, so install-time validation can never drift from execution reality; zero-trust installs without signing infrastructure.
+- Negative: presets cannot ship code or arbitrary prompt tags (tags stay built-in-only); custom behaviour must fit whitelisted keys.
+
+**References**
+
+- `src/movie_narrator/presets/community.py`, `src/movie_narrator/workflow/load.py`, `docs/TUTORIAL.md` (Community presets)
 
 ---
 
@@ -676,3 +709,4 @@ The render emitted an unlabeled 8-bit `yuv420p` stream regardless of intent — 
 | ADR-015 | Subtitle Delivery Modes & the Output Stability Promise | Accepted | v1.4.1 | `subtitle_delivery` burned/sidecar/muxed with muxed→burned degradation (soft mov_text track, never fails render); narrow STABILITY promise on manifest schema v1 + default deliverable set |
 | ADR-016 | Premiere via FCP7 XML Interchange | Accepted | v1.4.2 | `timeline_export` plugin gains a `premiere` backend: stdlib FCP7 XML (`xmeml`) writer, Premiere imports natively; whitelist-only core change |
 | ADR-017 | HDR/4K Pipeline: 10-bit + Color Metadata, CPU-only Encode | Accepted | v1.5.0 | `render_bit_depth` 8/10 + `render_color_space` sdr/hdr10: `yuv420p10le` / libx264 high10 (CPU-only, `10bit_gpu_unsupported` fallback), explicit bt709 / bt2020+smpte2084 mux tags, `render_pixel` metadata; video QA cross-checks pix_fmt / transfer and 4K-class exact size |
+| ADR-018 | Community Presets as Validated Data, not Code | Accepted | v1.5.1 | `mn presets install` stores whitelisted YAML data (no code execution, ever), reusing the `job.yaml` whitelist + schema for validation; sha256-registered, re-validated on load; built-ins win |

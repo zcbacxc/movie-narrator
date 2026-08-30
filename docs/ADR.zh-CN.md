@@ -652,6 +652,39 @@ ROADMAP 长期项要求在 OTIO + 剪映之外扩展时间线适配器；目标�
 - 负面：真正的 HDR 母版（色调映射、SEI 元数据）明确不在范围内；10-bit 编码受限于 CPU；忽略 HDR 标签的播放器会显示发灰的颜色。
 
 **参考资料：** `src/movie_narrator/pipeline/render.py`、`src/movie_narrator/workflow/schema.py`、`src/movie_narrator/utils/video_qa.py`；`docs/METADATA_SCHEMA.zh-CN.md`（render_pixel）、`docs/BEST_PRACTICES.zh-CN.md`（4K 与 10-bit 渲染）、`examples/job.example.yaml`
+## ADR-018: 社区预设是经过校验的数据，而非代码
+
+**状态:** 已接受
+**版本:** 记录于 v1.5.1
+
+**背景**
+
+预设样式层稳定之后，ROADMAP 解除了跨安装共享解说预设的限制。已安装的预设可能来自 URL 和其他作者，因此绝不能成为任意代码执行的攻击面。
+
+**决策驱动因素**
+
+- `mn presets install <url>` 绝不能执行不受信任的代码。
+- 预设需要覆盖白名单内作业参数的全部表达能力。
+- 校验必须复用现有的单一来源白名单——避免漂移。
+
+**备选方案**
+
+- *可执行的预设包*（否决）：运行不受信任来源的代码；沙箱将成为永久的负担。
+- *仅允许签名安装*（否决）：没有可用的 PKI/信任基础设施；阻碍了即时分享。
+- *按作业参数白名单校验的 YAML 数据*（选定）：纯数据；复用 `workflow/load.py`（`_ALLOWED_TOP` + `JobConfig`）；记录哈希值。
+
+**决策结果**
+
+- `presets/community.py`：install/list/uninstall/load；存储于 `~/.movie-narrator/presets/<name>.yaml` + `registry.json`（来源、sha256、元数据）。仅允许 https（256 KiB 上限、15 秒超时）；YAML 的 `preset.name` 作为注册表键；文件在每次加载时重新校验；`get_preset` 仅在没有内置预设匹配时解析社区预设。
+
+**后果**
+
+- 正面：白名单复用的安全论证——社区预设只能调优 `job.yaml` 已经约束的键，因此安装期校验永远不会与执行现实漂移；无需签名基础设施即可实现零信任安装。
+- 负面：预设无法携带代码或任意 prompt 标签（标签仍仅限内置）；自定义行为必须落在白名单键之内。
+
+**参考资料**
+
+- `src/movie_narrator/presets/community.py`、`src/movie_narrator/workflow/load.py`、`docs/TUTORIAL.zh-CN.md`（社区预设一节）
 
 ---
 
@@ -676,3 +709,4 @@ ROADMAP 长期项要求在 OTIO + 剪映之外扩展时间线适配器；目标�
 | ADR-015 | 字幕交付模式与输出稳定性承诺 | Accepted | v1.4.1 | `subtitle_delivery` burned/sidecar/muxed，muxed→burned 降级（软字幕 mov_text 轨道，绝不导致渲染失败）；STABILITY 新增窄范围承诺（清单 schema v1 + 默认交付物集合） |
 | ADR-016 | 通过 FCP7 XML 交换格式对接 Premiere | Accepted | v1.4.2 | `timeline_export` 插件新增 `premiere` 后端：标准库 FCP7 XML（`xmeml`）写入器，Premiere 原生导入；核心仅白名单变更 |
 | ADR-017 | HDR/4K 管线：10-bit + 色彩元数据、仅 CPU 编码 | Accepted | v1.5.0 | `render_bit_depth` 8/10 + `render_color_space` sdr/hdr10：`yuv420p10le` / libx264 high10（仅 CPU，`10bit_gpu_unsupported` 回退），显式 bt709 / bt2020+smpte2084 混流标签，`render_pixel` 元数据；视频 QA 交叉校验 pix_fmt / 传递函数与 4K 级精确尺寸 |
+| ADR-018 | 社区预设是经过校验的数据，而非代码 | Accepted | v1.5.1 | `mn presets install` 存储白名单内的 YAML 数据（绝不执行代码），复用 `job.yaml` 白名单 + schema 进行校验；记录 sha256，加载时重新校验；内置优先 |
