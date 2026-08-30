@@ -80,6 +80,36 @@ def _env_int(env: Mapping[str, str], name: str, default: int) -> int:
     return value
 
 
+def effective_ttl_seconds(
+    plan_ttl_hours: Optional[float],
+    policy_ttl_seconds: int,
+) -> int:
+    """Combine a plan's artifact TTL with the lifecycle policy TTL (v1.4.0).
+
+    The plan narrows the policy: the effective TTL is ``min`` of the two
+    finite values. A missing/zero plan TTL ("keep per policy") or a zero
+    policy TTL ("keep forever") means that layer imposes no limit.
+
+    Args:
+        plan_ttl_hours: The plan's ``artifact_ttl_hours`` (None = no
+            plan-driven TTL).
+        policy_ttl_seconds: The lifecycle policy TTL in seconds
+            (0 = disabled / keep forever).
+
+    Returns:
+        The effective TTL in seconds (0 = no expiry from either layer).
+    """
+    plan_seconds: Optional[float] = None
+    if plan_ttl_hours is not None and float(plan_ttl_hours) > 0:
+        plan_seconds = float(plan_ttl_hours) * 3600.0
+    policy_seconds = max(int(policy_ttl_seconds or 0), 0)
+    if plan_seconds is None:
+        return policy_seconds
+    if policy_seconds <= 0:
+        return int(plan_seconds)
+    return int(min(plan_seconds, float(policy_seconds)))
+
+
 @dataclass
 class ArtifactLifecyclePolicy:
     """Retention rules for stored artifacts.
@@ -232,13 +262,20 @@ def cleanup_artifacts(
     prefix: str = "",
     protected_keys: Optional[Iterable[str]] = None,
     is_protected: Optional[ProtectionPredicate] = None,
+    ttl_for: Optional[Callable[[ArtifactInfo], int]] = None,
 ) -> CleanupReport:
     """Apply *policy* to the artifacts in *store*.
 
     The passes run in this order:
 
-    1. **TTL** — every artifact whose age is ``>= policy.ttl_seconds``
-       is deleted (skipped when ``ttl_seconds == 0``).
+    1. **TTL** — every artifact whose age is ``>= ttl`` is deleted
+       (skipped when the effective TTL is 0). The effective TTL is
+       ``policy.ttl_seconds`` for every artifact unless *ttl_for* is
+       supplied (v1.4.0): a callable returning the per-artifact TTL in
+       seconds (0 = no expiry), used e.g. to narrow the policy with a
+       task plan's ``artifact_ttl_hours``. A resolver failure falls back
+       to the policy TTL so one bad callback cannot exempt or delete
+       everything.
     2. **Size cap** — while the surviving artifacts exceed
        ``policy.max_total_bytes``, the oldest is evicted.
 
@@ -256,6 +293,8 @@ def cleanup_artifacts(
             simple way for a caller to guard in-flight work.
         is_protected: Predicate for the same purpose, evaluated per
             artifact (e.g. :func:`make_task_protection`).
+        ttl_for: Optional per-artifact TTL override in seconds
+            (v1.4.0). None keeps the uniform ``policy.ttl_seconds``.
 
     Returns:
         A :class:`CleanupReport`. Deletion failures are collected in
@@ -288,6 +327,16 @@ def cleanup_artifacts(
             return True
         return bool(is_protected and is_protected(info))
 
+    def _effective_ttl(info: ArtifactInfo) -> int:
+        """Per-artifact TTL: the resolver's verdict, or the policy's."""
+        if ttl_for is None:
+            return policy.ttl_seconds
+        try:
+            return max(int(ttl_for(info)), 0)
+        except Exception as exc:  # noqa: BLE001 — a bad resolver must not skew the sweep
+            logger.debug("ttl_for(%r) failed (%s) — using policy TTL", info.key, exc)
+            return policy.ttl_seconds
+
     def _remove(info: ArtifactInfo) -> bool:
         """Delete *info* honouring dry-run; returns True on success."""
         if policy.dry_run:
@@ -308,7 +357,8 @@ def cleanup_artifacts(
 
     # ── Pass 1: TTL expiry ─────────────────────────────────
     for info in artifacts:
-        expired = policy.ttl_seconds > 0 and (current - info.modified_at) >= policy.ttl_seconds
+        ttl = _effective_ttl(info)
+        expired = ttl > 0 and (current - info.modified_at) >= ttl
         if not expired:
             survivors.append(info)
             continue
@@ -356,6 +406,9 @@ class ArtifactSweeper:
             currently in flight; their artifacts are preserved.
         prefix: Restrict sweeping to keys under this prefix.
         name: Thread name.
+        ttl_for: Optional per-artifact TTL override in seconds
+            (v1.4.0) — e.g. a resolver that narrows the policy with the
+            owning task's plan ``artifact_ttl_hours``.
     """
 
     def __init__(
@@ -367,6 +420,7 @@ class ArtifactSweeper:
         protected_ids: Optional[Callable[[], Iterable[str]]] = None,
         prefix: str = "",
         name: str = "mn-artifact-sweeper",
+        ttl_for: Optional[Callable[[ArtifactInfo], int]] = None,
     ) -> None:
         self._store = store
         self._policy = policy
@@ -374,6 +428,7 @@ class ArtifactSweeper:
         self._protected_ids = protected_ids
         self._prefix = prefix
         self._name = name
+        self._ttl_for = ttl_for
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
         self._last_report: Optional[CleanupReport] = None
@@ -434,6 +489,7 @@ class ArtifactSweeper:
                 self._policy,
                 prefix=self._prefix,
                 is_protected=protection,
+                ttl_for=self._ttl_for,
             )
         except Exception as exc:  # noqa: BLE001 - housekeeping must never crash the server
             logger.warning("Artifact sweep failed: %s", exc)
@@ -483,6 +539,7 @@ __all__ = [
     "ProtectionPredicate",
     "cleanup_artifacts",
     "describe_policy",
+    "effective_ttl_seconds",
     "format_bytes",
     "make_task_protection",
     "sweep_interval_from_env",

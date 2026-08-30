@@ -328,13 +328,20 @@ def _plan_enforced_params(
     return params, policy
 
 
-def _merge_plan_into_metadata(output_dir: Path, plan_name: str) -> None:
+def _merge_plan_into_metadata(
+    output_dir: Path,
+    plan_name: str,
+    retention: Optional[Dict[str, Any]] = None,
+) -> None:
     """Best-effort: record the enforcing plan in the run's ``metadata.json``.
 
     ``metadata.json`` is assembled by the render step from a fixed schema
     (it does not wholesale-merge ``ctx.metadata``), so the worker adds the
     ``plan`` key after a successful run. Missing file / parse errors are
     logged at debug and never affect the task outcome.
+
+    v1.4.0: *retention* (the plan-driven ``artifact_retention`` block) is
+    recorded alongside the plan when supplied.
     """
     path = Path(output_dir) / "metadata.json"
     try:
@@ -344,11 +351,54 @@ def _merge_plan_into_metadata(output_dir: Path, plan_name: str) -> None:
         if not isinstance(data, dict) or "plan" in data:
             return
         data["plan"] = plan_name
+        if retention is not None:
+            data["artifact_retention"] = retention
         path.write_text(
             json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
         )
     except (OSError, json.JSONDecodeError) as e:
         logger.debug("Could not record plan in metadata.json: %s", e)
+
+
+def _plan_artifact_retention(task: Task, plan: Plan) -> Optional[Dict[str, Any]]:
+    """Effective artifact retention for *task* under *plan* (v1.4.0, Feature 4).
+
+    Wires the recorded-but-previously-unused ``Plan.artifact_ttl_hours``
+    into the lifecycle: the plan narrows the ``MN_ARTIFACT_*`` policy
+    TTL (``min(plan, policy)``; a disabled policy layer counts as
+    unlimited). Plans without a TTL (``default``) return None — zero
+    behaviour change.
+
+    Returns:
+        A small dict describing the decision (also stored on the run's
+        metadata as ``artifact_retention``), or None when the plan has
+        no artifact TTL.
+    """
+    if plan.artifact_ttl_hours is None:
+        return None
+    from .lifecycle import ArtifactLifecyclePolicy, effective_ttl_seconds
+
+    policy_ttl = ArtifactLifecyclePolicy.from_env().ttl_seconds
+    effective = effective_ttl_seconds(plan.artifact_ttl_hours, policy_ttl)
+    plan_seconds = float(plan.artifact_ttl_hours) * 3600.0
+    narrowed = policy_ttl <= 0 or plan_seconds < float(policy_ttl)
+    if narrowed:
+        logger.info(
+            "artifact_ttl_narrowed",
+            extra={
+                "event": "artifact_ttl_narrowed",
+                "task_id": task.id,
+                "plan": plan.name,
+                "plan_ttl_hours": plan.artifact_ttl_hours,
+                "policy_ttl_seconds": policy_ttl,
+                "effective_ttl_seconds": effective,
+            },
+        )
+    return {
+        "plan_ttl_hours": plan.artifact_ttl_hours,
+        "policy_ttl_seconds": policy_ttl,
+        "effective_ttl_seconds": effective,
+    }
 
 
 def _is_retryable_error(exc: Exception) -> bool:
@@ -632,6 +682,13 @@ def _execute_task(
     plan_metadata["plan"] = plan.name
     plan_metadata["plan_policy"] = dict(plan_policy)
 
+    # v1.4.0 (Feature 4): plan-driven artifact retention — the plan's
+    # artifact_ttl_hours narrows the lifecycle policy TTL and is recorded
+    # on the run's artifact metadata (TaskResult.metadata / metadata.json).
+    retention = _plan_artifact_retention(task, plan)
+    if retention is not None:
+        plan_metadata["artifact_retention"] = retention
+
     # v0.9.2: checkpoint hook — snapshot the context after each completed
     # step. The closure reads the current ``ctx`` (steps mutate it in
     # place per the shared-mutable-Context design), so the checkpoint
@@ -730,8 +787,10 @@ def _execute_task(
 
     # v1.3.1 (Feature 5): record the enforcing plan in metadata.json once
     # the run finished (the render step owns the file's assembly).
+    # v1.4.0 (Feature 4): the plan-driven artifact_retention block lands
+    # there too.
     if task.status == TaskStatus.COMPLETED:
-        _merge_plan_into_metadata(output_dir, plan.name)
+        _merge_plan_into_metadata(output_dir, plan.name, retention)
 
     return task
 

@@ -88,6 +88,7 @@ from .lifecycle import (
     ArtifactSweeper,
     CleanupReport,
     cleanup_artifacts,
+    effective_ttl_seconds,  # v1.4.0 — plan TTL narrowing
 )
 from .checkpoint import CheckpointStore, ResumePlan, TaskCheckpoint
 from .queue import LocalTaskQueue, QueueShutdownError, TaskQueue
@@ -159,6 +160,7 @@ __all__ = [
     "ArtifactSweeper",
     "CleanupReport",
     "cleanup_artifacts",
+    "effective_ttl_seconds",
     # Queue
     "TaskQueue",
     "LocalTaskQueue",

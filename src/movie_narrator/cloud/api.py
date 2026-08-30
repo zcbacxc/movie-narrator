@@ -1658,8 +1658,40 @@ class TaskAPIServer:
             policy,
             interval=sweep_interval_from_env(),
             protected_ids=self._active_task_ids,
+            ttl_for=self._plan_ttl_resolver(policy),  # v1.4.0 — plan TTL narrowing
         )
         self._sweeper.start()
+
+    def _plan_ttl_resolver(self, policy: ArtifactLifecyclePolicy):
+        """Per-artifact TTL resolver narrowing the policy with plan TTLs (v1.4.0).
+
+        Artifact keys laid out as ``<task_id>/<filename>`` (the remote /
+        S3 convention, see ``make_task_protection``) are mapped back to
+        the owning task; the task's plan ``artifact_ttl_hours`` narrows
+        the policy TTL. Keys that do not resolve to a task — e.g. the
+        local backend's bare/movie-relative keys — fall back to the
+        uniform policy TTL.
+        """
+        from .lifecycle import effective_ttl_seconds
+
+        def _ttl_for(info):
+            head = info.key.split("/", 1)[0]
+            if not head:
+                return 0
+            try:
+                task = self._queue.storage.load(head)
+            except Exception:  # noqa: BLE001 — never let the resolver break a sweep
+                logger.debug("plan TTL lookup failed for %r", head, exc_info=True)
+                return 0
+            if task is None:
+                return 0
+            try:
+                plan = resolve_plan(task.plan or "default")
+            except KeyError:
+                return 0
+            return effective_ttl_seconds(plan.artifact_ttl_hours, policy.ttl_seconds)
+
+        return _ttl_for
 
     def begin_drain(self, drain_timeout: Optional[float] = None) -> None:
         """Enter draining mode: reject new tasks and drain in-flight ones.
