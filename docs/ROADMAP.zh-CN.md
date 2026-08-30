@@ -25,8 +25,9 @@
 | v1.3.0 | 工作流语义 — 选择性重跑（`mn rerun`）/ 线性兼容 DAG 契约 / 版本化交付清单                        |
 | v1.3.1 | 服务语义 — 租户/主体基础 / 套餐与权益 / Webhook MVP / 看板契约                                  |
 | v1.3.2 | 生态与效率 — 参考媒体输入契约 / 时间线导出收口 / 提示词缓存 / 渲染准入 / 编码器基准测试          |
+| v1.4.0 | 追踪与队列治理 — 可选 OpenTelemetry 追踪 / GPU-CPU 队列分离 / Webhook 重发 / 套餐产物 TTL        |
 
-`CONTRACT_VERSION`（当前）：`(1, 2, 0)`（v1.3.1 提升服务语义导出；v1.3.0 提升工作流语义导出；v1.3.2 未变）
+`CONTRACT_VERSION`（当前）：`(1, 3, 0)`（v1.4.0 提升追踪导出；v1.3.1 提升服务语义导出；v1.3.0 提升工作流语义导出）
 
 ***
 
@@ -34,7 +35,7 @@
 
 > **规划原则**：用户可感知的改善与基础设施交替交付。v1.0 目标用户：本地 CLI 创作者 + 可选单租户服务部署。1.x 系列引擎定位：可靠的单机 / 轻量服务化视频引擎 — 线性流水线 + 可恢复检查点 + 明确的产物契约 + 资源受控的渲染。分布式工作流引擎（Temporal / Celery）刻意后置，直到实测的队列延迟、渲染耗时、恢复成功率与重复 Provider 调用足以证明迁移成本的合理性。
 
-### v1.3 — 工作流语义与产品化基础（下一版本）
+### v1.3 — 工作流语义与产品化基础（已随 v1.3.0–v1.3.2 交付）
 
 > 主题：在保持线性执行的同时，为选择性重跑与产品级服务语义做准备。预计 `CONTRACT_VERSION` MINOR 提升（新增契约导出）。
 
@@ -57,6 +58,27 @@
 - Webhook MVP — 签名事件、投递重试、幂等事件 ID 与投递记录（替代纯轮询）。**（已随 v1.3.1 交付）**
 - 时间线导出收口 — `timeline_export_backend` 接入核心白名单并补充集成测试。**（已随 v1.3.2 交付）**
 - 参考媒体输入契约 — `reference_media[]` 记录视频/图片类型、用途、版权来源与风格特征；基于 VLM Provider 的图像参考风格提示。**（已随 v1.3.2 交付）**
+
+### v1.4 — 追踪、输出体验与生态（下一系列）
+
+> 主题：收尾 v1.3 中前置条件已就绪的延期项，并深化输出与产品面。按三个增量版本交付。
+
+#### v1.4.0 — 追踪与队列治理 **（已交付）**
+
+- 可选 OpenTelemetry 追踪 — 通过新的 `movie_narrator.tracing` 模块实现 `任务 → 步骤/Provider/子进程` span；`[otel]` 附加依赖（仅 api+sdk）、`MN_TRACING`、`MN_TRACING_EXPORTER=none|console`；OTLP 用户自行安装导出器（自动识别）。（ADR-014）
+- GPU 与 CPU 队列分离 — `MN_WORKER_QUEUES=split` 提供独立 GPU 池，按 套餐 × 编码器提示 路由；默认单池不变。
+- Webhook 运维 — `GET /api/v1/webhooks/deliveries` 与 `POST /api/v1/webhooks/redeliver/{event_id}`（同一幂等事件 ID，重新签名）。
+- 套餐产物 TTL 接线 — 套餐 `artifact_ttl_hours` 按产物收窄生命周期策略（取最小值），以 `artifact_retention` 记录在 `metadata.json`。
+
+#### v1.4.1 — 输出体验（规划）
+
+- 字幕交付 `burned | sidecar | muxed` — muxed 内嵌 `mov_text` 软字幕轨并做 ISO-639-2 语言归一；缺 SRT/非 mp4 容器优雅回退 burned 并记录原因。（ADR-015 规划）
+- 输出格式稳定承诺 — `deliverable_manifest.json` schema v1 与默认交付物集合在 1.x 内受兼容保护（STABILITY.md）。
+
+#### v1.4.2 — 生态（规划）
+
+- Premiere 时间线适配器 — timeline_export 插件新增 FCP7-XML（`xmeml`）导出；`timeline_export_backend=premiere`。（ADR-016 规划）
+- CLI 工效 — `mn benchmark` 与 `mn rerun --dry-run`。
 
 ### 长期 — 架构延展（需求驱动）
 
