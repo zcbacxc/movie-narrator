@@ -200,6 +200,8 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
             "focus_character",
             # v1.3.2: reference media style guidance
             "reference_media",
+            # v1.3.2: timeline export plugin backend
+            "timeline_export_backend",
         }
         for k in data["params"].keys():
             if k not in allowed_params:

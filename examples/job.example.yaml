@@ -107,6 +107,7 @@ narration_preset: ""        # douyin-fast | mainstream-dry | bilibili-long
 #   平台: target_platform / lang
 #   视角: narrator_perspective / focus_character
 #   参考: reference_media (v1.3.2+)
+#   时间轴: timeline_export_backend (v1.3.2+, 需安装 timeline_export 插件)
 params:
   # ---- 场景检测 ----
   scene_threshold: 27.0     # PySceneDetect 灵敏度（越大越不敏感，切分越少）
@@ -242,3 +243,8 @@ params:
   #     kind: image
   #     usage: palette
   #     note: "官方海报，来源 douban.com"
+
+  # ---- 时间轴导出（v1.3.2+，需安装 examples/plugins/timeline_export 插件）----
+  # none（默认，不导出）| jianying（剪映草稿）| otio（OpenTimelineIO，需 [otio] 依赖）
+  # 设置后该键随元数据传入插件步骤；未设置时插件保持自身默认行为。
+  # timeline_export_backend: jianying

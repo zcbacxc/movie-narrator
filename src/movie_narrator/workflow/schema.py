@@ -208,9 +208,29 @@ class JobParams(BaseModel):
     # style guidance). Validated by the resolve step; empty tuple keeps
     # behaviour byte-identical to jobs without reference media.
     reference_media: Tuple[ReferenceMediaItem, ...] = ()
+    # v1.3.2: backend used by the out-of-tree timeline_export plugin.
+    # "none" (default) = not requested; "jianying" | "otio" are passed
+    # through to the plugin step via metadata.
+    timeline_export_backend: str = "none"
+
+    @field_validator("timeline_export_backend")
+    @classmethod
+    def _check_timeline_export_backend(cls, v: str) -> str:
+        if v not in VALID_TIMELINE_EXPORT_BACKENDS:
+            raise ValueError(
+                "timeline_export_backend must be one of "
+                f"{sorted(VALID_TIMELINE_EXPORT_BACKENDS)}"
+            )
+        return v
 
 
 VALID_SUBTITLE_MODES = frozenset({"original", "translated", "bilingual"})
+
+# v1.3.2: backends understood by the out-of-tree timeline_export plugin
+# (examples/plugins/timeline_export/). ``"none"`` means "no timeline
+# export requested"; ``"jianying"`` and ``"otio"`` map 1:1 to the
+# plugin's ``_timeline_export_step`` backend dispatch.
+VALID_TIMELINE_EXPORT_BACKENDS = frozenset({"none", "jianying", "otio"})
 
 
 class JobConfig(BaseModel):

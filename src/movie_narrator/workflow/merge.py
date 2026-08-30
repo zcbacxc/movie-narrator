@@ -201,6 +201,8 @@ def merge_job(
             "video_sizes",
             # v1.3.2: reference media style guidance
             "reference_media",
+            # v1.3.2: timeline export plugin backend
+            "timeline_export_backend",
             # Render template styling
             "render_template",
         ):
@@ -213,6 +215,13 @@ def merge_job(
     # byte-identical params/metadata (no phantom empty-list key).
     if not params.get("reference_media"):
         params.pop("reference_media", None)
+
+    # v1.3.2: ``timeline_export_backend`` defaults to "none" (not
+    # requested). The default is dropped so the out-of-tree
+    # timeline_export plugin keeps its own default behaviour for jobs
+    # that never set the key; explicit jianying/otio values propagate.
+    if params.get("timeline_export_backend") == "none":
+        params.pop("timeline_export_backend", None)
 
     # Multi-language subtitle (v0.3).
     subtitle_lang = pick_optional(cli.get("subtitle_lang"), yaml_get("subtitle_lang"), None)
