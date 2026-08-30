@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.3.0] - 2026-08-30
+
+### Added
+
+- **Selective rerun (`mn rerun`)** — deliberately re-execute the pipeline from any registered step against a saved `pipeline_state.json`: upstream steps are reused from the saved context, the chosen step and everything after it is invalidated (soft-step statuses reset to their not-yet-run defaults), and a structured `pipeline_rerun` log plus a `rerun` metadata block (`from_step` / `invalidated_steps` / timestamp) make the decision auditable. `--list-steps` prints the ordered step list without a state file; starting after the saved step degenerates to resume semantics.
+- **Linear-compatible DAG contract** — steps can declare `inputs` / `outputs` / `depends_on` at registration; the new `pipeline/dag.py` builds an explicit `StepSpec` graph, validates declared dependencies against the linear execution order (`validate_linear_order`), and guarantees `topological_order` reproduces the registry's linear order for any linear-compatible registry. The runner still executes linearly — this is contract validation and future-scheduling groundwork, not parallelism.
+- **Versioned deliverable manifest** — successful runs now write `deliverable_manifest.json` next to the deliverable: a checksummed (SHA-256) inventory of video / audio / subtitle / script / clips / metadata / execution-manifest artifacts plus `schema_version`, package & contract version, and a QA summary. Core kinds (video/audio/subtitle) always appear (`present=false` when missing) so consumers can rely on the shape; writes are atomic.
+- **Tests** (`tests/test_v130_rerun.py`, `tests/test_v130_dag.py`, `tests/test_v130_deliverable.py`, `tests/test_contract.py`): +54 tests covering selective rerun, the step graph contract, and the deliverable manifest.
+
+### Changed
+- **DAG metadata in the registry** — `StepEntry` / `StepRegistry.register()` / `register_step` accept optional `inputs` / `outputs` / `depends_on` declarations (backward-compatible defaults); `StepRegistry.info()` reports them, and all 16 built-in steps now declare their dataflow.
+- `CONTRACT_VERSION` bumped to (1, 1, 0): new contract exports (`StepSpec`, `build_step_graph`, `validate_linear_order`, `topological_order`, `DeliverableManifest`, `ManifestEntry`, `write_deliverable_manifest`). All 2618 tests pass (2 skipped in CI, 0 failures). +54 new tests vs v1.2.1.
+
+### Fixed
+- **Stale LLM call-count assertion in the script retry test** — the v1.1.0 phase-3 judge adds a fifth LLM call outside CI mode; the test now pins `is_ci=False` and asserts the correct call count deterministically (previously red on `main`).
+
 ## [1.2.1] - 2026-08-24
 
 ### Added
@@ -1283,7 +1299,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `workflow_steps` and `params` metadata injection.
 - Console log refactoring design.
 
-[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v1.2.1...HEAD
+[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/zcbacxc/movie-narrator/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/zcbacxc/movie-narrator/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/zcbacxc/movie-narrator/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/zcbacxc/movie-narrator/compare/v1.0.0...v1.1.0

@@ -22,8 +22,9 @@
 | v1.1.x | FunASR Chinese ASR / `mn doctor` / QA slideshow & black-frame detection / EmotionTrack / SQLite task store / visual-embedding match skeleton / timeline_export plugin / compliance (edge-tts + TMDB) / 90% coverage gate |
 | v1.2.x | Render subprocess governance / atomic artifact publication / checkpoint fingerprint / orphan task recovery / non-loopback auth enforcement / task admission limits / structured step logging / execution manifest / generation dry-run / provider retry governance / TTS cache statistics / portrait QA fix |
 | v1.2.1 | Persistent GPU capability cache / encoder fallback-reason reporting (incl. runtime GPU→CPU fallback audit) |
+| v1.3.0 | Workflow semantics — selective rerun (`mn rerun`) / linear-compatible DAG contract / versioned deliverable manifest |
 
-`CONTRACT_VERSION` (current): `(1, 0, 0)` (unchanged in v1.2 and v1.2.1 — no new contract exports)
+`CONTRACT_VERSION` (current): `(1, 1, 0)` (bumped in v1.3.0 — workflow-semantics exports; unchanged in v1.2 and v1.2.1)
 
 ---
 
@@ -45,9 +46,9 @@
 
 #### v1.3 scope
 
-- Selective rerun — rerun only `generate_voice` or `render_video`; downstream steps invalidated automatically, no re-research.
-- Linear-compatible DAG contract — explicit step inputs / outputs / artifact keys / dependency declarations with a linear adapter (no parallelism yet).
-- Versioned deliverable manifest — `deliverable_manifest.json` declaring MP4 / audio / SRT / script / clips / timeline / checksums / compatibility version.
+- Selective rerun — rerun from any registered step via `mn rerun` with downstream invalidation, no re-research. **(shipped in v1.3.0)**
+- Linear-compatible DAG contract — explicit step inputs / outputs / artifact keys / dependency declarations with a linear adapter (no parallelism yet). **(shipped in v1.3.0)**
+- Versioned deliverable manifest — `deliverable_manifest.json` declaring MP4 / audio / SRT / script / clips / timeline / checksums / compatibility version. **(shipped in v1.3.0)**
 - Dashboard contract — stable manifest / API surface for the external `movie-narrator-web` UI.
 - Principal & tenant foundation — tenant/principal propagated through task, artifact, cache reference, audit, and lifecycle; every route authorized.
 - Plans & entitlements — max duration / resolution / watermark / GPU & provider access / output format / TTL modeling.

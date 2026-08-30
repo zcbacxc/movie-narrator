@@ -22,8 +22,9 @@
 | v1.1.x | FunASR 中文 ASR / `mn doctor` / QA 幻灯片与黑场检测 / EmotionTrack / SQLite 任务存储 / 视觉嵌入 match 骨架 / timeline_export 插件 / 合规（edge-tts + TMDB）/ 90% 覆盖率门禁 |
 | v1.2.x | 渲染子进程治理 / 原子产物发布 / 检查点指纹 / 孤儿任务恢复 / 非 loopback 强制鉴权 / 任务准入限制 / 结构化步骤日志 / 执行清单 / 生成 dry-run / Provider 重试治理 / TTS 缓存核算 / 竖版 QA 修复 |
 | v1.2.1 | 持久化 GPU 能力缓存 / 编码器回退原因上报（含运行时 GPU→CPU 降级审计）                            |
+| v1.3.0 | 工作流语义 — 选择性重跑（`mn rerun`）/ 线性兼容 DAG 契约 / 版本化交付清单                        |
 
-`CONTRACT_VERSION`（当前）：`(1, 0, 0)`（v1.2 与 v1.2.1 均未变——无新增契约导出）
+`CONTRACT_VERSION`（当前）：`(1, 1, 0)`（v1.3.0 提升——工作流语义导出；v1.2 与 v1.2.1 均未变）
 
 ***
 
@@ -45,9 +46,9 @@
 
 #### v1.3 范围
 
-- 选择性重跑 — 只重跑 `generate_voice` 或 `render_video`，自动失效下游步骤，无需重新研究。
-- 线性兼容 DAG 契约 — 显式步骤输入 / 输出 / 产物键 / 依赖声明与线性适配器（暂不并行）。
-- 版本化交付清单 — `deliverable_manifest.json` 声明 MP4 / 音频 / SRT / 脚本 / 片段 / 时间线 / 校验和 / 兼容版本。
+- 选择性重跑 — 通过 `mn rerun` 从任意已注册步骤重跑，自动失效下游步骤，无需重新研究。**（已随 v1.3.0 交付）**
+- 线性兼容 DAG 契约 — 显式步骤输入 / 输出 / 产物键 / 依赖声明与线性适配器（暂不并行）。**（已随 v1.3.0 交付）**
+- 版本化交付清单 — `deliverable_manifest.json` 声明 MP4 / 音频 / SRT / 脚本 / 片段 / 时间线 / 校验和 / 兼容版本。**（已随 v1.3.0 交付）**
 - 看板契约 — 为外部 `movie-narrator-web` UI 提供稳定的清单 / API 面。
 - Principal 与租户基础 — tenant/principal 贯穿任务、产物、缓存引用、审计与生命周期；全部路由鉴权。
 - 套餐与权益 — 最大时长 / 分辨率 / 水印 / GPU 与 Provider 权限 / 输出格式 / TTL 建模。
