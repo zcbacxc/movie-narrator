@@ -6,6 +6,14 @@
 v0.5.12: Extends the existing ``deliverable_qa.py`` with encoding-specific
 checks that validate the rendered video meets platform publishing standards.
 
+v1.5.0: Adds expectations-aware checks driven by the run's own render plan
+(:func:`extract_render_expectations` reads ``video_sizes`` / ``video_format``
+and the ``render_pixel`` block from metadata): a 4K-class requested size
+(>= 3840 wide or >= 2160 tall, either orientation) must be reproduced
+exactly, and the pixel plan's bit depth / color space are cross-checked
+against the probed ``pix_fmt`` / ``color_transfer``. Expectations arrive as
+optional keyword arguments — absent expectations keep the v0.5.12 behaviour.
+
 All checks are advisory — issues are stored in ``ctx.metadata["video_qa"]``
 for diagnostics and the QA report, but never block the pipeline unless
 wired as a hard gate via ``--strict``.
@@ -55,6 +63,20 @@ _STANDARD_RATIOS = {
 }
 _ASPECT_TOLERANCE = 0.02
 
+# ── v1.5.0: expectations-aware checks ────────────────────
+# 4K-class threshold: when the requested size is at least this wide
+# (landscape) or this tall (portrait), the output must match the request
+# exactly — below 4K only the historical >= 720p floor applies.
+_4K_WIDTH = 3840
+_4K_HEIGHT = 2160
+
+# Expected pix_fmt per pixel-plan bit depth (mirrors the render step's
+# pixel plan: 10-bit = yuv420p10le + high10 profile).
+_EXPECTED_PIX_FMT_BY_DEPTH = {8: "yuv420p", 10: "yuv420p10le"}
+# Expected color transfer per pixel-plan color space (mirrors the render
+# step's STAGE-2 mux tags).
+_EXPECTED_TRANSFER_BY_SPACE = {"sdr": "bt709", "hdr10": "smpte2084"}
+
 
 # ── Data structures ──────────────────────────────────────
 
@@ -70,6 +92,11 @@ class VideoEncodingMetrics:
     fps: float = 0.0
     bitrate_kbps: int = 0
     pixel_format: str = ""
+    # v1.5.0: color metadata (ffprobe stream attributes; empty when the
+    # stream carries no color tags).
+    color_primaries: str = ""
+    color_transfer: str = ""
+    color_space: str = ""
     audio_codec: str = ""
     audio_bitrate_kbps: int = 0
     audio_channels: int = 0
@@ -89,6 +116,9 @@ class VideoEncodingMetrics:
             "fps": round(self.fps, 2),
             "bitrate_kbps": self.bitrate_kbps,
             "pixel_format": self.pixel_format,
+            "color_primaries": self.color_primaries,
+            "color_transfer": self.color_transfer,
+            "color_space": self.color_space,
             "audio_codec": self.audio_codec,
             "audio_bitrate_kbps": self.audio_bitrate_kbps,
             "audio_channels": self.audio_channels,
@@ -187,6 +217,11 @@ def probe_video_encoding(path: str) -> VideoEncodingMetrics:
             metrics.fps = 0.0
 
         metrics.pixel_format = v_stream.get("pix_fmt", "")
+        # v1.5.0: color metadata written by the render step's STAGE-2 mux
+        # (absent on untagged streams — the checks guard on emptiness).
+        metrics.color_primaries = v_stream.get("color_primaries", "")
+        metrics.color_transfer = v_stream.get("color_transfer", "")
+        metrics.color_space = v_stream.get("color_space", "")
 
         # Bitrate: prefer stream-level, fall back to format-level
         br = v_stream.get("bit_rate")
@@ -217,8 +252,28 @@ def check_encoding_quality(
     min_bitrate_kbps: int = _MIN_BITRATE_KBPS,
     min_fps: float = _MIN_FPS,
     max_fps: float = _MAX_FPS,
+    expected_size: Optional[tuple[int, int]] = None,
+    expected_pixel: Optional[dict] = None,
 ) -> VideoQAReport:
     """Validate encoding metrics against publishing thresholds.
+
+    Args:
+        metrics: Probed encoding metrics (see :func:`probe_video_encoding`).
+        min_width: Landscape minimum width (720p floor).
+        min_height: Landscape minimum height (720p floor).
+        min_bitrate_kbps: Minimum video bitrate (kbps).
+        min_fps: Minimum frame rate.
+        max_fps: Maximum frame rate.
+        expected_size: Requested ``(width, height)`` from the run's own
+            ``video_sizes`` / ``video_format`` config (v1.5.0). When the
+            request is 4K-class (>= 3840 wide or >= 2160 tall, either
+            orientation) the probed size must match it exactly; smaller
+            requests keep the historical >= 720p floor only. ``None``
+            (default) skips the check.
+        expected_pixel: The run's ``render_pixel`` plan (v1.5.0) — its
+            ``bit_depth`` / ``color_space`` define the expected output
+            ``pix_fmt`` / ``color_transfer``. ``None`` (default) skips
+            the check.
 
     Returns:
         A :class:`VideoQAReport` with issues and recommendations.
@@ -295,14 +350,109 @@ def check_encoding_quality(
         recommendations.append("Use AAC for maximum platform compatibility")
 
     # ── Pixel format check ──
-    if metrics.pixel_format and metrics.pixel_format not in ("yuv420p", "yuv422p", "yuv444p"):
+    # v1.5.0: yuv420p10le is a first-class output of the 10-bit pixel
+    # pipeline (libx264 high10) — no longer a compatibility warning.
+    if metrics.pixel_format and metrics.pixel_format not in (
+        "yuv420p",
+        "yuv422p",
+        "yuv444p",
+        "yuv420p10le",
+    ):
         issues.append(f"pixel format '{metrics.pixel_format}' may cause compatibility issues")
         recommendations.append("Use yuv420p for maximum compatibility")
+
+    # ── v1.5.0: expectations-aware checks (4K size + pixel plan) ──
+    # All guards mirror the checks above: only flag what ffprobe actually
+    # detected, so probe limitations never produce false positives.
+    if expected_size is not None:
+        exp_w, exp_h = int(expected_size[0]), int(expected_size[1])
+        if exp_w >= _4K_WIDTH or exp_h >= _4K_HEIGHT:
+            actual_size = (metrics.width, metrics.height)
+            if metrics.width > 0 and metrics.height > 0 and actual_size != (exp_w, exp_h):
+                issues.append(
+                    f"4K-class resolution mismatch: output {metrics.width}x{metrics.height} "
+                    f"does not match the requested {exp_w}x{exp_h}"
+                )
+                recommendations.append(
+                    f"Re-render at {exp_w}x{exp_h} — check the video_sizes entry "
+                    "for the active video_format"
+                )
+
+    if expected_pixel:
+        depth = expected_pixel.get("bit_depth")
+        expected_pix_fmt = _EXPECTED_PIX_FMT_BY_DEPTH.get(depth) if depth is not None else None
+        if expected_pix_fmt is None:
+            recorded = expected_pixel.get("pix_fmt")
+            expected_pix_fmt = str(recorded) if recorded else None
+        if expected_pix_fmt and metrics.pixel_format and metrics.pixel_format != expected_pix_fmt:
+            plan_desc = f"bit depth {depth}, " if depth is not None else ""
+            issues.append(
+                f"pixel format '{metrics.pixel_format}' does not match the render plan "
+                f"({plan_desc}expected '{expected_pix_fmt}')"
+            )
+            recommendations.append(
+                f"Re-render so the output carries {expected_pix_fmt} "
+                "(check render_bit_depth / encoder fallbacks)"
+            )
+
+        color_space = expected_pixel.get("color_space")
+        expected_trc = _EXPECTED_TRANSFER_BY_SPACE.get(color_space) if color_space else None
+        if expected_trc is None:
+            tags = expected_pixel.get("color_tags")
+            if isinstance(tags, dict) and tags.get("color_trc"):
+                expected_trc = str(tags["color_trc"])
+        if expected_trc and metrics.color_transfer and metrics.color_transfer != expected_trc:
+            space_desc = f", color space {color_space}" if color_space else ""
+            issues.append(
+                f"color transfer '{metrics.color_transfer}' does not match the render plan "
+                f"(expected '{expected_trc}'{space_desc})"
+            )
+            recommendations.append(
+                "Re-render with render_color_space set so the output carries "
+                f"color_transfer={expected_trc}"
+            )
 
     report.issues = issues
     report.recommendations = recommendations
     report.ok = len(issues) == 0
     return report
+
+
+def extract_render_expectations(
+    metadata: dict,
+) -> tuple[Optional[tuple[int, int]], Optional[dict]]:
+    """Extract render expectations from run metadata (v1.5.0, pure helper).
+
+    Reads the same keys the render step consumes — ``video_sizes`` +
+    ``video_format`` (the requested output size) and the ``render_pixel``
+    block (bit depth / color space plan) — so QA validates the render
+    against the run's own configuration.
+
+    Args:
+        metadata: The run metadata dict (``ctx.metadata`` / metadata.json).
+
+    Returns:
+        ``(expected_size, expected_pixel)`` — either element is ``None``
+        when the corresponding metadata is absent or malformed, which
+        keeps the historical (expectations-free) QA behaviour.
+    """
+    expected_size: Optional[tuple[int, int]] = None
+    sizes = metadata.get("video_sizes")
+    video_format = metadata.get("video_format", "16:9")
+    if isinstance(sizes, dict):
+        raw = sizes.get(video_format)
+        if isinstance(raw, (list, tuple)) and len(raw) == 2:
+            try:
+                expected_size = (int(raw[0]), int(raw[1]))
+            except (TypeError, ValueError):
+                expected_size = None
+
+    expected_pixel: Optional[dict] = None
+    pixel = metadata.get("render_pixel")
+    if isinstance(pixel, dict) and pixel:
+        expected_pixel = pixel
+
+    return expected_size, expected_pixel
 
 
 def evaluate_video_quality(
@@ -311,12 +461,16 @@ def evaluate_video_quality(
     min_width: int = _MIN_WIDTH,
     min_height: int = _MIN_HEIGHT,
     min_bitrate_kbps: int = _MIN_BITRATE_KBPS,
+    expected_size: Optional[tuple[int, int]] = None,
+    expected_pixel: Optional[dict] = None,
 ) -> VideoQAReport:
     """Probe a video file and run all encoding quality checks.
 
     Convenience wrapper: probes the file then validates.
     Returns a :class:`VideoQAReport` with all fields empty if the
-    file doesn't exist or ffprobe is unavailable.
+    file doesn't exist or ffprobe is unavailable. ``expected_size`` /
+    ``expected_pixel`` enable the v1.5.0 expectations-aware checks
+    (see :func:`check_encoding_quality` / :func:`extract_render_expectations`).
     """
     if not Path(video_path).exists():
         report = VideoQAReport()
@@ -330,6 +484,8 @@ def evaluate_video_quality(
         min_width=min_width,
         min_height=min_height,
         min_bitrate_kbps=min_bitrate_kbps,
+        expected_size=expected_size,
+        expected_pixel=expected_pixel,
     )
 
 

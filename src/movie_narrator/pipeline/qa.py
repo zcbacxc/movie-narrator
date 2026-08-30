@@ -21,7 +21,7 @@ from typing import Any, Dict, cast
 from ..models import Context
 from ..tts.base import is_ci
 from ..utils.deliverable_qa import evaluate_deliverable
-from ..utils.video_qa import evaluate_video_quality
+from ..utils.video_qa import evaluate_video_quality, extract_render_expectations
 from ..utils.quality_dashboard import build_quality_dashboard
 from ..utils.qa_report import export_qa_report
 
@@ -96,7 +96,16 @@ def validate_deliverable(ctx: Context) -> Context:
     )
 
     # ── v0.5.12: Video encoding quality checks ──────────────
-    video_report = evaluate_video_quality(video_path)
+    # v1.5.0: expectations-aware — the run's own requested size (4K-class
+    # requests must be reproduced exactly) and the render_pixel plan (bit
+    # depth / color space) drive additional advisory findings; absent
+    # metadata keeps the v1.4.2 behaviour unchanged.
+    expected_size, expected_pixel = extract_render_expectations(cast(Dict[str, Any], ctx.metadata))
+    video_report = evaluate_video_quality(
+        video_path,
+        expected_size=expected_size,
+        expected_pixel=expected_pixel,
+    )
     ctx.metadata["video_qa"] = video_report.to_dict()
     if not video_report.ok:
         ctx.services.console.inline_warn(
