@@ -396,3 +396,36 @@ params:
 ```
 
 然后在 Premiere 中：`文件 > 导入`，选择 `output/<movie>/timeline/<movie>.xml`，序列会带着已剪好、摆好位置的片段出现在项目面板里——重排、修剪、换镜头、改字幕，再从 Premiere 导出即可。导出的都是尽力而为的交换数据（按渲染设置读到的序列帧率换算帧号），把它当作起点而不是最终对版。
+
+---
+
+## 4K 与 10-bit 渲染
+
+默认情况下，渲染输出 1080p 8-bit（`yuv420p`）SDR 码流。v1.5.0（ADR-017）新增两个作业参数控制像素管线：`video_sizes` + `video_format` 决定输出尺寸，`render_bit_depth: 10` 把编码切换为 10-bit（`yuv420p10le` + libx264 `high10`），`render_color_space: hdr10` 写入 BT.2020/PQ 色彩标签（并自动强制 10-bit）。
+
+启用之前请预期：
+
+- **编码耗时** — 按同任务 1080p 8-bit 的约 3-4 倍预算：像素量是 4 倍，10-bit 每帧还多携带约 25% 的数据。可以考虑比 `slow` 更快的 `render_preset`，并先用 `render_preview_mode` 跑一遍短预览。
+- **临时磁盘** — 渲染准入预检（通过 `MN_ADMISSION_DISK_CHECK` 选择性开启）对 10-bit 渲染的临时空间估算额外乘以 1.25 系数。请确保输出卷有真实余量，4K 中间产物体积很大。
+- **10-bit 仅限 CPU** — 本项目支持的 H.264 GPU 编码器（NVENC / VAAPI / VideoToolbox）都只支持 8-bit。在 `render_encoder: auto` 下，10-bit 渲染会回退到 libx264（CPU），元数据中记录原因为 `10bit_gpu_unsupported`——输出结果一致，只是更慢。GPU 10-bit（HEVC main10）是后续工作。
+- **HDR10 是标签级的** — v1.5.0 写入色彩标签（`bt2020nc` / `smpte2084`），不写 mastering-display 元数据（MaxCLL/MaxFALL SEI 超出范围）。忽略标签的播放器会显示发灰的颜色——请把 `hdr10` 当作母版/归档交接选项，而不是发布默认值。
+
+推荐作业片段：
+
+```yaml
+# 4K 10-bit SDR（横屏）
+params:
+  video_sizes:
+    "16:9": [3840, 2160]
+    "9:16": [2160, 3840]
+  video_format: "16:9"
+  render_bit_depth: 10
+```
+
+```yaml
+# HDR10（自动强制 10-bit）
+params:
+  render_color_space: hdr10
+```
+
+QA 步骤会依据这些设置交叉校验成片：4K 级请求（宽 >= 3840 或高 >= 2160，横竖屏皆可）必须被精确复现，且探测到的 `pix_fmt` / `color_transfer` 必须与请求的位深 / 色彩空间一致——不匹配会记录在 `metadata.json` 的 `video_qa` 下（见 [METADATA_SCHEMA.zh-CN.md](METADATA_SCHEMA.zh-CN.md)）。

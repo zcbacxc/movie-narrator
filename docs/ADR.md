@@ -622,6 +622,37 @@ The ROADMAP long-term item asks for timeline adapters beyond OTIO + Jianying; Ad
 
 - `examples/plugins/timeline_export/movie_narrator_timeline_export/premiere.py`, `docs/BEST_PRACTICES.md` (Timeline Export section)
 
+## ADR-017: HDR/4K Pipeline — 10-bit + Color Metadata, CPU-only 10-bit Encode
+
+**Status:** Accepted
+**Version:** Introduced in v1.5.0
+
+**Context**
+
+The render emitted an unlabeled 8-bit `yuv420p` stream regardless of intent — no way to request 10-bit or HDR10, no color metadata on the output, and QA could not tell a 4K deliverable from a 1080p one.
+
+**Decision Drivers**
+
+- Defaults stay byte-identical: the 8-bit encode argv is unchanged; the 8/`sdr` defaults are dropped in merge (mirrors `subtitle_delivery`); no contract changes, no new dependencies.
+- Findings must be verifiable: the pipeline records what it rendered (`render_pixel` metadata) and video QA cross-checks the deliverable against it.
+
+**Considered Options**
+
+- *GPU 10-bit capability probing now* (rejected): the supported H.264 GPU backends (NVENC / VAAPI / VideoToolbox) are 8-bit only — there is nothing to probe; HEVC main10 is future work. 10-bit renders force libx264 and record `10bit_gpu_unsupported`.
+- *Full HDR mastering — tone mapping + mastering-display / MaxCLL / MaxFALL SEI* (rejected for v1.5.0): needs per-scene analysis and player-specific metadata; v1.5.0 ships tag-level HDR10 only.
+- *Silently accepting any pix_fmt / color tags* (rejected): encoder fallbacks would silently degrade 10-bit jobs; a recorded plan + QA cross-check keeps the bit depth truthful.
+
+**Decision Outcome**
+
+`render_bit_depth` (8|10) + `render_color_space` (`sdr`|`hdr10`) job params: 10-bit = `yuv420p10le` + libx264 `high10`, CPU-only; hdr10 forces 10-bit (recorded note); sdr tags bt709 explicitly. Color tags are written at the STAGE-2 copy mux (libx264 drops encode-level color options). `render_pixel` lands in metadata.json; video QA verifies pix_fmt / color_transfer and 4K-class size exactness (>= 3840 wide or >= 2160 tall).
+
+**Consequences**
+
+- Positive: 4K / 10-bit / HDR10 become first-class, verifiable outputs; QA catches silent bit-depth or color regressions.
+- Negative: true HDR mastering (tone mapping, SEI metadata) is explicitly out of scope; 10-bit encode is CPU-bound; players ignoring HDR tags show washed-out colors.
+
+**References:** `src/movie_narrator/pipeline/render.py`, `src/movie_narrator/workflow/schema.py`, `src/movie_narrator/utils/video_qa.py`; `docs/METADATA_SCHEMA.md` (render_pixel), `docs/BEST_PRACTICES.md` (4K & 10-bit Rendering), `examples/job.example.yaml`
+
 ---
 
 ## Decision Index
@@ -644,3 +675,4 @@ The ROADMAP long-term item asks for timeline adapters beyond OTIO + Jianying; Ad
 | ADR-014 | Opt-in OpenTelemetry Tracing | Accepted | v1.4.0 | `movie_narrator.tracing` span factories (task → step/provider/subprocess); `[otel]` extra = api+sdk only, OTLP not bundled; `MN_TRACING` off (default) = zero-overhead no-op; pre-registered global providers used unchanged |
 | ADR-015 | Subtitle Delivery Modes & the Output Stability Promise | Accepted | v1.4.1 | `subtitle_delivery` burned/sidecar/muxed with muxed→burned degradation (soft mov_text track, never fails render); narrow STABILITY promise on manifest schema v1 + default deliverable set |
 | ADR-016 | Premiere via FCP7 XML Interchange | Accepted | v1.4.2 | `timeline_export` plugin gains a `premiere` backend: stdlib FCP7 XML (`xmeml`) writer, Premiere imports natively; whitelist-only core change |
+| ADR-017 | HDR/4K Pipeline: 10-bit + Color Metadata, CPU-only Encode | Accepted | v1.5.0 | `render_bit_depth` 8/10 + `render_color_space` sdr/hdr10: `yuv420p10le` / libx264 high10 (CPU-only, `10bit_gpu_unsupported` fallback), explicit bt709 / bt2020+smpte2084 mux tags, `render_pixel` metadata; video QA cross-checks pix_fmt / transfer and 4K-class exact size |

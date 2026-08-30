@@ -396,3 +396,36 @@ params:
 ```
 
 Then in Premiere: `File > Import…`, pick `output/<movie>/timeline/<movie>.xml`, and the sequence appears in your project panel with clips already cut and placed — reorder, trim, swap shots, adjust the text, and export from there. Values are best-effort interchange data (frame-accurate at the sequence rate read from your render settings); treat the draft as a starting point, not a final conform.
+
+---
+
+## 4K & 10-bit Rendering
+
+By default the render produces a 1080p 8-bit (`yuv420p`) SDR stream. Two job parameters switch the pixel pipeline (v1.5.0, ADR-017): `video_sizes` + `video_format` set the output size, `render_bit_depth: 10` switches the encode to 10-bit (`yuv420p10le` + libx264 `high10`), and `render_color_space: hdr10` writes BT.2020/PQ color tags (and auto-forces 10-bit).
+
+What to expect before you enable it:
+
+- **Encode time** — budget roughly 3-4x the encode time of the same job at 1080p 8-bit: 4x the pixels, and 10-bit carries ~25% more data per frame on top. Consider a faster `render_preset` than `slow`, and run a short `render_preview_mode` pass first.
+- **Temp disk** — the render admission pre-flight (opt-in via `MN_ADMISSION_DISK_CHECK`) applies a x1.25 factor to its temp-space estimate for 10-bit renders. Make sure the output volume has real headroom; 4K intermediates are large.
+- **10-bit is CPU-only** — the supported H.264 GPU encoders (NVENC / VAAPI / VideoToolbox) are 8-bit only. With `render_encoder: auto`, a 10-bit render falls back to libx264 (CPU) and metadata records the reason as `10bit_gpu_unsupported` — the output is identical, just slower. GPU 10-bit (HEVC main10) is future work.
+- **HDR10 is tag-level** — v1.5.0 writes the color tags (`bt2020nc` / `smpte2084`), not mastering-display metadata (MaxCLL/MaxFALL SEI is out of scope). Players that ignore the tags render washed-out colors — treat `hdr10` as a mastering/archival hand-off option, not a publishing default.
+
+Recommended job snippets:
+
+```yaml
+# 4K 10-bit SDR (landscape)
+params:
+  video_sizes:
+    "16:9": [3840, 2160]
+    "9:16": [2160, 3840]
+  video_format: "16:9"
+  render_bit_depth: 10
+```
+
+```yaml
+# HDR10 (10-bit is forced automatically)
+params:
+  render_color_space: hdr10
+```
+
+The QA step cross-checks the deliverable against these settings: a 4K-class request (>= 3840 wide or >= 2160 tall, either orientation) must be reproduced exactly, and the probed `pix_fmt` / `color_transfer` must match the requested bit depth / color space — mismatches are reported under `video_qa` in `metadata.json` (see [METADATA_SCHEMA.md](METADATA_SCHEMA.md)).

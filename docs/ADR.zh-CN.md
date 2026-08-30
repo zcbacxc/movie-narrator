@@ -622,6 +622,37 @@ ROADMAP 长期项要求在 OTIO + 剪映之外扩展时间线适配器；目标�
 
 - `examples/plugins/timeline_export/movie_narrator_timeline_export/premiere.py`、`docs/BEST_PRACTICES.zh-CN.md`（时间线导出一节）
 
+## ADR-017：HDR/4K 管线——10-bit + 色彩元数据、仅 CPU 的 10-bit 编码
+
+**状态：** Accepted
+**版本：** v1.5.0 引入
+
+**背景**
+
+渲染一律输出无标签的 8-bit `yuv420p` 码流——无法请求 10-bit 或 HDR10，输出不带任何色彩元数据，QA 也无法区分 4K 成片与 1080p 成片。
+
+**决策驱动因素**
+
+- 默认值保持字节级一致：8-bit 编码 argv 不变；8/`sdr` 默认值在合并时丢弃（镜像 `subtitle_delivery`）；不改契约、无新依赖。
+- 结论必须可验证：管线记录实际渲染内容（`render_pixel` 元数据），视频 QA 据此交叉校验成片。
+
+**备选方案**
+
+- *现在就探测 GPU 10-bit 能力*（否决）：本项目支持的 H.264 GPU 后端（NVENC / VAAPI / VideoToolbox）只支持 8-bit——没有可探测的东西；HEVC main10 是后续工作。10-bit 渲染强制 libx264 并记录 `10bit_gpu_unsupported`。
+- *完整 HDR 母版——色调映射 + mastering-display / MaxCLL / MaxFALL SEI*（v1.5.0 否决）：需要逐场景分析与播放器特定元数据；v1.5.0 只交付标签级 HDR10。
+- *静默接受任何 pix_fmt / 色彩标签*（否决）：编码器回退会静默劣化 10-bit 任务；记录计划 + QA 交叉校验才能让位深真实可信。
+
+**决策结果**
+
+`render_bit_depth`（8|10）+ `render_color_space`（`sdr`|`hdr10`）作业参数：10-bit = `yuv420p10le` + libx264 `high10`，仅限 CPU；hdr10 强制 10-bit（记录备注）；sdr 显式打 bt709 标签。色彩标签写在 STAGE-2 复制混流处（libx264 会丢弃编码级色彩选项）。`render_pixel` 落入 metadata.json；视频 QA 校验 pix_fmt / color_transfer 以及 4K 级尺寸精确性（宽 >= 3840 或高 >= 2160）。
+
+**后果**
+
+- 正面：4K / 10-bit / HDR10 成为一等、可验证的输出；QA 能捕捉静默的位深或色彩回退。
+- 负面：真正的 HDR 母版（色调映射、SEI 元数据）明确不在范围内；10-bit 编码受限于 CPU；忽略 HDR 标签的播放器会显示发灰的颜色。
+
+**参考资料：** `src/movie_narrator/pipeline/render.py`、`src/movie_narrator/workflow/schema.py`、`src/movie_narrator/utils/video_qa.py`；`docs/METADATA_SCHEMA.zh-CN.md`（render_pixel）、`docs/BEST_PRACTICES.zh-CN.md`（4K 与 10-bit 渲染）、`examples/job.example.yaml`
+
 ---
 
 ## Decision Index
@@ -644,3 +675,4 @@ ROADMAP 长期项要求在 OTIO + 剪映之外扩展时间线适配器；目标�
 | ADR-014 | 可选开启的 OpenTelemetry 追踪 | Accepted | v1.4.0 | `movie_narrator.tracing` Span 工厂（task → step/provider/subprocess）；`[otel]` extra 仅含 api+sdk，不捆绑 OTLP；`MN_TRACING` 关闭（默认）即零开销空操作；已注册的全局 Provider 原样使用 |
 | ADR-015 | 字幕交付模式与输出稳定性承诺 | Accepted | v1.4.1 | `subtitle_delivery` burned/sidecar/muxed，muxed→burned 降级（软字幕 mov_text 轨道，绝不导致渲染失败）；STABILITY 新增窄范围承诺（清单 schema v1 + 默认交付物集合） |
 | ADR-016 | 通过 FCP7 XML 交换格式对接 Premiere | Accepted | v1.4.2 | `timeline_export` 插件新增 `premiere` 后端：标准库 FCP7 XML（`xmeml`）写入器，Premiere 原生导入；核心仅白名单变更 |
+| ADR-017 | HDR/4K 管线：10-bit + 色彩元数据、仅 CPU 编码 | Accepted | v1.5.0 | `render_bit_depth` 8/10 + `render_color_space` sdr/hdr10：`yuv420p10le` / libx264 high10（仅 CPU，`10bit_gpu_unsupported` 回退），显式 bt709 / bt2020+smpte2084 混流标签，`render_pixel` 元数据；视频 QA 交叉校验 pix_fmt / 传递函数与 4K 级精确尺寸 |
