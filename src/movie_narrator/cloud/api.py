@@ -167,6 +167,7 @@ _STATIC_PATHS = frozenset(
         "/batches",
         "/schedules",
         "/deadletters",
+        "/api/v1/dashboard/summary",
     }
 )
 
@@ -962,6 +963,41 @@ class _APIHandler(BaseHTTPRequestHandler):
             self._send_error(HTTPStatus.NOT_FOUND, f"Dead letter {task_id} not found")
             return
         self._send_json(record.model_dump(mode="json"))
+
+    @_route_registry.register("GET", r"^/api/v1/dashboard/summary$")
+    def _handle_get_dashboard_summary(self) -> None:
+        """Aggregated, versioned dashboard summary (v1.3.1).
+
+        Auth: same rules as every other read route — loopback binds are
+        open, non-loopback binds require the API key.
+        """
+        from .dashboard import build_dashboard_summary
+
+        summary = build_dashboard_summary(
+            self.queue,
+            self.queue.storage,
+            self._dashboard_artifact_store,
+        )
+        self._send_json(summary)
+
+    @property
+    def _dashboard_artifact_store(self) -> Optional[Any]:
+        """Artifact store for the dashboard (None → zeroed artifacts).
+
+        Prefers the store configured on the server; falls back to the
+        default resolution. Any resolution failure yields None so the
+        summary reports zeros instead of erroring.
+        """
+        configured = getattr(self.server, "_artifact_store", None)
+        if configured is not None:
+            return configured
+        try:
+            from .artifact_store import get_artifact_store
+
+            return get_artifact_store()
+        except Exception:  # noqa: BLE001 — ArtifactStoreError or config errors
+            logger.debug("dashboard: artifact store unavailable", exc_info=True)
+            return None
 
     # ── POST route handlers ─────────────────────────────────
 

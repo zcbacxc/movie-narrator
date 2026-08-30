@@ -418,6 +418,13 @@ __all__ = [
     "DeliverableManifest",
     "ManifestEntry",
     "write_deliverable_manifest",
+    # Service & Product Semantics (v1.3.1)
+    # Plans/entitlements, webhooks and the dashboard summary contract.
+    "Plan",
+    "EntitlementError",
+    "WebhookEvent",
+    "WebhookDispatcher",
+    "build_dashboard_summary",
 ]
 
 
@@ -566,4 +573,14 @@ from .pipeline.deliverable import (  # noqa: E402
     DeliverableManifest,
     ManifestEntry,
     write_deliverable_manifest,
+# ── Service & Product Semantics (v1.3.1) — new exports, backward
+# compatible. Plans/entitlements (cloud.entitlements), webhook push
+# notifications (cloud.webhooks) and the versioned dashboard summary
+# (cloud.dashboard) form the service-layer contract surface.
+from .cloud import (  # noqa: E402
+    EntitlementError,
+    Plan,
+    WebhookDispatcher,
+    WebhookEvent,
+    build_dashboard_summary,
 )

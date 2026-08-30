@@ -209,7 +209,6 @@ class TestQueueStamping:
 
     def test_direct_submit_keeps_defaults(self, tmp_path: Path):
         """Direct queue use (CLI path) keeps the single-user defaults."""
-        queue = LocalTaskQueue(storage_dir=tmp_path, max_workers=1, auto_start=False)
         task = Task(request=TaskRequest(movie_name="T"))
         assert task.tenant_id == "default"
         assert task.principal == "local"

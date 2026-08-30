@@ -127,6 +127,7 @@ from .webhooks import (  # v1.3.1
     event_for_task,
     sign_payload,
 )
+from .dashboard import build_dashboard_summary  # v1.3.1
 
 __all__ = [
     # Models
@@ -227,4 +228,6 @@ __all__ = [
     "WebhookEvent",
     "event_for_task",
     "sign_payload",
+    # Dashboard summary (v1.3.1)
+    "build_dashboard_summary",
 ]

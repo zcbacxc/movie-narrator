@@ -154,6 +154,12 @@ class TestAllCompleteness:
             "DeliverableManifest",
             "ManifestEntry",
             "write_deliverable_manifest",
+            # Service & Product Semantics (v1.3.1)
+            "Plan",
+            "EntitlementError",
+            "WebhookEvent",
+            "WebhookDispatcher",
+            "build_dashboard_summary",
         }
         assert expected.issubset(set(contract.__all__))
 
