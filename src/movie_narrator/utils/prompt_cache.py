@@ -286,15 +286,14 @@ def record_prompt_cache(ctx: Any, stage: str, hit: bool, key: str) -> None:
     per cached stage; the key is truncated to 12 chars for readable
     metadata). Never raises — metadata bookkeeping must not break a step.
     """
-    try:
+    # Best-effort bookkeeping: suppress anything so metadata never breaks a step.
+    with suppress(Exception):
         entry = {"stage": stage, "hit": hit, "key_prefix": str(key)[:12]}
         history = ctx.metadata.get("prompt_cache")
         if isinstance(history, list):
             history.append(entry)
         else:
             ctx.metadata["prompt_cache"] = [entry]
-    except Exception:  # noqa: BLE001 — best-effort bookkeeping
-        pass
 
 
 def note_prompt_cache(cache: "PromptCache", ctx: Any, stage: str, hit: bool, key: str) -> None:
