@@ -589,6 +589,38 @@ ROADMAP 中的预留项“基于真实 Span 的追踪（task → step/provider/s
 
 - `src/movie_narrator/workflow/schema.py`、`src/movie_narrator/pipeline/render.py`
 - `docs/STABILITY.zh-CN.md`（输出格式兼容性）、`docs/METADATA_SCHEMA.zh-CN.md`、`examples/job.example.yaml`
+## ADR-016：通过 FCP7 XML 交换格式对接 Premiere
+
+**状态：** Accepted
+**版本：** 记录于 v1.4.2
+
+**背景**
+
+ROADMAP 长期项要求在 OTIO + 剪映之外扩展时间线适配器；目标创作者主流的非编软件是 Adobe Premiere Pro，但它既不导入 `.otio`，也不导入剪映草稿。
+
+**决策驱动因素**
+
+- 无新依赖——插件必须保持不装可选依赖也可导入（与剪映路径一致）。
+- 统一的 `Timeline` 中间表示与步骤分发除新增后端分支外不得改动。
+
+**备选方案**
+
+- *Premiere SDK / `.prproj` 格式*（否决）：二进制且未公开；需要宿主应用与重量级绑定。
+- *把 opentimelineio 变成硬依赖*（否决）：会给纯标准库插件拖入额外依赖；OTIO 仍作为 `otio` 后端的可选依赖。
+- *在现有 IR 上写 FCP7 XML（`xmeml`）*（选定）：纯文本格式，Premiere 原生导入（`文件 > 导入`），标准库 `xml.etree.ElementTree`。
+
+**决策结果**
+
+- 新增 `premiere` 后端（`premiere.py`）：序列帧率取自渲染元数据（默认 24），视频轨 clipitem 带帧级入出点与文件引用，文本覆盖为 generatoritem，旁白音频排在音频轨；输出 `<movie>.xml`。核心白名单 `VALID_TIMELINE_EXPORT_BACKENDS` 新增 `"premiere"`；契约与管线零改动。
+
+**后果**
+
+- 正面：Premiere 用户零新依赖获得一键交接；IR 在不改步骤逻辑的情况下吸收第三个后端。
+- 负面：FCP7 XML 是遗留交换格式——生成器文本样式极简，草稿是起点而非最终对版。
+
+**参考资料**
+
+- `examples/plugins/timeline_export/movie_narrator_timeline_export/premiere.py`、`docs/BEST_PRACTICES.zh-CN.md`（时间线导出一节）
 
 ---
 
@@ -611,3 +643,4 @@ ROADMAP 中的预留项“基于真实 Span 的追踪（task → step/provider/s
 | ADR-013 | 服务与产品语义——租户、套餐与 Webhook | Accepted | v1.3.1 | 租户/主体打标 MVP（非隔离）；套餐在 API 校验 + worker 注入两点执行（管线不动）；Webhook = JSONL 投递日志 + HMAC 签名，重发推迟 |
 | ADR-014 | 可选开启的 OpenTelemetry 追踪 | Accepted | v1.4.0 | `movie_narrator.tracing` Span 工厂（task → step/provider/subprocess）；`[otel]` extra 仅含 api+sdk，不捆绑 OTLP；`MN_TRACING` 关闭（默认）即零开销空操作；已注册的全局 Provider 原样使用 |
 | ADR-015 | 字幕交付模式与输出稳定性承诺 | Accepted | v1.4.1 | `subtitle_delivery` burned/sidecar/muxed，muxed→burned 降级（软字幕 mov_text 轨道，绝不导致渲染失败）；STABILITY 新增窄范围承诺（清单 schema v1 + 默认交付物集合） |
+| ADR-016 | 通过 FCP7 XML 交换格式对接 Premiere | Accepted | v1.4.2 | `timeline_export` 插件新增 `premiere` 后端：标准库 FCP7 XML（`xmeml`）写入器，Premiere 原生导入；核心仅白名单变更 |

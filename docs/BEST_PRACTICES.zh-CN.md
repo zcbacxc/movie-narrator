@@ -368,3 +368,30 @@ python benchmarks/encoder_benchmark.py --out gpu.json # 同时写出 JSON 报告
 - **status** — `failed` 行（例如 ffmpeg 列出了 NVENC 但没有可用 GPU 硬件、VAAPI 缺少设备）会被记录而不会中断：说明该后端在你的机器上不可用。
 
 经验法则：GPU 编码器的 `fps` 达到 `libx264` 的 2-3 倍以上且体积接近时，用 `render_encoder: auto`；否则保持 `cpu`。
+
+---
+
+## 时间线导出（NLE 交接）
+
+AI 产出的成片只是初稿。如果你不想直接发布渲染结果，而是想在非编软件里手工精修，可以启用 `timeline_export` 插件，并通过 `timeline_export_backend` 参数选择后端——该步骤在 `render_video` 之后运行，把剪辑草稿写到 `output/<movie>/timeline/` 下。
+
+```bash
+cd examples/plugins/timeline_export
+pip install -e .            # 基础插件（剪映后端，无额外依赖）
+pip install -e ".[otio]"    # + OpenTimelineIO 后端
+```
+
+| 后端 | 输出 | 导入到 |
+|---------|--------|-------------|
+| `jianying`（默认） | `draft_content.json` 草稿包 | 剪映 / CapCut（国内版） |
+| `otio` | `<movie>.otio` | DaVinci Resolve、自研 OTIO 工具链 |
+| `premiere` | `<movie>.xml` | Adobe Premiere Pro——`文件 > 导入` |
+
+`premiere` 后端输出 Final Cut Pro 7 XML 序列：匹配到的源片段排在视频轨上，字幕/片头/水印卡片以文本生成器形式排在第二条轨上，旁白音轨（跑过 BGM 混音时为最终混音）排在音频轨上。该后端无需任何可选依赖。
+
+```yaml
+params:
+  timeline_export_backend: premiere
+```
+
+然后在 Premiere 中：`文件 > 导入`，选择 `output/<movie>/timeline/<movie>.xml`，序列会带着已剪好、摆好位置的片段出现在项目面板里——重排、修剪、换镜头、改字幕，再从 Premiere 导出即可。导出的都是尽力而为的交换数据（按渲染设置读到的序列帧率换算帧号），把它当作起点而不是最终对版。

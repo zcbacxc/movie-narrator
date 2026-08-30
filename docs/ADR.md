@@ -589,6 +589,38 @@ Subtitles have always been hard-burned (SRT → PIL images composited at render)
 
 - `src/movie_narrator/workflow/schema.py`, `src/movie_narrator/pipeline/render.py`
 - `docs/STABILITY.md` (Output Format Compatibility), `docs/METADATA_SCHEMA.md`, `examples/job.example.yaml`
+## ADR-016: Premiere via FCP7 XML Interchange
+
+**Status:** Accepted
+**Version:** Recorded at v1.4.2
+
+**Context**
+
+The ROADMAP long-term item asks for timeline adapters beyond OTIO + Jianying; Adobe Premiere Pro is the dominant NLE for the target creators, but it imports neither `.otio` nor Jianying drafts.
+
+**Decision Drivers**
+
+- No new dependencies — the plugin must stay importable without extras (like the jianying path).
+- The unified `Timeline` IR and step dispatch must stay untouched beyond a new backend arm.
+
+**Considered Options**
+
+- *Premiere SDK / `.prproj` format* (rejected): binary and undocumented; needs a host application and heavy bindings.
+- *opentimelineio as a hard dependency* (rejected): drags an extra into a stdlib-only plugin; OTIO stays optional behind the `otio` backend.
+- *FCP7 XML (`xmeml`) writer on the existing IR* (chosen): plain text Premiere imports natively (`File > Import`), stdlib `xml.etree.ElementTree`.
+
+**Decision Outcome**
+
+- New `premiere` backend (`premiere.py`): sequence rate from render metadata (default 24), video clipitems with frame in/out + file refs, text overlays as generatoritems, narration stem on an audio track; output `<movie>.xml`. Core whitelist `VALID_TIMELINE_EXPORT_BACKENDS` gains `"premiere"`; no contract or pipeline changes.
+
+**Consequences**
+
+- Positive: one-click Premiere hand-off with zero new dependencies; the IR absorbs a third backend without step-logic changes.
+- Negative: FCP7 XML is a legacy interchange — generator text styling is minimal and the draft is a starting point, not a final conform.
+
+**References**
+
+- `examples/plugins/timeline_export/movie_narrator_timeline_export/premiere.py`, `docs/BEST_PRACTICES.md` (Timeline Export section)
 
 ---
 
@@ -611,3 +643,4 @@ Subtitles have always been hard-burned (SRT → PIL images composited at render)
 | ADR-013 | Service and Product Semantics — Tenants, Plans, and Webhooks | Accepted | v1.3.1 | Tenant/principal labelling MVP (not isolation); plans enforced at API validation + worker injection (pipeline untouched); webhooks = JSONL delivery log + HMAC signing, redelivery deferred |
 | ADR-014 | Opt-in OpenTelemetry Tracing | Accepted | v1.4.0 | `movie_narrator.tracing` span factories (task → step/provider/subprocess); `[otel]` extra = api+sdk only, OTLP not bundled; `MN_TRACING` off (default) = zero-overhead no-op; pre-registered global providers used unchanged |
 | ADR-015 | Subtitle Delivery Modes & the Output Stability Promise | Accepted | v1.4.1 | `subtitle_delivery` burned/sidecar/muxed with muxed→burned degradation (soft mov_text track, never fails render); narrow STABILITY promise on manifest schema v1 + default deliverable set |
+| ADR-016 | Premiere via FCP7 XML Interchange | Accepted | v1.4.2 | `timeline_export` plugin gains a `premiere` backend: stdlib FCP7 XML (`xmeml`) writer, Premiere imports natively; whitelist-only core change |
