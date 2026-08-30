@@ -348,3 +348,23 @@ python scripts/bgm_analyze.py /path/to/bgm.mp3
 python scripts/genre_advisor.py --genre 动作 --duration 60
 python scripts/llm_check.py
 ```
+
+---
+
+## 编码器基准测试
+
+如果你有 GPU，想在 `render_encoder: auto` 和 `render_encoder: cpu` 之间做选择，直接实测你的机器，不要靠猜。`benchmarks/encoder_benchmark.py` 会生成一段 5 秒的合成 1080p 测试片段（无需样片素材），分别用 `libx264` 和你 ffmpeg 报告的每个 GPU 编码器编码（检测逻辑与渲染流水线一致；CI 环境会自动跳过 GPU 检测）。
+
+```bash
+python benchmarks/encoder_benchmark.py                # 打印对比表
+python benchmarks/encoder_benchmark.py --out gpu.json # 同时写出 JSON 报告
+```
+
+如何解读这些数字：
+
+- **wall s** — 编码总耗时（秒），越低越快。
+- **fps** — ffmpeg 上报的编码吞吐（帧/秒），是速度对比的核心指标。
+- **size MB** — 输出文件体积；GPU 编码器在同等画质参数下通常比 CRF-20 的 x264 略大。体积差距悬殊说明画质参数并不同级。
+- **status** — `failed` 行（例如 ffmpeg 列出了 NVENC 但没有可用 GPU 硬件、VAAPI 缺少设备）会被记录而不会中断：说明该后端在你的机器上不可用。
+
+经验法则：GPU 编码器的 `fps` 达到 `libx264` 的 2-3 倍以上且体积接近时，用 `render_encoder: auto`；否则保持 `cpu`。

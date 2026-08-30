@@ -348,3 +348,23 @@ python scripts/bgm_analyze.py /path/to/bgm.mp3
 python scripts/genre_advisor.py --genre action --duration 60
 python scripts/llm_check.py
 ```
+
+---
+
+## Encoder Benchmark
+
+If you have a GPU and want to decide between `render_encoder: auto` and `render_encoder: cpu`, benchmark your machine instead of guessing. `benchmarks/encoder_benchmark.py` generates a 5-second synthetic 1080p clip (no sample media needed) and encodes it with `libx264` plus every GPU encoder your ffmpeg reports (detected with the same logic the render pipeline uses; in CI environments GPU detection is skipped automatically).
+
+```bash
+python benchmarks/encoder_benchmark.py                # print a comparison table
+python benchmarks/encoder_benchmark.py --out gpu.json # also write the JSON report
+```
+
+How to read the numbers:
+
+- **wall s** — total wall-clock encode time; lower is faster.
+- **fps** — ffmpeg's reported encode throughput (frames per second); the headline number for speed comparisons.
+- **size MB** — output file size; GPU encoders at fixed quality settings usually produce somewhat larger files than CRF-20 x264. A huge size gap signals the quality settings are not equivalent.
+- **status** — `failed` rows (e.g. NVENC listed by ffmpeg but no usable GPU hardware, VAAPI without a device) are recorded, not fatal: treat that backend as unavailable on your machine.
+
+Rule of thumb: if the GPU encoder's `fps` is at least 2-3x `libx264` at a comparable size, use `render_encoder: auto`; otherwise stay on `cpu`.
