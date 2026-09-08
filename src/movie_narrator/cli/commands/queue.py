@@ -406,7 +406,7 @@ def serve(
         Every response echoes back X-Correlation-ID.
     """
     from movie_narrator.cloud import run_daemon
-    from movie_narrator.config import get_settings
+    from movie_narrator.config import get_server_ops
     from movie_narrator.utils.logging_config import configure_logging
 
     # v0.8.1: configure structured logging before anything can log.
@@ -423,8 +423,7 @@ def serve(
     if public:
         host = "0.0.0.0"  # nosec B104  # explicit opt-in via --public; guarded by API-key check below
 
-    settings = get_settings()
-    effective_api_key = api_key or settings.api_key
+    effective_api_key = api_key or get_server_ops().api_key
 
     if host == "0.0.0.0":  # nosec B104  # comparing the explicit --public host, not a listener
         if effective_api_key is None and not insecure:

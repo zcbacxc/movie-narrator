@@ -35,8 +35,20 @@ def _added_files(base: str) -> set[Path]:
     cmd = ["git", "diff", "--name-only", "--diff-filter=A", f"{base}...HEAD", "--"]
     try:
         out = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, check=True).stdout
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return set()
+    except FileNotFoundError:
+        print("ERROR: `git` unavailable — cannot resolve added files.", file=sys.stderr)
+        sys.exit(2)
+    except subprocess.CalledProcessError as exc:
+        # Fail loud instead of silently degrading to a warn-only report: a gate
+        # that can't compute its input must not pass by accident (see the
+        # shallow-checkout trap in ci.yml fetch-depth comment).
+        print(
+            f"ERROR: cannot resolve base ref {base!r} for added-files gate "
+            f"(git diff exit {exc.returncode}). Set fetch-depth: 0 in "
+            "actions/checkout so the merge-base is present.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
     return {ROOT / line for line in out.splitlines() if line}
 
 

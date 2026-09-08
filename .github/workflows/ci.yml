@@ -39,6 +39,11 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Shallow clone would hide the PR base.SHA, silently disabling the
+          # source-file-size gate (git diff base...HEAD fails remotely). Full
+          # history so every gate can resolve its base ref.
+          fetch-depth: 0
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
@@ -70,6 +75,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Shallow clone would hide the PR base.SHA, silently disabling the
+          # source-file-size gate (git diff base...HEAD fails remotely). Full
+          # history so every gate can resolve its base ref.
+          fetch-depth: 0
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
@@ -144,6 +154,11 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Shallow clone would hide the PR base.SHA, silently disabling the
+          # source-file-size gate (git diff base...HEAD fails remotely). Full
+          # history so every gate can resolve its base ref.
+          fetch-depth: 0
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
@@ -184,6 +199,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Shallow clone would hide the PR base.SHA, silently disabling the
+          # source-file-size gate (git diff base...HEAD fails remotely). Full
+          # history so every gate can resolve its base ref.
+          fetch-depth: 0
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
@@ -219,6 +239,11 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Shallow clone would hide the PR base.SHA, silently disabling the
+          # source-file-size gate (git diff base...HEAD fails remotely). Full
+          # history so every gate can resolve its base ref.
+          fetch-depth: 0
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
@@ -275,6 +300,11 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Shallow clone would hide the PR base.SHA, silently disabling the
+          # source-file-size gate (git diff base...HEAD fails remotely). Full
+          # history so every gate can resolve its base ref.
+          fetch-depth: 0
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"

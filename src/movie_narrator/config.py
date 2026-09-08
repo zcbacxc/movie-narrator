@@ -120,12 +120,20 @@ class Settings(BaseSettings):
         ``.env`` (this ``Settings`` class, ``MN_`` env prefix).
       - Server operational knobs (API-key auth, webhooks, rate limiting,
         scheduler, circuit breaker, graceful shutdown, distributed rendering)
-        also live here for backward compatibility, BUT they are consumed by
-        ``cloud/`` via the ``get_server_ops()`` read-only view
-        (``ServerOpsSettings``). Operators should inject them from the
-        deployment layer (docker-compose / Helm) rather than editing pipeline
-        defaults. Do not extend this ops surface with new fields — fold them
-        into ``ServerOpsSettings`` instead (see ``tests/test_server_ops_settings.py``).
+        also live here for backward compatibility, and are read through the
+        ``get_server_ops()`` read-only view (``ServerOpsSettings``).
+        Consumers today: ``cloud/daemon`` (scheduler + graceful shutdown),
+        ``reliability/circuit_breaker``, and the ``mn serve`` command
+        (API-key fallback). A few server-tuning knobs outside
+        ``ServerOpsSettings`` (admission caps, ``MN_METRICS_PUBLIC``, storage
+        paths, default plan, log format) are still read directly from the
+        process environment by ``cloud/``.
+        Operators should inject these from the deployment layer
+        (docker-compose / Helm) rather than editing pipeline defaults. Do not
+        extend this ops surface with new fields — fold them into
+        ``ServerOpsSettings`` instead (see
+        ``tests/test_server_ops_settings.py``), and prefer routing ``cloud``
+        reads through ``get_server_ops()``.
       - All pipeline behavior (scene, match, render, etc.) is configured via
         job.yaml params — see ``examples/job.example.yaml`` for defaults.
     """
@@ -314,7 +322,6 @@ class ServerOpsSettings:
     distributed_node_health_timeout: float = 5.0
 
 
-@lru_cache
 def get_server_ops() -> ServerOpsSettings:
     """Assemble the read-only ops view from the current :class:`Settings`.
 
@@ -324,6 +331,12 @@ def get_server_ops() -> ServerOpsSettings:
         breaker, graceful shutdown, distributed rendering). Does not load any
         new environment variables — it slices the already-loaded
         ``Settings`` instance.
+
+    Intentionally NOT ``@lru_cache``'d: it delegates to ``get_settings()``,
+    which is the single cache owner. Keeping a second cache here would give
+    tests and callers a stale snapshot when they clear ``get_settings`` and
+    re-read the environment (see test_v092_lifecycle graceful-shutdown tests).
+    Re-slicing a frozen dataclass is cheap.
     """
     s = get_settings()
     nodes = (

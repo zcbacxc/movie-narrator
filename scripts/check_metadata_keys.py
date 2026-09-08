@@ -25,13 +25,21 @@ MODELS = ROOT / "src" / "movie_narrator" / "models.py"
 SRC = ROOT / "src" / "movie_narrator"
 KEY_DECL_RE = re.compile(r"^\s+(?P<key>[A-Za-z_][A-Za-z0-9_]*):\s+", re.MULTILINE)
 # Literal key access on ``metadata``:
-#   metadata.get("KEY")          metadata.get('KEY')
-#   metadata["KEY"]              metadata['KEY']
-#   metadata.get("KEY", default)   (covers the "KEY" substring forms above)
-#   metadata["KEY"].method(...)    (e.g. metadata["prompt_cache"].append(...))
+#   metadata.get("KEY") / metadata["KEY"] / metadata.pop("KEY") / metadata.setdefault("KEY")
+#   metadata.get("KEY", default) / .pop("KEY", default)   (the opener already matches)
+#   metadata["KEY"].method(...)                            (e.g. [...].append(...))
+#   metadata.update({"KEY": ...})
+# NOTE on `\bmetadata`: this matches *any* variable named ``metadata``, which
+# includes ``task.metadata["..."]`` attribute access on the Task model. Those
+# Task keys are therefore enforced against the same `MetadataDict` declaration
+# as the Context `metadata`. This is stricter than strictly necessary (a Task
+# key missing from MetadataDict is reported and must be declared), but the
+# Task/Context keys are presently a subset, so the conflation is harmless and
+# acts as a single, conservative gate. A future stricter variant could narrow
+# by object type; today the trade-off is deliberate and covered by this docstring.
 METADATA_LITERAL_RE = re.compile(
-    r'\bmetadata\s*(?:\.get\(\s*|\[)(?P<quote>["\'])(?P<key>[A-Za-z0-9_.-]+)'
-    r"(?P=quote)",
+    r"\bmetadata\s*(?:\.(?:get|pop|setdefault)\(\s*|\[|\.update\(\s*\{\s*)"
+    r'(?P<quote>["\'])(?P<key>[A-Za-z0-9_.-]+)(?P=quote)',
 )
 
 

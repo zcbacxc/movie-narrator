@@ -58,14 +58,14 @@ def graceful_shutdown_timeout() -> float:
     Returns:
         The graceful-shutdown drain budget in seconds (v0.9.2).
 
-        Reads ``MN_GRACEFUL_SHUTDOWN_TIMEOUT`` through :func:`get_settings`
+        Reads ``MN_GRACEFUL_SHUTDOWN_TIMEOUT`` through :func:`get_server_ops`
         (default :data:`_DEFAULT_DRAIN_TIMEOUT`). Falls back to the default
         when settings cannot be loaded, so a signal handler never raises.
     """
     try:
-        from ..config import get_settings
+        from ..config import get_server_ops
 
-        value = get_settings().graceful_shutdown_timeout
+        value = get_server_ops().graceful_shutdown_timeout
         if value is not None and value > 0:
             return float(value)
     except Exception:  # noqa: BLE001 — a signal path must never raise
@@ -114,24 +114,24 @@ def _build_scheduler(
     """Construct a ``JobScheduler`` from the daemon configuration.
 
     The scheduler is always created so the ``/schedules`` routes work,
-    but its loop is only started when ``mn_scheduler_enabled`` is set
-    (see :func:`run_daemon`). The poll interval comes from Settings.
+    but its loop is only started when ``scheduler_enabled`` is set
+    (see :func:`run_daemon`). The poll interval comes from the server-ops
+    view.
     """
-    from ..config import get_settings
+    from ..config import get_server_ops
 
-    settings = get_settings()
     return JobScheduler(
         queue=queue,
         storage_dir=storage_dir,
-        poll_interval=settings.scheduler_poll_interval,
+        poll_interval=get_server_ops().scheduler_poll_interval,
     )
 
 
 def _scheduler_enabled() -> bool:
     """Whether the daemon should start the scheduler loop (v0.9.3)."""
-    from ..config import get_settings
+    from ..config import get_server_ops
 
-    return bool(get_settings().scheduler_enabled)
+    return bool(get_server_ops().scheduler_enabled)
 
 
 def run_daemon(

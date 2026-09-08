@@ -64,14 +64,13 @@ def _parse_nodes(raw: str) -> set[str]:
 def _fresh_settings():
     """Re-read Settings on every test so env overrides take effect.
 
-    ``get_settings`` / ``get_server_ops`` are lru_cached at module level; a
-    new .env/process-env is only visible after the cache is cleared.
+    ``get_settings`` is the single lru_cache owner; ``get_server_ops``
+    (uncached) re-slices it on every call, so clearing ``get_settings`` is
+    sufficient to expose new .env/process-env values.
     """
     get_settings.cache_clear()
-    get_server_ops.cache_clear()
     yield
     get_settings.cache_clear()
-    get_server_ops.cache_clear()
 
 
 def test_server_ops_view_is_frozen():
@@ -108,7 +107,6 @@ def test_get_server_ops_env_override(monkeypatch):
         "http://a:8765, http://b:8765 , ,http://c:8765",
     )
     get_settings.cache_clear()
-    get_server_ops.cache_clear()
     ops = get_server_ops()
     assert ops.api_key == "s3cr3t"
     assert ops.scheduler_enabled is False
