@@ -1,10 +1,10 @@
 [![English](https://img.shields.io/badge/English-Release_Checklist-blue)](RELEASE_CHECKLIST.md)
 [![简体中文](https://img.shields.io/badge/简体中文-发布清单-green)](RELEASE_CHECKLIST.zh-CN.md)
 
-# v1.5.2 Release Checklist
+# v1.6.0 Release Checklist
 
-> **Definition of Done for the v1.5.2 release.** Every item on this list
-> must be verified and checked off before the v1.5.2 tag is created and the
+> **Definition of Done for the v1.6.0 release.** Every item on this list
+> must be verified and checked off before the v1.6.0 tag is created and the
 > release is published to PyPI. Items are grouped by category; each has a
 > verification command or method.
 
@@ -27,7 +27,7 @@
 - [x] **Test coverage meets threshold**
   - Command: `pytest --cov=movie_narrator --cov-report=term-missing --cov-fail-under=90`
   - Expected: `Required test coverage of 90% reached. Total coverage: XX%`
-  - Note: Threshold defined in CI config (`.coveragerc` + `ci.yml`); v1.5.2 measured 91.38%; must not regress from the v1.1 baseline
+  - Note: Threshold defined in CI config (`.coveragerc` + `ci.yml`); last release (v1.5.2) measured 91.38%; must not regress from the v1.1 baseline
 
 ---
 
@@ -53,10 +53,10 @@
   - Expected: All contract re-export, protocol, and version tests pass
   - Note: Verifies `CONTRACT_VERSION` value and `__all__` completeness
 
-- [x] **New v1.5.2 deployment/cache tests pass**
-  - Command: `pytest -v tests/test_v152_helm.py tests/test_v152_media_cache.py`
-  - Expected: All pass (chart structure, values drift, cache dedupe/TTL, URL resolve e2e)
-  - Note: Adds +55 tests total vs v1.5.1
+- [x] **New v1.6.0 engineering tests pass**
+  - Command: `pytest -v tests/test_cli_options.py tests/test_check_metadata_keys.py tests/test_server_ops_settings.py`
+  - Expected: All pass (CLI option-alias drift, metadata-key gate, server-ops settings view)
+  - Note: Adds +11 tests total vs v1.5.2
 
 ---
 
@@ -93,18 +93,18 @@
 - [x] **CHANGELOG.md is finalized**
   - Verification: Review `CHANGELOG.md`
   - Expected:
-    - New `## [1.5.2] - <date>` heading (was `[Unreleased]`)
-    - `CONTRACT_VERSION` line uses the mandated format: `- `CONTRACT_VERSION` remains (1, 3, 0). All NNN tests pass (N skipped in CI, 0 failures). +M new tests vs v1.5.1.`
-    - Version comparison links at bottom updated (`[Unreleased]` → `.../compare/v1.5.2...HEAD`, new `[1.5.2]` link)
+    - New `## [1.6.0] - <date>` heading (was `[Unreleased]`)
+    - `CONTRACT_VERSION` line uses the mandated format: `- \`CONTRACT_VERSION\` remains (1, 3, 0). All 3189 tests pass (1 skipped in CI, 0 failures). +11 new tests vs v1.5.2.`
+    - Version comparison links at bottom updated (`[Unreleased]` → `.../compare/v1.6.0...HEAD`, new `[1.6.0]` link)
     - Historical entries unchanged (no codename or terminology edits to old releases)
 
-- [x] **ROADMAP reflects v1.5.2**
+- [x] **ROADMAP reflects v1.6.0**
   - Verification: `docs/ROADMAP.md` (+ `.zh-CN.md`)
-  - Expected: v1.5.2 row in the Completed table; the v1.5 section marks all three releases shipped
+  - Expected: v1.6.0 row in the Completed table
 
 - [x] **Current-version alignment**
-  - Method: Scan **all** public docs (`docs/**/*.md` + `README.md`) — do **not** rely on a fixed file list — and grep each for the previous version string (`v1.5.1`) used as a "current"-version claim
-  - Expected: No public doc still claims the old version as current; update every stale stamp (compatibility notes in `DEPLOYMENT`/`MIGRATION`/`TUTORIAL`, `mn version` output in `QUICKSTART`, `index.md` checklist label) to **v1.5.2**. Leave legitimate references intact (historical records, comparison baselines, illustrative examples). Re-run the scan to confirm.
+  - Method: Scan **all** public docs (`docs/**/*.md` + `README.md`) — do **not** rely on a fixed file list — and grep each for the previous version string (`v1.5.2`) used as a "current"-version claim
+  - Expected: No public doc still claims the old version as current; update every stale stamp (compatibility notes in `DEPLOYMENT`/`MIGRATION`/`TUTORIAL`, `mn version` output in `QUICKSTART`, `index.md` checklist label) to **v1.6.0**. Leave legitimate references intact (historical records, comparison baselines, illustrative examples). Re-run the scan to confirm.
   - Note: Also update the local `CLAUDE.md` "Current version" line (gitignored, local-only). File-agnostic, so this item never needs a new file list
 
 - [x] **mkdocs build succeeds**
@@ -117,15 +117,15 @@
 
 - [x] **Version numbers are aligned**
   - Verification:
-    - `pyproject.toml` → `version = "1.5.2"`
-    - `src/movie_narrator/contract.py` → `CONTRACT_VERSION = (1, 3, 0)` (unchanged — no new exports in v1.5.2, do **not** bump)
-    - `docs/ROADMAP.md` → CONTRACT_VERSION line shows `(1, 3, 0)` (unchanged in v1.5.2)
+    - `pyproject.toml` → `version = "1.6.0"`
+    - `src/movie_narrator/contract.py` → `CONTRACT_VERSION = (1, 3, 0)` (unchanged — no new exports in v1.6.0, do **not** bump)
+    - `docs/ROADMAP.md` → CONTRACT_VERSION line shows `(1, 3, 0)` (unchanged in v1.6.0)
     - `docs/MIGRATION.md` → current-version note updated
-  - Expected: Package version 1.5.2; contract version remains (1, 3, 0)
+  - Expected: Package version 1.6.0; contract version remains (1, 3, 0)
 
 - [x] **Tag naming follows convention**
-  - Format: `v1.5.2` (lowercase `v`, semver, no prefix/suffix)
-  - Command: `git tag -a v1.5.2 -m "v1.5.2 - Deployment & Media Cache: Helm Chart, Media Cache Pool & Pilot Decision"`
+  - Format: `v1.6.0` (lowercase `v`, semver, no prefix/suffix)
+  - Command: `git tag -a v1.6.0 -m "v1.6.0 - Engineering Quality: Megafile Split, CLI Option Aliasing, Settings Ops View & Metadata Key Gates"`
   - Note: Annotated tag, not lightweight; tag push MUST be separate from branch push
 
 - [x] **Release branch merged to main**
@@ -137,18 +137,18 @@
   - Expected: Trusted Publisher configured, tag push triggers publish
   - Manual verification:
     ```bash
-    pip install dist/movie_narrator-1.5.2-py3-none-any.whl
-    mn version  # should show 1.5.2
+    pip install dist/movie_narrator-1.6.0-py3-none-any.whl
+    mn version  # should show 1.6.0
     ```
 
 - [x] **GitHub Release follows the release.md spec**
-  - Title: `v1.5.2 - Deployment & Media Cache: Helm Chart, Media Cache Pool & Pilot Decision`
-  - Body: the `## [v1.5.2]` section of `CHANGELOG.md` copied verbatim (per `.claude/rules/release.md`), plus a link to the full CHANGELOG
+  - Title: `v1.6.0 - Engineering Quality: Megafile Split, CLI Option Aliasing, Settings Ops View & Metadata Key Gates`
+  - Body: the `## [v1.6.0]` section of `CHANGELOG.md` copied verbatim (per `.claude/rules/release.md`), plus a link to the full CHANGELOG
   - Exactly one **non-draft** release per tag — delete any empty draft left by `publish.yml`
 
 - [x] **Git tag pushed**
-  - Command: `git push origin v1.5.2`
-  - Expected: Tag appears on GitHub, publish workflow starts, PyPI `movie-narrator==1.5.2` published
+  - Command: `git push origin v1.6.0`
+  - Expected: Tag appears on GitHub, publish workflow starts, PyPI `movie-narrator==1.6.0` published
   - Note: Push tag only after all checklist items are confirmed
 
 ---
@@ -158,11 +158,11 @@
 - [x] **PyPI release verified**
   - Verification:
     ```bash
-    pip install movie-narrator==1.5.2
+    pip install movie-narrator==1.6.0
     python -c "from movie_narrator.contract import CONTRACT_VERSION; print(CONTRACT_VERSION)"
     # Expected: (1, 3, 0)
     ```
-  - Expected: Package installs cleanly, import works, package version 1.5.2
+  - Expected: Package installs cleanly, import works, package version 1.6.0
 
 - [x] **Maintenance branch (by convention, not created)**
   - Verification: n/a — `v1.2.x`–`v1.4.x` were likewise not created; backports land on `main` per project convention
@@ -171,4 +171,4 @@
 ---
 
 *Use this checklist for each release candidate (RC). The final RC that passes
-all items becomes the v1.2.1 release.*
+all items becomes the v1.6.0 release.*

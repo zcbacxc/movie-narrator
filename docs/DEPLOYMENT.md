@@ -3,7 +3,7 @@
 
 # Deployment
 
-Container images and a local cluster for `movie-narrator` (v1.5.2).
+Container images and a local cluster for `movie-narrator` (v1.6.0).
 
 - [Deployment modes](#deployment-modes)
 - [Requirements](#requirements)
@@ -203,9 +203,9 @@ yet — build `movie-narrator:<tag>` per [Building the image](#building-the-imag
 push it to your registry, and point `image.repository` at it:
 
 ```bash
-docker build -t movie-narrator:1.5.2 .
-docker tag movie-narrator:1.5.2 registry.example.com/ai/movie-narrator:1.5.2
-docker push registry.example.com/ai/movie-narrator:1.5.2
+docker build -t movie-narrator:1.6.0 .
+docker tag movie-narrator:1.6.0 registry.example.com/ai/movie-narrator:1.6.0
+docker push registry.example.com/ai/movie-narrator:1.6.0
 ```
 
 Install from the repo tree (the chart is not in a Helm repository yet):

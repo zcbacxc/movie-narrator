@@ -31,8 +31,9 @@
 | v1.5.0 | Visual fidelity — 10-bit & colour-tagged pipeline / expectations-aware 4K+pixel QA / admission factor |
 | v1.5.1 | Community & governance — mn presets sharing / per-tenant rate limiting / provider usage ledger |
 | v1.5.2 | Deployment & media cache — Helm chart & K8s templates / media cache pool with reference_media URLs / pilot deferral record |
+| v1.6.0 | Engineering quality — megafile decomposition / CLI option aliasing / Settings ops view / metadata-key & file-size gates |
 
-`CONTRACT_VERSION` (current): `(1, 3, 0)` (bumped in v1.4.0 — tracing exports; unchanged in v1.4.1–v1.5.2)
+`CONTRACT_VERSION` (current): `(1, 3, 0)` (bumped in v1.4.0 — tracing exports; unchanged in v1.4.1–v1.6.0)
 
 ---
 

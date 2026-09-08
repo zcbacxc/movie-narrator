@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - **Megafile decomposition (maintainability)** — `cli.py` (2203→max 546), `cloud/api.py` (1826→max 521), and `pipeline/match.py` (1482→max 758) are split into packages/command modules with zero behaviour change and a preserved public import surface; `mn` entry point and every existing `movie_narrator.cli` / `pipeline.match` / `cloud.api` import continue to resolve.
 - **Mypy** — `check_untyped_defs` enabled so `MetadataDict`/TypedDict checking is effective in untyped function bodies (no new errors introduced; `follow_imports` stays `skip`, staged migration preserved).
-- `CONTRACT_VERSION` remains (1, 3, 0). Running total to be finalized after CI (projected 3188, +11 new tests vs v1.5.2).
+- `CONTRACT_VERSION` remains (1, 3, 0). All 3189 tests pass (1 skipped in CI, 0 failures). +11 new tests vs v1.5.2.
 
 ## [1.5.2] - 2026-08-30
 
@@ -1413,7 +1413,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `workflow_steps` and `params` metadata injection.
 - Console log refactoring design.
 
-[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v1.5.2...HEAD
+[Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/zcbacxc/movie-narrator/compare/v1.5.2...v1.6.0
 [1.5.2]: https://github.com/zcbacxc/movie-narrator/compare/v1.5.1...v1.5.2
 [1.5.1]: https://github.com/zcbacxc/movie-narrator/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/zcbacxc/movie-narrator/compare/v1.4.2...v1.5.0

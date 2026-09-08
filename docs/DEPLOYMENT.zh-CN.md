@@ -3,7 +3,7 @@
 
 # 部署指南
 
-`movie-narrator` 的容器镜像与本地集群（v1.5.2）。
+`movie-narrator` 的容器镜像与本地集群（v1.6.0）。
 
 - [部署模式](#部署模式)
 - [环境要求](#环境要求)
@@ -198,9 +198,9 @@ Secret 注入（`mn serve` 拒绝在非回环地址上无鉴权启动）。当�
 指向它：
 
 ```bash
-docker build -t movie-narrator:1.5.2 .
-docker tag movie-narrator:1.5.2 registry.example.com/ai/movie-narrator:1.5.2
-docker push registry.example.com/ai/movie-narrator:1.5.2
+docker build -t movie-narrator:1.6.0 .
+docker tag movie-narrator:1.6.0 registry.example.com/ai/movie-narrator:1.6.0
+docker push registry.example.com/ai/movie-narrator:1.6.0
 ```
 
 从仓库目录安装（chart 尚未发布到 Helm 仓库）：

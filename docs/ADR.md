@@ -450,6 +450,13 @@ For **FFmpeg**: the engine resolves the binary through the shared `utils/ffmpeg_
 
 The 16 pipeline steps form a fixed linear sequence in `run_pipeline`. Plugins can inject steps but cannot declare what data they read/write, so there is no machine-checkable way to validate that a plugin's data dependencies are compatible with linear execution — nor a foundation for future parallel scheduling.
 
+**Decision Drivers**
+
+- Keep the runner's linear for-loop and its single sequential execution semantics unchanged (no behaviour change, no crash-recovery risk).
+- Make plugin data dependencies machine-checkable so incompatible registrations fail fast instead of silently misbehaving.
+- Lay a dependency model that future parallel scheduling can reuse without a semantic redesign.
+- Stay low-risk today: defer any actual parallel execution until real multi-node latency/concurrency metrics justify it.
+
 **Considered Options**
 
 - Making the runner a parallel DAG executor now (rejected: high risk, no current need; render/TTS are the only slow steps and are already cached).
