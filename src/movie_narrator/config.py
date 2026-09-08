@@ -5,6 +5,7 @@
 
 import os
 import sys
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Optional
@@ -112,11 +113,29 @@ class TTSProviderType(str, Enum):
 
 
 class Settings(BaseSettings):
-    """Global LLM + TTS infrastructure configuration.
+    """Global infrastructure configuration (v1.5.x).
 
-    Boundary: .env (Settings) = LLM + TTS credentials, endpoints, models,
-    call params only. All pipeline behavior (scene, match, render, etc.)
-    is configured via job.yaml params — see ``examples/job.example.yaml`` for defaults.
+    Boundary:
+      - LLM + TTS + TMDB credentials/endpoints/models/call params come from
+        ``.env`` (this ``Settings`` class, ``MN_`` env prefix).
+      - Server operational knobs (API-key auth, webhooks, rate limiting,
+        scheduler, circuit breaker, graceful shutdown, distributed rendering)
+        also live here for backward compatibility, and are read through the
+        ``get_server_ops()`` read-only view (``ServerOpsSettings``).
+        Consumers today: ``cloud/daemon`` (scheduler + graceful shutdown),
+        ``reliability/circuit_breaker``, and the ``mn serve`` command
+        (API-key fallback). A few server-tuning knobs outside
+        ``ServerOpsSettings`` (admission caps, ``MN_METRICS_PUBLIC``, storage
+        paths, default plan, log format) are still read directly from the
+        process environment by ``cloud/``.
+        Operators should inject these from the deployment layer
+        (docker-compose / Helm) rather than editing pipeline defaults. Do not
+        extend this ops surface with new fields — fold them into
+        ``ServerOpsSettings`` instead (see
+        ``tests/test_server_ops_settings.py``), and prefer routing ``cloud``
+        reads through ``get_server_ops()``.
+      - All pipeline behavior (scene, match, render, etc.) is configured via
+        job.yaml params — see ``examples/job.example.yaml`` for defaults.
     """
 
     # ── API server / Remote inference (v0.8.0) ──
@@ -235,3 +254,114 @@ def get_settings() -> Settings:
     """
     ensure_user_config()
     return Settings()
+
+
+# Bound to server/deployment ("ops") surface. These fields overlap the
+# model-config (LLM/TTS/TMDB) surface in name provenance but represent a
+# separate, ops-only slice consumed by the ``cloud/`` subsystem through
+# ``get_server_ops()``. Keeping them here (read-only) rather than adding new
+# ops-only env vars preserves zero forward-compatibility change while giving
+# cloud/ a stable, typed, immutable view.
+_OPS_FIELDS = (
+    "api_key",
+    "api_principal",
+    "webhook_urls",
+    "webhook_secret",
+    "webhook_timeout",
+    "webhook_max_retries",
+    "rate_limit_enabled",
+    "rate_limit_capacity",
+    "rate_limit_refill_per_minute",
+    "graceful_shutdown_timeout",
+    "scheduler_enabled",
+    "scheduler_poll_interval",
+    "circuit_failure_threshold",
+    "circuit_recovery_timeout",
+    "circuit_half_open_max_calls",
+    "distributed_enabled",
+    "distributed_nodes",
+    "distributed_min_render_seconds",
+    "distributed_node_health_timeout",
+)
+
+
+@dataclass(frozen=True)
+class ServerOpsSettings:
+    """Read-only slice of :class:`Settings` for the ``cloud/`` subsystem.
+
+    Immutable view over the server/deployment operational knobs. Field names
+    and defaults mirror the corresponding ``Settings`` fields (which remain
+    the single loader of ``MN_*`` env vars — this view adds zero new env
+    variables). Construct via :func:`get_server_ops`.
+
+    .. note::
+        ``distributed_nodes`` deviates from ``Settings`` (a comma-separated
+        string) and is exposed as a parsed collection — the set of node base
+        URLs, empty when none configured. This matches how
+        ``cloud/distributed.py`` actually consumes the value.
+    """
+
+    api_key: Optional[str] = None
+    api_principal: str = "api-key"
+    webhook_urls: str = ""
+    webhook_secret: Optional[str] = None
+    webhook_timeout: float = 10.0
+    webhook_max_retries: int = 3
+    rate_limit_enabled: bool = False
+    rate_limit_capacity: float = 60.0
+    rate_limit_refill_per_minute: float = 60.0
+    graceful_shutdown_timeout: float = 30.0
+    scheduler_enabled: bool = True
+    scheduler_poll_interval: float = 15.0
+    circuit_failure_threshold: int = 5
+    circuit_recovery_timeout: float = 30.0
+    circuit_half_open_max_calls: int = 1
+    distributed_enabled: bool = False
+    distributed_nodes: set = field(default_factory=set)  # node base URLs
+    distributed_min_render_seconds: float = 600.0
+    distributed_node_health_timeout: float = 5.0
+
+
+def get_server_ops() -> ServerOpsSettings:
+    """Assemble the read-only ops view from the current :class:`Settings`.
+
+    Returns:
+        An immutable :class:`ServerOpsSettings` snapshot of the operational
+        configuration (API auth, webhooks, rate limit, scheduler, circuit
+        breaker, graceful shutdown, distributed rendering). Does not load any
+        new environment variables — it slices the already-loaded
+        ``Settings`` instance.
+
+    Intentionally NOT ``@lru_cache``'d: it delegates to ``get_settings()``,
+    which is the single cache owner. Keeping a second cache here would give
+    tests and callers a stale snapshot when they clear ``get_settings`` and
+    re-read the environment (see test_v092_lifecycle graceful-shutdown tests).
+    Re-slicing a frozen dataclass is cheap.
+    """
+    s = get_settings()
+    nodes = (
+        {url.strip() for url in s.distributed_nodes.split(",") if url.strip()}
+        if s.distributed_nodes
+        else set()
+    )
+    return ServerOpsSettings(
+        api_key=s.api_key,
+        api_principal=s.api_principal,
+        webhook_urls=s.webhook_urls,
+        webhook_secret=s.webhook_secret,
+        webhook_timeout=s.webhook_timeout,
+        webhook_max_retries=s.webhook_max_retries,
+        rate_limit_enabled=s.rate_limit_enabled,
+        rate_limit_capacity=s.rate_limit_capacity,
+        rate_limit_refill_per_minute=s.rate_limit_refill_per_minute,
+        graceful_shutdown_timeout=s.graceful_shutdown_timeout,
+        scheduler_enabled=s.scheduler_enabled,
+        scheduler_poll_interval=s.scheduler_poll_interval,
+        circuit_failure_threshold=s.circuit_failure_threshold,
+        circuit_recovery_timeout=s.circuit_recovery_timeout,
+        circuit_half_open_max_calls=s.circuit_half_open_max_calls,
+        distributed_enabled=s.distributed_enabled,
+        distributed_nodes=nodes,
+        distributed_min_render_seconds=s.distributed_min_render_seconds,
+        distributed_node_health_timeout=s.distributed_node_health_timeout,
+    )

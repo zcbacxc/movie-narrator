@@ -372,14 +372,14 @@ class CircuitBreakerRegistry:
 
     @staticmethod
     def _default_params() -> Dict[str, Any]:
-        """Resolve default breaker parameters from ``Settings``."""
-        from ..config import get_settings  # lazy — keeps this module importable standalone
+        """Resolve default breaker parameters from the server-ops view."""
+        from ..config import get_server_ops  # lazy — keeps this module importable standalone
 
-        settings = get_settings()
+        ops = get_server_ops()
         return {
-            "failure_threshold": settings.circuit_failure_threshold,
-            "recovery_timeout": settings.circuit_recovery_timeout,
-            "half_open_max_calls": settings.circuit_half_open_max_calls,
+            "failure_threshold": ops.circuit_failure_threshold,
+            "recovery_timeout": ops.circuit_recovery_timeout,
+            "half_open_max_calls": ops.circuit_half_open_max_calls,
         }
 
 

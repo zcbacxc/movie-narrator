@@ -18,6 +18,7 @@ import pytest
 from typer.testing import CliRunner
 
 import movie_narrator.cli as cli
+from movie_narrator.config import ServerOpsSettings
 from movie_narrator.cli import (
     InteractiveCLIController,
     _format_degradation_hints,
@@ -1047,7 +1048,7 @@ def test_serve_public_no_key_warns(tmp_path):
     with (
         patch("movie_narrator.cloud.run_daemon"),
         patch("movie_narrator.utils.logging_config.configure_logging"),
-        patch("movie_narrator.config.get_settings", return_value=SimpleNamespace(api_key=None)),
+        patch("movie_narrator.config.get_server_ops", return_value=ServerOpsSettings(api_key=None)),
     ):
         result = runner.invoke(app, ["serve", "--public"])
     assert result.exit_code == 0
@@ -1058,7 +1059,7 @@ def test_serve_public_insecure_warns(tmp_path):
     with (
         patch("movie_narrator.cloud.run_daemon"),
         patch("movie_narrator.utils.logging_config.configure_logging"),
-        patch("movie_narrator.config.get_settings", return_value=SimpleNamespace(api_key=None)),
+        patch("movie_narrator.config.get_server_ops", return_value=ServerOpsSettings(api_key=None)),
     ):
         result = runner.invoke(app, ["serve", "--public", "--insecure"])
     assert result.exit_code == 0
@@ -1069,7 +1070,7 @@ def test_serve_localhost_runs(tmp_path):
     with (
         patch("movie_narrator.cloud.run_daemon") as rd,
         patch("movie_narrator.utils.logging_config.configure_logging"),
-        patch("movie_narrator.config.get_settings", return_value=SimpleNamespace(api_key="k")),
+        patch("movie_narrator.config.get_server_ops", return_value=ServerOpsSettings(api_key="k")),
     ):
         result = runner.invoke(app, ["serve", "--port", "9000"])
     assert result.exit_code == 0

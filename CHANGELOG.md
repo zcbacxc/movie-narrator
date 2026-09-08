@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.6.0] - 2026-09-08
+
+### Added
+
+- **Shared CLI option aliases** — new `cli/options.py` expresses the four main commands' options as reusable `Annotated` aliases, eliminating 17 instances of flag help/default drift that had accumulated by copy-paste. Intentional per-command differences are now explicit and self-documenting (`submit --movie` required, four `--output-dir` default hints, two `--voice` help variants). A new AST regression test (`tests/test_cli_options.py`) fails on any future non-whitelisted drift.
+- **Settings ops view** — `config.ServerOpsSettings` (frozen, read-only) plus `get_server_ops()` exposes the deployment-facing knobs (`api_key` / webhook / rate-limit / scheduler / circuit-breaker / distributed / graceful-shutdown) to the `cloud/` subsystem, decoupling them from the LLM/TTS/TMDB settings surface. Consumed by `cloud/daemon` (scheduler + graceful shutdown), `reliability/circuit_breaker`, and the `mn serve` command (API-key fallback); a few server-tuning knobs outside the view (admission caps, `MN_METRICS_PUBLIC`, storage paths, default plan, log format) remain read directly, and both `config.py` and `.env.example` state this boundary precisely. Existing `MN_*` environment variables are unchanged (zero breakage); a disjointness test prevents future ops-fields from being added to `Settings` without being routed into a view.
+- **Metadata key integrity gate** — `scripts/check_metadata_keys.py` (wired into CI lint) fails the build if any string-literal `metadata[...]`, `.get()`, `.pop()`, `.setdefault()` or `.update({...})` key in `src/` is not declared in `models.MetadataDict`. The 10 previously-undeclared keys (`reference_media`, `reference_media_captions`, `prompt_cache`, `plan`, `plan_policy`, `artifact_retention`, `rerun`, `usage`, `match_visual_features`, `render_main_encode_timeout`) are now declared.
+- **Mega-file size gate** — `scripts/lint_file_size.py` fails on newly-added source files over 900 lines while treating pre-existing over-budget files as non-fatal (so the debt is tracked without blocking the build). It fails loudly if the base ref cannot be resolved, and CI checks out full history (`fetch-depth: 0`) so the PR merge-base is always present — the gate can never silently degrade to a warn-only report.
+- **Tests** (`tests/test_cli_options.py`, `tests/test_check_metadata_keys.py`, `tests/test_server_ops_settings.py`): +11 tests.
+
+### Changed
+
+- **Megafile decomposition (maintainability)** — `cli.py` (2203→max 546), `cloud/api.py` (1826→max 521), and `pipeline/match.py` (1482→max 758) are split into packages/command modules with zero behaviour change and a preserved public import surface; `mn` entry point and every existing `movie_narrator.cli` / `pipeline.match` / `cloud.api` import continue to resolve.
+- **Mypy** — `check_untyped_defs` enabled so `MetadataDict`/TypedDict checking is effective in untyped function bodies (no new errors introduced; `follow_imports` stays `skip`, staged migration preserved).
+- `CONTRACT_VERSION` remains (1, 3, 0). Running total to be finalized after CI (projected 3188, +11 new tests vs v1.5.2).
+
 ## [1.5.2] - 2026-08-30
 
 ### Added

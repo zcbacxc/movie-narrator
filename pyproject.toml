@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "movie-narrator"
-version = "1.5.2"
+version = "1.6.0"
 description = "Generate narrated movie recap videos from a single prompt."
 readme = "README.md"
 license = "AGPL-3.0-or-later"
@@ -110,7 +110,7 @@ markers = [
 [tool.mypy]
 python_version = "3.10"
 ignore_missing_imports = true
-check_untyped_defs = false
+check_untyped_defs = true
 warn_unused_ignores = true
 warn_redundant_casts = true
 follow_imports = "skip"
