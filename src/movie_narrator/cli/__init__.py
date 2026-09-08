@@ -1,22 +1,31 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""Command-line interface for Movie Narrator."""
+"""Command-line interface for Movie Narrator.
 
-import json
-from pathlib import Path
-from typing import Any, Dict, Optional, cast
+The ``create`` / ``race`` / ``imitate`` / ``submit`` commands keep their
+option signatures defined here (their bodies delegate to the handlers in
+:mod:`movie_narrator.cli.commands`) because ``tests/test_cli_options.py``
+statically parses this module for the command signatures to enforce that the
+shared option aliases (help/default text) do not drift across commands.
+"""
+
+from typing import Optional
 
 import typer
 
-from .. import __version__
-from ..models import Context
-from ..pipeline.resolve import resolve_video
-from ..pipeline.research import research_plot
-from ..pipeline.runner import apply_dry_run_steps, build_context, common_build_kwargs, run_pipeline
-from ..utils.log import resolve_log_level
+# These are re-exported on the ``movie_narrator.cli`` scope because tests
+# monkeypatch them (e.g. ``patch("movie_narrator.cli.build_context")``) and
+# expect the command handlers to observe the patched values.  Handlers
+# therefore resolve them through the ``movie_narrator.cli`` module object.
+from ..pipeline.resolve import resolve_video  # noqa: F401  (patchable CLI scope)
+from ..pipeline.research import research_plot  # noqa: F401  (patchable CLI scope)
+from ..pipeline.runner import (  # noqa: F401  (patchable CLI scope)
+    build_context,
+    run_pipeline,
+)
 
-from .options import (  # noqa: E402
+from .options import (
     BgmOpt,
     ConfigOpt,
     DryRunOpt,
@@ -44,80 +53,52 @@ from .options import (  # noqa: E402
     VoiceWithSign,
 )
 
+# Shared, patchable helper surface (tests reference these on movie_narrator.cli).
+from movie_narrator.cli._helpers import (
+    InteractiveCLIController,  # noqa: F401  (patchable CLI scope)
+    _EXAMPLE_YAML,  # noqa: F401  (patchable CLI scope)
+    _format_degradation_hints,  # noqa: F401  (patchable CLI scope)
+    _format_match_summary,  # noqa: F401  (patchable CLI scope)
+)
 
-def _format_match_summary(ctx: Context) -> Optional[str]:
-    """Format a one-line match summary from ctx.metadata for CLI output.
+# Encoder-benchmark machinery (tests import / monkeypatch these on the cli scope).
+from movie_narrator.cli.commands.misc import (
+    _BENCHMARK_MOD_NAME,  # noqa: F401  (patchable CLI scope)
+    _benchmark_script_path,  # noqa: F401  (patchable CLI scope)
+    _load_encoder_benchmark,  # noqa: F401  (patchable CLI scope)
+    benchmark,
+    doctor,
+    plugin,
+    version,
+)
 
-    Returns:
-        None if no match_summary is available (e.g. match step skipped).
-    """
-    ms: Optional[Dict[str, Any]] = ctx.metadata.get("match_summary")
-    if not ms:
-        return None
-
-    segments = ms.get("segments", 0)
-    sc = ms.get("source_counts", {})
-    emb = sc.get("embedding", 0)
-    heur = sc.get("heuristic", 0)
-    fb = sc.get("fallback", 0)
-    scene = sc.get("scene", 0)
-
-    parts: list[str] = [f"match: {segments} segs"]
-
-    source_parts: list[str] = []
-    if emb:
-        pct = round(emb / segments * 100) if segments else 0
-        source_parts.append(f"emb {emb}({pct}%)")
-    if heur:
-        pct = round(heur / segments * 100) if segments else 0
-        source_parts.append(f"heur {heur}({pct}%)")
-    if fb:
-        source_parts.append(f"fb {fb}")
-    if scene:
-        source_parts.append(f"scene {scene}")
-    if source_parts:
-        parts.append(" | ".join(source_parts))
-
-    score = ms.get("score")
-    if score and isinstance(score, dict):
-        avg = score.get("avg")
-        if avg is not None:
-            parts.append(f"avg {avg:.2f}")
-
-    degraded = ms.get("degraded_reason")
-    if degraded:
-        parts.append(f"degraded: {degraded}")
-
-    return " | ".join(parts)
-
-
-def _format_degradation_hints(ctx: Context) -> list[str]:
-    """
-    Returns:
-        Human-readable degradation hints for the CLI output.
-    """
-    hints: list[str] = []
-    ms: Optional[Dict[str, Any]] = ctx.metadata.get("match_summary")
-    if ms:
-        degraded = ms.get("degraded_reason")
-        if degraded == "fake_captions":
-            hints.append(
-                "match: using fake captions (no WhisperX) — "
-                "scene matching is heuristic-only, install [ml] extras for embedding match"
-            )
-        elif degraded == "all_heuristic":
-            hints.append(
-                "match: all segments fell back to heuristic — check embedding model availability"
-            )
-        elif degraded:
-            hints.append(f"match degraded: {degraded}")
-
-    degraded_steps = ctx.metadata.get("_degraded_steps", [])
-    if degraded_steps:
-        hints.append(f"degraded steps: {', '.join(degraded_steps)} — see metadata.json for details")
-
-    return hints
-
+# The four signature-bearing commands live here (see module docstring); their
+# implementations are imported from the command modules and delegated to below.
+# The remaining command handlers are imported and registered by name.
+from movie_narrator.cli.commands.create import create as _create_impl
+from movie_narrator.cli.commands.race import race as _race_impl
+from movie_narrator.cli.commands.imitate import imitate as _imitate_impl
+from movie_narrator.cli.commands.queue import submit as _submit_impl
+from movie_narrator.cli.commands.resume import resume
+from movie_narrator.cli.commands.rerun import rerun
+from movie_narrator.cli.commands.utility import align, clips, research, resolve, scenes
+from movie_narrator.cli.commands.presets import (
+    preset,
+    presets_install,
+    presets_list,
+    presets_remove,
+    presets_show,
+)
+from movie_narrator.cli.commands.queue import (
+    cancel,
+    cleanup,
+    serve,
+    status,
+    tasks,
+    wait,
+)
+from movie_narrator.cli.commands.cloud import api_spec, download
+from movie_narrator.cli.commands.artifacts import artifacts_cleanup, artifacts_list
 
 app = typer.Typer(
     help="Movie Narrator — 从一个提示词生成解说短视频 / Generate narrated movie recap videos from a single prompt.",
@@ -125,55 +106,9 @@ app = typer.Typer(
     rich_markup_mode="rich",
 )
 
-# Packaged example YAML — used as fallback when no --config and no cwd/job.yaml.
-_EXAMPLE_YAML = Path(__file__).resolve().parent.parent.parent.parent / "examples" / "job.example.yaml"
-
-
-class InteractiveCLIController:
-    """RunController with interactive retry/skip/abort on hard step failure.
-
-    Used when ``--retry`` is passed to ``mn create``.  When a hard step
-    raises an exception, the user is prompted to choose:
-
-    - **R** — retry the step (ctx state is preserved, so cached partial
-      results like TTS segments are reused)
-    - **S** — skip the step and continue (downstream may fail)
-    - **A** — abort the pipeline
-    """
-
-    def __init__(self):
-        self._cancelled = False
-
-    def is_cancelled(self) -> bool:
-        """Mark the pipeline as cancelled."""
-        return self._cancelled
-
-    def on_step_error(self, step_name: str, error: Exception, attempt: int):
-        """Handle errors during pipeline step execution."""
-        from ..pipeline.errors import StepAction
-
-        typer.echo(
-            f"\n  Step '{step_name}' failed (attempt {attempt}): {error}",
-            err=True,
-        )
-        typer.echo("  [R]etry  [S]kip  [A]bort", err=True)
-        try:
-            choice = input("  > ").strip().lower()
-        except (EOFError, KeyboardInterrupt):
-            return StepAction.ABORT
-        if choice.startswith("r"):
-            return StepAction.RETRY
-        elif choice.startswith("s"):
-            return StepAction.SKIP
-        return StepAction.ABORT
-
-
-from ..utils.sanitize import sanitize_filename as _sanitize_filename  # noqa: E402
-
 
 @app.command()
 def create(
-
     movie: MovieOpt = None,
 
     style: StyleOpt = "热血搞笑",
@@ -226,7 +161,7 @@ def create(
     focus_character: Optional[str] = typer.Option(
         None,
         "--focus-character",
-        help="聚焦角色名(��合 character 视角) / Focus character name (used with 'character' perspective)",
+        help="聚焦角色名(配合 character 视角) / Focus character name (used with 'character' perspective)",
     ),
 
 
@@ -266,181 +201,37 @@ def create(
         List available presets:
             mn preset
     """
-    from ..config import get_settings
-    from ..workflow import JobConfigError, load_job_config, merge_job
-
-    if config is None and movie is None:
-        raise typer.BadParameter(
-            "movie is required (set --movie or config.movie)",
-            param_hint="--movie",
-        )
-
-    # Auto-discover YAML config: explicit --config > job.yaml (cwd) >
-    # job.example.yaml (package examples dir) > none.
-    job = None
-    config_path = None
-    if config is not None:
-        config_path = str(Path(config))
-        if not Path(config_path).is_file():
-            raise typer.BadParameter(
-                f"config not found: {config_path}",
-                param_hint="--config",
-            )
-    else:
-        # Try cwd/job.yaml first (user's project-level config).
-        cwd_yaml = Path.cwd() / "job.yaml"
-        if cwd_yaml.is_file():
-            config_path = str(cwd_yaml)
-        else:
-            # Fall back to the packaged example so new users get sensible
-            # defaults without needing to create a YAML manually.
-            if _EXAMPLE_YAML.is_file():
-                config_path = str(_EXAMPLE_YAML)
-
-    if config_path is not None:
-        try:
-            job = load_job_config(config_path)
-        except JobConfigError as e:
-            typer.echo(str(e), err=True)
-            raise typer.Exit(code=1)
-
-    cli_snapshot = {
-        "movie": movie,
-        "style": style,
-        "duration": duration,
-        "voice": voice,
-        "video_format": video_format,
-        "keep_cache": keep_cache,
-        "video": video,
-        "library_dir": library_dir,
-        "research": research,
-        "bgm": bgm,
-        "no_bgm": no_bgm,
-        "no_clips": no_clips,
-        "strict": strict,
-        "retry": retry,
-        "config_path": config_path,
-        "subtitle_lang": subtitle_lang,
-        "subtitle_mode": subtitle_mode,
-        "narration_preset": narration_preset,
-        "narrator_perspective": narrator_perspective,
-        "focus_character": focus_character,
-    }
-    resolved = merge_job(cli_snapshot, job, get_settings())
-
-    if not resolved.movie:
-        raise typer.BadParameter(
-            "movie is required (set --movie or config.movie)",
-            param_hint="--movie",
-        )
-
-    if resolved.video and not Path(resolved.video).is_file():
-        raise typer.BadParameter(
-            f"video not found: {resolved.video}",
-            param_hint="--video",
-        )
-
-    # --output-dir / -o: user-specified output directory.
-    # Default: output/<sanitized-movie-name>
-    out_dir = (
-        Path(output_dir) if output_dir else Path("output") / _sanitize_filename(resolved.movie)
+    return _create_impl(
+        movie=movie,
+        style=style,
+        duration=duration,
+        voice=voice,
+        video_format=video_format,
+        keep_cache=keep_cache,
+        video=video,
+        library_dir=library_dir,
+        research=research,
+        bgm=bgm,
+        no_bgm=no_bgm,
+        no_clips=no_clips,
+        strict=strict,
+        retry=retry,
+        dry_run=dry_run,
+        config=config,
+        subtitle_lang=subtitle_lang,
+        subtitle_mode=subtitle_mode,
+        narration_preset=narration_preset,
+        output_dir=output_dir,
+        narrator_perspective=narrator_perspective,
+        focus_character=focus_character,
+        pause_at=pause_at,
+        log_level=log_level,
+        verbose=verbose,
     )
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    _resolved_level = resolve_log_level(log_level)
-
-    # --dry-run: keep planning steps only. Heavy steps (TTS / FFmpeg /
-    # render / QA) are disabled via the existing workflow_steps mechanism,
-    # never by a second hardcoded pipeline. User step flags are applied
-    # first, then dry-run disables its authoritative step set.
-    workflow_steps = resolved.workflow_steps or None
-    if dry_run:
-        workflow_steps = apply_dry_run_steps(resolved.workflow_steps)
-        typer.echo(
-            "Dry-run mode: generating research/script/storyboard only — "
-            "skipping TTS, alignment, rendering and QA. No final.mp4 will be produced."
-        )
-
-    ctx = build_context(
-        **common_build_kwargs(
-            movie=resolved.movie,
-            style=resolved.style,
-            duration=resolved.duration,
-            voice=resolved.voice,
-            video_format=resolved.video_format,
-            output_dir=out_dir,
-            keep_cache=resolved.keep_cache,
-            video=resolved.video,
-            library_dir=resolved.library_dir,
-            research=resolved.research,
-            bgm=resolved.bgm,
-            no_bgm=resolved.no_bgm,
-            no_clips=resolved.no_clips,
-            strict=resolved.strict,
-            workflow_steps=workflow_steps,
-            params=resolved.params or None,
-            config_path=resolved.config_path,
-            subtitle_lang=resolved.subtitle_lang,
-            subtitle_mode=resolved.subtitle_mode,
-            narration_preset=resolved.narration_preset or narration_preset,
-            lang=resolved.lang,
-            log_level=_resolved_level,
-            verbose=verbose,
-        )
-    )
-    controller = InteractiveCLIController() if retry else None
-
-    # Store pause-at request in context metadata
-    if pause_at:
-        ctx.metadata["pause_at"] = pause_at
-    if dry_run:
-        ctx.metadata["dry_run"] = True
-
-    try:
-        ctx = run_pipeline(ctx, controller=controller)
-    except Exception as e:  # noqa: BLE001 — CLI top-level error barrier
-        # PipelinePaused — state saved, inform user how to resume
-        from ..pipeline.errors import PipelinePaused
-
-        if isinstance(e, PipelinePaused):
-            typer.echo(
-                f"\n⏸ Pipeline paused after '{e.completed_step}'. "
-                f'Resume with: mn resume --state "{Path(ctx.output_dir) / "pipeline_state.json"}"'
-            )
-            raise typer.Exit(code=0)
-        # PreflightError gets a targeted remediation hint.
-        from ..pipeline.preflight import PreflightError
-
-        if isinstance(e, PreflightError):
-            typer.echo(str(e), err=True)
-            raise typer.Exit(code=1)
-        # step_err already printed the single-line summary and wrote the
-        # full traceback to the log file.  Suppress Typer's Rich
-        # traceback to keep the console output clean.
-        raise typer.Exit(code=1)
-    if ctx.metadata.get("script_degraded"):
-        typer.echo(
-            "⚠ 警告：旁白为占位��容——LLM 不可达。请检查 LLM 连接后重试。",
-            err=True,
-        )
-    # E.5: one-line match summary + degradation hints
-    match_line = _format_match_summary(ctx)
-    if match_line:
-        typer.echo(f"  {match_line}", err=True)
-    for hint in _format_degradation_hints(ctx):
-        typer.echo(f"  ⚠ {hint}", err=True)
-    if dry_run:
-        if ctx.script_md_path:
-            typer.echo(f"Dry-run complete — script written to: {ctx.script_md_path}")
-        else:
-            typer.echo("Dry-run complete — no final.mp4 produced.")
-    else:
-        typer.echo(f"{ctx.video_path}")
 
 
 @app.command()
 def race(
-
     movie: MovieOpt = None,
 
     style: StyleOpt = "热血搞笑",
@@ -496,82 +287,27 @@ def race(
             mn race -m Inception --video movie.mp4 -n 3 --auto-pick
             mn race -m Inception --presets douyin-fast,mainstream-dry,bilibili-long
     """
-    from ..race import (
-        generate_candidates,
-        run_race,
-        format_race_report,
-        save_race_report,
-    )
-
-    if movie is None and config is None:
-        raise typer.BadParameter(
-            "movie is required (set --movie or config.movie)",
-            param_hint="--movie",
-        )
-
-    # Resolve config (same logic as `mn create`)
-    config_path = None
-    if config is not None:
-        config_path = str(Path(config))
-        if not Path(config_path).is_file():
-            raise typer.BadParameter(
-                f"config not found: {config_path}",
-                param_hint="--config",
-            )
-
-    out_base = (
-        Path(output_dir)
-        if output_dir
-        else Path("output") / f"{_sanitize_filename(cast(str, movie))}_race"
-    )
-    out_base.mkdir(parents=True, exist_ok=True)
-
-    # Parse custom presets
-    preset_list = None
-    if presets:
-        preset_list = [p.strip() for p in presets.split(",") if p.strip()]
-        candidates = len(preset_list)
-
-    candidate_configs = generate_candidates(n=candidates, presets=preset_list)
-
-    typer.echo(f"Starting race with {len(candidate_configs)} candidates...")
-    typer.echo(f"Output base: {out_base}")
-    typer.echo("")
-
-    results = run_race(
-        candidate_configs,
-        movie=movie or "",
+    return _race_impl(
+        movie=movie,
         style=style,
         duration=duration,
         voice=voice,
         video_format=video_format,
-        output_base=out_base,
         video=video,
         library_dir=library_dir,
         research=research,
         bgm=bgm,
         no_bgm=no_bgm,
-        config_path=config_path,
+        config=config,
+        output_dir=output_dir,
+        candidates=candidates,
+        presets=presets,
         auto_pick=auto_pick,
     )
-
-    report = format_race_report(results)
-    typer.echo(report)
-
-    # Save JSON report
-    report_path = out_base / "race_report.json"
-    save_race_report(results, report_path)
-    typer.echo(f"\nReport saved to: {report_path}")
-
-    if results and results[0].error is None:
-        typer.echo(f"\nBest candidate: {results[0].config.label}")
-        if results[0].video_path:
-            typer.echo(f"Video: {results[0].video_path}")
 
 
 @app.command()
 def imitate(
-
     movie: MovieOpt = None,
 
     style: StyleOpt = "热血搞笑",
@@ -652,941 +388,34 @@ def imitate(
             mn imitate -r viral_ref.mp4 --analyze-only
             mn imitate -r viral_ref.mp4 -m Inception --video movie.mp4 --strict
     """
-    from ..imitate import (
-        analyze_reference,
-        metrics_to_params,
-        metrics_to_preset_name,
-        format_analysis_report,
-    )
-
-    if not Path(reference).is_file():
-        raise typer.BadParameter(
-            f"reference video not found: {reference}",
-            param_hint="--reference",
-        )
-
-    if movie is None and not analyze_only:
-        raise typer.BadParameter(
-            "movie is required (set --movie or use --analyze-only)",
-            param_hint="--movie",
-        )
-
-    # Analyze the reference video
-    out_dir = (
-        Path(output_dir)
-        if output_dir
-        else Path("output") / f"{_sanitize_filename(movie or 'reference')}_imitate"
-    )
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    typer.echo(f"Analyzing reference: {reference}")
-    metrics = analyze_reference(reference, output_dir=out_dir)
-    typer.echo("")
-
-    report = format_analysis_report(metrics)
-    typer.echo(report)
-
-    if analyze_only:
-        typer.echo(f"\nAnalysis saved to: {out_dir / 'reference_analysis.json'}")
-        return
-
-    # Generate params from metrics
-    params = metrics_to_params(metrics)
-    preset_name = metrics_to_preset_name(metrics)
-
-    typer.echo(f"\nUsing preset: {preset_name}")
-    typer.echo(f"Generated {len(params)} custom parameters")
-
-    # Build context and run pipeline
-    from ..pipeline.runner import build_context, run_pipeline
-    from ..pipeline.errors import PipelinePaused
-    from ..pipeline.preflight import PreflightError
-
-    _resolved_level = resolve_log_level(log_level)
-
-    assert movie is not None
-    ctx = build_context(
-        **common_build_kwargs(
-            movie=movie,
-            style=style,
-            duration=duration,
-            voice=voice,
-            video_format=video_format,
-            output_dir=out_dir,
-            keep_cache=keep_cache,
-            video=video,
-            library_dir=library_dir,
-            research=research,
-            bgm=bgm,
-            no_bgm=no_bgm,
-            no_clips=no_clips,
-            strict=strict,
-            params=params,
-            config_path=config,
-            subtitle_lang=subtitle_lang,
-            subtitle_mode=subtitle_mode,
-            narration_preset=preset_name,
-            lang="zh",  # imitate command defaults to Chinese
-            log_level=_resolved_level,
-            verbose=verbose,
-        )
-    )
-
-    controller = InteractiveCLIController() if retry else None
-
-    try:
-        ctx = run_pipeline(ctx, controller=controller)
-    except Exception as e:  # noqa: BLE001 — CLI top-level error barrier
-        if isinstance(e, PipelinePaused):
-            typer.echo(
-                f"\n⏸ Pipeline paused after '{e.completed_step}'. "
-                f'Resume with: mn resume --state "{Path(ctx.output_dir) / "pipeline_state.json"}"'
-            )
-            raise typer.Exit(code=0)
-        if isinstance(e, PreflightError):
-            typer.echo(str(e), err=True)
-            raise typer.Exit(code=1)
-        raise typer.Exit(code=1)
-
-    if ctx.metadata.get("script_degraded"):
-        typer.echo(
-            "⚠ 警告：旁白为占位��容——LLM 不可达。请检查 LLM 连接后重试。",
-            err=True,
-        )
-    match_line = _format_match_summary(ctx)
-    if match_line:
-        typer.echo(f"  {match_line}", err=True)
-    typer.echo(f"{ctx.video_path}")
-
-
-@app.command()
-def resume(
-    state: str = typer.Option(
-        ..., "--state", help="pipeline_state.json 路径 / Path to pipeline state file"
-    ),
-    retry: bool = typer.Option(
-        False,
-        "--retry",
-        help="硬步骤失败时交互重试 / Enable interactive retry on hard step failure",
-    ),
-    log_level: str = typer.Option(
-        "DEBUG",
-        "--log-level",
-        help="日志级别 DEBUG|INFO|WARNING|ERROR / Log level (default: DEBUG)",
-    ),
-    verbose: bool = typer.Option(
-        False,
-        "--verbose",
-        help="在控制台显示 DEBUG 日志 / Show debug logs in console",
-    ),
-):
-    """Resume a paused pipeline — continue from the last checkpoint.
-
-    
-
-    Examples:
-            mn resume --state output/movie/pipeline_state.json
-    """
-    from ..pipeline.runner import _load_pipeline_state, _next_step_after, run_pipeline
-    from ..pipeline.errors import PipelinePaused
-    from ..pipeline.preflight import PreflightError
-    from ..utils.console import Console, build_console
-
-    state_path = Path(state)
-    if not state_path.is_file():
-        typer.echo(f"State file not found: {state}", err=True)
-        raise typer.Exit(code=1)
-
-    ctx, completed_step = _load_pipeline_state(state_path)
-
-    _resolved_level = resolve_log_level(log_level)
-
-    # Re-inject a real console (serialized state has SilentConsole)
-    from ..models import Services
-
-    console: Console = build_console(
-        Path(ctx.output_dir),
-        log_level=_resolved_level,
+    return _imitate_impl(
+        movie=movie,
+        style=style,
+        duration=duration,
+        voice=voice,
+        video_format=video_format,
+        keep_cache=keep_cache,
+        video=video,
+        library_dir=library_dir,
+        research=research,
+        bgm=bgm,
+        no_bgm=no_bgm,
+        no_clips=no_clips,
+        strict=strict,
+        retry=retry,
+        config=config,
+        subtitle_lang=subtitle_lang,
+        subtitle_mode=subtitle_mode,
+        output_dir=output_dir,
+        reference=reference,
+        analyze_only=analyze_only,
+        log_level=log_level,
         verbose=verbose,
     )
-    ctx.services = Services(
-        console=console,
-        logger=getattr(console, "_log", None),
-    )
-
-    # Determine the step to start from (the step AFTER the completed one)
-    start_step = _next_step_after(completed_step)
-    if start_step is None:
-        typer.echo(f"Pipeline already completed (last step: {completed_step}). Nothing to resume.")
-        raise typer.Exit(code=0)
-
-    console = ctx.services.console
-    console.debug(f"Resuming from step '{start_step}' (completed: {completed_step})")
-
-    controller = InteractiveCLIController() if retry else None
-    try:
-        ctx = run_pipeline(ctx, controller=controller, start_step=start_step)
-    except Exception as e:  # noqa: BLE001 — CLI top-level error barrier
-        if isinstance(e, PipelinePaused):
-            typer.echo(
-                f"\n⏸ Pipeline paused after '{e.completed_step}'. "
-                f'Resume with: mn resume --state "{Path(ctx.output_dir) / "pipeline_state.json"}"'
-            )
-            raise typer.Exit(code=0)
-        if isinstance(e, PreflightError):
-            typer.echo(str(e), err=True)
-            raise typer.Exit(code=1)
-        raise typer.Exit(code=1)
-
-    if ctx.metadata.get("script_degraded"):
-        typer.echo(
-            "⚠ 警告：旁白为占位��容——LLM 不可达。请检查 LLM 连接后重试。",
-            err=True,
-        )
-    if ctx.video_path:
-        typer.echo(f"{ctx.video_path}")
-
-
-@app.command()
-def rerun(
-    state: Optional[str] = typer.Argument(
-        None, help="pipeline_state.json 路径 / Path to pipeline state file"
-    ),
-    from_step: Optional[str] = typer.Option(
-        None,
-        "--from",
-        help=(
-            "从此步骤重新执行（含该步骤及之后所有步骤，前置步骤状态保留）；"
-            "若晚于已完成的步骤则退化为 resume 行为 / "
-            "Restart from this step (the step and everything after it re-executes; "
-            "steps before it keep their saved state). If --from is after the saved "
-            "completed step, this degenerates to resume behavior (no upstream "
-            "re-execution)."
-        ),
-    ),
-    list_steps: bool = typer.Option(
-        False,
-        "--list-steps",
-        help="列出有序步骤名（标注软步骤）后退出 / Print ordered step names (soft steps marked) and exit",
-    ),
-    dry_run: bool = typer.Option(
-        False,
-        "--dry-run",
-        help=(
-            "只打印重跑计划（起始步骤/将失效步骤/可复用上游步骤）后退出，"
-            "不执行管线 / Print the rerun plan (from-step, invalidated steps, "
-            "reusable upstream steps) and exit WITHOUT running the pipeline"
-        ),
-    ),
-    retry: bool = typer.Option(
-        False,
-        "--retry",
-        help="硬步骤失败时交互重试 / Enable interactive retry on hard step failure",
-    ),
-    log_level: str = typer.Option(
-        "DEBUG",
-        "--log-level",
-        help="日志级别 DEBUG|INFO|WARNING|ERROR / Log level (default: DEBUG)",
-    ),
-    verbose: bool = typer.Option(
-        False,
-        "--verbose",
-        help="在控制台显示 DEBUG 日志 / Show debug logs in console",
-    ),
-):
-    """Deliberately re-execute the pipeline from a chosen step.
-
-    Unlike ``mn resume`` (crash recovery — continue from the step AFTER
-    the last completed one), ``mn rerun --from STEP`` re-executes the
-    named step and every step after it: soft-step status fields of the
-    invalidated steps are reset so downstream steps re-run cleanly
-    instead of skipping on stale success states. The decision is
-    recorded in ``ctx.metadata["rerun"]`` for auditability.
-
-    Examples:
-            mn rerun --list-steps
-            mn rerun output/movie/pipeline_state.json --from render_video
-            mn rerun output/movie/pipeline_state.json --from render_video --dry-run
-    """
-    from ..pipeline.runner import (
-        SOFT_STATUS_STEPS,
-        _load_pipeline_state,
-        ordered_step_names,
-        prepare_rerun,
-        run_pipeline,
-    )
-    from ..pipeline.errors import PipelinePaused
-    from ..pipeline.preflight import PreflightError
-    from ..models import Services
-    from ..utils.console import Console, build_console
-
-    if list_steps:
-        for name in ordered_step_names():
-            typer.echo(f"{name} (soft)" if name in SOFT_STATUS_STEPS else name)
-        raise typer.Exit(code=0)
-
-    if not state:
-        raise typer.BadParameter("STATE is required unless --list-steps is given.")
-
-    ordered = ordered_step_names()
-    if from_step not in ordered:
-        raise typer.BadParameter(
-            f"Unknown step '{from_step}'. Valid steps: {', '.join(ordered)}"
-        )
-
-    state_path = Path(state)
-    if not state_path.is_file():
-        typer.echo(f"State file not found: {state}", err=True)
-        raise typer.Exit(code=1)
-
-    ctx, completed_step = _load_pipeline_state(state_path)
-
-    if dry_run:
-        # v1.4.2: compute the invalidation plan via the same v1.3.0
-        # helper the real rerun uses, print it, and stop — the pipeline
-        # never executes (the state file is left untouched too).
-        invalidated = prepare_rerun(ctx, completed_step, from_step)
-        idx = ordered.index(from_step)
-        reusable = ordered[:idx]
-        typer.echo("▶ Rerun plan (dry run — no steps executed)")
-        typer.echo(f"  from step:        {from_step}")
-        typer.echo(f"  state completed:  {completed_step}")
-        typer.echo(
-            f"  reusable upstream ({len(reusable)}): "
-            + (", ".join(reusable) if reusable else "(none)")
-        )
-        typer.echo(
-            f"  invalidated ({len(invalidated)}): "
-            + (", ".join(invalidated) if invalidated else "(none)")
-        )
-        typer.echo("✓ Dry run complete — pipeline not executed.")
-        raise typer.Exit(code=0)
-
-    _resolved_level = resolve_log_level(log_level)
-
-    # Re-inject a real console (serialized state has SilentConsole)
-    console: Console = build_console(
-        Path(ctx.output_dir),
-        log_level=_resolved_level,
-        verbose=verbose,
-    )
-    ctx.services = Services(
-        console=console,
-        logger=getattr(console, "_log", None),
-    )
-
-    invalidated = prepare_rerun(ctx, completed_step, from_step)
-    console.debug(
-        f"Rerunning from step '{from_step}' (state completed: {completed_step}); "
-        f"invalidated: {', '.join(invalidated)}"
-    )
-
-    controller = InteractiveCLIController() if retry else None
-    try:
-        ctx = run_pipeline(ctx, controller=controller, start_step=from_step)
-    except Exception as e:  # noqa: BLE001 — CLI top-level error barrier
-        if isinstance(e, PipelinePaused):
-            typer.echo(
-                f"\n⏸ Pipeline paused after '{e.completed_step}'. "
-                f'Resume with: mn resume --state "{Path(ctx.output_dir) / "pipeline_state.json"}"'
-            )
-            raise typer.Exit(code=0)
-        if isinstance(e, PreflightError):
-            typer.echo(str(e), err=True)
-            raise typer.Exit(code=1)
-        raise typer.Exit(code=1)
-
-    if ctx.metadata.get("script_degraded"):
-        typer.echo(
-            "⚠ 警告：旁白为占位内容——LLM 不可达。请检查 LLM 连接后重试。",
-            err=True,
-        )
-    if ctx.video_path:
-        typer.echo(f"{ctx.video_path}")
-
-
-@app.command()
-def resolve(
-    movie: str = typer.Option(..., "--movie", "-m", help="电影名称 / Movie name to resolve"),
-    library_dir: Optional[str] = typer.Option(
-        None, "--library-dir", help="影视库目录 / Movie library directory"
-    ),
-    json_output: bool = typer.Option(False, "--json", help="JSON 格式输出 / Output result as JSON"),
-    output_dir: Optional[str] = typer.Option(
-        None,
-        "--output-dir",
-        "-o",
-        help="输出目录(默认 output/<电影名>) / Output directory (default: output/<movie>)",
-    ),
-):
-    """Resolve a movie from library directory."""
-    out_dir = Path(output_dir) if output_dir else Path("output") / _sanitize_filename(movie)
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    ctx = Context(movie_name=movie, output_dir=str(out_dir))
-    if library_dir:
-        ctx.library_dir = library_dir
-    resolve_video(ctx)
-
-    if json_output:
-        result = {"matched": ctx.source_video_path is not None, "path": ctx.source_video_path}
-        typer.echo(json.dumps(result, ensure_ascii=False))
-    else:
-        if ctx.source_video_path:
-            typer.echo(ctx.source_video_path)
-        else:
-            typer.echo("No match found", err=True)
-            raise typer.Exit(1)
-
-
-@app.command()
-def research(
-    movie: str = typer.Option(..., "--movie", "-m", help="电影名称 / Movie name to research"),
-    output_dir: Optional[str] = typer.Option(
-        None,
-        "--output-dir",
-        "-o",
-        help="输出目录(默认 output/<电影名>) / Output directory (default: output/<movie>)",
-    ),
-):
-    """Run plot research."""
-    out_dir = Path(output_dir) if output_dir else Path("output") / _sanitize_filename(movie)
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    ctx = Context(movie_name=movie, output_dir=str(out_dir))
-    ctx.metadata["research_enabled"] = True
-    research_plot(ctx)
-
-    if ctx.status.research == "failed":
-        raise typer.Exit(1)
-
-    research_path = out_dir / "research.json"
-    if research_path.exists():
-        typer.echo(f"Research written to: {research_path}")
-    else:
-        typer.echo("Research completed.")
-
-
-@app.command()
-def scenes(
-    video: str = typer.Option(..., "--video", help="视频文件路径 / Video file path"),
-    threshold: float = typer.Option(
-        27.0, "--threshold", help="场景检测阈值 / Scene detection threshold"
-    ),
-    output: Optional[str] = typer.Option(None, "--output", help="输出目录 / Output directory"),
-):
-    """Detect scenes in a video file."""
-    from movie_narrator.pipeline.scenes import detect_scenes
-    from movie_narrator.models import Context
-
-    out = Path(output) if output else Path("output") / "scenes_debug"
-    out.mkdir(parents=True, exist_ok=True)
-    ctx = Context(movie_name="debug", output_dir=str(out), source_video_path=video)
-    ctx.metadata["scene_threshold"] = threshold
-    detect_scenes(ctx)
-    if ctx.status.scene == "disabled":
-        typer.echo(
-            "scenes: required dependency missing — install with `pip install movie-narrator[media]`",
-            err=True,
-        )
-        raise typer.Exit(code=1)
-    scenes_json = out / "scenes.json"
-    scenes_json.write_text(
-        json.dumps([s.model_dump() for s in ctx.scenes], ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    typer.echo(f"Scenes: {len(ctx.scenes)} (written to {scenes_json})")
-
-
-@app.command()
-def align(
-    audio: str = typer.Option(..., "--audio", help="音频文件路径 / Audio file path"),
-    script: Optional[str] = typer.Option(
-        None, "--script", help="脚本文本文件(每行一句) / Script text file"
-    ),
-    output: Optional[str] = typer.Option(None, "--output", help="输出目录 / Output directory"),
-):
-    """Align audio with script using WhisperX."""
-    from movie_narrator.pipeline.align import align_audio
-    from movie_narrator.models import Context, TimedSegment
-
-    out = Path(output) if output else Path("output") / "align_debug"
-    out.mkdir(parents=True, exist_ok=True)
-    segments = []
-    if script and Path(script).is_file():
-        for line in Path(script).read_text(encoding="utf-8").strip().split("\n"):
-            line = line.strip()
-            if line:
-                segments.append(TimedSegment(text=line, start=0.0, end=2.0))
-    ctx = Context(
-        movie_name="align_debug",
-        output_dir=str(out),
-        audio_path=audio,
-        timed_segments=segments,
-    )
-    align_audio(ctx)
-    if ctx.status.align == "disabled":
-        typer.echo(
-            "align: required dependency missing — install with `pip install movie-narrator[ml]`",
-            err=True,
-        )
-        raise typer.Exit(code=1)
-    typer.echo(f"Align status: {ctx.status.align}")
-    typer.echo(f"Segments: {len(ctx.timed_segments)}")
-
-
-@app.command()
-def clips(
-    video: str = typer.Option(..., "--video", help="源视频路径 / Source video path"),
-    scenes_path: str = typer.Option(..., "--scenes", help="scenes.json 路径 / scenes.json path"),
-    output: Optional[str] = typer.Option(None, "--output", help="输出目录 / Output directory"),
-):
-    """Export clips from scenes.json."""
-    from movie_narrator.pipeline.export_clips import export_clips
-    from movie_narrator.models import Context, Scene
-    import json
-
-    out = Path(output) if output else Path("output") / "clips_debug"
-    out.mkdir(parents=True, exist_ok=True)
-    data = json.loads(Path(scenes_path).read_text(encoding="utf-8"))
-    scenes = [Scene(**s) for s in data]
-    ctx = Context(
-        movie_name="clips_debug",
-        output_dir=str(out),
-        source_video_path=video,
-        scenes=scenes,
-        metadata={"export_clips": True},
-    )
-    export_clips(ctx)
-    if ctx.status.export == "disabled":
-        typer.echo(
-            "clips: required dependency missing — install with `pip install movie-narrator[media]`",
-            err=True,
-        )
-        raise typer.Exit(code=1)
-    typer.echo(f"Export status: {ctx.status.export}")
-    typer.echo(f"Clips dir: {ctx.clips_dir}")
-
-
-@app.command()
-def plugin(
-    action: str = typer.Argument(..., help="list | discover | registries | version"),
-):
-    """Plugin system commands — list, discover, inspect registries.
-
-    
-
-    Examples:
-            mn plugin list          # list installed entry_points plugins
-            mn plugin discover      # discover and load all plugins
-            mn plugin registries    # show all registered providers/steps
-            mn plugin version       # show CONTRACT_VERSION
-    """
-    if action == "list":
-        from ..plugin_loader import list_available_plugins
-
-        plugins = list_available_plugins()
-        if not plugins:
-            typer.echo("No plugins found via entry_points.")
-            typer.echo("")
-            typer.echo("Plugins are discovered via the 'movie_narrator.plugins'")
-            typer.echo("entry point group. Install a plugin package to see it here.")
-            return
-        typer.echo(f"Available plugins ({len(plugins)}):")
-        for name in sorted(plugins):
-            typer.echo(f"  {name}")
-
-    elif action == "discover":
-        from ..plugin_loader import discover_plugins
-
-        results = discover_plugins()
-        if not results:
-            typer.echo("No plugins found to discover.")
-            return
-        succeeded = [r for r in results if r.success]
-        failed = [r for r in results if not r.success]
-        typer.echo(f"Discovery complete: {len(succeeded)} succeeded, {len(failed)} failed")
-        for r in succeeded:
-            typer.echo(f"  [OK] {r.name}")
-        for r in failed:
-            typer.echo(f"  [FAIL] {r.name}: {r.error}", err=True)
-
-    elif action == "registries":
-        # Import factory modules to ensure built-in providers are registered
-        import movie_narrator.tts.factory  # noqa: F401
-        import movie_narrator.vision.factory  # noqa: F401
-        import movie_narrator.utils.llm  # noqa: F401
-        import movie_narrator.pipeline.research  # noqa: F401
-
-        from ..pipeline.registry import step_registry
-        from ..providers import (
-            tts_registry,
-            vision_registry,
-            llm_registry,
-            research_registry,
-        )
-
-        typer.echo("=== Step Registry ===")
-        for info in step_registry.info():
-            soft_tag = " (soft)" if info["soft"] else ""
-            after_tag = f" after={info['insert_after']}" if info["insert_after"] else ""
-            before_tag = f" before={info['insert_before']}" if info["insert_before"] else ""
-            typer.echo(f"  {info['name']:<25}{soft_tag}{after_tag}{before_tag}")
-
-        typer.echo("")
-        typer.echo("=== TTS Registry ===")
-        for info in tts_registry.info():
-            proto = " [protocol]" if info["protocol_validated"] else ""
-            typer.echo(f"  {info['name']:<25}{proto}")
-
-        typer.echo("")
-        typer.echo("=== Vision Registry ===")
-        for info in vision_registry.info():
-            proto = " [protocol]" if info["protocol_validated"] else ""
-            typer.echo(f"  {info['name']:<25}{proto}")
-
-        typer.echo("")
-        typer.echo("=== LLM Registry ===")
-        for info in llm_registry.info():
-            proto = " [protocol]" if info["protocol_validated"] else ""
-            typer.echo(f"  {info['name']:<25}{proto}")
-
-        typer.echo("")
-        typer.echo("=== Research Registry ===")
-        for info in research_registry.info():
-            proto = " [protocol]" if info["protocol_validated"] else ""
-            typer.echo(f"  {info['name']:<25}{proto}")
-
-    elif action == "version":
-        from ..contract import CONTRACT_VERSION
-
-        typer.echo(f"CONTRACT_VERSION = {CONTRACT_VERSION}")
-        typer.echo(f"  semver: {'.'.join(str(v) for v in CONTRACT_VERSION)}")
-
-    else:
-        raise typer.BadParameter(
-            f"Unknown action: {action!r}. Use: list | discover | registries | version",
-            param_hint="action",
-        )
-
-
-@app.command()
-def version():
-    """Show version."""
-    typer.echo(f"movie-narrator v{__version__}")
-
-
-@app.command()
-def doctor():
-    """Environment pre-flight check — ffmpeg, extras, config."""
-    from ..doctor import run_doctor, render_report
-
-    report = run_doctor()
-    typer.echo(render_report(report))
-    if not report.healthy:
-        raise typer.Exit(code=1)
-
-
-# ── Encoder benchmark (v1.4.2) ────────────────────────────
-
-#: sys.modules key the benchmark module is cached under (loaded once).
-_BENCHMARK_MOD_NAME = "mn_encoder_benchmark"
-
-
-def _benchmark_script_path() -> Path:
-    """Location of the v1.3.2 benchmark script (source checkout layout)."""
-    return Path(__file__).resolve().parents[3] / "benchmarks" / "encoder_benchmark.py"
-
-
-def _load_encoder_benchmark():
-    """Import ``benchmarks/encoder_benchmark.py`` by file path.
-
-    Decision (v1.4.2): the repo ships ``benchmarks/`` as a plain script
-    directory (no ``__init__.py``), so the module is loaded via
-    ``importlib.util.spec_from_file_location`` instead of repackaging it
-    into the package. The module is import-safe (no ffmpeg at import
-    time) and cached in ``sys.modules`` so repeated calls — and tests —
-    share one module object. Requires a source checkout; a wheel install
-    does not carry ``benchmarks/``.
-    """
-    import importlib.util
-    import sys
-
-    cached = sys.modules.get(_BENCHMARK_MOD_NAME)
-    if cached is not None:
-        return cached
-    path = _benchmark_script_path()
-    if not path.is_file():
-        raise FileNotFoundError(
-            f"benchmarks/encoder_benchmark.py not found (looked at {path}). "
-            "'mn benchmark' requires a source checkout of movie-narrator."
-        )
-    spec = importlib.util.spec_from_file_location(_BENCHMARK_MOD_NAME, path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"cannot load benchmark module from {path}")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[_BENCHMARK_MOD_NAME] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-@app.command()
-def benchmark(
-    duration: int = typer.Option(
-        5,
-        "--duration",
-        min=1,
-        help="合成测试片段时长（秒） / Synthetic clip duration in seconds (default: 5)",
-    ),
-    out: Optional[Path] = typer.Option(
-        None,
-        "--out",
-        help="JSON 报告输出路径 / Optional path for the JSON report",
-    ),
-    encoders: Optional[str] = typer.Option(
-        None,
-        "--encoders",
-        help=(
-            "逗号分隔的编码器过滤（label 或 codec 名，如 'libx264,nvenc'）；"
-            "缺省自动检测 / Comma-separated encoder filter (label or codec "
-            "name, e.g. 'libx264,nvenc'); default: auto-detect"
-        ),
-    ),
-):
-    """Benchmark ffmpeg encoders (libx264 baseline vs detected GPU encoders).
-
-    Thin wrapper over ``benchmarks/encoder_benchmark.py`` (v1.3.2) — same
-    report, same table, same JSON schema. Generates a short synthetic
-    clip and encodes it once per encoder; the moviepy render path is not
-    involved.
-
-    Examples:
-            mn benchmark
-            mn benchmark --duration 8 --out gpu.json
-            mn benchmark --encoders libx264,nvenc
-    """
-    try:
-        bench = _load_encoder_benchmark()
-    except FileNotFoundError as e:
-        typer.echo(str(e), err=True)
-        raise typer.Exit(code=1)
-
-    encoders_filter = (
-        [e.strip() for e in encoders.split(",") if e.strip()] if encoders else None
-    )
-    # Delegate to the script's own argparse main so behavior (table,
-    # report writing, exit code) is identical to running the script.
-    cmd = ["--duration", str(duration)]
-    if out:
-        cmd += ["--out", str(out)]
-    if encoders_filter:
-        cmd += ["--encoders", ",".join(encoders_filter)]
-    raise typer.Exit(code=bench.main(cmd))
-
-
-@app.command()
-def preset(
-    name: Optional[str] = typer.Argument(
-        None, help="预设名称(省略则列出��部) / Preset name (omitted = list all)"
-    ),
-):
-    """List presets or show details.
-
-    
-    Examples:
-        mn preset                  # list all available presets
-        mn preset mainstream-dry   # show params and tags for mainstream-dry
-    """
-    from ..presets import get_preset, list_presets
-
-    if name is None:
-        # List mode
-        presets = list_presets()
-        if not presets:
-            typer.echo("No narration presets available.")
-            return
-        typer.echo("Available narration presets:")
-        typer.echo("")
-        for pname, pdesc in presets.items():
-            typer.echo(f"  {pname:<20} {pdesc}")
-        typer.echo("")
-        typer.echo("Use 'mn preset <name>' to see full details.")
-        typer.echo("Use '--narration-preset <name>' with 'mn create' to apply.")
-    else:
-        # Show mode
-        try:
-            p = get_preset(name)
-        except KeyError as e:
-            typer.echo(f"Error: {e}", err=True)
-            raise typer.Exit(1)
-
-        typer.echo(f"Preset: {p.name}")
-        typer.echo(f"Description: {p.desc}")
-        typer.echo("")
-        typer.echo("Parameters:")
-        for key in sorted(p.param_dict):
-            typer.echo(f"  {key:<40} {p.param_dict[key]}")
-        typer.echo("")
-        typer.echo("Prompt tags:")
-        for key in sorted(p.tag_dict):
-            typer.echo(f"  {key:<40} {p.tag_dict[key]}")
-
-
-# ── Community preset sharing (v1.5.1) ─────────────────────
-
-
-presets_app = typer.Typer(
-    help="Community preset sharing — install and manage YAML data presets "
-    "(no code execution; see ADR-018).",
-    no_args_is_help=True,
-)
-app.add_typer(presets_app, name="presets")
-
-
-@presets_app.command("list")
-def presets_list():
-    """List built-in and installed community presets.
-
-    Examples:
-        mn presets list
-    """
-    from ..presets import list_installed, list_presets
-
-    installed = {item.name: item for item in list_installed()}
-    presets = list_presets()
-    if not presets:
-        typer.echo("No narration presets available.")
-        return
-    typer.echo("Available narration presets:")
-    typer.echo("")
-    for pname, pdesc in presets.items():
-        marker = "built-in"
-        if pname in installed:
-            marker = "community"
-        typer.echo(f"  {pname:<20} [{marker}] {pdesc}")
-    typer.echo("")
-    typer.echo("Install more: mn presets install <https-url-or-local-path>")
-    typer.echo("Use 'mn presets show <name>' for details, or -p <name> with 'mn create'.")
-
-
-@presets_app.command("install")
-def presets_install(
-    source: str = typer.Argument(
-        ...,
-        help="https:// URL or local YAML file path (http:// is rejected; 256 KiB cap)",
-    ),
-):
-    """Install a community preset from an https URL or a local YAML file.
-
-    Community presets are validated data files (never code): the YAML is
-    checked against the job-param whitelist, the preset name becomes the
-    registry key, and a sha256 of the file is recorded.
-
-    Examples:
-        mn presets install ./slow-burn.yaml
-        mn presets install https://example.com/presets/slow-burn.yaml
-    """
-    from ..presets import CommunityPresetError, install_preset
-
-    try:
-        item = install_preset(source)
-    except CommunityPresetError as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1)
-    typer.echo(f"Installed community preset: {item.name}")
-    if item.description:
-        typer.echo(f"  description: {item.description}")
-    if item.author:
-        typer.echo(f"  author:      {item.author}")
-    if item.license:
-        typer.echo(f"  license:     {item.license}")
-    typer.echo(f"  sha256:      {item.sha256}")
-    typer.echo(f"Apply it: mn create -m <movie> --preset {item.name}")
-
-
-@presets_app.command("remove")
-def presets_remove(
-    name: str = typer.Argument(..., help="Installed community preset name"),
-):
-    """Uninstall a community preset (file + registry entry removed).
-
-    Examples:
-        mn presets remove slow-burn
-    """
-    from ..presets import CommunityPresetError, uninstall_preset
-
-    try:
-        uninstall_preset(name)
-    except KeyError as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1)
-    except CommunityPresetError as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1)
-    typer.echo(f"Removed community preset: {name}")
-
-
-@presets_app.command("show")
-def presets_show(
-    name: str = typer.Argument(..., help="Preset name (built-in or installed community)"),
-):
-    """Show details for a preset — community metadata when applicable.
-
-    Examples:
-        mn presets show slow-burn
-        mn presets show douyin-fast
-    """
-    from contextlib import suppress
-
-    from ..presets import CommunityPresetError, get_preset, load_community_preset
-
-    try:
-        p = get_preset(name)
-    except KeyError as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1)
-
-    typer.echo(f"Preset: {p.name}")
-    typer.echo(f"Description: {p.desc}")
-    # Community provenance block — only present for installed presets.
-    with suppress(KeyError, CommunityPresetError):
-        doc = load_community_preset(name)
-        meta = doc.get("preset") or {}
-        for key in ("author", "license", "min_engine"):
-            if meta.get(key):
-                typer.echo(f"{key.capitalize()}: {meta[key]}")
-    typer.echo("")
-    typer.echo("Parameters:")
-    for key in sorted(p.param_dict):
-        typer.echo(f"  {key:<40} {p.param_dict[key]}")
-    typer.echo("")
-    typer.echo("Prompt tags:")
-    for key in sorted(p.tag_dict):
-        typer.echo(f"  {key:<40} {p.tag_dict[key]}")
-
-
-# ── Task Queue commands (v0.6.0) ──────────────────────────
-
-
-def _get_queue(remote: Optional[str] = None):
-    """Create a task queue for CLI use.
-
-    Args:
-        remote: If provided, returns a RemoteTaskQueue pointing to the
-            given URL. Otherwise, returns a LocalTaskQueue.
-    """
-    from ..cloud import LocalTaskQueue
-
-    if remote:
-        from ..cloud import RemoteTaskQueue
-
-        return RemoteTaskQueue(remote)
-    return LocalTaskQueue(auto_start=False)
 
 
 @app.command()
 def submit(
-
     movie: MovieRequired,
 
     style: StyleOpt = "热血搞笑",
@@ -1626,11 +455,11 @@ def submit(
     max_retries: int = typer.Option(3, "--max-retries", help="最大重试次数 / Max retries"),
 
 
-    wait: bool = typer.Option(False, "--wait", help="提交后等��完成 / Wait for completion"),
+    wait: bool = typer.Option(False, "--wait", help="提交后等待完成 / Wait for completion"),
 
 
     timeout: Optional[float] = typer.Option(
-        None, "--timeout", help="等����时(秒) / Wait timeout (seconds)"
+        None, "--timeout", help="等待超时(秒) / Wait timeout (seconds)"
     ),
 
 
@@ -1648,10 +477,8 @@ def submit(
         mn submit -m Inception --wait --timeout 600
         mn submit -m The Dark Knight --remote http://worker:8765 --wait
     """
-    from ..cloud import TaskRequest
-
-    request = TaskRequest(
-        movie_name=movie,
+    return _submit_impl(
+        movie=movie,
         style=style,
         duration=duration,
         voice=voice,
@@ -1666,555 +493,54 @@ def submit(
         subtitle_lang=subtitle_lang,
         subtitle_mode=subtitle_mode,
         narration_preset=narration_preset,
-        lang=lang,
         output_dir=output_dir,
+        lang=lang,
         max_retries=max_retries,
-    )
-
-    queue = _get_queue(remote=remote)
-    try:
-        task_id = queue.submit(request)
-        typer.echo(f"Task submitted: {task_id}")
-        typer.echo(f"  Movie: {movie}")
-        typer.echo("  Status: pending")
-        if remote:
-            typer.echo(f"  Remote: {remote}")
-        typer.echo(f"  Track: mn status {task_id}" + (f" --remote {remote}" if remote else ""))
-
-        if wait:
-            typer.echo(f"\nWaiting for task {task_id}...")
-            result = queue.wait(task_id, timeout=timeout)
-            if result is None:
-                typer.echo(f"Task {task_id} did not complete (timeout or cancelled).", err=True)
-                raise typer.Exit(1)
-            if result.succeeded:
-                typer.echo(f"\n✓ Task completed: {result.video_path}")
-            else:
-                typer.echo(f"\n✗ Task failed: {result.error}", err=True)
-                raise typer.Exit(1)
-    finally:
-        queue.shutdown()
-
-
-@app.command()
-def status(
-    task_id: str = typer.Argument(..., help="任务ID / Task ID"),
-    remote: Optional[str] = typer.Option(
-        None, "--remote", "-r", help="远程服务器URL / Remote server URL"
-    ),
-):
-    """Show task status.
-
-    
-    Example:
-        mn status abc123def456
-        mn status abc123def456 --remote http://worker:8765
-    """
-    queue = _get_queue(remote=remote)
-    task = queue.get_task(task_id)
-    if not task:
-        typer.echo(f"Task not found: {task_id}", err=True)
-        raise typer.Exit(1)
-
-    typer.echo(f"Task: {task.id}")
-    typer.echo(f"  Movie: {task.request.movie_name}")
-    typer.echo(f"  Status: {task.status.value}")
-    typer.echo(f"  Created: {task.created_at}")
-    if task.started_at:
-        typer.echo(f"  Started: {task.started_at}")
-    if task.completed_at:
-        typer.echo(f"  Completed: {task.completed_at}")
-    if task.retries > 0:
-        typer.echo(f"  Retries: {task.retries}")
-
-    if task.progress:
-        p = task.progress
-        typer.echo(f"  Progress: {p.current_step_index}/{p.total_steps} ({p.percentage:.0f}%)")
-        if p.current_step:
-            typer.echo(f"  Current step: {p.current_step}")
-        if p.elapsed_seconds > 0:
-            typer.echo(f"  Elapsed: {p.elapsed_seconds:.1f}s")
-        if p.steps_completed:
-            typer.echo(f"  Completed steps: {', '.join(p.steps_completed)}")
-        if p.steps_skipped:
-            typer.echo(f"  Skipped steps: {', '.join(p.steps_skipped)}")
-        if p.steps_failed:
-            typer.echo(f"  Failed steps: {', '.join(p.steps_failed)}")
-
-    if task.result:
-        r = task.result
-        if r.error:
-            typer.echo(f"  Error: {r.error}")
-            if r.error_type:
-                typer.echo(f"  Error type: {r.error_type}")
-        else:
-            typer.echo(f"  Video: {r.video_path}")
-            if r.audio_path:
-                typer.echo(f"  Audio: {r.audio_path}")
-            if r.subtitle_path:
-                typer.echo(f"  Subtitle: {r.subtitle_path}")
-            typer.echo(f"  Output: {r.output_dir}")
-
-
-@app.command()
-def tasks(
-    status_filter: Optional[str] = typer.Option(
-        None,
-        "--status",
-        "-s",
-        help="过滤状态 pending|running|completed|failed|cancelled / Filter by status",
-    ),
-    limit: int = typer.Option(20, "--limit", "-n", help="显示数量 / Number of tasks to show"),
-    remote: Optional[str] = typer.Option(
-        None, "--remote", "-r", help="远程服务器URL / Remote server URL"
-    ),
-):
-    """List tasks.
-
-    
-    Examples:
-        mn tasks                 # list last 20 tasks
-        mn tasks --status running # show only running tasks
-        mn tasks --remote http://worker:8765
-    """
-    from ..cloud.models import TaskStatus
-
-    status_enum = None
-    if status_filter:
-        try:
-            status_enum = TaskStatus(status_filter.lower())
-        except ValueError:
-            typer.echo(
-                f"Invalid status: {status_filter}. "
-                f"Valid: pending, running, completed, failed, cancelled, retrying",
-                err=True,
-            )
-            raise typer.Exit(1)
-
-    queue = _get_queue(remote=remote)
-    task_list = queue.list_tasks(status=status_enum, limit=limit)
-
-    if not task_list:
-        typer.echo("No tasks found.")
-        return
-
-    typer.echo(f"{'ID':<14} {'Movie':<20} {'Status':<12} {'Progress':<10} {'Step':<20} {'Created'}")
-    typer.echo("-" * 100)
-    for t in task_list:
-        progress = "—"
-        step = ""
-        if t.progress and t.progress.current_step:
-            progress = f"{t.progress.percentage:.0f}%"
-            step = t.progress.current_step
-        typer.echo(
-            f"{t.id:<14} {t.request.movie_name:<20} {t.status.value:<12} "
-            f"{progress:<10} {step:<20} {t.created_at[:19]}"
-        )
-
-
-@app.command()
-def cancel(
-    task_id: str = typer.Argument(..., help="任务ID / Task ID"),
-    remote: Optional[str] = typer.Option(
-        None, "--remote", "-r", help="远程服务器URL / Remote server URL"
-    ),
-):
-    """Cancel a running task.
-
-    
-    Example:
-        mn cancel abc123def456
-        mn cancel abc123def456 --remote http://worker:8765
-    """
-    queue = _get_queue(remote=remote)
-    success = queue.cancel(task_id)
-    if success:
-        typer.echo(f"Task {task_id}: cancellation requested.")
-    else:
-        typer.echo(
-            f"Task {task_id}: could not cancel (not found or already in terminal state).",
-            err=True,
-        )
-        raise typer.Exit(1)
-
-
-@app.command()
-def wait(
-    task_id: str = typer.Argument(..., help="任务ID / Task ID"),
-    timeout: Optional[float] = typer.Option(
-        None, "--timeout", "-t", help="等����时(秒) / Timeout in seconds (default: infinite)"
-    ),
-    poll_interval: float = typer.Option(
-        1.0, "--poll-interval", help="轮询间隔(秒) / Poll interval in seconds"
-    ),
-    remote: Optional[str] = typer.Option(
-        None, "--remote", "-r", help="远程服务器URL / Remote server URL"
-    ),
-):
-    """Wait for task completion.
-
-    Examples:
-        mn wait abc123def456              # wait indefinitely
-        mn wait abc123def456 -t 600       # 10 minute timeout
-        mn wait abc123def456 --remote http://worker:8765
-    """
-    queue = _get_queue(remote=remote)
-    result = queue.wait(task_id, timeout=timeout, poll_interval=poll_interval)
-    if result is None:
-        typer.echo(
-            f"Task {task_id}: did not complete (timeout, cancelled, or not found).", err=True
-        )
-        raise typer.Exit(1)
-    if result.succeeded:
-        typer.echo(f"✓ Task {task_id} completed: {result.video_path}")
-    else:
-        typer.echo(f"✗ Task {task_id} failed: {result.error}", err=True)
-        raise typer.Exit(1)
-
-
-@app.command()
-def cleanup(
-    all_tasks: bool = typer.Option(
-        False, "--all", help="��除所有任务(��括运行中) / Clear all tasks including active ones"
-    ),
-):
-    """Clean up terminal tasks.
-
-    Examples:
-        mn cleanup           # remove completed/failed/cancelled tasks
-        mn cleanup --all     # remove all tasks
-    """
-    queue = _get_queue()
-    if all_tasks:
-        count = queue.cleanup_all()
-    else:
-        count = queue.cleanup_terminal()
-    typer.echo(f"Cleaned up {count} task(s).")
-
-
-# ── Remote serve command (v0.6.1) ──────────────────────────
-
-
-@app.command()
-def serve(
-    host: str = typer.Option("127.0.0.1", "--host", help="绑定地址 / Bind address"),
-    port: int = typer.Option(8765, "--port", help="监听端口 / Listen port"),
-    max_workers: int = typer.Option(2, "--max-workers", help="最大并发任务 / Max concurrent tasks"),
-    storage_dir: Optional[str] = typer.Option(
-        None, "--storage-dir", help="任务存储目录 / Task storage directory"
-    ),
-    public: bool = typer.Option(
-        False,
-        "--public",
-        help="监听所有网络接口(默认��本机) / Listen on all interfaces (default: localhost only)",
-    ),
-    api_key: Optional[str] = typer.Option(
-        None,
-        "--api-key",
-        help="API key for X-API-Key authentication. Reads MN_API_KEY env var by default.",
-    ),
-    insecure: bool = typer.Option(
-        False,
-        "--insecure",
-        help="Allow starting on public interface without API key (not recommended).",
-    ),
-    log_format: Optional[str] = typer.Option(
-        None,
-        "--log-format",
-        help="日志格式 / Log format: text|json (default: MN_LOG_FORMAT, else text).",
-    ),
-    log_level: Optional[str] = typer.Option(
-        None,
-        "--log-level",
-        help="日志级别 / Log level: DEBUG|INFO|WARNING|ERROR (default: MN_LOG_LEVEL, else INFO).",
-    ),
-):
-    """Start the remote inference API server.
-
-    Starts an HTTP API server that allows remote clients to submit and
-    manage narration tasks. Suitable for offloading inference workload
-    to GPU machines or cloud servers.
-
-    Start a worker daemon that accepts remote task submissions:
-        mn serve --port 8765
-        mn serve --max-workers 4
-        mn serve --public --api-key secret   # listen on all interfaces + auth
-
-    From another machine, submit tasks:
-        mn submit -m The Dark Knight --remote http://worker:8765 --wait
-
-    Security note: By default, listens on 127.0.0.1 (local access only),
-    no authentication required. When using --public to listen on 0.0.0.0,
-    you must provide --api-key (or set the MN_API_KEY environment variable),
-    otherwise startup is rejected. Use --insecure to skip this security
-    check (not recommended). v0.8.0 adds X-API-Key authentication support,
-    enabled via --api-key.
-
-    v0.8.1 Observability:
-        mn serve --log-format json --log-level INFO
-        Prometheus metrics (requires X-API-Key by default;
-        set MN_METRICS_PUBLIC=1 to allow unauthenticated scraping within the cluster).
-        Every response echoes back X-Correlation-ID.
-    """
-    from ..cloud import run_daemon
-    from ..config import get_settings
-    from ..utils.logging_config import configure_logging
-    from pathlib import Path
-
-    # v0.8.1: configure structured logging before anything can log.
-    # Flags are left at None by default so MN_LOG_FORMAT / MN_LOG_LEVEL
-    # still apply; an explicit flag overrides the environment.
-    if log_format is not None and log_format.lower() not in {"text", "json"}:
-        typer.echo("--log-format must be 'text' or 'json'", err=True)
-        raise typer.Exit(2)
-    configure_logging(
-        json_mode=(log_format.lower() == "json") if log_format else None,
-        level=log_level,
-    )
-
-    if public:
-        host = "0.0.0.0"  # nosec B104  # explicit opt-in via --public; guarded by API-key check below
-
-    settings = get_settings()
-    effective_api_key = api_key or settings.api_key
-
-    if host == "0.0.0.0":  # nosec B104  # comparing the explicit --public host, not a listener
-        if effective_api_key is None and not insecure:
-            typer.echo(
-                "WARNING: serving on 0.0.0.0 without an API key.\n"
-                "Use --api-key to enable X-API-Key authentication, "
-                "or --insecure to proceed without it.",
-                err=True,
-            )
-        elif effective_api_key is None and insecure:
-            typer.echo(
-                "WARNING: serving on 0.0.0.0 without authentication (--insecure).\n"
-                "Anyone with network access can submit tasks and download artifacts.",
-                err=True,
-            )
-
-    storage = Path(storage_dir) if storage_dir else None
-    run_daemon(
-        host=host,
-        port=port,
-        storage_dir=storage,
-        max_workers=max_workers,
-        api_key=effective_api_key,
-        allow_insecure=insecure,
-        blocking=True,
+        wait=wait,
+        timeout=timeout,
+        remote=remote,
     )
 
 
-@app.command()
-def download(
-    task_id: str = typer.Argument(..., help="任务ID / Task ID"),
-    remote: str = typer.Option(..., "--remote", "-r", help="远程服务器URL / Remote server URL"),
-    filename: Optional[str] = typer.Option(
-        None, "--filename", "-f", help="指定文件名(不指定则下载��部) / Specific file (default: all)"
-    ),
-    dest_dir: Optional[str] = typer.Option(
-        None, "--dest-dir", "-o", help="保存目录 / Destination directory"
-    ),
-):
-    """Download artifacts from a remote server.
+# ── Remaining command registrations ────────────────────────
+app.command()(resume)
+app.command()(rerun)
+app.command()(resolve)
+app.command()(research)
+app.command()(scenes)
+app.command()(align)
+app.command()(clips)
+app.command()(plugin)
+app.command()(version)
+app.command()(doctor)
+app.command()(benchmark)
+app.command()(preset)
+app.command()(status)
+app.command()(tasks)
+app.command()(cancel)
+app.command()(wait)
+app.command()(cleanup)
+app.command()(serve)
+app.command()(download)
+app.command("api-spec")(api_spec)
 
-    
-    Examples:
-        mn download abc123 --remote http://worker:8765
-        mn download abc123 -r http://worker:8765 -f final.mp4
-        mn download abc123 -r http://worker:8765 -o ./output
-    """
-    from ..cloud import download_all_artifacts, download_artifact
-
-    if filename:
-        path = download_artifact(remote, task_id, filename, dest_dir=dest_dir)
-        typer.echo(f"Downloaded: {path}")
-    else:
-        paths = download_all_artifacts(remote, task_id, dest_dir=dest_dir)
-        if not paths:
-            typer.echo("No artifacts found.", err=True)
-            raise typer.Exit(1)
-        typer.echo(f"Downloaded {len(paths)} file(s):")
-        for p in paths:
-            typer.echo(f"  {p}")
-
-
-@app.command("api-spec")
-def api_spec(
-    output: Optional[str] = typer.Option(
-        None,
-        "--output",
-        "-o",
-        help="输出文件路径(默认输出到 stdout) / Output file path (default: stdout)",
-    ),
-    indent: int = typer.Option(
-        2, "--indent", help="JSON 缩进空格数(0 表示紧凑输出) / JSON indent width (0 = compact)"
-    ),
-):
-    """Dump the REST API OpenAPI 3.1 spec.
-
-    
-    Examples:
-        mn api-spec
-        mn api-spec -o openapi.json
-        mn api-spec --indent 0 -o openapi.min.json
-
-    The same document is served live at ``GET /openapi.json`` by
-    ``mn serve``.
-    """
-    from ..cloud.openapi import build_openapi_spec
-
-    spec = build_openapi_spec()
-    text = json.dumps(
-        spec,
-        ensure_ascii=False,
-        indent=indent if indent > 0 else None,
-        sort_keys=False,
-    )
-
-    if output:
-        path = Path(output)
-        if path.parent and not path.parent.exists():
-            path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text + "\n", encoding="utf-8")
-        typer.echo(f"OpenAPI spec written to {path}")
-    else:
-        typer.echo(text)
-
+# ── Community preset sharing (v1.5.1) ─────────────────────
+presets_app = typer.Typer(
+    help="Community preset sharing — install and manage YAML data presets "
+    "(no code execution; see ADR-018).",
+    no_args_is_help=True,
+)
+app.add_typer(presets_app, name="presets")
+presets_app.command("list")(presets_list)
+presets_app.command("install")(presets_install)
+presets_app.command("remove")(presets_remove)
+presets_app.command("show")(presets_show)
 
 # ── Artifact lifecycle commands (v0.8.3) ───────────────────
-
 artifacts_app = typer.Typer(
     help="产物存储与生命周期管理 / Artifact storage and TTL lifecycle management.",
     no_args_is_help=True,
 )
 app.add_typer(artifacts_app, name="artifacts")
-
-
-def _artifacts_open_store(backend: Optional[str], root: Optional[str]):
-    """Resolve the artifact store for the ``mn artifacts`` commands."""
-    from ..cloud.artifact_store import ArtifactStoreError, get_artifact_store
-
-    try:
-        return get_artifact_store(backend=backend, root=root)
-    except ArtifactStoreError as e:
-        typer.echo(f"Artifact store unavailable: {e}", err=True)
-        raise typer.Exit(1)
-
-
-@artifacts_app.command("list")
-def artifacts_list(
-    prefix: str = typer.Option(
-        "", "--prefix", help="仅列出该前缀下的产物 / Only list keys under this prefix"
-    ),
-    backend: Optional[str] = typer.Option(
-        None, "--backend", help="local 或 s3(默认读 MN_STORAGE_BACKEND) / Backend override"
-    ),
-    root: Optional[str] = typer.Option(
-        None, "--root", help="本地后端根目录(默认读 MN_STORAGE_ROOT) / Local store root"
-    ),
-):
-    """List artifacts in the configured store.
-
-    
-    Examples:
-        mn artifacts list
-        mn artifacts list --root output --prefix abc123
-    """
-    from ..cloud.lifecycle import format_bytes
-
-    store = _artifacts_open_store(backend, root)
-    total = 0
-    count = 0
-    for info in store.list(prefix):
-        count += 1
-        total += info.size
-        typer.echo(f"  {info.key}  ({format_bytes(info.size)})")
-    if count == 0:
-        typer.echo("No artifacts found.")
-        return
-    typer.echo(f"{count} artifact(s), {format_bytes(total)} total.")
-
-
-@artifacts_app.command("cleanup")
-def artifacts_cleanup(
-    ttl: Optional[int] = typer.Option(
-        None,
-        "--ttl",
-        help="过期秒数,0=永久保留(默认读 MN_ARTIFACT_TTL) / TTL in seconds, 0 = keep forever",
-    ),
-    max_bytes: Optional[int] = typer.Option(
-        None,
-        "--max-bytes",
-        help="总容量上限字节数,0=不限(默认读 MN_ARTIFACT_MAX_BYTES) / Total size cap in bytes",
-    ),
-    keep_last: Optional[int] = typer.Option(
-        None,
-        "--keep-last",
-        help="始终保留最新 N 个产物(默认读 MN_ARTIFACT_KEEP_LAST) / Always keep the N newest",
-    ),
-    dry_run: bool = typer.Option(
-        False, "--dry-run", help="仅预览不删除 / Preview without deleting"
-    ),
-    prefix: str = typer.Option(
-        "", "--prefix", help="仅清理该前缀下的产物 / Restrict cleanup to this prefix"
-    ),
-    backend: Optional[str] = typer.Option(
-        None, "--backend", help="local 或 s3(默认读 MN_STORAGE_BACKEND) / Backend override"
-    ),
-    root: Optional[str] = typer.Option(
-        None, "--root", help="本地后端根目录(默认读 MN_STORAGE_ROOT) / Local store root"
-    ),
-):
-    """Clean up artifacts by TTL and size cap.
-
-    Options not explicitly specified fall back to MN_ARTIFACT_* environment variables.
-    Options left unset fall back to the MN_ARTIFACT_* environment variables.
-
-    
-    Examples:
-        mn artifacts cleanup --dry-run
-        mn artifacts cleanup --ttl 604800 --keep-last 5
-        mn artifacts cleanup --max-bytes 10737418240
-    """
-    from ..cloud.lifecycle import (
-        ArtifactLifecyclePolicy,
-        cleanup_artifacts,
-        describe_policy,
-    )
-
-    policy = ArtifactLifecyclePolicy.from_env(dry_run=dry_run)
-    if ttl is not None:
-        policy.ttl_seconds = max(ttl, 0)
-    if max_bytes is not None:
-        policy.max_total_bytes = max(max_bytes, 0)
-    if keep_last is not None:
-        policy.keep_last_n = max(keep_last, 0)
-
-    store = _artifacts_open_store(backend, root)
-
-    typer.echo("Artifact retention policy:")
-    for line in describe_policy(policy):
-        typer.echo(f"  {line}")
-
-    if not policy.enabled:
-        typer.echo("No retention rule active (--ttl / --max-bytes are both 0) — nothing to do.")
-        return
-
-    report = cleanup_artifacts(store, policy, prefix=prefix)
-
-    if report.deleted:
-        header = "Would delete:" if report.dry_run else "Deleted:"
-        typer.echo(header)
-        for key in report.deleted:
-            typer.echo(f"  - {key}")
-    if report.skipped:
-        typer.echo(f"Kept (protected / keep-last): {len(report.skipped)}")
-    if report.errors:
-        typer.echo("Errors:", err=True)
-        for key, message in report.errors:
-            typer.echo(f"  ! {key}: {message}", err=True)
-
-    typer.echo(report.summary())
-    if report.errors:
-        raise typer.Exit(1)
+artifacts_app.command("list")(artifacts_list)
+artifacts_app.command("cleanup")(artifacts_cleanup)

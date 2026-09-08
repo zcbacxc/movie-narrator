@@ -50,6 +50,16 @@ jobs:
         run: ruff check src/
       - name: Mypy type check
         run: mypy src/movie_narrator
+      - name: Metadata key gate
+        # Every string-literal metadata[...] / .get(...) key in src/ must be
+        # declared in models.MetadataDict (sentinel for weak-typed "escape
+        # hatch" creep). See scripts/check_metadata_keys.py.
+        run: python scripts/check_metadata_keys.py
+      - name: Source file size gate
+        # Newly-added megafiles fail; pre-existing offenders warn only, so this
+        # cannot break the build retroactively. See scripts/lint_file_size.py
+        # and docs/ADR.md.
+        run: python scripts/lint_file_size.py --added-vs "${{ github.event.pull_request.base.sha || 'origin/main' }}"
 
   test-matrix:
     runs-on: ubuntu-latest
