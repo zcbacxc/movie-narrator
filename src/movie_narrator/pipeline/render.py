@@ -11,7 +11,6 @@ import subprocess
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import cast
 
 from moviepy import AudioFileClip, ColorClip, CompositeVideoClip, ImageClip, VideoFileClip
 from PIL import Image, ImageDraw
@@ -1028,9 +1027,8 @@ def render_video(ctx: Context) -> Context:
     # v1.2: wall-clock deadline for the blocking MoviePy main encode below.
     # A runaway ffmpeg would otherwise hold CPU/GPU indefinitely; on expiry
     # the worker process tree is terminated and the step fails fast.
-    main_encode_timeout = cast(
-        float,
-        ctx.metadata.get("render_main_encode_timeout") or _DEFAULT_MAIN_ENCODE_TIMEOUT,
+    main_encode_timeout = (
+        ctx.metadata.get("render_main_encode_timeout") or _DEFAULT_MAIN_ENCODE_TIMEOUT
     )
 
     # ── Codec ownership (v1.2) ──────────────────────────────────────
