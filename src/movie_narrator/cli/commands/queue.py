@@ -100,7 +100,6 @@ def submit(
 ):
     """Submit an async narration task.
 
-    
     Examples:
         mn submit -m "The Dark Knight" -p douyin-fast
         mn submit -m Inception --wait --timeout 600
@@ -162,7 +161,6 @@ def status(
 ):
     """Show task status.
 
-    
     Example:
         mn status abc123def456
         mn status abc123def456 --remote http://worker:8765
@@ -227,7 +225,6 @@ def tasks(
 ):
     """List tasks.
 
-    
     Examples:
         mn tasks                 # list last 20 tasks
         mn tasks --status running # show only running tasks
@@ -276,7 +273,6 @@ def cancel(
 ):
     """Cancel a running task.
 
-    
     Example:
         mn cancel abc123def456
         mn cancel abc123def456 --remote http://worker:8765

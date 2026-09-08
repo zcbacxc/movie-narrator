@@ -13,6 +13,7 @@ intentional difference (the ``--movie`` required-vs-optional split, the per
 import ast
 from pathlib import Path
 
+import typer
 from typer.testing import CliRunner
 
 import movie_narrator.cli as cli
@@ -194,11 +195,25 @@ def test_intentional_differences_present():
 
 def _help_smoke():
     runner = CliRunner()
-    for cmd in ("create", "race", "imitate", "submit"):
-        res = runner.invoke(app, [cmd, "--help"])
-        assert res.exit_code == 0, f"{cmd} --help failed: {res.exception}"
-        for key in ("--movie", "--output-dir"):
-            assert key in res.output, f"{cmd} --help missing {key!r}"
+    for cmd_name, cmd in COMMANDS.items():
+        res = runner.invoke(app, [cmd_name, "--help"])
+        assert res.exit_code == 0, f"{cmd_name} --help failed: {res.exception}"
+        # Option existence/drift is enforced deterministically by the AST-based
+        # tests above; we intentionally do NOT assert on the rendered help body.
+        # rich wraps/truncates the Options table differently per terminal
+        # geometry (e.g. a GitHub no-TTY 80x24 box can wrap a row such that its
+        # flag token is absent from res.output), so raw-substring checks are
+        # flaky across environments. Instead, assert the option is actually
+        # registered on the underlying click command — geometry-independent and
+        # captures the same "flag present" intent.
+        registered = {
+            flag
+            for param in typer.main.get_command(app).commands[cmd_name].params
+            if getattr(param, "opts", None)
+            for flag in param.opts
+        }
+        assert "--movie" in registered, f"{cmd_name} does not register --movie"
+        assert "--output-dir" in registered, f"{cmd_name} does not register --output-dir"
 
 
 def test_all_command_help_renders():

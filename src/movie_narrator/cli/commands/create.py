@@ -124,14 +124,12 @@ def create(
 ):
     """Generate a narrated short video — end-to-end from movie name to final output.
 
-    
 
     Examples:
             mn create -m Inception -p douyin-fast
             mn create -m Inception -p mainstream-dry --bgm music.mp3
             mn create --config job.yaml
 
-        
         List available presets:
             mn preset
     """

@@ -190,14 +190,12 @@ def create(
 ):
     """Generate a narrated short video — end-to-end from movie name to final output.
 
-    
 
     Examples:
             mn create -m Inception -p douyin-fast
             mn create -m Inception -p mainstream-dry --bgm music.mp3
             mn create --config job.yaml
 
-        
         List available presets:
             mn preset
     """
@@ -377,11 +375,9 @@ def imitate(
 ):
     """Reference video imitation — extract style from a hit video and generate new content in the same style.
 
-    
     Analyzes sentence density, cut density, and rhythm of the reference video, automatically generates a temporary preset,
     then runs the standard pipeline with that preset to generate new narration.
 
-    
 
     Examples:
             mn imitate -r viral_ref.mp4 -m Inception --video movie.mp4
@@ -471,7 +467,6 @@ def submit(
 ):
     """Submit an async narration task.
 
-    
     Examples:
         mn submit -m "The Dark Knight" -p douyin-fast
         mn submit -m Inception --wait --timeout 600

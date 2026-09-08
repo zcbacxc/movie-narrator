@@ -33,7 +33,6 @@ def resume(
 ):
     """Resume a paused pipeline — continue from the last checkpoint.
 
-    
 
     Examples:
             mn resume --state output/movie/pipeline_state.json

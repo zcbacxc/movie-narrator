@@ -22,7 +22,6 @@ def download(
 ):
     """Download artifacts from a remote server.
 
-    
     Examples:
         mn download abc123 --remote http://worker:8765
         mn download abc123 -r http://worker:8765 -f final.mp4
@@ -56,7 +55,6 @@ def api_spec(
 ):
     """Dump the REST API OpenAPI 3.1 spec.
 
-    
     Examples:
         mn api-spec
         mn api-spec -o openapi.json

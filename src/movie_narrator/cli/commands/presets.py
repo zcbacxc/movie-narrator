@@ -15,7 +15,6 @@ def preset(
 ):
     """List presets or show details.
 
-    
     Examples:
         mn preset                  # list all available presets
         mn preset mainstream-dry   # show params and tags for mainstream-dry

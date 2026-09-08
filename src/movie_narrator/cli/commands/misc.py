@@ -25,7 +25,6 @@ def plugin(
 ):
     """Plugin system commands — list, discover, inspect registries.
 
-    
 
     Examples:
             mn plugin list          # list installed entry_points plugins

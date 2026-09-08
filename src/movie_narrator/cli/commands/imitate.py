@@ -106,11 +106,9 @@ def imitate(
 ):
     """Reference video imitation — extract style from a hit video and generate new content in the same style.
 
-    
     Analyzes sentence density, cut density, and rhythm of the reference video, automatically generates a temporary preset,
     then runs the standard pipeline with that preset to generate new narration.
 
-    
 
     Examples:
             mn imitate -r viral_ref.mp4 -m Inception --video movie.mp4

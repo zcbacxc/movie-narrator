@@ -32,7 +32,6 @@ def artifacts_list(
 ):
     """List artifacts in the configured store.
 
-    
     Examples:
         mn artifacts list
         mn artifacts list --root output --prefix abc123
@@ -86,7 +85,6 @@ def artifacts_cleanup(
     Options not explicitly specified fall back to MN_ARTIFACT_* environment variables.
     Options left unset fall back to the MN_ARTIFACT_* environment variables.
 
-    
     Examples:
         mn artifacts cleanup --dry-run
         mn artifacts cleanup --ttl 604800 --keep-last 5
