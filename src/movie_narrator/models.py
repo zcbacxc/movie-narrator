@@ -249,6 +249,20 @@ class MetadataDict(TypedDict, total=False):
     distributed_render: bool
     # Internal: degraded step tracking (list of step names)
     _degraded_steps: list
+    # Reference media / captions
+    reference_media: list
+    reference_media_captions: dict
+    # Prompt caching (list of per-stage outcome entries)
+    prompt_cache: list
+    # Rerun / planning
+    rerun: dict
+    plan: str
+    plan_policy: dict
+    artifact_retention: dict
+    # Misc feature toggles / tuning
+    match_visual_features: bool
+    render_main_encode_timeout: float
+    usage: dict
 
 
 # For static analysis (IDE, mypy, pyright): metadata is typed via MetadataDict.

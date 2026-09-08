@@ -9,12 +9,40 @@ from typing import Any, Dict, Optional, cast
 
 import typer
 
-from . import __version__
-from .models import Context
-from .pipeline.resolve import resolve_video
-from .pipeline.research import research_plot
-from .pipeline.runner import apply_dry_run_steps, build_context, common_build_kwargs, run_pipeline
-from .utils.log import resolve_log_level
+from .. import __version__
+from ..models import Context
+from ..pipeline.resolve import resolve_video
+from ..pipeline.research import research_plot
+from ..pipeline.runner import apply_dry_run_steps, build_context, common_build_kwargs, run_pipeline
+from ..utils.log import resolve_log_level
+
+from .options import (  # noqa: E402
+    BgmOpt,
+    ConfigOpt,
+    DryRunOpt,
+    DurationOpt,
+    KeepCacheOpt,
+    LibraryDirOpt,
+    MovieOpt,
+    MovieRequired,
+    NarrationPresetOpt,
+    NoBgmOpt,
+    NoClipsOpt,
+    OutputDirCreate,
+    OutputDirImitate,
+    OutputDirPlain,
+    OutputDirRace,
+    ResearchOpt,
+    RetryOpt,
+    StrictOpt,
+    StyleOpt,
+    SubtitleLangOpt,
+    SubtitleModeOpt,
+    VideoFormatOpt,
+    VideoOpt,
+    VoicePlain,
+    VoiceWithSign,
+)
 
 
 def _format_match_summary(ctx: Context) -> Optional[str]:
@@ -98,7 +126,7 @@ app = typer.Typer(
 )
 
 # Packaged example YAML — used as fallback when no --config and no cwd/job.yaml.
-_EXAMPLE_YAML = Path(__file__).resolve().parent.parent.parent / "examples" / "job.example.yaml"
+_EXAMPLE_YAML = Path(__file__).resolve().parent.parent.parent.parent / "examples" / "job.example.yaml"
 
 
 class InteractiveCLIController:
@@ -122,7 +150,7 @@ class InteractiveCLIController:
 
     def on_step_error(self, step_name: str, error: Exception, attempt: int):
         """Handle errors during pipeline step execution."""
-        from .pipeline.errors import StepAction
+        from ..pipeline.errors import StepAction
 
         typer.echo(
             f"\n  Step '{step_name}' failed (attempt {attempt}): {error}",
@@ -140,111 +168,90 @@ class InteractiveCLIController:
         return StepAction.ABORT
 
 
-from .utils.sanitize import sanitize_filename as _sanitize_filename  # noqa: E402
+from ..utils.sanitize import sanitize_filename as _sanitize_filename  # noqa: E402
 
 
 @app.command()
 def create(
-    movie: Optional[str] = typer.Option(None, "--movie", "-m", help="电影名称 / Movie name"),
-    style: str = typer.Option("热血搞笑", "--style", "-s", help="解说风格 / Narration style"),
-    duration: int = typer.Option(
-        60, "--duration", "-d", help="目标时长(秒) / Target duration (seconds)"
-    ),
-    voice: Optional[str] = typer.Option(
-        None, "--voice", "-v", help="TTS 语音 / TTS voice (Edge TTS)"
-    ),
-    video_format: str = typer.Option(
-        "16:9",
-        "--video-format",
-        "--format",
-        "-f",
-        help="视频格式 16:9 或 9:16 / Video format: 16:9 or 9:16",
-    ),
-    keep_cache: bool = typer.Option(
-        False, "--keep-cache", help="保留 TTS 缓存 / Keep TTS cache files"
-    ),
-    video: Optional[str] = typer.Option(
-        None, "--video", help="源视频文件路径 / Source movie file path"
-    ),
-    library_dir: Optional[str] = typer.Option(
-        None, "--library-dir", help="影视库目录 / Movie library directory"
-    ),
-    research: Optional[bool] = typer.Option(
-        None, "--research/--no-research", help="启用剧��研究 / Enable plot research"
-    ),
-    bgm: Optional[str] = typer.Option(None, "--bgm", help="背景音乐文件 / Background music file"),
-    no_bgm: bool = typer.Option(
-        False, "--no-bgm", help="禁用 BGM / Disable BGM even if default set"
-    ),
-    no_clips: bool = typer.Option(False, "--no-clips", help="跳过片段导出 / Skip clips/export"),
-    strict: bool = typer.Option(
-        False, "--strict", help="软步骤失败即中止 / Abort on soft step failure"
-    ),
-    retry: bool = typer.Option(
-        False,
-        "--retry",
-        help="硬步骤失败时交互重试 / Enable interactive retry on hard step failure",
-    ),
-    dry_run: bool = typer.Option(
-        False,
-        "--dry-run",
-        help="生成前预览：仅产出研究/分镜/脚本，不调用 TTS 与 FFmpeg "
-        "(不生成 final.mp4) / Dry-run: script/storyboard only, no TTS or render",
-    ),
-    config: Optional[str] = typer.Option(
-        None, "--config", help="job YAML ...置路径 / Path to job YAML config"
-    ),
+
+    movie: MovieOpt = None,
+
+    style: StyleOpt = "热血搞笑",
+
+    duration: DurationOpt = 60,
+
+    voice: VoiceWithSign = None,
+
+    video_format: VideoFormatOpt = "16:9",
+
+    keep_cache: KeepCacheOpt = False,
+
+    video: VideoOpt = None,
+
+    library_dir: LibraryDirOpt = None,
+
+    research: ResearchOpt = None,
+
+    bgm: BgmOpt = None,
+
+    no_bgm: NoBgmOpt = False,
+
+    no_clips: NoClipsOpt = False,
+
+    strict: StrictOpt = False,
+
+    retry: RetryOpt = False,
+
+    dry_run: DryRunOpt = False,
+
+    config: ConfigOpt = None,
     # Multi-language subtitle (v0.3).
-    subtitle_lang: Optional[str] = typer.Option(
-        None,
-        "--subtitle-lang",
-        help="目标语言标签(如 en, ja, zh-TW) / Target language tag; empty = off",
-    ),
-    subtitle_mode: Optional[str] = typer.Option(
-        None,
-        "--subtitle-mode",
-        help="字幕模式 original|translated|bilingual / Overlay mode",
-    ),
-    narration_preset: Optional[str] = typer.Option(
-        None,
-        "--narration-preset",
-        "-p",
-        "--preset",
-        help="解说风格预设(内置或已安装社区预设) douyin-fast | mainstream-dry | bilibili-long "
-        "/ Narration style preset (built-in or installed community preset)",
-    ),
+
+    subtitle_lang: SubtitleLangOpt = None,
+
+    subtitle_mode: SubtitleModeOpt = None,
+
+    narration_preset: NarrationPresetOpt = None,
+
+    output_dir: OutputDirCreate = None,
+
+
     narrator_perspective: Optional[str] = typer.Option(
         None,
         "--narrator-perspective",
         help="解说视角 omniscient | character | detective / Narrator perspective mode",
     ),
+
+
     focus_character: Optional[str] = typer.Option(
         None,
         "--focus-character",
         help="聚焦角色名(��合 character 视角) / Focus character name (used with 'character' perspective)",
     ),
-    output_dir: Optional[str] = typer.Option(
-        None,
-        "--output-dir",
-        "-o",
-        help="输出目录(默认 output/<电影名>) / Output directory (default: output/<movie>)",
-    ),
+
+
     pause_at: Optional[str] = typer.Option(
         None,
         "--pause-at",
         help="在指定步骤后暂停(人在环) / Pause after this step name "
         "(e.g. match_clips, generate_script). Resume with: mn resume --state <path>",
     ),
+
+
     log_level: str = typer.Option(
         "DEBUG",
         "--log-level",
         help="日志级别 DEBUG|INFO|WARNING|ERROR / Log level (default: DEBUG)",
     ),
+
+
     verbose: bool = typer.Option(
         False,
         "--verbose",
         help="在控制台显示 DEBUG 日志 / Show debug logs in console",
-    ),
+    )
+
+
 ):
     """Generate a narrated short video — end-to-end from movie name to final output.
 
@@ -259,8 +266,8 @@ def create(
         List available presets:
             mn preset
     """
-    from .config import get_settings
-    from .workflow import JobConfigError, load_job_config, merge_job
+    from ..config import get_settings
+    from ..workflow import JobConfigError, load_job_config, merge_job
 
     if config is None and movie is None:
         raise typer.BadParameter(
@@ -393,7 +400,7 @@ def create(
         ctx = run_pipeline(ctx, controller=controller)
     except Exception as e:  # noqa: BLE001 — CLI top-level error barrier
         # PipelinePaused — state saved, inform user how to resume
-        from .pipeline.errors import PipelinePaused
+        from ..pipeline.errors import PipelinePaused
 
         if isinstance(e, PipelinePaused):
             typer.echo(
@@ -402,7 +409,7 @@ def create(
             )
             raise typer.Exit(code=0)
         # PreflightError gets a targeted remediation hint.
-        from .pipeline.preflight import PreflightError
+        from ..pipeline.preflight import PreflightError
 
         if isinstance(e, PreflightError):
             typer.echo(str(e), err=True)
@@ -433,50 +440,50 @@ def create(
 
 @app.command()
 def race(
-    movie: Optional[str] = typer.Option(None, "--movie", "-m", help="电影名称 / Movie name"),
-    style: str = typer.Option("热血搞笑", "--style", "-s", help="解说风格 / Narration style"),
-    duration: int = typer.Option(
-        60, "--duration", "-d", help="目标时长(秒) / Target duration (seconds)"
-    ),
-    voice: Optional[str] = typer.Option(
-        None, "--voice", "-v", help="TTS 语音 / TTS voice (Edge TTS)"
-    ),
-    video_format: str = typer.Option(
-        "16:9", "--video-format", "--format", "-f", help="视频格式 16:9 或 9:16 / Video format"
-    ),
-    video: Optional[str] = typer.Option(
-        None, "--video", help="源视频文件路径 / Source movie file path"
-    ),
-    library_dir: Optional[str] = typer.Option(
-        None, "--library-dir", help="影视库目录 / Movie library directory"
-    ),
-    research: Optional[bool] = typer.Option(
-        None, "--research/--no-research", help="启用剧��研究 / Enable plot research"
-    ),
-    bgm: Optional[str] = typer.Option(None, "--bgm", help="背景音乐文件 / Background music file"),
-    no_bgm: bool = typer.Option(False, "--no-bgm", help="禁用 BGM / Disable BGM"),
-    config: Optional[str] = typer.Option(
-        None, "--config", help="job YAML ��置路径 / Path to job YAML config"
-    ),
+
+    movie: MovieOpt = None,
+
+    style: StyleOpt = "热血搞笑",
+
+    duration: DurationOpt = 60,
+
+    voice: VoiceWithSign = None,
+
+    video_format: VideoFormatOpt = "16:9",
+
+    video: VideoOpt = None,
+
+    library_dir: LibraryDirOpt = None,
+
+    research: ResearchOpt = None,
+
+    bgm: BgmOpt = None,
+
+    no_bgm: NoBgmOpt = False,
+
+    config: ConfigOpt = None,
+
+    output_dir: OutputDirRace = None,
+
+
     candidates: int = typer.Option(
         3, "--candidates", "-n", help="候选数量(1-6) / Number of candidates (1-6)"
     ),
+
+
     presets: Optional[str] = typer.Option(
         None,
         "--presets",
         help="自定义预设列表(逗号分隔) / Custom presets (comma-separated, e.g. douyin-fast,mainstream-dry)",
     ),
+
+
     auto_pick: bool = typer.Option(
         False,
         "--auto-pick",
         help="自动选优并复制到输出根目录 / Auto-pick best and copy to output root",
-    ),
-    output_dir: Optional[str] = typer.Option(
-        None,
-        "--output-dir",
-        "-o",
-        help="输出目录(默认 output/<电影名>_race) / Output directory",
-    ),
+    )
+
 ):
     """Run N variants in parallel and pick the best by score.
 
@@ -489,7 +496,7 @@ def race(
             mn race -m Inception --video movie.mp4 -n 3 --auto-pick
             mn race -m Inception --presets douyin-fast,mainstream-dry,bilibili-long
     """
-    from .race import (
+    from ..race import (
         generate_candidates,
         run_race,
         format_race_report,
@@ -564,58 +571,73 @@ def race(
 
 @app.command()
 def imitate(
+
+    movie: MovieOpt = None,
+
+    style: StyleOpt = "热血搞笑",
+
+    duration: DurationOpt = 60,
+
+    voice: VoicePlain = None,
+
+    video_format: VideoFormatOpt = "16:9",
+
+    keep_cache: KeepCacheOpt = False,
+
+    video: VideoOpt = None,
+
+    library_dir: LibraryDirOpt = None,
+
+    research: ResearchOpt = None,
+
+    bgm: BgmOpt = None,
+
+    no_bgm: NoBgmOpt = False,
+
+    no_clips: NoClipsOpt = False,
+
+    strict: StrictOpt = False,
+
+    retry: RetryOpt = False,
+
+    config: ConfigOpt = None,
+
+    subtitle_lang: SubtitleLangOpt = None,
+
+    subtitle_mode: SubtitleModeOpt = None,
+
+    output_dir: OutputDirImitate = None,
+
+
     reference: str = typer.Option(
         ...,
         "--reference",
         "-r",
         help="参考视频路径 / Reference video path (viral narration to imitate)",
     ),
-    movie: Optional[str] = typer.Option(None, "--movie", "-m", help="电影名称 / Movie name"),
-    style: str = typer.Option("热血搞笑", "--style", "-s", help="解说风格 / Narration style"),
-    duration: int = typer.Option(
-        60, "--duration", "-d", help="目标时长(秒) / Target duration (seconds)"
-    ),
-    voice: Optional[str] = typer.Option(None, "--voice", "-v", help="TTS 语音 / TTS voice"),
-    video_format: str = typer.Option(
-        "16:9", "--video-format", "--format", "-f", help="视频格式 / Video format"
-    ),
-    keep_cache: bool = typer.Option(False, "--keep-cache", help="保留 TTS 缓存 / Keep TTS cache"),
-    video: Optional[str] = typer.Option(
-        None, "--video", help="源视频文件路径 / Source movie file path"
-    ),
-    library_dir: Optional[str] = typer.Option(None, "--library-dir", help="影视库目录"),
-    research: Optional[bool] = typer.Option(None, "--research/--no-research", help="启用剧��研究"),
-    bgm: Optional[str] = typer.Option(None, "--bgm", help="背景音乐文件 / Background music file"),
-    no_bgm: bool = typer.Option(False, "--no-bgm", help="禁用 BGM / Disable BGM"),
-    no_clips: bool = typer.Option(False, "--no-clips", help="跳过片段导出 / Skip clips"),
-    strict: bool = typer.Option(
-        False, "--strict", help="软步骤失败即中止 / Abort on soft step failure"
-    ),
-    retry: bool = typer.Option(False, "--retry", help="硬步骤失败时交互重试"),
-    config: Optional[str] = typer.Option(None, "--config", help="job YAML ��置路径"),
-    subtitle_lang: Optional[str] = typer.Option(None, "--subtitle-lang", help="目标语言标签"),
-    subtitle_mode: Optional[str] = typer.Option(None, "--subtitle-mode", help="字幕模式"),
-    output_dir: Optional[str] = typer.Option(
-        None,
-        "--output-dir",
-        "-o",
-        help="输出目录(默认 output/<电影名>_imitate) / Output directory",
-    ),
+
+
     analyze_only: bool = typer.Option(
         False,
         "--analyze-only",
         help="只分析参考片不生成 / Only analyze reference, don't generate",
     ),
+
+
     log_level: str = typer.Option(
         "DEBUG",
         "--log-level",
         help="日志级别 DEBUG|INFO|WARNING|ERROR / Log level (default: DEBUG)",
     ),
+
+
     verbose: bool = typer.Option(
         False,
         "--verbose",
         help="在控制台显示 DEBUG 日志 / Show debug logs in console",
-    ),
+    )
+
+
 ):
     """Reference video imitation — extract style from a hit video and generate new content in the same style.
 
@@ -630,7 +652,7 @@ def imitate(
             mn imitate -r viral_ref.mp4 --analyze-only
             mn imitate -r viral_ref.mp4 -m Inception --video movie.mp4 --strict
     """
-    from .imitate import (
+    from ..imitate import (
         analyze_reference,
         metrics_to_params,
         metrics_to_preset_name,
@@ -676,9 +698,9 @@ def imitate(
     typer.echo(f"Generated {len(params)} custom parameters")
 
     # Build context and run pipeline
-    from .pipeline.runner import build_context, run_pipeline
-    from .pipeline.errors import PipelinePaused
-    from .pipeline.preflight import PreflightError
+    from ..pipeline.runner import build_context, run_pipeline
+    from ..pipeline.errors import PipelinePaused
+    from ..pipeline.preflight import PreflightError
 
     _resolved_level = resolve_log_level(log_level)
 
@@ -765,10 +787,10 @@ def resume(
     Examples:
             mn resume --state output/movie/pipeline_state.json
     """
-    from .pipeline.runner import _load_pipeline_state, _next_step_after, run_pipeline
-    from .pipeline.errors import PipelinePaused
-    from .pipeline.preflight import PreflightError
-    from .utils.console import Console, build_console
+    from ..pipeline.runner import _load_pipeline_state, _next_step_after, run_pipeline
+    from ..pipeline.errors import PipelinePaused
+    from ..pipeline.preflight import PreflightError
+    from ..utils.console import Console, build_console
 
     state_path = Path(state)
     if not state_path.is_file():
@@ -780,7 +802,7 @@ def resume(
     _resolved_level = resolve_log_level(log_level)
 
     # Re-inject a real console (serialized state has SilentConsole)
-    from .models import Services
+    from ..models import Services
 
     console: Console = build_console(
         Path(ctx.output_dir),
@@ -886,17 +908,17 @@ def rerun(
             mn rerun output/movie/pipeline_state.json --from render_video
             mn rerun output/movie/pipeline_state.json --from render_video --dry-run
     """
-    from .pipeline.runner import (
+    from ..pipeline.runner import (
         SOFT_STATUS_STEPS,
         _load_pipeline_state,
         ordered_step_names,
         prepare_rerun,
         run_pipeline,
     )
-    from .pipeline.errors import PipelinePaused
-    from .pipeline.preflight import PreflightError
-    from .models import Services
-    from .utils.console import Console, build_console
+    from ..pipeline.errors import PipelinePaused
+    from ..pipeline.preflight import PreflightError
+    from ..models import Services
+    from ..utils.console import Console, build_console
 
     if list_steps:
         for name in ordered_step_names():
@@ -1161,7 +1183,7 @@ def plugin(
             mn plugin version       # show CONTRACT_VERSION
     """
     if action == "list":
-        from .plugin_loader import list_available_plugins
+        from ..plugin_loader import list_available_plugins
 
         plugins = list_available_plugins()
         if not plugins:
@@ -1175,7 +1197,7 @@ def plugin(
             typer.echo(f"  {name}")
 
     elif action == "discover":
-        from .plugin_loader import discover_plugins
+        from ..plugin_loader import discover_plugins
 
         results = discover_plugins()
         if not results:
@@ -1196,8 +1218,8 @@ def plugin(
         import movie_narrator.utils.llm  # noqa: F401
         import movie_narrator.pipeline.research  # noqa: F401
 
-        from .pipeline.registry import step_registry
-        from .providers import (
+        from ..pipeline.registry import step_registry
+        from ..providers import (
             tts_registry,
             vision_registry,
             llm_registry,
@@ -1236,7 +1258,7 @@ def plugin(
             typer.echo(f"  {info['name']:<25}{proto}")
 
     elif action == "version":
-        from .contract import CONTRACT_VERSION
+        from ..contract import CONTRACT_VERSION
 
         typer.echo(f"CONTRACT_VERSION = {CONTRACT_VERSION}")
         typer.echo(f"  semver: {'.'.join(str(v) for v in CONTRACT_VERSION)}")
@@ -1257,7 +1279,7 @@ def version():
 @app.command()
 def doctor():
     """Environment pre-flight check — ffmpeg, extras, config."""
-    from .doctor import run_doctor, render_report
+    from ..doctor import run_doctor, render_report
 
     report = run_doctor()
     typer.echo(render_report(report))
@@ -1273,7 +1295,7 @@ _BENCHMARK_MOD_NAME = "mn_encoder_benchmark"
 
 def _benchmark_script_path() -> Path:
     """Location of the v1.3.2 benchmark script (source checkout layout)."""
-    return Path(__file__).resolve().parents[2] / "benchmarks" / "encoder_benchmark.py"
+    return Path(__file__).resolve().parents[3] / "benchmarks" / "encoder_benchmark.py"
 
 
 def _load_encoder_benchmark():
@@ -1375,7 +1397,7 @@ def preset(
         mn preset                  # list all available presets
         mn preset mainstream-dry   # show params and tags for mainstream-dry
     """
-    from .presets import get_preset, list_presets
+    from ..presets import get_preset, list_presets
 
     if name is None:
         # List mode
@@ -1428,7 +1450,7 @@ def presets_list():
     Examples:
         mn presets list
     """
-    from .presets import list_installed, list_presets
+    from ..presets import list_installed, list_presets
 
     installed = {item.name: item for item in list_installed()}
     presets = list_presets()
@@ -1464,7 +1486,7 @@ def presets_install(
         mn presets install ./slow-burn.yaml
         mn presets install https://example.com/presets/slow-burn.yaml
     """
-    from .presets import CommunityPresetError, install_preset
+    from ..presets import CommunityPresetError, install_preset
 
     try:
         item = install_preset(source)
@@ -1491,7 +1513,7 @@ def presets_remove(
     Examples:
         mn presets remove slow-burn
     """
-    from .presets import CommunityPresetError, uninstall_preset
+    from ..presets import CommunityPresetError, uninstall_preset
 
     try:
         uninstall_preset(name)
@@ -1516,7 +1538,7 @@ def presets_show(
     """
     from contextlib import suppress
 
-    from .presets import CommunityPresetError, get_preset, load_community_preset
+    from ..presets import CommunityPresetError, get_preset, load_community_preset
 
     try:
         p = get_preset(name)
@@ -1553,10 +1575,10 @@ def _get_queue(remote: Optional[str] = None):
         remote: If provided, returns a RemoteTaskQueue pointing to the
             given URL. Otherwise, returns a LocalTaskQueue.
     """
-    from .cloud import LocalTaskQueue
+    from ..cloud import LocalTaskQueue
 
     if remote:
-        from .cloud import RemoteTaskQueue
+        from ..cloud import RemoteTaskQueue
 
         return RemoteTaskQueue(remote)
     return LocalTaskQueue(auto_start=False)
@@ -1564,45 +1586,59 @@ def _get_queue(remote: Optional[str] = None):
 
 @app.command()
 def submit(
-    movie: str = typer.Option(..., "--movie", "-m", help="电影名称 / Movie name"),
-    style: str = typer.Option("热血搞笑", "--style", "-s", help="解说风格 / Narration style"),
-    duration: int = typer.Option(60, "--duration", "-d", help="目标时长(秒) / Target duration"),
-    voice: Optional[str] = typer.Option(None, "--voice", "-v", help="TTS 语音 / TTS voice"),
-    video_format: str = typer.Option(
-        "16:9", "--video-format", "--format", "-f", help="视频格式 / Video format"
-    ),
-    video: Optional[str] = typer.Option(None, "--video", help="源视频路径 / Source video path"),
-    library_dir: Optional[str] = typer.Option(
-        None, "--library-dir", help="影视库目录 / Movie library"
-    ),
-    research: Optional[bool] = typer.Option(
-        None, "--research/--no-research", help="启用研究 / Enable research"
-    ),
-    bgm: Optional[str] = typer.Option(None, "--bgm", help="背景音乐 / Background music"),
-    no_bgm: bool = typer.Option(False, "--no-bgm", help="禁用BGM / Disable BGM"),
-    no_clips: bool = typer.Option(False, "--no-clips", help="跳过片段导出 / Skip clips"),
-    strict: bool = typer.Option(False, "--strict", help="严格模式 / Strict mode"),
-    subtitle_lang: Optional[str] = typer.Option(
-        None, "--subtitle-lang", help="字幕语言 / Subtitle language"
-    ),
-    subtitle_mode: Optional[str] = typer.Option(
-        None, "--subtitle-mode", help="字幕模式 / Subtitle mode"
-    ),
-    narration_preset: Optional[str] = typer.Option(
-        None, "--narration-preset", "-p", help="解说预设 / Narration preset"
-    ),
+
+    movie: MovieRequired,
+
+    style: StyleOpt = "热血搞笑",
+
+    duration: DurationOpt = 60,
+
+    voice: VoicePlain = None,
+
+    video_format: VideoFormatOpt = "16:9",
+
+    video: VideoOpt = None,
+
+    library_dir: LibraryDirOpt = None,
+
+    research: ResearchOpt = None,
+
+    bgm: BgmOpt = None,
+
+    no_bgm: NoBgmOpt = False,
+
+    no_clips: NoClipsOpt = False,
+
+    strict: StrictOpt = False,
+
+    subtitle_lang: SubtitleLangOpt = None,
+
+    subtitle_mode: SubtitleModeOpt = None,
+
+    narration_preset: NarrationPresetOpt = None,
+
+    output_dir: OutputDirPlain = None,
+
+
     lang: str = typer.Option("zh", "--lang", help="解说语言 / Narration language"),
-    output_dir: Optional[str] = typer.Option(
-        None, "--output-dir", "-o", help="输出目录 / Output directory"
-    ),
+
+
     max_retries: int = typer.Option(3, "--max-retries", help="最大重试次数 / Max retries"),
+
+
     wait: bool = typer.Option(False, "--wait", help="提交后等��完成 / Wait for completion"),
+
+
     timeout: Optional[float] = typer.Option(
         None, "--timeout", help="等����时(秒) / Wait timeout (seconds)"
     ),
+
+
     remote: Optional[str] = typer.Option(
         None, "--remote", "-r", help="远程服务器URL / Remote server URL (e.g. http://worker:8765)"
-    ),
+    )
+
+
 ):
     """Submit an async narration task.
 
@@ -1612,7 +1648,7 @@ def submit(
         mn submit -m Inception --wait --timeout 600
         mn submit -m The Dark Knight --remote http://worker:8765 --wait
     """
-    from .cloud import TaskRequest
+    from ..cloud import TaskRequest
 
     request = TaskRequest(
         movie_name=movie,
@@ -1741,7 +1777,7 @@ def tasks(
         mn tasks --status running # show only running tasks
         mn tasks --remote http://worker:8765
     """
-    from .cloud.models import TaskStatus
+    from ..cloud.models import TaskStatus
 
     status_enum = None
     if status_filter:
@@ -1920,9 +1956,9 @@ def serve(
         set MN_METRICS_PUBLIC=1 to allow unauthenticated scraping within the cluster).
         Every response echoes back X-Correlation-ID.
     """
-    from .cloud import run_daemon
-    from .config import get_settings
-    from .utils.logging_config import configure_logging
+    from ..cloud import run_daemon
+    from ..config import get_settings
+    from ..utils.logging_config import configure_logging
     from pathlib import Path
 
     # v0.8.1: configure structured logging before anything can log.
@@ -1988,7 +2024,7 @@ def download(
         mn download abc123 -r http://worker:8765 -f final.mp4
         mn download abc123 -r http://worker:8765 -o ./output
     """
-    from .cloud import download_all_artifacts, download_artifact
+    from ..cloud import download_all_artifacts, download_artifact
 
     if filename:
         path = download_artifact(remote, task_id, filename, dest_dir=dest_dir)
@@ -2026,7 +2062,7 @@ def api_spec(
     The same document is served live at ``GET /openapi.json`` by
     ``mn serve``.
     """
-    from .cloud.openapi import build_openapi_spec
+    from ..cloud.openapi import build_openapi_spec
 
     spec = build_openapi_spec()
     text = json.dumps(
@@ -2057,7 +2093,7 @@ app.add_typer(artifacts_app, name="artifacts")
 
 def _artifacts_open_store(backend: Optional[str], root: Optional[str]):
     """Resolve the artifact store for the ``mn artifacts`` commands."""
-    from .cloud.artifact_store import ArtifactStoreError, get_artifact_store
+    from ..cloud.artifact_store import ArtifactStoreError, get_artifact_store
 
     try:
         return get_artifact_store(backend=backend, root=root)
@@ -2085,7 +2121,7 @@ def artifacts_list(
         mn artifacts list
         mn artifacts list --root output --prefix abc123
     """
-    from .cloud.lifecycle import format_bytes
+    from ..cloud.lifecycle import format_bytes
 
     store = _artifacts_open_store(backend, root)
     total = 0
@@ -2141,7 +2177,7 @@ def artifacts_cleanup(
         mn artifacts cleanup --ttl 604800 --keep-last 5
         mn artifacts cleanup --max-bytes 10737418240
     """
-    from .cloud.lifecycle import (
+    from ..cloud.lifecycle import (
         ArtifactLifecyclePolicy,
         cleanup_artifacts,
         describe_policy,

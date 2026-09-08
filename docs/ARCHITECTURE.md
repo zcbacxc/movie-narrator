@@ -143,7 +143,7 @@ run_pipeline(...) # STEPS order unchanged
 - `STEPS` remains the single source of step order; since v0.5, custom steps can be added via `@register_step` plugin API (see Plugin System section below)
 - YAML auto-discovery: `--config` not passed → `cwd/job.yaml` → packaged `examples/job.example.yaml` → none
 - `.env.example` is the single source of truth for first-run config (read by `ensure_user_config()`, not a divergent inline template)
-- Strict env/yaml boundary: `.env` (Settings) = 41 infrastructure fields only; `job.yaml` (params) = 91 pipeline behavior keys; no code constants module — inline literals match example files
+- Strict env/yaml boundary: `.env` (Settings) = LLM/TTS/TMDB infrastructure fields only; server/deployment ops knobs (auth, webhooks, rate-limit, scheduler, circuit breaker, graceful shutdown, distributed rendering) are consumed by `cloud/` via the read-only `get_server_ops() -> ServerOpsSettings` view (inject from docker-compose/Helm); `job.yaml` (params) = pipeline behavior keys; no code constants module — inline literals match example files
 
 ## Cloud Architecture (v0.9.x)
 
