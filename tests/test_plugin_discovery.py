@@ -154,7 +154,7 @@ class TestDiscoverPlugins:
 
     def test_no_plugins_returns_empty_list(self):
         """When no entry points exist, returns empty list."""
-        with patch("movie_narrator.plugin_loader.entry_points") as mock_ep:
+        with patch("movie_narrator.plugins.discovery.entry_points") as mock_ep:
             mock_ep.return_value = []
             results = discover_plugins()
             assert results == []
@@ -164,7 +164,7 @@ class TestDiscoverPlugins:
         plugin = FakePlugin()
         ep = _make_fake_entry_point(plugin.name, plugin)
 
-        with patch("movie_narrator.plugin_loader.entry_points") as mock_ep:
+        with patch("movie_narrator.plugins.discovery.entry_points") as mock_ep:
             mock_ep.return_value = [ep]
             results = discover_plugins()
 
@@ -182,7 +182,7 @@ class TestDiscoverPlugins:
         ep_good = _make_fake_entry_point(good_plugin.name, good_plugin)
         ep_bad = _make_fake_entry_point("bad", NotAPlugin())
 
-        with patch("movie_narrator.plugin_loader.entry_points") as mock_ep:
+        with patch("movie_narrator.plugins.discovery.entry_points") as mock_ep:
             mock_ep.return_value = [ep_bad, ep_good]
             results = discover_plugins()
 
@@ -209,7 +209,7 @@ class TestDiscoverPlugins:
         ep1 = _make_fake_entry_point("fake1", plugin1)
         ep2 = _make_fake_entry_point("fake2", plugin2)
 
-        with patch("movie_narrator.plugin_loader.entry_points") as mock_ep:
+        with patch("movie_narrator.plugins.discovery.entry_points") as mock_ep:
             mock_ep.return_value = [ep1, ep2]
             results = discover_plugins()
 
@@ -226,7 +226,7 @@ class TestDiscoverPlugins:
         """Failed plugin loads emit a UserWarning."""
         ep = _make_fake_entry_point("bad", NotAPlugin())
 
-        with patch("movie_narrator.plugin_loader.entry_points") as mock_ep:
+        with patch("movie_narrator.plugins.discovery.entry_points") as mock_ep:
             mock_ep.return_value = [ep]
             discover_plugins()
 
@@ -244,7 +244,7 @@ class TestListAvailablePlugins:
         ep1 = _make_fake_entry_point("plugin-a", FakePlugin())
         ep2 = _make_fake_entry_point("plugin-b", FakePlugin())
 
-        with patch("movie_narrator.plugin_loader.entry_points") as mock_ep:
+        with patch("movie_narrator.plugins.discovery.entry_points") as mock_ep:
             mock_ep.return_value = [ep1, ep2]
             names = list_available_plugins()
 
@@ -252,7 +252,7 @@ class TestListAvailablePlugins:
         assert "plugin-b" in names
 
     def test_empty_when_no_plugins(self):
-        with patch("movie_narrator.plugin_loader.entry_points") as mock_ep:
+        with patch("movie_narrator.plugins.discovery.entry_points") as mock_ep:
             mock_ep.return_value = []
             names = list_available_plugins()
         assert names == []
@@ -335,7 +335,7 @@ class TestDiscoveryIntegration:
         plugin = FakePlugin()
         ep = _make_fake_entry_point(plugin.name, plugin)
 
-        with patch("movie_narrator.plugin_loader.entry_points") as mock_ep:
+        with patch("movie_narrator.plugins.discovery.entry_points") as mock_ep:
             mock_ep.return_value = [ep]
             results = discover_plugins()
 
@@ -356,7 +356,7 @@ class TestDiscoveryIntegration:
         load_plugin(plugin)
 
         ep = _make_fake_entry_point(plugin.name, plugin)
-        with patch("movie_narrator.plugin_loader.entry_points") as mock_ep:
+        with patch("movie_narrator.plugins.discovery.entry_points") as mock_ep:
             mock_ep.return_value = [ep]
             results = discover_plugins()
 

@@ -6,10 +6,10 @@
 import logging
 import os
 import time
+from importlib.metadata import version as _dist_version
 from pathlib import Path
 from typing import Any, Dict, List, Optional, cast
 
-from .. import __version__
 from ..models import Assets, Context, MetadataDict, PipelineStatus, Services, StepResult, StepState
 from ..tracing import start_step_span  # v1.4.0 — opt-in OpenTelemetry spans
 from ..utils.console import build_console
@@ -43,6 +43,10 @@ from .qa import validate_deliverable
 from ..workflow.schema import JobParams
 
 _logger = logging.getLogger(__name__)
+
+# Resolved via importlib.metadata rather than the package-root export
+# so this module does not depend on movie_narrator.__init__ (M1 boundary).
+__version__ = _dist_version("movie-narrator")
 
 # ── Unified parameter schema (single source of truth) ──────
 # PARAM_WHITELIST is derived from JobParams model fields, eliminating

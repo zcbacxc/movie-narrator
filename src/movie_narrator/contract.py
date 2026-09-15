@@ -5,9 +5,8 @@
 
 This module is the **single import surface** that the Web API layer
 (and future consumers) should depend on. It re-exports the types,
-protocols, and functions that form the engine's public API, plus
-defines the plugin extension points (``Step``, ``Plugin``,
-``PluginContext``).
+protocols, and functions that form the engine's public API, including
+the plugin extension points (``Step``, ``Plugin``, ``PluginContext``).
 
 By centralizing the contract here:
 
@@ -21,9 +20,10 @@ By centralizing the contract here:
 - This module is the natural package boundary between the core engine
   repo (``movie-narrator``) and the web UI repo (``movie-narrator-web``).
 
-Nothing is *moved* from its current location — this module only
-re-exports. Internal modules keep their definitions for backward
-compatibility with existing CLI and test code.
+This module only re-exports. Plugin machinery lives in
+``movie_narrator.plugins.contracts`` / ``.discovery`` (M1); other
+definitions stay in their original modules for backward compatibility
+with existing CLI and test code.
 
 Contract versioning (semver):
     ``CONTRACT_VERSION`` follows semantic versioning. External consumers
@@ -41,7 +41,6 @@ Contract versioning (semver):
 # ruff: noqa: E402  (re-exports are intentionally placed after the version guard below)
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Callable, Optional, Protocol, runtime_checkable
 
 # ── Contract version (semver) ──────────────────────────────
@@ -125,6 +124,14 @@ from .providers import (
     vision_registry,
 )
 
+# ── Re-exports: plugin extension points (M1) ───────────────
+# Definitions live in plugins.contracts / plugins.discovery so that
+# plugin_loader no longer needs to import this module (breaks the
+# contract ↔ plugin_loader cycle). Public names are unchanged.
+
+from .plugins.contracts import Plugin, PluginContext, load_plugin
+from .plugins.discovery import discover_plugins, list_available_plugins
+
 # ── Re-exports: i18n / localized TTS voice mapping (v0.9.6) ──
 # Language-aware default voice resolution. External consumers (web UI,
 # clients) can resolve a narration voice for a given language + provider,
@@ -179,98 +186,6 @@ class PipelineResult(Protocol):
         """Generated subtitle artifacts, or ``None`` if none were produced."""
         ...
 
-
-# ── Plugin extension points ────────────────────────────────
-
-
-@dataclass
-class PluginContext:
-    """Context passed to a plugin's ``register`` method.
-
-    Gives plugins access to the global registries so they can
-    register custom steps, TTS providers, vision providers, etc.
-
-    Plugins should NOT hold long-lived references to this object —
-    it exists only during the registration phase.
-    """
-
-    steps: StepRegistry
-    tts: ProviderRegistry
-    vision: ProviderRegistry
-    llm: ProviderRegistry
-    research: ProviderRegistry
-
-    @classmethod
-    def default(cls) -> "PluginContext":
-        """Create a PluginContext backed by the global registries."""
-        return cls(
-            steps=step_registry,
-            tts=tts_registry,
-            vision=vision_registry,
-            llm=llm_registry,
-            research=research_registry,
-        )
-
-
-@runtime_checkable
-class Plugin(Protocol):
-    """A plugin that extends the movie-narrator pipeline.
-
-    Plugins implement a ``name`` attribute and a ``register`` method
-    that receives a :class:`PluginContext` and registers its
-    components (steps, providers, etc.) with the appropriate registries.
-
-    Example::
-
-        class WatermarkPlugin:
-            name = "watermark"
-
-            def register(self, ctx: PluginContext) -> None:
-                ctx.steps.register(
-                    "add_watermark",
-                    add_watermark,
-                    after="render_video",
-                )
-    """
-
-    name: str
-
-    def register(self, ctx: PluginContext) -> None:
-        """Register this plugin's components with the provided registries.
-
-        Args:
-            ctx: The plugin context exposing the global registries.
-        """
-        ...
-
-
-def load_plugin(plugin: Plugin) -> None:
-    """Register a plugin with the global registries.
-
-    Calls ``plugin.register(PluginContext.default())``, giving the
-    plugin access to ``step_registry``, ``tts_registry``,
-    ``vision_registry``, ``llm_registry``, and ``research_registry``.
-
-    Args:
-        plugin: An object implementing the :class:`Plugin` protocol.
-
-    Raises:
-        TypeError: if *plugin* does not implement the Plugin protocol.
-    """
-    if not isinstance(plugin, Plugin):
-        raise TypeError(
-            f"{plugin!r} does not implement the Plugin protocol "
-            f"(missing 'name' attribute or 'register' method)."
-        )
-    plugin.register(PluginContext.default())
-
-
-# ── Plugin discovery (entry_points) ───────────────────────
-# Imported at the bottom of the module to avoid circular import:
-# plugin_loader imports from contract (Plugin, load_plugin), so we
-# import it after those symbols are defined.
-# The actual import is done lazily below to keep the top-level
-# contract module clean.
 
 # ── Public API ─────────────────────────────────────────────
 
@@ -439,13 +354,8 @@ __all__ = [
 # which are safe but we keep the import explicit for contract clarity.
 from .utils.console import SilentConsole  # noqa: E402
 
-# Plugin discovery is imported here (not at top) to avoid circular import:
-# plugin_loader imports from contract (Plugin, load_plugin), so we import
-# it after those symbols are defined.
-from .plugin_loader import (  # noqa: E402
-    discover_plugins,
-    list_available_plugins,
-)
+# Plugin discovery / plugin types are imported at the top of this module
+# from .plugins.contracts / .plugins.discovery (M1 — no cycle remains).
 
 # Presets are imported here (not at top) to avoid circular import:
 # presets modules import from models and config, which are safe but we
