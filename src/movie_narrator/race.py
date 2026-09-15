@@ -109,6 +109,9 @@ class CandidateResult:
     score_breakdown: Dict[str, float] = field(default_factory=dict)
     match_summary: Optional[Dict[str, Any]] = None
     duration_metrics: Optional[Dict[str, Any]] = None
+    # M3 content quality (post-pipeline analysis). Recorded for reporting;
+    # NOT part of winner selection unless use_content_quality=True.
+    content_quality: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
     metadata_path: Optional[Path] = None
     candidate_index: int = -1
@@ -200,11 +203,19 @@ def _clamp(v: float, lo: float = 0.0, hi: float = 1.0) -> float:
     return max(lo, min(hi, v))
 
 
-def score_candidate(metadata: Dict[str, Any]) -> tuple[float, Dict[str, float]]:
+def score_candidate(
+    metadata: Dict[str, Any],
+    *,
+    use_content_quality: bool = False,
+) -> tuple[float, Dict[str, float]]:
     """Compute a composite 0-100 score from pipeline metadata.
 
     Args:
         metadata: The ``ctx.metadata`` dict after pipeline completion.
+        use_content_quality: When True (Gate-1 opt-in), blend
+            ``metadata["content_quality"]["overall"]`` into the total at
+            10% weight. **Default False** — race winner selection ignores
+            content_quality until Gate-1 is done.
 
     Returns:
         Tuple of ``(total_score, breakdown)`` where breakdown maps
@@ -273,6 +284,17 @@ def score_candidate(metadata: Dict[str, Any]) -> tuple[float, Dict[str, float]]:
     total = (
         match_quality * 0.40 + duration_fit * 0.25 + diversity * 0.20 + scene_coverage * 0.15
     ) * 100.0
+
+    # ── Optional content_quality blend (default OFF) ──
+    # Gate-1 not done: race does not consume content_quality unless the
+    # caller explicitly opts in. When opted in and overall is available,
+    # mix 90% engineering score + 10% content_quality (0-100).
+    if use_content_quality:
+        cq = metadata.get("content_quality") or {}
+        cq_overall = cq.get("overall") if isinstance(cq, dict) else None
+        if cq_overall is not None:
+            total = total * 0.9 + float(cq_overall) * 100.0 * 0.1
+            breakdown["content_quality"] = round(float(cq_overall), 4)
 
     return round(total, 2), breakdown
 
@@ -388,6 +410,19 @@ def _run_single_candidate(
         footage_coverage = _extract_footage_coverage(ctx)
         if footage_coverage:
             ctx.metadata["footage_coverage"] = footage_coverage
+
+        # M3 content quality: post-pipeline analysis when the job opted in.
+        # Recorded on the candidate for reporting; winner selection ignores
+        # it unless score_candidate is called with use_content_quality=True.
+        if ctx.metadata.get("content_quality_enabled"):
+            try:
+                from .content_quality import apply_content_quality
+
+                cq = apply_content_quality(ctx, force=True)
+                if cq:
+                    result.content_quality = cq
+            except Exception as e:  # noqa: BLE001 — analysis must not fail race
+                logger.debug("content_quality evaluation skipped: %s", e)
 
         result.score, result.score_breakdown = score_candidate(
             cast(Dict[str, Any], ctx.metadata)
@@ -717,6 +752,7 @@ def save_race_report(
                 "metrics": metrics_dict,
                 "match_summary": r.match_summary,
                 "duration_metrics": r.duration_metrics,
+                "content_quality": r.content_quality,
             }
         )
 

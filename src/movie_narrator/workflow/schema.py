@@ -227,6 +227,13 @@ class JobParams(BaseModel):
     qa_max_duration_ratio: Optional[float] = None
     qa_max_slideshow_risk: Optional[float] = None
     qa_max_black_ratio: Optional[float] = None
+    # ── Content quality (M3, post-pipeline analysis; default OFF) ──
+    # Independent schema from quality_dashboard. Not a production STEPS
+    # entry — call content_quality.apply_content_quality after run_pipeline.
+    content_quality_enabled: Optional[bool] = None
+    content_quality_pacing_bins: Optional[int] = None
+    content_quality_pacing_lo: Optional[float] = None
+    content_quality_pacing_hi: Optional[float] = None
     # ── Prompt shaping (preset-driven) ──
     prompt_target_sentences: Optional[int] = None
     prompt_target_segment_duration: Optional[float] = None

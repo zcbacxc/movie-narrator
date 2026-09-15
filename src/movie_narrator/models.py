@@ -227,6 +227,13 @@ class MetadataDict(TypedDict, total=False):
     video_qa: dict
     quality_dashboard: dict
     qa_gate: dict
+    # M3 content quality (post-pipeline analysis; independent schema from
+    # quality_dashboard). Written only when content_quality_enabled is set.
+    content_quality: dict
+    content_quality_enabled: bool
+    content_quality_pacing_bins: int
+    content_quality_pacing_lo: float
+    content_quality_pacing_hi: float
     qa_max_silence_db: float
     qa_min_duration_ratio: float
     qa_max_duration_ratio: float

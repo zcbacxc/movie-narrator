@@ -178,6 +178,11 @@ def load_job_config(path: Union[str, Path]) -> JobConfig:
             "qa_max_duration_ratio",
             "qa_max_slideshow_risk",
             "qa_max_black_ratio",
+            # Content quality (M3, default OFF)
+            "content_quality_enabled",
+            "content_quality_pacing_bins",
+            "content_quality_pacing_lo",
+            "content_quality_pacing_hi",
             # Prompt shaping (preset-driven)
             "prompt_target_sentences",
             "prompt_target_segment_duration",
