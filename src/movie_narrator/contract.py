@@ -49,7 +49,7 @@ from typing import Callable, Optional, Protocol, runtime_checkable
 #   MAJOR — breaking changes to exported symbols or signatures
 #   MINOR — new exports added (backward compatible)
 #   PATCH — bug fixes, doc changes (no API surface change)
-CONTRACT_VERSION: tuple[int, int, int] = (1, 3, 0)
+CONTRACT_VERSION: tuple[int, int, int] = (1, 4, 0)
 
 
 def check_version(required: tuple[int, int, int]) -> None:
@@ -329,6 +329,15 @@ __all__ = [
     "build_step_graph",
     "validate_linear_order",
     "topological_order",
+    # M4 step contracts (v1.4.0) — ResourceRef model, catalog validation,
+    # failure-policy resolution, and the declarative contract gate.
+    # The runner does not interpret requires/optional_inputs/capacity.
+    "ContractError",
+    "MetadataKeyRegistry",
+    "normalize_legacy_ref",
+    "resolve_failure_policy",
+    "validate_step_contracts",
+    "concurrency_compatible",
     # Versioned deliverable manifest (v1.3.0)
     "DeliverableManifest",
     "ManifestEntry",
@@ -478,6 +487,20 @@ from .pipeline.dag import (  # noqa: E402
     build_step_graph,
     topological_order,
     validate_linear_order,
+)
+
+# ── M4 step contracts (v1.4.0) — new exports, backward compatible.
+# ResourceRef prefixes (ctx./meta./artifact./external.), catalog
+# validation, legacy-name normalization, failure-policy resolution and
+# the declarative contract gate. The runner still executes linearly and
+# does not interpret requires / optional_inputs / resource_capacity.
+from .pipeline.step_contracts import (  # noqa: E402
+    ContractError,
+    MetadataKeyRegistry,
+    concurrency_compatible,
+    normalize_legacy_ref,
+    resolve_failure_policy,
+    validate_step_contracts,
 )
 
 # ── Versioned deliverable manifest (v1.3.0) ────────────────

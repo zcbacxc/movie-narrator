@@ -26,6 +26,12 @@ The registry tracks:
 - **inputs** / **outputs** / **depends_on**: optional coarse I/O and
   dependency declarations for the v1.3.0 linear-compatible DAG contract
   (advisory — see ``pipeline/dag.py``)
+- **reads** / **writes**: qualified ResourceRef sets (``ctx.`` / ``meta.`` /
+  ``artifact.`` / ``external.``) for the M4 step contracts (advisory —
+  validated by ``pipeline/step_contracts.py``, never enforced by the runner)
+- **idempotent** / **concurrency_class** / **requires** / **optional_inputs**
+  / **failure_policy** / **resource_capacity**: M4 execution-semantics
+  declarations with conservative defaults (see StepEntry docstring)
 - **insert_after** / **insert_before**: ordering hints for plugin steps
 
 Ordering rules:
@@ -50,7 +56,21 @@ StepFunc = Callable[[Context], Context]
 
 @dataclass(frozen=True)
 class StepEntry:
-    """Metadata for a registered pipeline step."""
+    """Metadata for a registered pipeline step.
+
+    M4 contract fields use **conservative defaults** so unmigrated
+    steps (including every existing plugin) keep their current behavior
+    and gain no new parallel/idempotent identity:
+
+    - ``idempotent=False`` — steps write files / call providers and are
+      not assumed re-runnable.
+    - ``concurrency_class="isolated_only"`` — never auto-parallel.
+    - ``failure_policy=None`` — derive from ``soft`` at resolution time
+      (``soft=False → abort``, ``soft=True → degrade``). ``"continue"``
+      is never legal.
+    - ``requires`` / ``optional_inputs`` / ``resource_capacity`` are
+      declarative-only; the runner does not interpret them.
+    """
 
     name: str
     func: StepFunc
@@ -65,6 +85,22 @@ class StepEntry:
     inputs: tuple[str, ...] = ()
     outputs: tuple[str, ...] = ()
     depends_on: tuple[str, ...] = ()
+    # M4: qualified ResourceRef sets (ctx./meta./artifact./external.).
+    # Authoritative for conflict analysis; inputs/outputs stay coarse.
+    reads: tuple[str, ...] = ()
+    writes: tuple[str, ...] = ()
+    # M4 execution-semantics (declarative; conservative defaults).
+    idempotent: bool = False
+    concurrency_class: str = "isolated_only"  # safe|isolated_only|exclusive
+    # Declarative-only: step.* | external.*. condition.* is forbidden in M4.
+    requires: tuple[str, ...] = ()
+    # Declarative-only subset of reads; no runtime fallback.
+    optional_inputs: tuple[str, ...] = ()
+    # None → derive from soft (degrade|abort). "continue" is never legal.
+    failure_policy: Optional[str] = None
+    # Schema-valid only (None or positive int). NOT mirrored into StepSpec
+    # this phase; M4/M5/F do not interpret it.
+    resource_capacity: Optional[int] = None
     # Ordering: built-in steps use seq; plugin steps use after/before.
     seq: int = -1  # -1 means "unsequenced" (plugin step)
     insert_after: Optional[str] = None
@@ -96,6 +132,14 @@ class StepRegistry:
         inputs: tuple[str, ...] = (),
         outputs: tuple[str, ...] = (),
         depends_on: tuple[str, ...] = (),
+        reads: tuple[str, ...] = (),
+        writes: tuple[str, ...] = (),
+        idempotent: bool = False,
+        concurrency_class: str = "isolated_only",
+        requires: tuple[str, ...] = (),
+        optional_inputs: tuple[str, ...] = (),
+        failure_policy: Optional[str] = None,
+        resource_capacity: Optional[int] = None,
         after: Optional[str] = None,
         before: Optional[str] = None,
     ) -> StepFunc:
@@ -117,6 +161,16 @@ class StepRegistry:
             depends_on: Declared upstream step names whose outputs this
                 step reads. Advisory — validated by
                 :func:`movie_narrator.pipeline.dag.validate_linear_order`.
+            reads: Qualified ResourceRef set the step reads (M4).
+            writes: Qualified ResourceRef set the step writes (M4).
+            idempotent: Whether re-running the step is safe (default False).
+            concurrency_class: ``safe`` | ``isolated_only`` | ``exclusive``.
+            requires: Declarative ``step.*`` / ``external.*`` conditions.
+            optional_inputs: Declarative subset of reads (no runtime fallback).
+            failure_policy: ``None`` | ``degrade`` | ``abort`` (never
+                ``continue``). ``None`` derives from *soft*.
+            resource_capacity: Schema-only positive int or None; not
+                interpreted this phase and not part of StepSpec.
             after: Insert this step immediately after the named step
                 (for plugin steps only).
             before: Insert this step immediately before the named step
@@ -144,6 +198,14 @@ class StepRegistry:
             inputs=tuple(inputs),
             outputs=tuple(outputs),
             depends_on=tuple(depends_on),
+            reads=tuple(reads),
+            writes=tuple(writes),
+            idempotent=bool(idempotent),
+            concurrency_class=concurrency_class,
+            requires=tuple(requires),
+            optional_inputs=tuple(optional_inputs),
+            failure_policy=failure_policy,
+            resource_capacity=resource_capacity,
             seq=seq,
             insert_after=after,
             insert_before=before,
@@ -309,7 +371,10 @@ class StepRegistry:
     def info(self) -> List[Dict[str, Any]]:
         """
         Returns:
-            A list of dicts describing each registered step.
+            A list of dicts describing each registered step. Includes the
+            v1.3.0 I/O fields and the M4 contract fields; omits ``func``,
+            ``seq``/``insert_*``, and ``resource_capacity`` (not part of
+            the StepSpec mirror this phase).
         """
         return [
             {
@@ -322,6 +387,13 @@ class StepRegistry:
                 "inputs": list(e.inputs),
                 "outputs": list(e.outputs),
                 "depends_on": list(e.depends_on),
+                "reads": list(e.reads),
+                "writes": list(e.writes),
+                "idempotent": e.idempotent,
+                "concurrency_class": e.concurrency_class,
+                "requires": list(e.requires),
+                "optional_inputs": list(e.optional_inputs),
+                "failure_policy": e.failure_policy,
             }
             for e in self._entries.values()
         ]
@@ -349,6 +421,14 @@ def register_step(
     inputs: tuple[str, ...] = (),
     outputs: tuple[str, ...] = (),
     depends_on: tuple[str, ...] = (),
+    reads: tuple[str, ...] = (),
+    writes: tuple[str, ...] = (),
+    idempotent: bool = False,
+    concurrency_class: str = "isolated_only",
+    requires: tuple[str, ...] = (),
+    optional_inputs: tuple[str, ...] = (),
+    failure_policy: Optional[str] = None,
+    resource_capacity: Optional[int] = None,
     after: Optional[str] = None,
     before: Optional[str] = None,
 ) -> Callable[[StepFunc], StepFunc]:
@@ -380,6 +460,14 @@ def register_step(
             inputs=inputs,
             outputs=outputs,
             depends_on=depends_on,
+            reads=reads,
+            writes=writes,
+            idempotent=idempotent,
+            concurrency_class=concurrency_class,
+            requires=requires,
+            optional_inputs=optional_inputs,
+            failure_policy=failure_policy,
+            resource_capacity=resource_capacity,
             after=after,
             before=before,
         )

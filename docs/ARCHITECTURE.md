@@ -40,7 +40,9 @@
 - **CLI** (`cli.py`) — entry point; parses flags, calls `workflow` or `run_pipeline` directly
 - **workflow** (`workflow.py`) — optional job.yaml merge layer (CLI > YAML > Settings)
 - **pipeline** (`pipeline/runner.py`) — 16-step sequential orchestrator; owns `STEPS`, `build_context`, `run_pipeline`
-- **pipeline/dag.py** — linear-compatible DAG contract: step I/O + dependency declarations, advisory validation and topological order; the runner stays linear (v1.3.0)
+- **pipeline/dag.py** — linear-compatible DAG contract: step I/O + dependency declarations, advisory validation and topological order; the runner stays linear (v1.3.0). `StepSpec` also mirrors M4 contract fields (v1.4.0): `reads`/`writes`, `idempotent`, `concurrency_class`, `requires`, `optional_inputs`, `failure_policy` (not `resource_capacity`)
+- **pipeline/step_contracts.py** — M4 ResourceRef model (`ctx.` / `meta.` / `artifact.` / `external.`), `MetadataKeyRegistry` (canonical view over `MetadataDict`), `normalize_legacy_ref`, failure-policy resolution, concurrency matrix, and the declarative contract gate `validate_step_contracts`. The runner does **not** interpret `requires` / `optional_inputs` / `resource_capacity`; declarations are AST-auditable candidates, not runtime proofs
+- **pipeline/builtin_contracts.py** — coarse `reads`/`writes` + execution-semantics declarations for the 16 built-in steps
 - **pipeline/deliverable.py** — versioned deliverable manifest (`deliverable_manifest.json`) with streamed SHA-256 checksums (v1.3.0)
 - **tracing** (`tracing.py`) — opt-in OpenTelemetry span factories (`task → step/provider/subprocess`); no-op unless `MN_TRACING` is set and the `[otel]` extra is installed; pre-registered foreign exporters are used unchanged (v1.4.0)
 - **utils/resources.py** — render admission preflight: temp-space estimate (frame area × duration × bit depth); opt-in `MN_ADMISSION_DISK_CHECK` (v1.3.2)

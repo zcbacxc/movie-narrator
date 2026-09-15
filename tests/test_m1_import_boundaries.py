@@ -142,12 +142,18 @@ class TestPluginsPackageNeutral:
 
 
 class TestPublicSurfacePreserved:
-    """126 / 55 acceptance invariants for the M1 refactor."""
+    """132 / 55 acceptance invariants for the M1 refactor.
+
+    Length was 126 at M1 freeze; M4 (v1.4.0) added 6 step-contract
+    exports (ContractError, MetadataKeyRegistry, normalize_legacy_ref,
+    resolve_failure_policy, validate_step_contracts,
+    concurrency_compatible) → 132.
+    """
 
     def test_contract_all_length(self):
         from movie_narrator import contract
 
-        assert len(contract.__all__) == 126
+        assert len(contract.__all__) == 132
 
     def test_init_imports_55_from_contract(self):
         init_path = PACKAGE_ROOT / "__init__.py"
