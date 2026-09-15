@@ -52,11 +52,18 @@ from __future__ import annotations
 import json
 import logging
 import shutil
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, cast
 
 from .models import Context
+from .race_executor import (
+    CandidateExecutionMetrics,
+    CandidateExecutor,
+    CandidateOutcome,
+    empty_usage_summary,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +95,12 @@ class CandidateConfig:
 
 @dataclass
 class CandidateResult:
-    """Outcome of one candidate run."""
+    """Outcome of one candidate run.
+
+    ``candidate_index`` is the 0-based **input order** (never completion
+    order). ``outcome`` is the executor-level terminal state; winner
+    selection only considers ``outcome == success``.
+    """
 
     config: CandidateConfig
     output_dir: Path
@@ -99,6 +111,17 @@ class CandidateResult:
     duration_metrics: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
     metadata_path: Optional[Path] = None
+    candidate_index: int = -1
+    # Default SUCCESS keeps pre-M2 constructors working: hand-built results
+    # that only set ``error=None`` remain winners. run_race always sets
+    # outcome explicitly.
+    outcome: CandidateOutcome = CandidateOutcome.SUCCESS
+    error_type: Optional[str] = None
+    metrics: Optional[CandidateExecutionMetrics] = None
+
+    @property
+    def is_success(self) -> bool:
+        return self.outcome is CandidateOutcome.SUCCESS and self.error is None
 
 
 # ── Candidate generation ──────────────────────────────────
@@ -257,6 +280,155 @@ def score_candidate(metadata: Dict[str, Any]) -> tuple[float, Dict[str, float]]:
 # ── Race orchestration ────────────────────────────────────
 
 
+def _rank_results(results: List[CandidateResult]) -> List[CandidateResult]:
+    """Rank results for display / winner selection.
+
+    Frozen: winner set is **only** ``outcome == success``. Sort key is
+    ``(-score, candidate_index)``. Failures / cancels / pauses sort
+    after successes, stable by input index. All-fail → no winner (first
+    row is still a failed row; callers must check ``is_success``).
+    """
+    return sorted(
+        results,
+        key=lambda r: (
+            0 if r.outcome is CandidateOutcome.SUCCESS else 1,
+            -r.score,
+            r.candidate_index,
+        ),
+    )
+
+
+def _select_winner(results: List[CandidateResult]) -> Optional[CandidateResult]:
+    """Return the best successful candidate, or None if none succeeded."""
+    successes = [r for r in results if r.outcome is CandidateOutcome.SUCCESS]
+    if not successes:
+        return None
+    successes.sort(key=lambda r: (-r.score, r.candidate_index))
+    return successes[0]
+
+
+def _run_single_candidate(
+    *,
+    index: int,
+    cand: CandidateConfig,
+    cand_dir: Path,
+    controller: Any,
+    movie: str,
+    style: str,
+    duration: int,
+    voice: Optional[str],
+    video_format: str,
+    keep_cache: bool,
+    video: Optional[str],
+    library_dir: Optional[str],
+    research: Optional[bool],
+    bgm: Optional[str],
+    no_bgm: bool,
+    no_clips: bool,
+    strict: bool,
+    config_path: Optional[str],
+    subtitle_lang: Optional[str],
+    subtitle_mode: Optional[str],
+) -> CandidateResult:
+    """Execute one candidate and always return a CandidateResult.
+
+    H2 usage capture: bind tracker after successful ``build_context``;
+    snapshot in ``finally``; build failure → usage zeros / outcome
+    failed. Denominator for Gate-1 usage is total submitted (including
+    failed / cancelled).
+    """
+    from .pipeline.errors import PipelineCancelled, PipelinePaused
+    from .pipeline.preflight import PreflightError
+    from .pipeline.runner import build_context, common_build_kwargs, run_pipeline
+
+    start = time.perf_counter()
+    usage_summary = empty_usage_summary()
+    result = CandidateResult(
+        config=cand,
+        output_dir=cand_dir,
+        candidate_index=index,
+        outcome=CandidateOutcome.FAILED,
+    )
+    ctx: Optional[Context] = None
+
+    try:
+        cand_dir.mkdir(parents=True, exist_ok=True)
+
+        ctx = build_context(
+            **common_build_kwargs(
+                movie=movie,
+                style=style,
+                duration=duration,
+                voice=voice,
+                video_format=video_format,
+                output_dir=cand_dir,
+                keep_cache=keep_cache,
+                video=video,
+                library_dir=library_dir,
+                research=research,
+                bgm=bgm,
+                no_bgm=no_bgm,
+                no_clips=no_clips,
+                strict=strict,
+                params=cand.to_params(),
+                config_path=config_path,
+                subtitle_lang=subtitle_lang,
+                subtitle_mode=subtitle_mode,
+                narration_preset=cand.narration_preset,
+                lang="zh",  # race mode defaults to Chinese
+            )
+        )
+
+        ctx = run_pipeline(ctx, controller=controller)
+
+        result.video_path = ctx.video_path
+        result.match_summary = ctx.metadata.get("match_summary")
+        result.duration_metrics = ctx.metadata.get("duration_metrics")
+
+        footage_coverage = _extract_footage_coverage(ctx)
+        if footage_coverage:
+            ctx.metadata["footage_coverage"] = footage_coverage
+
+        result.score, result.score_breakdown = score_candidate(
+            cast(Dict[str, Any], ctx.metadata)
+        )
+        result.metadata_path = cand_dir / "metadata.json"
+        result.outcome = CandidateOutcome.SUCCESS
+
+    except PipelinePaused:
+        result.outcome = CandidateOutcome.PAUSED
+        result.error = "paused"
+        result.error_type = "PipelinePaused"
+    except PipelineCancelled:
+        result.outcome = CandidateOutcome.CANCELLED
+        result.error = "cancelled"
+        result.error_type = "PipelineCancelled"
+    except PreflightError as e:
+        result.outcome = CandidateOutcome.FAILED
+        result.error = f"preflight: {e}"
+        result.error_type = type(e).__name__
+    except Exception as e:  # noqa: BLE001 — per-candidate isolation barrier
+        result.outcome = CandidateOutcome.FAILED
+        result.error = str(e)
+        result.error_type = type(e).__name__
+        logger.exception(f"Candidate '{cand.label}' failed: {e}")
+    finally:
+        # H2: always snapshot usage after (possible) tracker bind.
+        if ctx is not None and getattr(ctx, "cost_tracker", None) is not None:
+            try:
+                usage_summary = ctx.cost_tracker.summary()
+            except Exception:  # noqa: BLE001 — metrics must not fail the candidate
+                logger.debug("cost_tracker.summary() failed", exc_info=True)
+        result.metrics = CandidateExecutionMetrics(
+            candidate_index=index,
+            wall_time_s=time.perf_counter() - start,
+            usage_summary=usage_summary,
+            outcome=result.outcome,
+        )
+
+    return result
+
+
 def run_race(
     candidates: List[CandidateConfig],
     *,
@@ -278,97 +450,101 @@ def run_race(
     subtitle_lang: Optional[str] = None,
     subtitle_mode: Optional[str] = None,
     auto_pick: bool = False,
+    parallelism: int = 1,
 ) -> List[CandidateResult]:
-    """Run all candidates and return ranked results.
+    """Run all candidates (bounded-parallel) and return ranked results.
 
     Each candidate runs in its own subdirectory under ``output_base``.
-    After all runs, results are sorted by score (descending).
+    ``parallelism=1`` (default) is sequential-equivalent: one worker at
+    a time, same scoring / winner contract.
 
     Args:
         candidates: List of candidate configurations to run.
-        auto_pick: If True, copy the best candidate's output to
-            ``output_base`` root after all runs complete.
+        auto_pick: If True, copy the best **successful** candidate's
+            output to ``output_base`` root after all runs complete.
+            All-fail → no promotion.
+        parallelism: Max concurrent candidates (``ThreadPoolExecutor``
+            max_workers). Clamped to ``[1, len(candidates)]``.
         All other args mirror ``build_context``.
 
     Returns:
-        List of :class:`CandidateResult`, sorted by score descending.
+        List of :class:`CandidateResult`, ranked: successes first by
+        ``(-score, candidate_index)``, then failures by input index.
     """
-    from .pipeline.runner import build_context, common_build_kwargs, run_pipeline
-    from .pipeline.errors import PipelinePaused
-    from .pipeline.preflight import PreflightError
+    if not candidates:
+        return []
 
-    results: List[CandidateResult] = []
+    try:
+        workers = int(parallelism)
+    except (TypeError, ValueError):
+        workers = 1
+    workers = max(1, min(workers, len(candidates)))
 
-    for i, cand in enumerate(candidates):
-        cand_dir = output_base / f"candidate-{i + 1}-{cand.label}"
-        cand_dir.mkdir(parents=True, exist_ok=True)
+    output_base.mkdir(parents=True, exist_ok=True)
 
-        result = CandidateResult(
-            config=cand,
-            output_dir=cand_dir,
+    def _worker(index: int, controller: Any) -> CandidateResult:
+        cand = candidates[index]
+        cand_dir = output_base / f"candidate-{index + 1}-{cand.label}"
+        return _run_single_candidate(
+            index=index,
+            cand=cand,
+            cand_dir=cand_dir,
+            controller=controller,
+            movie=movie,
+            style=style,
+            duration=duration,
+            voice=voice,
+            video_format=video_format,
+            keep_cache=keep_cache,
+            video=video,
+            library_dir=library_dir,
+            research=research,
+            bgm=bgm,
+            no_bgm=no_bgm,
+            no_clips=no_clips,
+            strict=strict,
+            config_path=config_path,
+            subtitle_lang=subtitle_lang,
+            subtitle_mode=subtitle_mode,
         )
 
-        try:
-            ctx = build_context(
-                **common_build_kwargs(
-                    movie=movie,
-                    style=style,
-                    duration=duration,
-                    voice=voice,
-                    video_format=video_format,
-                    output_dir=cand_dir,
-                    keep_cache=keep_cache,
-                    video=video,
-                    library_dir=library_dir,
-                    research=research,
-                    bgm=bgm,
-                    no_bgm=no_bgm,
-                    no_clips=no_clips,
-                    strict=strict,
-                    params=cand.to_params(),
-                    config_path=config_path,
-                    subtitle_lang=subtitle_lang,
-                    subtitle_mode=subtitle_mode,
-                    narration_preset=cand.narration_preset,
-                    lang="zh",  # race mode defaults to Chinese
-                )
+    executor = CandidateExecutor(max_workers=workers)
+    slots = executor.run_all(len(candidates), _worker)
+
+    results: List[CandidateResult] = []
+    for slot in slots:
+        if slot.value is not None:
+            results.append(slot.value)
+            continue
+        # Queued-cancel (or unexpected worker failure) — synthesize a result.
+        cand = candidates[slot.index]
+        cand_dir = output_base / f"candidate-{slot.index + 1}-{cand.label}"
+        results.append(
+            CandidateResult(
+                config=cand,
+                output_dir=cand_dir,
+                candidate_index=slot.index,
+                outcome=slot.outcome,
+                error=slot.error or slot.outcome.value,
+                error_type=slot.error_type,
+                metrics=CandidateExecutionMetrics(
+                    candidate_index=slot.index,
+                    wall_time_s=0.0,
+                    usage_summary=empty_usage_summary(),
+                    outcome=slot.outcome,
+                ),
             )
+        )
 
-            ctx = run_pipeline(ctx)
+    ranked = _rank_results(results)
 
-            # Collect metrics
-            result.video_path = ctx.video_path
-            result.match_summary = ctx.metadata.get("match_summary")
-            result.duration_metrics = ctx.metadata.get("duration_metrics")
+    # Auto-pick: only from success set; all-fail → no winner / no promote.
+    if auto_pick:
+        winner = _select_winner(ranked)
+        if winner is not None:
+            _promote_best(winner, output_base)
 
-            # Extract footage coverage for scoring
-            footage_coverage = _extract_footage_coverage(ctx)
-            if footage_coverage:
-                ctx.metadata["footage_coverage"] = footage_coverage
-
-            result.score, result.score_breakdown = score_candidate(
-                cast(Dict[str, Any], ctx.metadata)
-            )
-            result.metadata_path = cand_dir / "metadata.json"
-
-        except PipelinePaused:
-            result.error = "paused"
-        except PreflightError as e:
-            result.error = f"preflight: {e}"
-        except Exception as e:
-            result.error = str(e)
-            logger.exception(f"Candidate '{cand.label}' failed: {e}")
-
-        results.append(result)
-
-    # Sort by score descending
-    results.sort(key=lambda r: r.score, reverse=True)
-
-    # Auto-pick: copy best candidate to output_base
-    if auto_pick and results and results[0].video_path:
-        _promote_best(results[0], output_base)
-
-    return results
+    return ranked
 
 
 def _extract_footage_coverage(ctx: Context) -> Optional[Dict[str, Any]]:
@@ -453,10 +629,13 @@ def format_race_report(results: List[CandidateResult]) -> str:
         dur_v = f"{bd.get('duration_fit', 0):.2f}"
         div_v = f"{bd.get('diversity', 0):.2f}"
         cov_v = f"{bd.get('scene_coverage', 0):.2f}"
-        status = "OK" if r.error is None else f"ERR: {r.error[:20]}"
+        if r.error is None:
+            status = "OK"
+        else:
+            status = f"ERR: {r.error[:20]}"
 
         medal = ""
-        if i == 0:
+        if i == 0 and r.is_success:
             medal = " *"
         lines.append(
             f"  {i + 1:<3} {r.config.label:<14} {r.score:>6.1f}{medal}  "
@@ -465,11 +644,11 @@ def format_race_report(results: List[CandidateResult]) -> str:
         )
 
     lines.append("")
-    lines.append("  * = best candidate")
+    lines.append("  * = best successful candidate")
 
-    # Detailed breakdown for the winner
-    if results and results[0].error is None:
-        winner = results[0]
+    # Detailed breakdown for the winner (success only)
+    winner = _select_winner(results)
+    if winner is not None:
         lines.append("")
         lines.append("-" * 72)
         lines.append(f"  Winner: {winner.config.label}")
@@ -518,9 +697,11 @@ def save_race_report(
     }
 
     for i, r in enumerate(results):
+        metrics_dict = r.metrics.to_json_dict() if r.metrics is not None else None
         report["candidates"].append(
             {
                 "rank": i + 1,
+                "candidate_index": r.candidate_index,
                 "label": r.config.label,
                 "preset": r.config.narration_preset,
                 "match_topk": r.config.match_topk,
@@ -531,6 +712,9 @@ def save_race_report(
                 "video_path": r.video_path,
                 "output_dir": str(r.output_dir),
                 "error": r.error,
+                "error_type": r.error_type,
+                "outcome": r.outcome.value,
+                "metrics": metrics_dict,
                 "match_summary": r.match_summary,
                 "duration_metrics": r.duration_metrics,
             }

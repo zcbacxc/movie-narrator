@@ -271,6 +271,16 @@ def race(
         False,
         "--auto-pick",
         help="自动选优并复制到输出根目录 / Auto-pick best and copy to output root",
+    ),
+
+
+    parallel: Optional[str] = typer.Option(
+        None,
+        "--parallel",
+        help=(
+            "候选并行度 / Candidate parallelism "
+            "(unset/empty=sequential P=1; positive integer required)"
+        ),
     )
 
 ):
@@ -284,6 +294,7 @@ def race(
             mn race -m Inception --video movie.mp4
             mn race -m Inception --video movie.mp4 -n 3 --auto-pick
             mn race -m Inception --presets douyin-fast,mainstream-dry,bilibili-long
+            mn race -m Inception --video movie.mp4 --parallel 3
     """
     return _race_impl(
         movie=movie,
@@ -301,6 +312,7 @@ def race(
         candidates=candidates,
         presets=presets,
         auto_pick=auto_pick,
+        parallel=parallel,
     )
 
 
