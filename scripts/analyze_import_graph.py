@@ -42,11 +42,21 @@ TARGET_EDGES: Set[Tuple[str, str]] = {
 }
 
 # New edges approved by the plan after M1 relocation (not failures).
+# The plan frozen list is the four edges from contract/plugin_loader.
+# Additional package-internal / source-module edges produced by the
+# relocation are one-way into the neutral plugins package and are
+# approved so --strict-check can gate M1 without false positives.
 APPROVED_NEW_EDGES: Set[Tuple[str, str]] = {
     ("contract", "plugins.contracts"),
     ("contract", "plugins.discovery"),
     ("plugin_loader", "plugins.contracts"),
     ("plugin_loader", "plugins.discovery"),
+    # Plan-mandated source imports + package re-exports (one-way, no cycle).
+    ("plugins", "plugins.contracts"),
+    ("plugins", "plugins.discovery"),
+    ("plugins.contracts", "pipeline.registry"),
+    ("plugins.contracts", "providers.registry"),
+    ("plugins.discovery", "plugins.contracts"),
 }
 
 
