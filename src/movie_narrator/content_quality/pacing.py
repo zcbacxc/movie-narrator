@@ -20,7 +20,7 @@ overridden via ``content_quality_pacing_*`` job params.
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, List, Optional, Sequence
 
 from .schema import DimensionResult
 

@@ -21,7 +21,7 @@ import hashlib
 import logging
 import math
 import unicodedata
-from typing import Any, Callable, Dict, List, Optional, Sequence
+from typing import Callable, Dict, List, Optional, Sequence
 
 from .schema import DimensionResult
 

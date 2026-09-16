@@ -11,7 +11,7 @@ mutates ``utils/quality_dashboard.py`` behaviour.
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from .coherence import (
     CQ_EMBEDDING_IDENTITY,
