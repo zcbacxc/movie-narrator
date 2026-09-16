@@ -742,6 +742,76 @@ Pilot triggers — start the Temporal pilot when ANY one holds sustained (all re
 
 ---
 
+## ADR-020: Gate-1 Parallel Race Thresholds (Freeze)
+
+**Status:** Accepted
+**Version:** Frozen before formal R=5 (post-v1.7.0 Gate-1)
+
+**Context**
+
+Race candidates can run via a bounded `ThreadPoolExecutor` (`mn race --parallel N`). Gate-1 decides whether parallelism may become a recommended non-default, or whether the default stays **P=1** (sequential-equivalent). Formal Gate-1 requires cold-cache **R=5** independent processes per tier. Pilot runs never enter the Gate.
+
+Pilot (mock, R=2, N=3, sleep=80ms) validated harness wiring only:
+
+| P | median wall | speedup vs P=1 | usage_ratio |
+|---|---|---|---|
+| 1 | 0.246s | 1.00 | 1.00 |
+| 2 | 0.164s | 1.50 | 1.00 |
+| 3 | 0.082s | 2.99 | 1.00 |
+
+These numbers are **not** Gate evidence (mock sleep ≈ ideal parallel).
+
+**Decision Drivers**
+
+- Parallel race must earn a recommendation with measured speedup, not pilot intuition.
+- Resource cost (usage_ratio) must stay bounded so parallelism does not silently inflate provider spend.
+- Formal Gate evidence must be cold-cache and multi-process; mock/synthetic pilots must never be treated as results.
+- Default CLI behavior should not change without a separate product decision.
+
+**Considered Options**
+
+- *Speedup ≥ 1.01 (any gain)* (rejected): noise dominates; 1.10 matches Gate-2 F-phase spirit.
+- *Require speedup ≥ 2.0 at P=3* (rejected): FFmpeg/GPU critical path limits ideal speedup below N.
+- *Change default to P=N on PASS* (deferred): product default change is a separate decision from Gate-1 measurement.
+- *Frozen primary thresholds (speedup ≥ 1.10 at P=N; usage_ratio ≤ 1.05; R=5 cold-cache)* (chosen).
+
+**Decision Outcome**
+
+Frozen Gate-1 protocol and thresholds:
+
+| Criterion | Threshold | Role |
+|---|---|---|
+| `speedup(P=N)` where N = candidate count (default 3) | **≥ 1.10** | pass/fail primary |
+| `speedup(P=2)` | report only | — |
+| `usage_ratio(P)` | **≤ 1.05** | pass/fail (all tested P>1) |
+| failure_rate(P) | report only | — |
+| R | **5** independent processes | protocol |
+| cold-cache | empty app media/prompt cache + `reset_usage_ledger()`; do **not** clear OS/HF model cache | protocol |
+| Default if FAIL/ABORT | **remain P=1** | stop-loss |
+
+Process:
+
+```
+pilot (≤2/tier, mock or real; NOT in Gate)
+  → this ADR (thresholds frozen)
+  → formal R=5 cold-cache
+  → GATE1_DECISION.md
+```
+
+**Consequences**
+
+- PASS at N=3 → document `--parallel 3` as recommended for I/O-heavy races; default CLI still unset→P=1 unless product later changes default.
+- FAIL/ABORT → keep P=1; retain `--parallel` as experimental.
+- Mock/synthetic pilot data is never copied into `GATE1_DECISION.md` result tables.
+
+**References**
+
+- IMPLEMENTATION_PLAN M2 Gate-1
+- `scripts/race_parallel_benchmark.py`
+- `GATE1_DECISION.md`
+
+---
+
 ## Decision Index
 
 | # | ADR | Status | Version | Summary |
@@ -765,3 +835,4 @@ Pilot triggers — start the Temporal pilot when ANY one holds sustained (all re
 | ADR-017 | HDR/4K Pipeline: 10-bit + Color Metadata, CPU-only Encode | Accepted | v1.5.0 | `render_bit_depth` 8/10 + `render_color_space` sdr/hdr10: `yuv420p10le` / libx264 high10 (CPU-only, `10bit_gpu_unsupported` fallback), explicit bt709 / bt2020+smpte2084 mux tags, `render_pixel` metadata; video QA cross-checks pix_fmt / transfer and 4K-class exact size |
 | ADR-018 | Community Presets as Validated Data, not Code | Accepted | v1.5.1 | `mn presets install` stores whitelisted YAML data (no code execution, ever), reusing the `job.yaml` whitelist + schema for validation; sha256-registered, re-validated on load; built-ins win |
 | ADR-019 | Kubernetes Helm Chart & the Distributed-Workflow Pilot Deferral | Accepted | v1.5.2 | Chart ships structurally tested only (values/template drift tripwire + naive render; no live cluster / `helm lint` — documented); Temporal/Celery pilot deferred behind measurable triggers (queue latency, orphan recovery, duplicate provider calls, multi-node census) |
+| ADR-020 | Gate-1 Parallel Race Thresholds (Freeze) | Accepted | post-v1.7.0 | Formal Gate-1 protocol: speedup(P=N) ≥ 1.10 pass/fail, usage_ratio ≤ 1.05, R=5 cold-cache; mock pilots never count; FAIL/ABORT keeps default P=1 |

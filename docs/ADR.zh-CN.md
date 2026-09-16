@@ -742,6 +742,76 @@ v1.5.2 中两项 ROADMAP 事项同步成熟。社区与 SaaS 一节要求"Helm c
 
 ---
 
+## ADR-020：Gate-1 并行竞速阈值（冻结）
+
+**状态：** Accepted
+**版本：** 正式 R=5 前冻结（v1.7.0 之后的 Gate-1）
+
+**背景**
+
+竞速候选可通过有界 `ThreadPoolExecutor` 运行（`mn race --parallel N`）。Gate-1 决定并行是否可以成为推荐的非默认选项，或默认是否保持 **P=1**（等价串行）。正式 Gate-1 要求每档位 **R=5** 次冷缓存独立进程。试跑结果永不进入 Gate。
+
+试跑（mock，R=2，N=3，sleep=80ms）仅验证了 harness 接线：
+
+| P | 中位耗时 | 相对 P=1 加速比 | usage_ratio |
+|---|---|---|---|
+| 1 | 0.246s | 1.00 | 1.00 |
+| 2 | 0.164s | 1.50 | 1.00 |
+| 3 | 0.082s | 2.99 | 1.00 |
+
+这些数字**不是** Gate 证据（mock sleep ≈ 理想并行）。
+
+**决策驱动因素**
+
+- 并行竞速必须用实测加速比赢得推荐资格，而不是凭试跑直觉。
+- 资源成本（usage_ratio）必须有界，避免并行悄悄抬高提供方开销。
+- 正式 Gate 证据必须冷缓存、多进程；mock/合成试跑数据不得当作结果。
+- 默认 CLI 行为不应在本 ADR 中一并变更。
+
+**备选方案**
+
+- *加速比 ≥ 1.01（只要有收益）*（否决）：噪声主导；1.10 与 Gate-2 F-phase 精神一致。
+- *要求 P=3 时加速比 ≥ 2.0*（否决）：FFmpeg/GPU 关键路径限制理想加速比低于 N。
+- *PASS 后把默认改为 P=N*（推迟）：产品默认变更与 Gate-1 度量是两件事。
+- *冻结主阈值（P=N 时加速比 ≥ 1.10；usage_ratio ≤ 1.05；R=5 冷缓存）*（选定）。
+
+**决策结果**
+
+冻结后的 Gate-1 协议与阈值：
+
+| 准则 | 阈值 | 角色 |
+|---|---|---|
+| `speedup(P=N)`，N = 候选数（默认 3） | **≥ 1.10** | 通过/失败主判据 |
+| `speedup(P=2)` | 仅报告 | — |
+| `usage_ratio(P)` | **≤ 1.05** | 通过/失败（所有被测 P>1） |
+| failure_rate(P) | 仅报告 | — |
+| R | **5** 次独立进程 | 协议 |
+| 冷缓存 | 清空应用 media/prompt 缓存 + `reset_usage_ledger()`；**不要**清 OS/HF 模型缓存 | 协议 |
+| FAIL/ABORT 时的默认 | **保持 P=1** | 止损 |
+
+流程：
+
+```
+pilot（每档 ≤2 次，mock 或 real；不计入 Gate）
+  → 本 ADR（阈值冻结）
+  → 正式 R=5 冷缓存
+  → GATE1_DECISION.md
+```
+
+**后果**
+
+- N=3 时 PASS → 将 `--parallel 3` 写入 I/O 重度竞速的推荐用法；CLI 默认仍为未设置→P=1，除非产品侧另行决策。
+- FAIL/ABORT → 保持 P=1；`--parallel` 保留为实验特性。
+- mock/合成试跑数据永不复制进 `GATE1_DECISION.md` 结果表。
+
+**参考资料**
+
+- IMPLEMENTATION_PLAN M2 Gate-1
+- `scripts/race_parallel_benchmark.py`
+- `GATE1_DECISION.md`
+
+---
+
 ## Decision Index
 
 | # | ADR | 状态 | 版本 | 摘要 |
@@ -765,3 +835,4 @@ v1.5.2 中两项 ROADMAP 事项同步成熟。社区与 SaaS 一节要求"Helm c
 | ADR-017 | HDR/4K 管线：10-bit + 色彩元数据、仅 CPU 编码 | Accepted | v1.5.0 | `render_bit_depth` 8/10 + `render_color_space` sdr/hdr10：`yuv420p10le` / libx264 high10（仅 CPU，`10bit_gpu_unsupported` 回退），显式 bt709 / bt2020+smpte2084 混流标签，`render_pixel` 元数据；视频 QA 交叉校验 pix_fmt / 传递函数与 4K 级精确尺寸 |
 | ADR-018 | 社区预设是经过校验的数据，而非代码 | Accepted | v1.5.1 | `mn presets install` 存储白名单内的 YAML 数据（绝不执行代码），复用 `job.yaml` 白名单 + schema 进行校验；记录 sha256，加载时重新校验；内置优先 |
 | ADR-019 | Kubernetes Helm Chart 与分布式工作流试点的推迟 | Accepted | v1.5.2 | chart 以仅结构化测试的状态发布（values/模板漂移哨兵 + 朴素渲染；未在真实集群 / `helm lint` 验证——如实记录）；Temporal/Celery 试点以可度量触发条件推迟（队列延迟、孤儿恢复、重复提供方调用、多节点普查） |
+| ADR-020 | Gate-1 并行竞速阈值（冻结） | Accepted | post-v1.7.0 | 正式 Gate-1 协议：speedup(P=N) ≥ 1.10 为主判据，usage_ratio ≤ 1.05，R=5 冷缓存；mock 试跑永不计入；FAIL/ABORT 保持默认 P=1 |
