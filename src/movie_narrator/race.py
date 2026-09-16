@@ -449,9 +449,10 @@ def _run_single_candidate(
         logger.exception(f"Candidate '{cand.label}' failed: {e}")
     finally:
         # H2: always snapshot usage after (possible) tracker bind.
-        if ctx is not None and getattr(ctx, "cost_tracker", None) is not None:
+        tracker = getattr(ctx, "cost_tracker", None) if ctx is not None else None
+        if tracker is not None:
             try:
-                usage_summary = ctx.cost_tracker.summary()
+                usage_summary = tracker.summary()
             except Exception:  # noqa: BLE001 — metrics must not fail the candidate
                 logger.debug("cost_tracker.summary() failed", exc_info=True)
         result.metrics = CandidateExecutionMetrics(

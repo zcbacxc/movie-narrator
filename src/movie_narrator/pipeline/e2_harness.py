@@ -42,7 +42,7 @@ import copy
 import hashlib
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Set, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Set, Tuple, cast
 
 from ..models import Context, Services
 from ..utils.console import SilentConsole
@@ -218,14 +218,15 @@ def snapshot_resource_values(ctx: Context) -> Dict[str, Any]:
     """
     from .step_contracts import CTX_DATA_FIELDS
 
+    meta = cast(Dict[str, Any], ctx.metadata)
     artifact_fields = set(PATH_TO_ARTIFACT)
     out: Dict[str, Any] = {}
     for name in sorted(CTX_DATA_FIELDS):
         if name in artifact_fields:
             continue  # represented as artifact.* below
         out[f"{PREFIX_CTX}{name}"] = copy.deepcopy(getattr(ctx, name, None))
-    for key in list(ctx.metadata.keys()):
-        out[f"{PREFIX_META}{key}"] = copy.deepcopy(ctx.metadata[key])
+    for key in list(meta.keys()):
+        out[f"{PREFIX_META}{key}"] = copy.deepcopy(meta[key])
     for path_field, logical in PATH_TO_ARTIFACT.items():
         out[f"{PREFIX_ARTIFACT}{logical}"] = getattr(ctx, path_field, None)
     return out
@@ -285,7 +286,7 @@ def apply_resource_diff(ctx: Context, diff: Mapping[str, Any]) -> Context:
         if prefix == PREFIX_CTX:
             setattr(ctx, name, value)
         elif prefix == PREFIX_META:
-            ctx.metadata[name] = value
+            cast(Dict[str, Any], ctx.metadata)[name] = value
         elif prefix == PREFIX_ARTIFACT:
             path_field = _ARTIFACT_TO_PATH.get(name)
             if path_field:

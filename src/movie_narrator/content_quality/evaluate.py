@@ -36,11 +36,7 @@ from .visual import evaluate_semantic_visual_relevance
 
 logger = logging.getLogger(__name__)
 
-# Avoid importing Context at module level (keeps import graph light).
-try:
-    from ..models import Context
-except Exception:  # pragma: no cover — defensive
-    Context = None
+# Context is accepted as Any to keep this module's import graph light.
 
 
 def _facts_from_ctx(ctx: Any) -> Dict[str, Any]:
