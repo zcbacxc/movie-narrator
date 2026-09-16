@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.7.0] - 2026-09-15
+
+Architecture evolution (M0–M5): import-boundary cleanup, bounded-parallel race, post-pipeline content quality, step ResourceRef contracts, and DAG run analysis. Production path remains a linear 16-step pipeline.
+
+### Added
+
+- **Import graph analyzer** — `scripts/analyze_import_graph.py` classifies production-package edges (`architectural` / `version_debt`, remediation `target` / `deferred`), computes machine SCC baselines, and supports `--strict-check` against a frozen baseline. Baseline metrics recorded: 36954 non-empty src lines, `contract.__all__ == 126`, 55 package re-exports.
+- **Plugins boundary package** — `movie_narrator.plugins.contracts` (`Plugin`, `PluginContext`, `load_plugin`) and `plugins.discovery` (`discover_plugins`, `list_available_plugins`, `PluginLoadResult`) are the neutral implementation modules. `plugin_loader` remains a compatibility re-export wrapper. The `contract ↔ plugin_loader` cycle and `pipeline.runner → __version__` version-debt edge are gone (runner uses `importlib.metadata.version`).
+- **Bounded-parallel race** — `mn race --parallel N` runs candidates via `CandidateExecutor` (`ThreadPoolExecutor`). Default unset/empty → sequential-equivalent P=1. Frozen semantics: 0-based input-order `candidate_index`, winner only from `outcome==success`, `CandidateExecutionMetrics` with `CostTracker.summary()` usage and synthesized `llm+tts` estimated cost, cooperative cancel at step boundaries. Shared-state audit notes in development docs; global usage ledger treated as observational-only under concurrency.
+- **Content quality (post-pipeline)** — independent `content_quality` schema in metadata (does **not** replace the 8-dim `quality_dashboard`). Dimensions: pacing (pause density + duration entropy), coherence (window-3 cosine, frozen CQ embedding identity), hook (`script_qa.hook_strength` / production `script_judge`), visual proxy (luma+hist_rgb only, no motion). Overall = arithmetic mean of available dimensions. Config via JobParams `content_quality_*` (default **off**); not registered as a production STEP.
+- **Step ResourceRef contracts (M4)** — `StepEntry` gains declarative `reads`/`writes` (prefixes `ctx.`/`meta.`/`artifact.`/`external.`), `idempotent`, `concurrency_class`, `requires`, `optional_inputs`, `failure_policy` (`degrade|abort|None` — no `continue`). `normalize_legacy_ref` maps legacy coarse IO; `scripts/check_step_contracts.py` + unit tests gate the 16 built-ins. Runner does **not** interpret `requires` / `resource_capacity` this release.
+- **DAG run analysis (M5, default-off analysis APIs)** — canonical registry fixture generated from the single builtin truth source (CI-asserted against global registry), theoretical Kahn waves in registry order, L2 first-fit resource-compatible grouping, contract_complete checks, E2 pair selection (`resolve_video` + `prepare_assets` by default), and Gate-2 report that claims **theoretical eligibility only** (no fake speedup numbers). E2 harness: `reconstruct_context_from_snapshot` (≠ deepcopy), resource-level disjoint diffs, `normalize_deliverable_identity` (ignores `generated_at`/mtime).
+- **Tests**: +~230 unit tests vs v1.6.0 (import boundaries, race parallel, content quality, step contracts, DAG analysis, E2 harness mocks).
+
+### Changed
+
+- `plugin_loader` is a thin compatibility wrapper; new code should prefer `movie_narrator.plugins.*`.
+- Race ranking uses `(-score, candidate_index)`; auto-pick only promotes a successful winner.
+- `CONTRACT_VERSION` → **(1, 4, 0)** (MINOR: new declarative StepSpec contract fields). `build_step_graph` mirrors resolved contract fields only (not authoring-only `func`/`seq`/`insert_*` / `resource_capacity`).
+- Package version **1.7.0**. All 3415 non-integration unit tests pass (2 skipped). One pre-existing Windows GBK decode failure in `test_m5_community` plugin-template readme (locale; also fails on clean v1.6.0 in this environment). Formal Gate-1/Gate-2 benchmarks are **not** claimed in this release.
+
+### Fixed
+
+- Discovery/CLI plugin tests retarget mocks to `plugins.discovery.entry_points` after the M1 relocation.
+
 ## [1.6.0] - 2026-09-08
 
 ### Added
@@ -1414,6 +1439,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Console log refactoring design.
 
 [Unreleased]: https://github.com/zcbacxc/movie-narrator/compare/v1.6.0...HEAD
+[1.7.0]: https://github.com/zcbacxc/movie-narrator/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/zcbacxc/movie-narrator/compare/v1.5.2...v1.6.0
 [1.5.2]: https://github.com/zcbacxc/movie-narrator/compare/v1.5.1...v1.5.2
 [1.5.1]: https://github.com/zcbacxc/movie-narrator/compare/v1.5.0...v1.5.1
