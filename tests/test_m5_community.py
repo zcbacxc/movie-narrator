@@ -86,7 +86,7 @@ class TestCliPluginList:
         """When entry points exist, they are listed."""
         from movie_narrator.plugin_loader import list_available_plugins
 
-        with patch("movie_narrator.plugin_loader.entry_points") as mock_ep:
+        with patch("movie_narrator.plugins.discovery.entry_points") as mock_ep:
             mock_ep.return_value = []
             result = runner.invoke(app, ["plugin", "list"])
             assert result.exit_code == 0

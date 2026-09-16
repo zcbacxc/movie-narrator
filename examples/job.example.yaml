@@ -99,6 +99,8 @@ narration_preset: ""        # douyin-fast | mainstream-dry | bilibili-long
 #          render_template
 #   质检: qa_enabled / qa_max_silence_db / qa_min_duration_ratio / qa_max_duration_ratio
 #          qa_max_slideshow_risk / qa_max_black_ratio
+#   内容质量: content_quality_enabled / content_quality_pacing_bins
+#          content_quality_pacing_lo / content_quality_pacing_hi
 #   文案: prompt_target_sentences / prompt_target_segment_duration
 #         prompt_max_chars_per_sentence / prompt_hook_seconds
 #         hook_templates / set_pieces
@@ -231,6 +233,15 @@ params:
   # qa_max_silence_db: -50.0      # 平均音量低于此值判定为静音失败
   # qa_min_duration_ratio: 0.85   # 成片时长 < 预期*0.85 判定失败
   # qa_max_duration_ratio: 1.25   # 成片时长 > 预期*1.25 判定失败(TTS 自然产出可能超 10-20%)
+
+  # ---- 内容质量（M3，后置分析，默认关闭）----
+  # 独立于 quality_dashboard 的 8 维工程 QA；不注册进生产 STEPS。
+  # 开启后由 CLI/race 在 run_pipeline 之后调用 apply_content_quality，
+  # 结果写入 metadata["content_quality"]。
+  # content_quality_enabled: false  # true=启用后置内容质量分析
+  # content_quality_pacing_bins: 5  # 时长直方图分箱数 K（默认 5）
+  # content_quality_pacing_lo: 0.5  # 分箱下界（秒）
+  # content_quality_pacing_hi: 8.0  # 分箱上界（秒）
 
   # ---- 异步 ----
   # async_timeout: 300        # 异步任务超时（秒）

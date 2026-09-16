@@ -6,10 +6,10 @@
 import logging
 import os
 import time
+from importlib.metadata import version as _dist_version
 from pathlib import Path
 from typing import Any, Dict, List, Optional, cast
 
-from .. import __version__
 from ..models import Assets, Context, MetadataDict, PipelineStatus, Services, StepResult, StepState
 from ..tracing import start_step_span  # v1.4.0 — opt-in OpenTelemetry spans
 from ..utils.console import build_console
@@ -17,6 +17,7 @@ from ..utils.environment import collect_environment
 from .align import align_audio
 from .assets import prepare_assets
 from .bgm import mix_bgm
+from .builtin_contracts import BUILTIN_STEP_CONTRACTS
 from .errors import (
     PipelineCancelled,
     PipelinePaused,
@@ -43,6 +44,10 @@ from .qa import validate_deliverable
 from ..workflow.schema import JobParams
 
 _logger = logging.getLogger(__name__)
+
+# Resolved via importlib.metadata rather than the package-root export
+# so this module does not depend on movie_narrator.__init__ (M1 boundary).
+__version__ = _dist_version("movie-narrator")
 
 # ── Unified parameter schema (single source of truth) ──────
 # PARAM_WHITELIST is derived from JobParams model fields, eliminating
@@ -210,6 +215,7 @@ _BUILTIN_STEP_IO: Dict[str, Dict[str, tuple[str, ...]]] = {
 for _name, (_func, _soft, _field, _consequence) in _BUILTIN_STEP_META.items():
     if not step_registry.contains(_name):
         _io = _BUILTIN_STEP_IO.get(_name, {})
+        _m4 = BUILTIN_STEP_CONTRACTS.get(_name, {})
         step_registry.register(
             _name,
             _func,
@@ -219,6 +225,14 @@ for _name, (_func, _soft, _field, _consequence) in _BUILTIN_STEP_META.items():
             inputs=_io.get("inputs", ()),
             outputs=_io.get("outputs", ()),
             depends_on=_io.get("depends_on", ()),
+            reads=_m4.get("reads", ()),
+            writes=_m4.get("writes", ()),
+            idempotent=_m4.get("idempotent", False),
+            concurrency_class=_m4.get("concurrency_class", "isolated_only"),
+            requires=_m4.get("requires", ()),
+            optional_inputs=_m4.get("optional_inputs", ()),
+            failure_policy=_m4.get("failure_policy", None),
+            resource_capacity=_m4.get("resource_capacity", None),
         )
 
 # ── Derived constants (backward-compatible with existing code) ──

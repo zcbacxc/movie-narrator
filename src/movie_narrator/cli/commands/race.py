@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 zcbacxc
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""The ``mn race`` command — run N variants in parallel and pick the best."""
+"""The ``mn race`` command — run N variants (optionally in parallel) and pick the best."""
 
 from pathlib import Path
 from typing import Optional, cast
@@ -67,6 +67,16 @@ def race(
         False,
         "--auto-pick",
         help="自动选优并复制到输出根目录 / Auto-pick best and copy to output root",
+    ),
+
+
+    parallel: Optional[str] = typer.Option(
+        None,
+        "--parallel",
+        help=(
+            "候选并行度 / Candidate parallelism "
+            "(unset/empty=sequential P=1; positive integer required)"
+        ),
     )
 
 ):
@@ -80,6 +90,7 @@ def race(
             mn race -m Inception --video movie.mp4
             mn race -m Inception --video movie.mp4 -n 3 --auto-pick
             mn race -m Inception --presets douyin-fast,mainstream-dry,bilibili-long
+            mn race -m Inception --video movie.mp4 --parallel 3
     """
     from movie_narrator.race import (
         generate_candidates,
@@ -87,6 +98,7 @@ def race(
         format_race_report,
         save_race_report,
     )
+    from movie_narrator.race_executor import resolve_parallelism
 
     if movie is None and config is None:
         raise typer.BadParameter(
@@ -104,6 +116,11 @@ def race(
                 param_hint="--config",
             )
 
+    try:
+        parallelism = resolve_parallelism(parallel)
+    except ValueError as e:
+        raise typer.BadParameter(str(e), param_hint="--parallel") from e
+
     out_base = (
         Path(output_dir)
         if output_dir
@@ -120,6 +137,7 @@ def race(
     candidate_configs = generate_candidates(n=candidates, presets=preset_list)
 
     typer.echo(f"Starting race with {len(candidate_configs)} candidates...")
+    typer.echo(f"Parallelism: {parallelism}")
     typer.echo(f"Output base: {out_base}")
     typer.echo("")
 
@@ -138,6 +156,7 @@ def race(
         no_bgm=no_bgm,
         config_path=config_path,
         auto_pick=auto_pick,
+        parallelism=parallelism,
     )
 
     report = format_race_report(results)
@@ -148,7 +167,11 @@ def race(
     save_race_report(results, report_path)
     typer.echo(f"\nReport saved to: {report_path}")
 
-    if results and results[0].error is None:
+    # Backward-compat: duck-type for SimpleNamespace stubs in tests and
+    # real CandidateResult (has is_success).
+    if results and getattr(results[0], "is_success", results[0].error is None):
         typer.echo(f"\nBest candidate: {results[0].config.label}")
         if results[0].video_path:
             typer.echo(f"Video: {results[0].video_path}")
+    else:
+        typer.echo("\nNo successful candidate (all failed / cancelled / paused).")

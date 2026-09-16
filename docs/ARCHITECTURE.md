@@ -25,7 +25,7 @@
 │  ├── tts/          Edge / OpenAI / MiMo providers          │
 │  ├── vision/       Stub / VLM captioners                   │
 │  ├── providers/    registry: LLM / TTS / Vision / Research │
-│  ├── plugin_loader  @register_step / entry_points discovery│
+│  ├── plugins/      Plugin/PluginContext + entry_points discovery│
 │  └── cloud/        queue / API server / daemon / remote    │
 └──────────┬──────────────────────────────────────────────────┘
            │
@@ -40,7 +40,9 @@
 - **CLI** (`cli.py`) — entry point; parses flags, calls `workflow` or `run_pipeline` directly
 - **workflow** (`workflow.py`) — optional job.yaml merge layer (CLI > YAML > Settings)
 - **pipeline** (`pipeline/runner.py`) — 16-step sequential orchestrator; owns `STEPS`, `build_context`, `run_pipeline`
-- **pipeline/dag.py** — linear-compatible DAG contract: step I/O + dependency declarations, advisory validation and topological order; the runner stays linear (v1.3.0)
+- **pipeline/dag.py** — linear-compatible DAG contract: step I/O + dependency declarations, advisory validation and topological order; the runner stays linear (v1.3.0). `StepSpec` also mirrors M4 contract fields (v1.4.0): `reads`/`writes`, `idempotent`, `concurrency_class`, `requires`, `optional_inputs`, `failure_policy` (not `resource_capacity`)
+- **pipeline/step_contracts.py** — M4 ResourceRef model (`ctx.` / `meta.` / `artifact.` / `external.`), `MetadataKeyRegistry` (canonical view over `MetadataDict`), `normalize_legacy_ref`, failure-policy resolution, concurrency matrix, and the declarative contract gate `validate_step_contracts`. The runner does **not** interpret `requires` / `optional_inputs` / `resource_capacity`; declarations are AST-auditable candidates, not runtime proofs
+- **pipeline/builtin_contracts.py** — coarse `reads`/`writes` + execution-semantics declarations for the 16 built-in steps
 - **pipeline/deliverable.py** — versioned deliverable manifest (`deliverable_manifest.json`) with streamed SHA-256 checksums (v1.3.0)
 - **tracing** (`tracing.py`) — opt-in OpenTelemetry span factories (`task → step/provider/subprocess`); no-op unless `MN_TRACING` is set and the `[otel]` extra is installed; pre-registered foreign exporters are used unchanged (v1.4.0)
 - **utils/resources.py** — render admission preflight: temp-space estimate (frame area × duration × bit depth); opt-in `MN_ADMISSION_DISK_CHECK` (v1.3.2)
@@ -55,7 +57,7 @@
 - **tts / vision / providers** — pluggable subsystems with registry-based dispatch (`@register_tts`, `@register_vision`, etc.)
 - **cloud** (`cloud/`) — async task queue, REST API server, remote inference proxy (v0.6.x)
 - **contract** (`contract.py`) — single import surface for external consumers; pins `CONTRACT_VERSION`
-- **plugin_loader** (`plugin_loader.py`) — entry_points discovery + `@register_step` for custom steps
+- **plugins** (`plugins/`) — plugin extension points (`Plugin`, `PluginContext`, `load_plugin`) and entry_points discovery; `plugin_loader.py` is a compat re-export only
 
 ## Pipeline Overview
 
@@ -376,9 +378,22 @@ runner.py — inserts registered steps into STEPS at before/after positions
 
 | Module | Responsibility |
 |--------|---------------|
-| `plugin_loader.py` | `StepRegistry`, `Plugin` protocol, `PluginContext`, `load_plugin()`, `discover_plugins()`, `list_available_plugins()` |
+| `plugins/contracts.py` | `Plugin` protocol, `PluginContext`, `load_plugin()` — source of truth since M1 |
+| `plugins/discovery.py` | `discover_plugins()`, `list_available_plugins()`, `PluginLoadResult`, entry_points loading |
+| `plugin_loader.py` | **Compatibility wrapper** — re-exports the plugins package symbols; do not add new logic here |
 | `providers/registry.py` | `ProviderRegistry`, `register_tts`, `register_vision`, `register_llm`, `register_research`, `tts_registry`, `vision_registry`, `llm_registry`, `research_registry` |
 | `presets/` | Narration preset system (`list_presets()`, `get_preset()`) |
+
+### Package boundary (M1)
+
+Plugin machinery was relocated so `contract` and `plugin_loader` no longer import each other:
+
+- `plugins.contracts` imports registry types from **source modules** (`pipeline.registry`, `providers.registry`), never from `contract`.
+- `plugins.discovery` imports `Plugin` / `load_plugin` from `.contracts`, never from `contract` or `plugin_loader`.
+- `contract` re-exports `Plugin`, `PluginContext`, `load_plugin`, `discover_plugins`, `list_available_plugins` — public names and identity are unchanged.
+- `plugin_loader` remains for backward-compatible imports (`from movie_narrator.plugin_loader import discover_plugins`); new code should prefer `movie_narrator.plugins`.
+
+Regression guards live in `tests/test_m1_import_boundaries.py`.
 
 ### Plugin protocol
 

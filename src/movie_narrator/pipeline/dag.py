@@ -37,6 +37,13 @@ Declaration convention
 - Declarations are **advisory**: the runner never enforces them. They
   exist for validation (:func:`validate_linear_order`) and for future
   parallel scheduling.
+
+Since v1.4.0 (M4), :class:`StepSpec` also mirrors the qualified
+ResourceRef sets (``reads`` / ``writes``) and execution-semantics fields
+(``idempotent``, ``concurrency_class``, ``requires``, ``optional_inputs``,
+``failure_policy``). Those are validated by
+``pipeline/step_contracts.validate_step_contracts`` — still advisory;
+the runner stays linear and does not interpret them.
 """
 
 from __future__ import annotations
@@ -48,7 +55,16 @@ from .registry import StepRegistry, step_registry
 
 @dataclass(frozen=True)
 class StepSpec:
-    """Resolved, immutable I/O contract for one pipeline step."""
+    """Resolved, immutable I/O contract for one pipeline step.
+
+    Mirrors **only** the resolved same-name contract fields from
+    :class:`~movie_narrator.pipeline.registry.StepEntry`. Explicitly
+    **not** mirrored this phase:
+
+    - ``resource_capacity`` (schema-only; M4/M5/F do not interpret it)
+    - ``func`` / ``seq`` / ``insert_after`` / ``insert_before``
+      (execution/ordering internals, not the contract surface)
+    """
 
     name: str
     inputs: tuple
@@ -56,6 +72,15 @@ class StepSpec:
     depends_on: tuple
     soft: bool
     status_field: str | None
+    # M4 ResourceRef sets + execution-semantics (conservative defaults
+    # when a step was registered without them).
+    reads: tuple = ()
+    writes: tuple = ()
+    idempotent: bool = False
+    concurrency_class: str = "isolated_only"
+    requires: tuple = ()
+    optional_inputs: tuple = ()
+    failure_policy: str | None = None
 
 
 def build_step_graph(registry: StepRegistry | None = None) -> dict[str, StepSpec]:
@@ -67,7 +92,9 @@ def build_step_graph(registry: StepRegistry | None = None) -> dict[str, StepSpec
 
     Returns:
         A mapping of step name to :class:`StepSpec` covering every
-        registered step (built-ins and plugins).
+        registered step (built-ins and plugins). Field equality holds
+        for every resolved same-name contract field listed on
+        :class:`StepSpec`.
     """
     reg = step_registry if registry is None else registry
     specs: dict[str, StepSpec] = {}
@@ -79,6 +106,13 @@ def build_step_graph(registry: StepRegistry | None = None) -> dict[str, StepSpec
             depends_on=tuple(entry["depends_on"]),
             soft=bool(entry["soft"]),
             status_field=entry["status_field"],
+            reads=tuple(entry["reads"]),
+            writes=tuple(entry["writes"]),
+            idempotent=bool(entry["idempotent"]),
+            concurrency_class=entry["concurrency_class"],
+            requires=tuple(entry["requires"]),
+            optional_inputs=tuple(entry["optional_inputs"]),
+            failure_policy=entry["failure_policy"],
         )
     return specs
 

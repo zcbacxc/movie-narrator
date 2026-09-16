@@ -32,8 +32,9 @@
 | v1.5.1 | 社区与治理 — mn presets 预设共享 / 按租户限流 / Provider 用量账本                               |
 | v1.5.2 | 部署与媒体缓存 — Helm chart 与 K8s 模板 / 媒体缓存池(reference_media URL)/ 试点延期决策记录     |
 | v1.6.0 | 工程质量 — 巨型文件拆分 / CLI 选项别名 / Settings 运维视图 / 元数据键与文件大小门禁              |
+| v1.7.0 | 架构演进 — plugins 边界 / 并行 race / content quality / Step ResourceRef 契约 / DAG 分析        |
 
-`CONTRACT_VERSION`（当前）：`(1, 3, 0)`（v1.4.0 提升追踪导出；v1.4.1–v1.6.0 未变）
+`CONTRACT_VERSION`（当前）：`(1, 4, 0)`（v1.7.0 提升 M4 StepSpec 契约字段；v1.6.0 及之前为 `(1, 3, 0)`）
 
 ***
 

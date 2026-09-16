@@ -1,5 +1,3 @@
-# SPDX-FileCopyrightText: 2026 zcbacxc
-# SPDX-License-Identifier: AGPL-3.0-or-later
 """Gate: every string-literal metadata key used across ``src`` must be
 declared in ``MetadataDict``.
 
@@ -7,6 +5,12 @@ Scan **all** ``src/movie_narrator/**/*.py`` for literal metadata access
 patterns (bounded to the variable name ``metadata``), collect the distinct
 string-literal keys used, and fail unless every one is also declared as a
 key in ``MetadataDict`` (``src/movie_narrator/models.py``).
+
+Declared keys come from
+:class:`movie_narrator.pipeline.step_contracts.MetadataKeyRegistry`, the
+same runtime registry the M4 ResourceCatalog uses (source of truth is
+still ``MetadataDict``). This script keeps a regex fallback on
+``models.py`` so it can run even if the package import fails.
 
 Dynamic keys (variable-driven) are intentionally not matched — only string
 literals. Run directly, no third-party dependencies required::
@@ -43,7 +47,23 @@ METADATA_LITERAL_RE = re.compile(
 )
 
 
-def declared_keys(text: str) -> set[str]:
+def _declared_keys_from_registry() -> set[str] | None:
+    """Preferred: read the canonical MetadataKeyRegistry (shared with M4)."""
+    try:
+        from movie_narrator.pipeline.step_contracts import metadata_key_registry
+    except Exception:
+        return None
+    return set(metadata_key_registry.keys())
+
+
+def declared_keys(text: str | None = None) -> set[str]:
+    """Declared MetadataDict keys — registry first, regex fallback."""
+    from_registry = _declared_keys_from_registry()
+    if from_registry is not None:
+        return from_registry
+
+    if text is None:
+        text = MODELS.read_text(encoding="utf-8")
     lines = text.splitlines()
     start = None
     for i, line in enumerate(lines):
@@ -74,8 +94,7 @@ def literal_keys_in_text(text: str) -> set[str]:
 
 
 def main() -> int:
-    models_text = MODELS.read_text(encoding="utf-8")
-    declared = declared_keys(models_text)
+    declared = declared_keys()
 
     used: set[str] = set()
     for py in SRC.rglob("*.py"):
