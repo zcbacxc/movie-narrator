@@ -333,9 +333,9 @@ class CandidateExecutor:
             # Collect in input order — candidate_index is never completion order.
             for i in range(count):
                 with self._lock:
-                    fut = self._futures.get(i)
+                    fut_opt = self._futures.get(i)
                     phase = self._phases.get(i)
-                if fut is None:
+                if fut_opt is None:
                     outcome = (
                         CandidateOutcome.CANCELLED
                         if phase is _CandidatePhase.CANCELLED
@@ -352,7 +352,7 @@ class CandidateExecutor:
                     )
                     continue
                 try:
-                    value = fut.result()
+                    value = fut_opt.result()
                 except FuturesCancelledError:
                     slots.append(
                         ExecutorSlot(

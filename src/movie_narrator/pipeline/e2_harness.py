@@ -191,6 +191,8 @@ def project_resources(ctx: Context, refs: Iterable[str]) -> Dict[str, Any]:
         try:
             prefix, name = split_resource_ref(ref)
         except Exception:  # noqa: BLE001 — skip illegal refs defensively
+            prefix, name = "", ""
+        if not prefix:
             continue
         if prefix == PREFIX_CTX:
             out[ref] = copy.deepcopy(getattr(ctx, name, None))
@@ -277,6 +279,8 @@ def apply_resource_diff(ctx: Context, diff: Mapping[str, Any]) -> Context:
         try:
             prefix, name = split_resource_ref(ref)
         except Exception:  # noqa: BLE001
+            prefix, name = "", ""
+        if not prefix:
             continue
         if prefix == PREFIX_CTX:
             setattr(ctx, name, value)
@@ -507,7 +511,7 @@ def compare_parallel_vs_sequential(
     if make_branch_root is None:
         base_root = Path(s0.output_dir)
 
-        def make_branch_root(label: str) -> str:  # type: ignore[misc]
+        def make_branch_root(label: str) -> str:
             return str(base_root / f"e2_{label}")
 
     notes: List[str] = []

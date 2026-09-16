@@ -365,7 +365,7 @@ def _e2_available_fn(
     if e2_fixture_available is None:
         return lambda _name: True
     if callable(e2_fixture_available):
-        return e2_fixture_available  # type: ignore[return-value]
+        return e2_fixture_available
     allowed = set(e2_fixture_available)
     return lambda name: name in allowed
 

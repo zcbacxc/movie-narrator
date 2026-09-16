@@ -68,7 +68,8 @@ def cosine(a: Sequence[float], b: Sequence[float]) -> float:
 
 
 def _stable_bucket(s: str) -> int:
-    digest = hashlib.md5(s.encode("utf-8")).hexdigest()
+    # Non-cryptographic bucket for the lexical proxy only (usedforsecurity=False).
+    digest = hashlib.md5(s.encode("utf-8"), usedforsecurity=False).hexdigest()
     return int(digest[:8], 16)
 
 
@@ -94,7 +95,7 @@ def try_sentence_transformers_embed(texts: Sequence[str]) -> Optional[List[List[
     callers then fall back to the lexical proxy (status=proxy).
     """
     try:
-        from sentence_transformers import SentenceTransformer  # type: ignore
+        from sentence_transformers import SentenceTransformer
     except Exception:
         return None
     try:

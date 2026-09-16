@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 try:
     from ..models import Context
 except Exception:  # pragma: no cover — defensive
-    Context = None  # type: ignore[misc, assignment]
+    Context = None
 
 
 def _facts_from_ctx(ctx: Any) -> Dict[str, Any]:
@@ -60,13 +60,13 @@ def _facts_from_ctx(ctx: Any) -> Dict[str, Any]:
     meta = getattr(ctx, "metadata", None) or {}
     timed = getattr(ctx, "timed_segments", None) or []
     segments = getattr(ctx, "segments", None) or []
-    texts: Optional[List[str]] = None
+    seg_texts: Optional[List[str]] = None
     if segments:
-        texts = [getattr(s, "text", "") or "" for s in segments]
+        seg_texts = [getattr(s, "text", "") or "" for s in segments]
     return {
         "metadata": dict(meta),
         "timed_segments": list(timed),
-        "texts": texts,
+        "texts": seg_texts,
     }
 
 
