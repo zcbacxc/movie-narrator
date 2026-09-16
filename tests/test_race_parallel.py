@@ -401,12 +401,16 @@ def test_resolve_parallelism_valid(raw, expected):
 
 
 def test_cli_parallel_fail_fast():
+    import re
+
     from movie_narrator.cli import app
 
     runner = CliRunner()
     result = runner.invoke(app, ["race", "--movie", "M", "--parallel", "0"])
     assert result.exit_code != 0
-    assert "--parallel" in (result.output or str(result.exception))
+    # Typer/rich may insert ANSI SGR sequences between flag characters.
+    plain = re.sub(r"\x1b\[[0-9;]*m", "", result.output or "")
+    assert "--parallel" in plain or "--parallel" in str(result.exception)
 
     result2 = runner.invoke(app, ["race", "--movie", "M", "--parallel", "nope"])
     assert result2.exit_code != 0
